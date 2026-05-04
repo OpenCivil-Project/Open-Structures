@@ -331,12 +331,19 @@ class UserProfileWidget(QWidget):
         win = self.window()
         if hasattr(win, 'toolbar'):
             tb = win.toolbar
-                                                                           
             tb_pos = tb.mapTo(p, QPoint(0, 0))
-            y = tb_pos.y() + (tb.height() - self.height()) // 2 
-        else:
-            y = 7 
+            y = tb_pos.y() + (tb.height() - self.height()) // 2 - 5
 
+            min_x = tb.sizeHint().width() + 8 
+        else:
+            y = 7
+            min_x = 200  
+
+        if x < min_x:
+            self.hide()
+            return
+
+        self.show()
         self.move(x, y)
         self.raise_()
 

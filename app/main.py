@@ -235,7 +235,7 @@ class MainWindow(QMainWindow):
         self.setWindowTitle("OpenCivil v0.7.65")
         self.resize(1200, 800)
 
-        icon_path = os.path.join(root_dir, "graphic", "logo.png") 
+        icon_path = os.path.join(root_dir, "app", "graphic", "logo.png") 
         
         if not os.path.exists(icon_path):
              icon_path = os.path.join(current_dir, "logo.ico")
@@ -263,7 +263,7 @@ class MainWindow(QMainWindow):
         
         self.sound_effect.setVolume(0.5) 
 
-        sound_path = os.path.join(root_dir, "graphic", "animation_loop.wav")
+        sound_path = os.path.join(root_dir, "app", "graphic", "animation_loop.wav")
         if os.path.exists(sound_path):
             self.sound_effect.setSource(QUrl.fromLocalFile(sound_path))
         else:
@@ -3007,7 +3007,7 @@ def main():
                 )
                 viewer = SolidResultsViewer(dm_proxy, data['stress_results'], U_full=data.get('U_full'))
 
-                icon_path = os.path.join(root_dir, "graphic", "logo.png")
+                icon_path = os.path.join(root_dir, "app", "graphic", "logo.png")
                 if os.path.exists(icon_path):
                     from PyQt6.QtGui import QIcon
                     viewer.setWindowIcon(QIcon(icon_path))
@@ -3098,7 +3098,7 @@ def main():
         QTimer.singleShot(300, _load_secondary_file)
         sys.exit(app.exec())
     
-    video_path = os.path.join(root_dir, "graphic", "Animation.gif")
+    video_path = os.path.join(root_dir, "app", "graphic", "Animation.gif")
     
     if not os.path.exists(video_path):
         print("Video not found, skipping splash.")

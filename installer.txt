@@ -24,7 +24,7 @@ pyinstaller --noconsole --onedir --name="OpenCivil" `
   --paths="..\core\solver\LTHA" `
   --paths="..\core\solver\solid_elements" `
   --paths="..\core\solver\buckling" `
-  --add-data "..\graphic;graphic" `
+  --add-data "graphic;graphic"
   --add-data "resources;resources" `
   --add-data "E:\MetuFire\OpenCivil\app\auth;auth" `
   --collect-all "core" `

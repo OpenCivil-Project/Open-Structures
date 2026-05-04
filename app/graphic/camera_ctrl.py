@@ -8,6 +8,7 @@ class ArcballCamera:
         self.view = view_widget
         self._model_scale = None
         
+        # 60 FPS Smoothing Engine
         self.t_center = None
         self.t_dist = None
         self.t_az = None
@@ -15,7 +16,7 @@ class ArcballCamera:
         
         self.smooth_timer = QTimer()
         self.smooth_timer.timeout.connect(self._physics_tick)
-        self.smooth_timer.start(16)          
+        self.smooth_timer.start(16) # ~60 FPS
         
         self.anim = QVariantAnimation()
         self.anim.setEasingCurve(QEasingCurve.Type.OutCubic)
@@ -39,7 +40,7 @@ class ArcballCamera:
 
     def _physics_tick(self):
         """The 60 FPS loop that smoothly interpolates camera movement."""
-                                                                                      
+        # 1. DO NOT run physics if the View Cube / Standard View animation is playing!
         if self.anim.state() == QAbstractAnimation.State.Running:
             return
 
@@ -52,6 +53,8 @@ class ArcballCamera:
         c_az = self.view.opts['azimuth']
         c_el = self.view.opts['elevation']
         
+        # 2. ANTI-RUBBERBAND: If PyQtGraph defaults moved the camera externally, 
+        # intercept the new coordinates so the physics engine doesn't snap it back!
         if hasattr(self, 'last_c_az'):
             if abs(c_az - self.last_c_az) > 0.01 or abs(c_el - self.last_c_el) > 0.01:
                 self.t_az = c_az
@@ -74,6 +77,7 @@ class ArcballCamera:
             self.view.opts['elevation'] = c_el + (diff_el * lerp_speed)
             self.view.update()
             
+        # Store last known state
         self.last_c_az = self.view.opts['azimuth']
         self.last_c_el = self.view.opts['elevation']
         self.last_c_d = self.view.opts['distance']
@@ -84,6 +88,8 @@ class ArcballCamera:
         min_dist = scale * 0.02
         fly_thresh = scale * 0.12
 
+        # 3. SAP2000 FLY-THROUGH ZOOM: 
+        # When you hit the zoom wall, push the pivot point forward so you can traverse infinitely
         if self.t_dist < fly_thresh and delta > 0:
             view_vec = self._view_direction(use_targets=True)
             step = max(self.t_dist * 0.15, min_dist * 0.5)                      
@@ -160,6 +166,7 @@ class ArcballCamera:
             'a': self.t_az, 'e': self.t_el
         }
 
+        # Prevent 300-degree backflips when switching view planes
         az_start = self.anim_start['a']
         az_end = self.anim_end['a']
         if abs(az_end - az_start) > 180:
