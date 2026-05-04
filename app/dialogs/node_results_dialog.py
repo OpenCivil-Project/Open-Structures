@@ -1,4 +1,4 @@
-from PyQt6.QtWidgets import QDialog, QVBoxLayout, QHBoxLayout, QLabel, QComboBox, QGridLayout, QFrame
+from PyQt6.QtWidgets import QDialog, QVBoxLayout, QHBoxLayout, QLabel, QComboBox, QGridLayout, QFrame, QPushButton
 from PyQt6.QtCore import Qt, pyqtSignal
 from core.units import unit_registry
 
@@ -14,7 +14,8 @@ class NodeResultsDialog(QDialog):
         self.node_id = str(node_id)
         self.model = model
         self.results = model.results
-        
+        self._graph_dlg = None
+
         self.init_ui()
         self.load_initial_data()
 
@@ -74,7 +75,12 @@ class NodeResultsDialog(QDialog):
         self.lbl_info.setStyleSheet("color: #666; font-size: 11px; margin-top: 10px;")
         self.lbl_info.setAlignment(Qt.AlignmentFlag.AlignCenter)
         layout.addWidget(self.lbl_info)
-        
+
+        self.btn_graph = QPushButton("Nodal Time History Graph")
+        self.btn_graph.setVisible(False)
+        self.btn_graph.clicked.connect(self._open_graph)
+        layout.addWidget(self.btn_graph)
+
         layout.addStretch()
 
     def load_initial_data(self):
@@ -127,6 +133,7 @@ class NodeResultsDialog(QDialog):
         
         if key == "MAIN_RESULT":
             self.signal_mode_changed.emit("MAIN_RESULT") 
+            self.btn_graph.setVisible(False)
                                                                                           
             base_dict = self.results.get("_base_displacements", self.results.get("displacements", {}))
             vector = base_dict.get(self.node_id, [0.0]*6)
@@ -136,6 +143,7 @@ class NodeResultsDialog(QDialog):
             self.signal_mode_changed.emit("LTHA_LIVE")        
             vector = self.results.get("displacements", {}).get(self.node_id, [0.0]*6)
             self.lbl_info.setText("Displaying Live Timestep.")
+            self.btn_graph.setVisible(True)
 
         elif str(key).startswith("Mode"):
             shapes = self.results.get("mode_shapes", {})
@@ -173,8 +181,49 @@ class NodeResultsDialog(QDialog):
         self.lbl_ry.setText(fmt(ry))
         self.lbl_rz.setText(fmt(rz))
 
+    def _open_graph(self):
+        """Open (or raise) the time history graph dialog."""
+        canvas = getattr(self, 'canvas', None)
+        if canvas is None:
+            return
+        if self._graph_dlg is None or not self._graph_dlg.isVisible():
+            from app.dialogs.ltha_node_graph_dialog import LTHANodeGraphDialog
+            self._graph_dlg = LTHANodeGraphDialog(self.node_id, canvas, parent=self)
+                                                                                     
+            canvas.animation_manager.signal_ltha_frame_update.connect(
+                self._graph_dlg.update_cursor)
+                                                     
+            self._graph_dlg.finished.connect(
+                lambda: canvas.animation_manager.signal_ltha_frame_update.disconnect(
+                    self._graph_dlg.update_cursor))
+            self._graph_dlg.show()
+        else:
+            self._graph_dlg.raise_()
+            self._graph_dlg.activateWindow()
+
+    def update_graph_cursor(self, t_index):
+        """Forward animation tick to graph dialog if it's open."""
+        if self._graph_dlg is not None and self._graph_dlg.isVisible():
+            self._graph_dlg.update_cursor(t_index)
+
     def update_live_values(self, t_index=None):
-                                              
-        if self.combo_cases.currentData() == "LTHA_LIVE":
-            vector = self.results.get("displacements", {}).get(self.node_id, [0.0]*6)
-            self._update_labels(vector)
+        if self.combo_cases.currentData() != "LTHA_LIVE":
+            return
+
+        canvas = getattr(self, 'canvas', None)
+
+        if canvas is not None and not getattr(canvas.animation_manager, 'is_running', True):
+            return
+
+        if (t_index is not None
+                and canvas is not None
+                and hasattr(canvas, 'ltha_tensor')
+                and hasattr(canvas, 'ltha_node_map')):
+                                                                                             
+            node_idx = canvas.ltha_node_map.get(self.node_id)
+            if node_idx is not None:
+                self._update_labels(canvas.ltha_tensor[node_idx, t_index, :])
+                return
+
+        vector = self.results.get("displacements", {}).get(self.node_id, [0.0]*6)
+        self._update_labels(vector)

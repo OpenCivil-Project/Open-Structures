@@ -118,12 +118,20 @@ class AnimationManager(QObject):
             return
 
         if self.ltha_mode:
-                                                                              
+                                                                                 
+            n = self.ltha_n_steps
             if self.ltha_prerender_start is not None:
-                self.ltha_current_step = self.ltha_prerender_start
+                start = self.ltha_prerender_start
+                end = self.ltha_prerender_end
+                if not (start <= self.ltha_current_step <= end):
+                    self.ltha_current_step = start
             else:
-                self.ltha_current_step = 0
-                
+                if self.ltha_current_step >= n:
+                    self.ltha_current_step = 0
+
+            if self.canvas:
+                self.canvas._ltha_vbo_built = False
+
             if self.canvas and hasattr(self.canvas, '_clear_static_elements'):
                 self.canvas._clear_static_elements()
                 
@@ -138,13 +146,9 @@ class AnimationManager(QObject):
         if not self.is_prerendered:
             self.prerender_frames()
 
-        if self.canvas and hasattr(self.canvas, 'prerender_animation_frames'):
-            self.canvas.prerender_animation_frames(
-                self.prerendered_frames,
-                progress_callback
-            )
-            if hasattr(self.canvas, '_clear_static_elements'):
-                self.canvas._clear_static_elements()
+        if self.canvas:
+            self.canvas._needs_anim_vbo_build = True
+            self.canvas.update()
 
         self.elapsed_timer.restart()
         self.last_tick_time = self.elapsed_timer.elapsed()
@@ -159,17 +163,19 @@ class AnimationManager(QObject):
         self.current_phase = 0.0
 
         if self.ltha_mode:
-            self.ltha_current_step = 0
-            self.signal_ltha_frame_update.emit(0)
+                                                                     
+            self.signal_ltha_frame_update.emit(self.ltha_current_step)
         else:
             self.signal_frame_update.emit(0.0)
-
-        if self.canvas and self.canvas.current_model:
-            self.canvas._force_draw_model(
-                self.canvas.current_model,
-                self.canvas.selected_element_ids,
-                self.canvas.selected_node_ids
-            )
+            if self.canvas and self.canvas.current_model:
+                self.canvas.vbo_manager.set_anim_factor(0.0)
+                self.canvas.vbo_manager.current_anim_factor = 0.0
+                self.canvas._anim_vbo_built = False
+                self.canvas._force_draw_model(
+                    self.canvas.current_model,
+                    self.canvas.selected_element_ids,
+                    self.canvas.selected_node_ids
+                )
 
     def invalidate_prerender(self):
         """

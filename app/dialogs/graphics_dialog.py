@@ -125,7 +125,7 @@ class GraphicsOptionsDialog(QDialog):
         l_ext = QVBoxLayout(g_ext)
         
         h_op = QHBoxLayout()
-        h_op.addWidget(QLabel("Transparency:"))
+        h_op.addWidget(QLabel("Face Transparency:"))                      
         self.sl_ext_op = QSlider(Qt.Orientation.Horizontal)
         self.sl_ext_op.setRange(0, 100)            
         self.sl_ext_op.setValue(int(self.settings.get("extrude_opacity", 0.35) * 100))
@@ -136,6 +136,14 @@ class GraphicsOptionsDialog(QDialog):
         self.chk_edges.setChecked(self.settings.get("show_edges", False))
         l_ext.addWidget(self.chk_edges)
 
+        h_edge_op = QHBoxLayout()
+        h_edge_op.addWidget(QLabel("Edge Transparency:"))
+        self.sl_edge_op = QSlider(Qt.Orientation.Horizontal)
+        self.sl_edge_op.setRange(0, 100)
+        self.sl_edge_op.setValue(int(self.settings.get("edge_opacity", 0.08) * 100))               
+        h_edge_op.addWidget(self.sl_edge_op)
+        l_ext.addLayout(h_edge_op)
+                                          
         h_ec = QHBoxLayout()
         h_ec.addWidget(QLabel("Edge Color:"))
         self.btn_edge_col = ColorButton(self.settings.get("edge_color", (0,0,0,1)), self)
@@ -146,9 +154,9 @@ class GraphicsOptionsDialog(QDialog):
         h_ew.addWidget(QLabel("Edge Width:"))
         
         self.spin_edge_width = QDoubleSpinBox()
-        self.spin_edge_width.setRange(0.1, 5.0)                         
-        self.spin_edge_width.setSingleStep(0.1)                
-        self.spin_edge_width.setDecimals(1)                                        
+        self.spin_edge_width.setRange(0.1, 5.0)
+        self.spin_edge_width.setSingleStep(0.05)
+        self.spin_edge_width.setDecimals(2)
         self.spin_edge_width.setValue(float(self.settings.get("edge_width", 1.0)))
         
         h_ew.addWidget(self.spin_edge_width)
@@ -231,6 +239,7 @@ class GraphicsOptionsDialog(QDialog):
             
             "extrude_opacity": self.sl_ext_op.value() / 100.0,
             "show_edges": self.chk_edges.isChecked(),
+            "edge_opacity": self.sl_edge_op.value() / 100.0,                      
             "edge_color": self.btn_edge_col.get_color_tuple(),
                                    
             "edge_width": self.spin_edge_width.value(),

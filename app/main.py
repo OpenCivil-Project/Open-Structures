@@ -1420,6 +1420,8 @@ class MainWindow(QMainWindow):
                 from app.dialogs.node_results_dialog import NodeResultsDialog
                 self._node_res_dlg = NodeResultsDialog(target_node_id, self.model, self)
                 self._node_res_dlg.signal_mode_changed.connect(self.switch_modal_view)
+
+                self._node_res_dlg.canvas = self.canvas
                 
                 if hasattr(self.canvas, 'animation_manager') and getattr(self.canvas, 'ltha_mode', False):
                     self.canvas.animation_manager.signal_ltha_frame_update.connect(self._node_res_dlg.update_live_values)
@@ -1920,16 +1922,21 @@ class MainWindow(QMainWindow):
         
         self.canvas.display_config = self.graphics_settings
         
+        if hasattr(self, 'canvas2'):
+            self.canvas2.display_config = self.graphics_settings
+        
         bg_tuple = self.graphics_settings["background_color"]
         c = QColor()
         c.setRgbF(bg_tuple[0], bg_tuple[1], bg_tuple[2], bg_tuple[3])
         self.canvas.setBackgroundColor(c)
+        if hasattr(self, 'canvas2'):
+            self.canvas2.setBackgroundColor(c)
 
         if self.model:
             self.draw_both_canvases()
             
         self.status.showMessage("Graphics settings updated.")
-
+        
     def on_define_load_cases(self):
         if not self.model: return
                                                                 
@@ -2183,6 +2190,26 @@ class MainWindow(QMainWindow):
                 dt = data["info"].get("dt", 0.01)
                 accel = data.get("accel_history", None)
                 self.canvas.load_ltha_history(data["history_path"], dt, accel=accel)
+
+                envelope = data.get("displacements", {})
+                max_disp = max(
+                    (v[0]**2 + v[1]**2 + v[2]**2)**0.5
+                    for v in envelope.values()
+                ) if envelope else 0.0
+                nodes = list(self.model.nodes.values())
+                if nodes and max_disp > 1e-9:
+                    dx = max(n.x for n in nodes) - min(n.x for n in nodes)
+                    dy = max(n.y for n in nodes) - min(n.y for n in nodes)
+                    dz = max(n.z for n in nodes) - min(n.z for n in nodes)
+                    diag = (dx**2 + dy**2 + dz**2)**0.5
+                    auto_scale = (diag * 0.05 / max_disp) if diag > 1e-6 else (2.0 / max_disp)
+                else:
+                    auto_scale = 2.0
+                self.canvas.auto_deflection_scale  = auto_scale
+                self.canvas.deflection_scale       = auto_scale
+                self.canvas2.auto_deflection_scale = auto_scale
+                self.canvas2.deflection_scale      = auto_scale
+
                 self.canvas.animation_manager.enable_ltha_mode(self.canvas.ltha_n_steps, dt)
                 try:
                     self.canvas.animation_manager.signal_ltha_frame_update.disconnect(self.canvas._on_ltha_frame)
@@ -2451,18 +2478,19 @@ class MainWindow(QMainWindow):
                     self.sound_effect.play()
 
             self.status.showMessage("Animation Running...")
-        else:
+        else:   
             self.canvas.animation_manager.stop_animation()
-            self.canvas.anim_factor = 1.0
-            self.canvas.invalidate_animation_cache()
-            self.canvas._force_draw_model(
-                self.model,
-                self.selected_ids,
-                self.selected_node_ids
-            )
+            if not is_ltha:
+                self.canvas.anim_factor = 1.0
+                self.canvas.invalidate_animation_cache()
+                self.canvas._force_draw_model(
+                    self.model,
+                    self.selected_ids,
+                    self.selected_node_ids
+                )
             if self.sound_effect.isPlaying():
                 self.sound_effect.stop()
-            self.status.showMessage("Animation Stopped.")
+            self.status.showMessage("Animation Paused." if is_ltha else "Animation Stopped.")
 
     def _on_ltha_frame_tick(self, t_index):
         """
@@ -2593,10 +2621,8 @@ class MainWindow(QMainWindow):
         self.model.results["displacements"] = target_data
         
         auto_scale = getattr(self.canvas, 'deflection_scale', 1.0)
-        
-        is_ltha = self.model.results.get("info", {}).get("type") == "Linear Time History Analysis"
 
-        if mode_key != "LTHA_LIVE" and not (mode_key == "MAIN_RESULT" and is_ltha):
+        if mode_key != "LTHA_LIVE":
                                                                  
             max_disp = 0.0
             for vec in target_data.values():
@@ -2874,22 +2900,45 @@ class MainWindow(QMainWindow):
         self.canvas2_visible = checked
         self.canvas_frame2.setVisible(checked)
         if checked:
-            if self.model:
-                self.canvas2.draw_model(self.model,
-                                        list(self.selected_ids),
-                                        list(self.selected_node_ids))
-            
             def init_canvas2():
+                                                                                 
+                self.canvas2.display_config = self.canvas.display_config.copy()
+                self.canvas2.view_extruded = self.canvas.view_extruded
+                self.canvas2.show_slabs = self.canvas.show_slabs
+                self.canvas2.show_grid = self.canvas.show_grid
+                self.canvas2.show_joints = self.canvas.show_joints
+                self.canvas2.show_supports = self.canvas.show_supports
+                self.canvas2.show_loads = self.canvas.show_loads
+                self.canvas2.show_local_axes = self.canvas.show_local_axes
+                self.canvas2.show_constraints = self.canvas.show_constraints
+                self.canvas2.show_releases = self.canvas.show_releases
+                self.canvas2.load_type_filter = self.canvas.load_type_filter
+                self.canvas2.visible_load_patterns = self.canvas.visible_load_patterns
+                
+                bg_tuple = self.graphics_settings.get("background_color", (1.0, 1.0, 1.0, 1.0))
+                c = QColor()
+                c.setRgbF(bg_tuple[0], bg_tuple[1], bg_tuple[2], bg_tuple[3])
+                self.canvas2.setBackgroundColor(c)
+
+                self.canvas2.makeCurrent()
+                if not self.canvas2.vbo_manager.is_initialized:
+                    self.canvas2.vbo_manager.init_gl()
+
+                if self.model:
+                    self.canvas2.draw_model(self.model,
+                                            list(self.selected_ids),
+                                            list(self.selected_node_ids))
+                
                 self.canvas2.set_standard_view("ISO")
                 self.update_linked_planes()                           
 
-            QTimer.singleShot(50, init_canvas2)
+            QTimer.singleShot(100, init_canvas2)
                                                                             
             self._update_active_border()
         else:
             self._set_active_canvas(self.canvas)
-            self.update_linked_planes()                           
-
+            self.update_linked_planes()
+            
     def on_check_updates(self):
         """Opens the Check for Updates dialog."""
         if not hasattr(self, 'update_dlg') or not self.update_dlg.isVisible():

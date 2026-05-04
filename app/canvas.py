@@ -11,7 +11,8 @@ from post.animation import AnimationManager
 from graphic.view_cube import ViewCube
 from OpenGL.GL import *
 from core.properties import RectangularSection, CircularSection, TrapezoidalSection
-from PyQt6.QtWidgets import QLabel                                         
+from PyQt6.QtWidgets import QLabel        
+from graphic.vbo_engine import VBORenderManager, VectorizedLTHAEngine                               
 
 class MCanvas3D(gl.GLViewWidget):
     signal_canvas_clicked = pyqtSignal(float, float, float)
@@ -123,6 +124,8 @@ class MCanvas3D(gl.GLViewWidget):
         self._is_navigating = False
 
         self.blink_state = True
+
+        self.vbo_manager = VBORenderManager()
                                     
         self.pivot_dot = gl.GLScatterPlotItem(pos=np.array([[0,0,0]]), size=6, 
                                               color=(1, 1, 0, 0.3), pxMode=True)
@@ -197,6 +200,10 @@ class MCanvas3D(gl.GLViewWidget):
         self._beam_col_prev_line.setGLOptions('translucent')
         self._beam_col_prev_line.setVisible(False)
         self.addItem(self._beam_col_prev_line)
+
+    def initializeGL(self):
+        super().initializeGL()
+        self.vbo_manager.init_gl()    
 
     def _line_intersects_rect(self, p1, p2, rect):
         """
@@ -499,10 +506,15 @@ class MCanvas3D(gl.GLViewWidget):
                 if res_i and res_j:
                     if eid not in self.deflection_cache:
                         v1_orig, v2_orig, v3_orig = self._get_consistent_axes(el)
+
+                        off_i = getattr(el, 'end_offset_i', 0.0)
+                        off_j = getattr(el, 'end_offset_j', 0.0)
+
                         curve_data = get_deflected_shape(
                             [n1.x, n1.y, n1.z], [n2.x, n2.y, n2.z],
                             res_i, res_j, v1_orig, v2_orig, v3_orig,
-                            scale=self.deflection_scale, num_points=11
+                            scale=self.deflection_scale, num_points=11, 
+                            off_i=getattr(el, 'end_offset_i', 0.0), off_j=getattr(el, 'end_offset_j', 0.0)                     
                         )
                         self.deflection_cache[eid] = {
                             'curve_data': curve_data,
@@ -661,6 +673,10 @@ class MCanvas3D(gl.GLViewWidget):
                 if res_i and res_j:
                     if eid not in self.deflection_cache:
                         v1_orig, v2_orig, v3_orig = self._get_consistent_axes(el)
+
+                        off_i = getattr(el, 'end_offset_i', 0.0)
+                        off_j = getattr(el, 'end_offset_j', 0.0)
+
                         curve_data = get_deflected_shape(
                             [n1.x, n1.y, n1.z], [n2.x, n2.y, n2.z],
                             res_i, res_j, v1_orig, v2_orig, v3_orig,
@@ -1059,7 +1075,9 @@ class MCanvas3D(gl.GLViewWidget):
                             res_i, res_j, 
                             v1, v2, v3, 
                             scale=self.deflection_scale,                            
-                            num_points=11
+                            num_points=11,
+                            off_i=getattr(el, 'end_offset_i', 0.0),
+                            off_j=getattr(el, 'end_offset_j', 0.0)
                         )
                         
                         self.deflection_cache[cache_key] = {
@@ -1077,7 +1095,7 @@ class MCanvas3D(gl.GLViewWidget):
                         pos_full_next, _, _ = curve_data_full[k+1]
                         
                         s = k / (len(curve_data_full) - 1)                         
-                        pos_orig = p1 + s * (p2 - p1)
+                        pos_orig = p1_flex + s * (p2_flex - p1_flex)
                         
                         displacement = pos_full - pos_orig
                         p_start = pos_orig + displacement * self.anim_factor
@@ -1127,11 +1145,11 @@ class MCanvas3D(gl.GLViewWidget):
                         p2_flex = p2 - (u * off_j)
 
                     if off_i > 0:
-                        rigid_pos.extend([p1, p1_flex])
-                        rigid_colors.extend([rigid_black, rigid_black])
+                        curved_pos.extend([p1, p1_flex])
+                        curved_colors.extend([rigid_black, rigid_black]) 
                     if off_j > 0:
-                        rigid_pos.extend([p2_flex, p2])
-                        rigid_colors.extend([rigid_black, rigid_black])
+                        curved_pos.extend([p2_flex, p2])
+                        curved_colors.extend([rigid_black, rigid_black])
                 
                 flex_pos.extend([p1_flex, p2_flex])
                 flex_colors.extend([c, c])
@@ -1149,36 +1167,25 @@ class MCanvas3D(gl.GLViewWidget):
                         if hasattr(el, 'releases_j') and (el.releases_j[4] or el.releases_j[5]):
                             release_dots.append(p2_flex - offset_vec)
                                                      
-        if flex_pos:
-            item = gl.GLLinePlotItem(
-                pos=np.array(flex_pos), color=np.array(flex_colors), 
-                mode='lines', width=width, antialias=True
-            )
-            self.addItem(item)
-            self.element_items.append(item)
-            
-        if rigid_pos:
-             item = gl.GLLinePlotItem(
-                 pos=np.array(rigid_pos), color=np.array(rigid_colors), 
-                 mode='lines', width=width+2, antialias=True
-             )
-             self.addItem(item)
-             self.element_items.append(item)
-            
-        if curved_pos:
-            item = gl.GLLinePlotItem(
-                pos=np.array(curved_pos), color=np.array(curved_colors), 
-                mode='lines', width=3.0, antialias=True                          
-            )
-            self.addItem(item)
-            self.element_items.append(item)
-            
+        all_line_pos = flex_pos + rigid_pos + curved_pos
+        all_line_colors = flex_colors + rigid_colors + curved_colors
+
+        if all_line_pos:
+            v_arr = np.array(all_line_pos, dtype=np.float32)
+            c_arr = np.array(all_line_colors, dtype=np.float32)
+
+            self.makeCurrent()
+
+            self.vbo_manager.upload_line_geometry(v_arr, c_arr)
+        else:
+                                               
+            self.makeCurrent()
+            if hasattr(self, 'vbo_manager'):
+                 self.vbo_manager.upload_line_geometry([], [])
+                 
         if release_dots:
             dot_item = gl.GLScatterPlotItem(
-                pos=np.array(release_dots), 
-                size=0.25,                                      
-                color=(0, 1, 0, 1),          
-                pxMode=False
+                pos=np.array(release_dots), size=0.25, color=(0, 1, 0, 1), pxMode=False
             )
             dot_item.setGLOptions('opaque')
             self.addItem(dot_item)
@@ -1187,9 +1194,7 @@ class MCanvas3D(gl.GLViewWidget):
         if ghost_pos:
             c = self.shadow_color
             ghost_item = gl.GLLinePlotItem(
-                pos=np.array(ghost_pos), 
-                color=c, 
-                mode='lines', width=2.0, antialias=True
+                pos=np.array(ghost_pos), color=c, mode='lines', width=2.0, antialias=True
             )
             ghost_item.setGLOptions('translucent')
             self.addItem(ghost_item)
@@ -1261,8 +1266,10 @@ class MCanvas3D(gl.GLViewWidget):
                         res_i, res_j,
                         v1_orig, v2_orig, v3_orig,
                         scale=eff_scale,
-                        num_points=11
-                    )
+                        num_points=11,
+                        off_i=getattr(el, 'end_offset_i', 0.0),
+                        off_j=getattr(el, 'end_offset_j', 0.0)
+                    )   
                     
                     for k in range(len(curve_data)):
                         pos, tan_vec, twist = curve_data[k]
@@ -1342,22 +1349,26 @@ class MCanvas3D(gl.GLViewWidget):
                 )
 
         if self.ex_vertices:
-            mesh = gl.GLMeshItem(
-                vertexes=np.array(self.ex_vertices, dtype=np.float32),
-                faces=np.array(self.ex_faces, dtype=np.int32),
-                vertexColors=np.array(self.ex_colors, dtype=np.float32),
-                smooth=False, drawEdges=False, glOptions='translucent'
-            )
-            self.addItem(mesh)
+                                        
+            v_arr = np.array(self.ex_vertices, dtype=np.float32)
+            c_arr = np.array(self.ex_colors, dtype=np.float32)
+            f_arr = np.array(self.ex_faces, dtype=np.int32)
+            
+            self.makeCurrent()
+                                     
+            self.vbo_manager.upload_extruded_geometry(v_arr, c_arr, f_arr)
 
         if show_edges and self.ex_edges:
-            ed = gl.GLLinePlotItem(
-                pos=np.array(self.ex_edges), 
-                color=np.array(self.ex_edge_colors), 
-                mode='lines', width=edge_width, antialias=True
-            )
-            ed.setGLOptions('opaque')                    
-            self.addItem(ed)
+            ev_arr = np.array(self.ex_edges, dtype=np.float32)
+            ec_arr = np.array(self.ex_edge_colors, dtype=np.float32)
+            
+            self.makeCurrent()
+            self.vbo_manager.upload_line_geometry(ev_arr, ec_arr)
+        else:
+                                                  
+            self.makeCurrent()
+            if hasattr(self, 'vbo_manager'):
+                self.vbo_manager.upload_line_geometry([], [])
 
     def _add_loft_segment(self, c1, c2, v2_a, v3_a, v2_b, v3_b, shape, color, show_edges, edge_color, draw_start_ring=False, draw_end_ring=False, draw_caps=False):
         """
@@ -2044,36 +2055,24 @@ class MCanvas3D(gl.GLViewWidget):
         return best_point
     
     def _on_anim_frame(self, factor):
-        """
-        Called by the AnimationManager 30 times a second.
-        
-        NEW BEHAVIOR (Fast!):
-        - If geometry is pre-rendered, just swap to the right frame
-        - If not pre-rendered, fall back to old behavior
-        
-        This is where the magic happens - instead of recalculating everything,
-        we just select a pre-built frame!
-        """
-                                                  
         self.anim_factor = factor
-        
+
         if not self.view_deflected:
             return
 
-        if self.is_animation_cached and self.prerendered_geometry_frames:
-                                                            
-            frame_idx = self.animation_manager.current_frame_index
-            
-            if 0 <= frame_idx < len(self.prerendered_geometry_frames):
-                self._render_prerendered_frame(frame_idx)
-                return                                
+        if not self.animation_manager.is_running:
+                                                    
+            self.vbo_manager.set_anim_factor(0.0)
+            self._force_draw_model(
+                self.current_model,
+                self.selected_element_ids,
+                self.selected_node_ids
+            )
+            return
+
+        self.vbo_manager.set_anim_factor(factor)
+        self.update()
         
-        self.draw_model(
-            self.current_model, 
-            self.selected_element_ids, 
-            self.selected_node_ids
-        )
-    
     def load_ltha_history(self, npz_path, dt, accel=None):
         """
         Loads the LTHA time history from a .npz file saved by ltha_engine.
@@ -2103,6 +2102,7 @@ class MCanvas3D(gl.GLViewWidget):
             self.ltha_dt = dt
             self.ltha_mode = True
             self.invalidate_animation_cache()
+            self._ltha_vbo_built = False
             print(f"[Canvas] LTHA history loaded: {self.ltha_n_steps} steps, dt={dt}s, "
                   f"{len(self.ltha_history)} nodes")
         except Exception as e:
@@ -2117,48 +2117,119 @@ class MCanvas3D(gl.GLViewWidget):
         self.ltha_accel = None
         self.ltha_highlight = None
         self.invalidate_animation_cache()
+        self._anim_vbo_built = False
+        self._ltha_vbo_built = False
 
     def _on_ltha_frame(self, t_index):
         """
-        Called by AnimationManager in LTHA mode instead of _on_anim_frame.
-        Looks up displacements at timestep t_index from ltha_history,
-        temporarily patches model.results["displacements"], then redraws.
-
-        Args:
-            t_index (int): Timestep index into U_history (0 .. n_steps-1).
+        Called by AnimationManager every frame in LTHA mode.
+        CPU work only — stores pending timestep and sets a dirty flag.
+        ALL GL uploads happen in paintGL where the context is guaranteed current.
         """
         if not self.ltha_history or not self.current_model:
             return
 
         t = max(0, min(t_index, self.ltha_n_steps - 1))
-        self.ltha_current_step = t                                 
+        self.ltha_current_step = t
 
-        if self.is_animation_cached and self.prerendered_geometry_frames:
-            start_step = self.animation_manager.ltha_prerender_start
-            if start_step is None:
-                start_step = 0
-            frame_idx = t_index - start_step
-            if 0 <= frame_idx < len(self.prerendered_geometry_frames):
-                self.anim_factor = 1.0
-                self._render_prerendered_frame(frame_idx)
-                return
+        if not self.view_deflected:
+            return
 
-        snapshot = {}
-        for nid_str, hist in self.ltha_history.items():
-            snapshot[nid_str] = hist[t].tolist()
+        if not getattr(self, '_ltha_vbo_built', False):
+            self._build_ltha_vbo()
 
-        self.anim_factor = 1.0
-        if self.current_model.results is None:
-            self.current_model.results = {}
-        self.current_model.results["displacements"] = snapshot
+        self._ltha_pending_t = t
+        self._needs_ltha_vbo_update = True
+        self.update()
 
-        if self.view_deflected:
-            self.invalidate_deflection_cache()
-            self._force_draw_model(
-                self.current_model,
-                self.selected_element_ids,
-                self.selected_node_ids
-            )
+    def _build_ltha_vbo(self):
+        """Called ONCE on first LTHA frame to setup Engine."""
+        if not self.ltha_history or not self.current_model:
+            return False
+
+        self.ltha_node_map = {str(nid): idx for idx, nid in enumerate(self.ltha_history.keys())}
+        N_nodes = len(self.ltha_node_map)
+        dummy_idx = N_nodes 
+        self.ltha_tensor = np.zeros((N_nodes + 1, self.ltha_n_steps, 6), dtype=np.float32)
+        
+        for nid, hist_array in self.ltha_history.items():
+            self.ltha_tensor[self.ltha_node_map[str(nid)]] = hist_array
+
+        self._ltha_elements = [el for el in self.current_model.elements.values() 
+                               if self._get_visibility_state(el.node_i.x, el.node_i.y, el.node_i.z) > 0 
+                               and self._get_visibility_state(el.node_j.x, el.node_j.y, el.node_j.z) > 0]
+
+        if len(self._ltha_elements) == 0:
+            return False
+            
+        self.ltha_engine = VectorizedLTHAEngine(len(self._ltha_elements))
+
+        for i, el in enumerate(self._ltha_elements):
+            p1 = np.array([el.node_i.x, el.node_i.y, el.node_i.z], dtype=np.float32)
+            p2 = np.array([el.node_j.x, el.node_j.y, el.node_j.z], dtype=np.float32)
+            self.ltha_engine.P1[i], self.ltha_engine.P2[i] = p1, p2
+            self.ltha_engine.L[i, 0] = max(np.linalg.norm(p2 - p1), 1e-6)
+            self.ltha_engine.off_i[i, 0] = getattr(el, 'end_offset_i', 0.0)
+            self.ltha_engine.off_j[i, 0] = getattr(el, 'end_offset_j', 0.0)
+            self.ltha_engine.R[i] = np.vstack(self._get_consistent_axes(el))
+            self.ltha_engine.idx_i[i] = self.ltha_node_map.get(str(el.node_i.id), dummy_idx)
+            self.ltha_engine.idx_j[i] = self.ltha_node_map.get(str(el.node_j.id), dummy_idx)
+            wire = getattr(el.section, 'color', [0.5, 0.5, 0.5, 1.0])
+            self.ltha_engine.colors[i] = wire if len(wire) == 4 else list(wire) + [1.0]
+
+        self._build_ltha_extruded_metadata()
+        
+        self._clear_static_elements()
+        self._ltha_vbo_built = True
+        return True
+    
+    def _build_ltha_line_frame(self, t):
+        """
+        [STEP 3: THE FINAL BOSS - 144 FPS PLAYBACK]
+        Fast per-frame wireframe update for LTHA.
+        Slices the tensor and runs batched C-operations. Zero Python loops.
+        """
+                                                   
+        if not hasattr(self, 'ltha_engine') or not hasattr(self, 'ltha_tensor'):
+            return
+
+        U_current = self.ltha_tensor[:, t, :]
+
+        verts, colors = self.ltha_engine.compute_wireframe(U_current, self.deflection_scale)
+
+        if len(verts) == 0:
+            return
+
+        self.vbo_manager.update_line_geometry_inplace(verts, colors)
+
+    def _build_ltha_extruded_frame(self, t):
+        """
+        144 FPS EXTRUDED PLAYBACK.
+        Zero Allocations. Zero Python For-Loops.
+        """
+        if not hasattr(self, 'ltha_engine') or not hasattr(self, 'ltha_tensor'):
+            return
+
+        U_current = self.ltha_tensor[:, t, :]
+        
+        verts_flat, colors_flat = self.ltha_engine.compute_extruded(U_current, self.deflection_scale)
+
+        if len(verts_flat) == 0:
+            return
+
+        self.vbo_manager.fast_update_extruded(verts_flat, colors_flat)
+
+        if hasattr(self.ltha_engine, 'edge_indices') and self.ltha_engine.edge_indices is not None:
+            edge_verts_flat = verts_flat.reshape(-1, 3)[self.ltha_engine.edge_indices].flatten()
+            n_edge_verts = len(self.ltha_engine.edge_indices)
+            if self.vbo_manager.line_vertex_count != n_edge_verts:
+                                                                                    
+                self.vbo_manager.upload_line_geometry(
+                    edge_verts_flat.reshape(-1, 3),
+                    self.ltha_engine.edge_colors_flat.reshape(-1, 4)
+                )
+            else:
+                self.vbo_manager.fast_update_lines(edge_verts_flat, self.ltha_engine.edge_colors_flat)
 
     def invalidate_animation_cache(self):
         """
@@ -2271,6 +2342,141 @@ class MCanvas3D(gl.GLViewWidget):
         
         self.is_animation_cached = True
         self.current_animation_frame = 0
+
+    def _build_animated_line_vbo(self):
+        """
+        Builds the line VBO with rest positions + peak displacement.
+        Called ONCE when animation starts. No loading bar, no loop.
+        The shader handles all animation math from here.
+        """
+        model = self.current_model
+        if not model:
+            return False
+
+        can_deflect = (self.view_deflected and
+                    hasattr(model, 'has_results') and
+                    model.has_results and
+                    model.results is not None)
+        if not can_deflect:
+            return False
+
+        if self.cache_scale_used != self.deflection_scale:
+            self.invalidate_deflection_cache()
+            self.cache_scale_used = self.deflection_scale
+
+        rest_verts   = []
+        displacements = []
+        colors       = []
+
+        for eid, el in model.elements.items():
+            n1, n2 = el.node_i, el.node_j
+
+            v1 = self._get_visibility_state(n1.x, n1.y, n1.z)
+            v2 = self._get_visibility_state(n2.x, n2.y, n2.z)
+            if v1 == 0 or v2 == 0:
+                continue
+
+            p1 = np.array([n1.x, n1.y, n1.z])
+            p2 = np.array([n2.x, n2.y, n2.z])
+
+            wire_color = getattr(el.section, 'color', [0.5, 0.5, 0.5, 1.0])
+            if len(wire_color) == 3:
+                wire_color = list(wire_color) + [1.0]
+            wire_color = np.array(wire_color)
+
+            res_i = model.results.get("displacements", {}).get(str(n1.id))
+            res_j = model.results.get("displacements", {}).get(str(n2.id))
+
+            if not (res_i and res_j):
+                rest_verts.extend([p1, p2])
+                displacements.extend([[0,0,0], [0,0,0]])
+                colors.extend([wire_color, wire_color])
+                continue
+
+            if eid not in self.deflection_cache:
+                v1_ax, v2_ax, v3_ax = self._get_consistent_axes(el)
+
+                off_i = getattr(el, 'end_offset_i', 0.0)
+                off_j = getattr(el, 'end_offset_j', 0.0)
+
+                curve_data = get_deflected_shape(
+                    [n1.x, n1.y, n1.z], [n2.x, n2.y, n2.z],
+                    res_i, res_j, v1_ax, v2_ax, v3_ax,
+                    scale=self.deflection_scale, num_points=11
+                )
+                self.deflection_cache[eid] = {
+                    'curve_data': curve_data,
+                    'p1_orig': p1.copy(),
+                    'p2_orig': p2.copy()
+                }
+
+            curve_data_full = self.deflection_cache[eid]['curve_data']
+            n_pts = len(curve_data_full)
+
+            for k in range(n_pts - 1):
+                pos_full_a, _, _ = curve_data_full[k]
+                pos_full_b, _, _ = curve_data_full[k + 1]
+
+                s_a = k / (n_pts - 1)
+                s_b = (k + 1) / (n_pts - 1)
+
+                pos_orig_a = p1 + s_a * (p2 - p1)
+                pos_orig_b = p1 + s_b * (p2 - p1)
+
+                rest_verts.extend([pos_orig_a, pos_orig_b])
+                displacements.extend([pos_full_a - pos_orig_a,
+                                    pos_full_b - pos_orig_b])
+                colors.extend([wire_color, wire_color])
+
+        if not rest_verts:
+            return False
+
+        self.vbo_manager.upload_line_geometry(
+            np.array(rest_verts,    dtype=np.float32),
+            np.array(colors,        dtype=np.float32),
+            np.array(displacements, dtype=np.float32)
+        )
+        print("[Canvas] Animated VBO built. Loading bar is dead.")
+        return True
+
+    def _build_animated_extruded_vbo(self):
+        """
+        Builds extruded face VBO with rest + peak displacement.
+        Runs _calculate_frame_geometry twice (factor 0 and 1) instead of 60 times.
+        """
+        if not self.current_model:
+            return False
+
+        can_deflect = (self.view_deflected and
+                    hasattr(self.current_model, 'has_results') and
+                    self.current_model.has_results and
+                    self.current_model.results is not None)
+        if not can_deflect:
+            return False
+
+        rest = self._calculate_frame_geometry(0.0)
+        peak = self._calculate_frame_geometry(1.0)
+
+        if not rest['ex_vertices'] or not peak['ex_vertices']:
+            return False
+
+        rest_verts = np.array(rest['ex_vertices'], dtype=np.float32)
+        peak_verts = np.array(peak['ex_vertices'], dtype=np.float32)
+        displacements = peak_verts - rest_verts
+
+        colors = np.array(rest['ex_colors'], dtype=np.float32)
+        faces  = np.array(rest['ex_faces'],  dtype=np.uint32)
+
+        self.vbo_manager.upload_extruded_geometry(rest_verts, colors, faces, displacements)
+        print("[Canvas] Animated extruded VBO built.")
+
+        if rest['ex_edges'] and peak['ex_edges']:
+            rest_edges = np.array(rest['ex_edges'], dtype=np.float32)
+            peak_edges = np.array(peak['ex_edges'], dtype=np.float32)
+            edge_displacements = peak_edges - rest_edges
+            edge_colors = np.array(rest['ex_edge_colors'], dtype=np.float32)
+            self.vbo_manager.upload_line_geometry(rest_edges, edge_colors, edge_displacements)
+        return True
     
     def _calculate_frame_geometry(self, anim_factor):
         """
@@ -2361,7 +2567,8 @@ class MCanvas3D(gl.GLViewWidget):
                     res_i, res_j, 
                     v1_ax, v2_ax, v3_ax, 
                     scale=self.deflection_scale,
-                    num_points=11
+                    num_points=11, off_i=getattr(el, 'end_offset_i', 0.0), off_j=getattr(el, 'end_offset_j', 0.0)
+                    
                 )
                 
                 self.deflection_cache[cache_key] = {
@@ -3654,8 +3861,74 @@ class MCanvas3D(gl.GLViewWidget):
 
     def paintGL(self, *args, **kwargs):
         glEnable(GL_MULTISAMPLE)
-        super().paintGL()
+
+        top_items = getattr(self, '_sel_overlay_items', []) + [
+            self.preview_line, self._beam_col_prev_line, 
+            self._brace_prev_x1, self._brace_prev_x2, 
+            self._brace_prev_border, self.snap_ring, self.snap_dot,
+            self.pivot_dot
+        ]
         
+        vis_states = []
+        for item in top_items:
+            vis_states.append(item.visible())
+            item.setVisible(False)
+
+        super().paintGL()
+
+        if getattr(self, '_needs_anim_vbo_build', False):
+            self._needs_anim_vbo_build = False
+            if not getattr(self, '_anim_vbo_built', False):
+                self._anim_vbo_built = True
+                if self.view_extruded:
+                    self._build_animated_extruded_vbo()
+                else:
+                    self._build_animated_line_vbo()
+                self._clear_static_elements()
+
+        if getattr(self, '_needs_ltha_vbo_update', False):
+            self._needs_ltha_vbo_update = False
+            t = getattr(self, '_ltha_pending_t', 0)
+            self.vbo_manager.set_anim_factor(1.0)
+            if self.view_extruded:
+                self._build_ltha_extruded_frame(t)
+            else:
+                self._build_ltha_line_frame(t)
+
+        if hasattr(self, 'vbo_manager') and self.vbo_manager.is_initialized:
+            w, h = self.width(), self.height()
+            full_area = (0, 0, w, h)
+            m_view = np.array(self.viewMatrix().data(), dtype=np.float32).reshape(4,4)
+            m_proj = np.array(self.projectionMatrix(region=full_area, viewport=full_area).data(), dtype=np.float32).reshape(4,4)
+
+            if self.view_extruded:
+                edge_w = float(self.display_config.get("edge_width", 1.5))
+                                                                              
+                edge_alpha = float(self.display_config.get("edge_opacity", 0.08)) 
+                
+                is_anim = self.animation_manager.is_running and self.view_deflected
+                if is_anim:
+                    self.vbo_manager.draw(m_view, m_proj)
+                    self.vbo_manager.draw_lines(m_view, m_proj, line_width=edge_w, alpha_mult=1.0, write_depth=True)
+                else:
+                                                 
+                    self.vbo_manager.draw_lines(m_view, m_proj, line_width=edge_w, alpha_mult=edge_alpha, write_depth=False)
+                    self.vbo_manager.draw(m_view, m_proj)
+                    self.vbo_manager.draw_lines(m_view, m_proj, line_width=edge_w, alpha_mult=1.0, write_depth=True)
+            else:
+                line_w = float(self.display_config.get("line_width", 2.0))
+                self.vbo_manager.draw_lines(m_view, m_proj, line_width=line_w, alpha_mult=1.0, write_depth=True)
+                
+        glClear(GL_DEPTH_BUFFER_BIT)
+        
+        for item, was_visible in zip(top_items, vis_states):
+            item.setVisible(was_visible)                                        
+            if was_visible:
+                try:
+                    item.paint()                                   
+                except Exception:
+                    pass
+
         try:
             w = self.width()
             h = self.height()
@@ -4001,3 +4274,92 @@ class MCanvas3D(gl.GLViewWidget):
         self.hovered_elem_id = hovered_elem
             
         self.update()
+
+    def _build_ltha_extruded_metadata(self):
+        """Builds initial topology and vertex mappings for the GPU Extruded Tensor."""
+        from core.properties import RectangularSection, CircularSection, TrapezoidalSection
+        
+        ex_faces, ex_colors, ex_edges, ex_edge_colors = [], [], [], []
+        map_E, map_P, map_off, map_Y, map_Z = [], [], [], [], []
+        
+        opacity = self.display_config.get("extrude_opacity", 0.35)
+        show_edges = self.display_config.get("show_edges", False)
+        edge_c = np.array(self.display_config.get("edge_color", (0, 0, 0, 1)))
+        
+        current_vert_idx = 0
+        
+        for e_idx, el in enumerate(self._ltha_elements):
+            sec = el.section
+            shape_yz = sec.get_shape_coords()
+            if not shape_yz: continue
+                
+            needs_caps = isinstance(sec, (RectangularSection, CircularSection, TrapezoidalSection))
+            face_color = np.array([*getattr(sec, 'color', [0.7, 0.7, 0.7])[:3], opacity])
+            
+            y_shift, z_shift = el.get_cardinal_offsets()
+            off_vec_i = getattr(el, 'joint_offset_i', np.array([0.0, 0.0, 0.0]))
+            off_vec_j = getattr(el, 'joint_offset_j', np.array([0.0, 0.0, 0.0]))
+            
+            num_pts = 11
+            M = len(shape_yz)
+            
+            for i in range(num_pts - 1):
+                s_a, s_b = i / 10.0, (i + 1) / 10.0
+                curr_off_a = (1 - s_a) * off_vec_i + s_a * off_vec_j
+                curr_off_b = (1 - s_b) * off_vec_i + s_b * off_vec_j
+                
+                for off, P_idx in [(curr_off_a, i), (curr_off_b, i + 1)]:
+                    for y, z in shape_yz:
+                        map_E.append(e_idx); map_P.append(P_idx)
+                        map_off.append(off); map_Y.append(y + y_shift); map_Z.append(z + z_shift)
+                        ex_colors.append(face_color)
+                        
+                start_idx = current_vert_idx
+                for j in range(M):
+                    next_j = (j + 1) % M
+                    idx_a_curr, idx_a_next = start_idx + j, start_idx + next_j
+                    idx_b_curr, idx_b_next = start_idx + M + j, start_idx + M + next_j
+                    
+                    ex_faces.extend([[idx_a_curr, idx_a_next, idx_b_next], [idx_a_curr, idx_b_next, idx_b_curr]])
+                    
+                    if show_edges:
+                        ex_edges.append((idx_a_curr, idx_b_curr))
+                        ex_edge_colors.extend([edge_c, edge_c])
+                        if i == 0:
+                            ex_edges.append((idx_a_curr, idx_a_next))
+                            ex_edge_colors.extend([edge_c, edge_c])
+                        if i == num_pts - 2:
+                            ex_edges.append((idx_b_curr, idx_b_next))
+                            ex_edge_colors.extend([edge_c, edge_c])
+                            
+                if needs_caps:
+                    if i == 0 and M >= 3:
+                        for j in range(1, M - 1): ex_faces.append([start_idx, start_idx + j + 1, start_idx + j])
+                    if i == num_pts - 2 and M >= 3:
+                        for j in range(1, M - 1): ex_faces.append([start_idx + M, start_idx + M + j, start_idx + M + j + 1])
+                current_vert_idx += 2 * M
+                
+        self.ltha_engine.set_extruded_mapping(map_E, map_P, map_off, map_Y, map_Z, ex_colors)
+        verts_flat, colors_flat = self.ltha_engine.compute_extruded(self.ltha_tensor[:, 0, :] * 0.0, self.deflection_scale)
+        faces_flat = np.array(ex_faces, dtype=np.uint32).flatten()
+        
+        self.makeCurrent()
+        if not self.vbo_manager.is_initialized:
+            self.vbo_manager.init_gl()
+
+        num_ext = len(verts_flat) // 3
+        if show_edges and ex_edges:
+            self.ltha_engine.edge_indices = np.array(ex_edges, dtype=np.int32).flatten()
+            self.ltha_engine.edge_colors_flat = np.array(ex_edge_colors, dtype=np.float32).flatten()
+            num_edge_verts = len(self.ltha_engine.edge_indices)
+        else:
+            self.ltha_engine.edge_indices = None
+            num_edge_verts = 0
+
+        self.vbo_manager.allocate_ltha_buffers(num_edge_verts, num_ext)
+
+        self.vbo_manager.upload_extruded_geometry(verts_flat.reshape(-1, 3), colors_flat.reshape(-1, 4), faces_flat.reshape(-1, 3))
+        
+        if show_edges and ex_edges:
+            edge_verts_flat = verts_flat.reshape(-1, 3)[self.ltha_engine.edge_indices].flatten()
+            self.vbo_manager.upload_line_geometry(edge_verts_flat.reshape(-1, 3), self.ltha_engine.edge_colors_flat.reshape(-1, 4))
