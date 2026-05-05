@@ -3,7 +3,7 @@
 ; ====================================================================
 
 #define MyAppName "OpenCivil"
-#define MyAppVersion "0.7.65"
+#define MyAppVersion "0.7.66"
 #define MyAppPublisher "OpenCivil"
 #define MyAppExeName "OpenCivil.exe"
 #define MyAppId "{{CFB760FC-A702-4F1E-864E-79088FEF3B6F}}"
@@ -31,7 +31,7 @@ DisableProgramGroupPage=yes
 OutputBaseFilename=OpenCivil_Setup_v{#MyAppVersion}
 
 UninstallDisplayIcon={app}\{#MyAppExeName}
-SetupIconFile=E:\MetuFire\OpenCivil\graphic\logo.ico
+SetupIconFile=E:\MetuFire\OpenCivil\app\graphic\logo.ico
 
 ; --------------------------------------------------------------------
 ; FILES

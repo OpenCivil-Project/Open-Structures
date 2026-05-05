@@ -2926,12 +2926,11 @@ class MCanvas3D(gl.GLViewWidget):
             self._support_rebuild_timer.start(80)
 
     def wheelEvent(self, event):
-                         
         delta = event.angleDelta().y()
-        pos = event.position()
-        
-        self.camera.zoom(delta, pos.x(), pos.y(), self.width(), self.height())
-        self._support_rebuild_timer.start(60) 
+        pos   = event.position()
+        hit   = self._find_zoom_target(pos.x(), pos.y())
+        self.camera.zoom(delta, pos.x(), pos.y(), self.width(), self.height(), hit_point=hit)
+        self._support_rebuild_timer.start(60)
         
     def mouseReleaseEvent(self, event):
                                            
@@ -3193,6 +3192,79 @@ class MCanvas3D(gl.GLViewWidget):
         screen_x = (ndc_x + 1) * w / 2
         screen_y = (1 - ndc_y) * h / 2
         return (screen_x, screen_y)
+
+    def _find_zoom_target(self, mouse_x, mouse_y, screen_radius=150):
+        """Find closest node or element midpoint to mouse in screen space (Vectorized)."""
+        if not self.current_model or not self.current_model.nodes:
+            return None
+            
+        view_w = self.width()
+        view_h = self.height()
+        full_area = (0, 0, view_w, view_h)
+        mvp_matrix = np.array(
+            (self.projectionMatrix(region=full_area, viewport=full_area) * 
+            self.viewMatrix()).data()
+        ).reshape(4, 4).T
+
+        can_deflect = getattr(self, 'view_deflected', False) and\
+                      hasattr(self.current_model, 'has_results') and\
+                      self.current_model.has_results and\
+                      self.current_model.results is not None
+                      
+        scale = getattr(self, 'deflection_scale', 1.0) * getattr(self, 'anim_factor', 1.0)
+        
+        node_coords = []
+        node_disps = {}                                                          
+        
+        for nid, n in self.current_model.nodes.items():
+            dx, dy, dz = 0.0, 0.0, 0.0
+            if can_deflect:
+                disp = self.current_model.results.get("displacements", {}).get(str(nid))
+                if disp:
+                    dx, dy, dz = disp[0]*scale, disp[1]*scale, disp[2]*scale
+                    node_disps[nid] = (dx, dy, dz)
+                    
+            node_coords.append([n.x + dx, n.y + dy, n.z + dz, 1.0])
+            
+        elem_coords = []
+        for el in self.current_model.elements.values():
+            n1, n2 = el.node_i, el.node_j
+            d1 = node_disps.get(n1.id, (0.0, 0.0, 0.0))
+            d2 = node_disps.get(n2.id, (0.0, 0.0, 0.0))
+            
+            mx = (n1.x + d1[0] + n2.x + d2[0]) * 0.5
+            my = (n1.y + d1[1] + n2.y + d2[1]) * 0.5
+            mz = (n1.z + d1[2] + n2.z + d2[2]) * 0.5
+            elem_coords.append([mx, my, mz, 1.0])
+            
+        node_coords = np.array(node_coords) if node_coords else np.empty((0, 4))
+        elem_coords = np.array(elem_coords) if elem_coords else np.empty((0, 4))
+        all_coords = np.vstack([node_coords, elem_coords]) if len(elem_coords) > 0 else node_coords
+
+        clip = all_coords @ mvp_matrix.T
+        
+        valid_mask = clip[:, 3] > 0
+        if not np.any(valid_mask): 
+            return None
+            
+        clip_valid = clip[valid_mask]
+        coords_valid = all_coords[valid_mask]
+        
+        ndc_x = clip_valid[:, 0] / clip_valid[:, 3]
+        ndc_y = clip_valid[:, 1] / clip_valid[:, 3]
+        
+        sx = (ndc_x + 1.0) * view_w / 2.0
+        sy = (1.0 - ndc_y) * view_h / 2.0
+        
+        dist_sq = (sx - mouse_x)**2 + (sy - mouse_y)**2
+        
+        min_idx = np.argmin(dist_sq)
+        
+        if dist_sq[min_idx] < screen_radius**2:
+            best_pt = coords_valid[min_idx]
+            return QVector3D(best_pt[0], best_pt[1], best_pt[2])
+            
+        return None
 
     def _raycast_to_plane(self, mouse_x, mouse_y):
         """Unprojects mouse position into world space and intersects with active_view_plane."""
