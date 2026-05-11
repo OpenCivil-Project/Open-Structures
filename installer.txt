@@ -27,6 +27,8 @@ pyinstaller --noconsole --onedir --name="OpenCivil" `
   --add-data "graphic;app/graphic" `
   --add-data "resources;resources" `
   --add-data "E:\MetuFire\OpenCivil\app\auth;auth" `
+  --add-data "E:\MetuFire\OpenCivil\app\graphic;graphic" `
+  --add-data "E:\MetuFire\OpenCivil\app\resources;resources" `
   --collect-all "core" `
   --collect-all "auth" `
   --collect-all "app" `
