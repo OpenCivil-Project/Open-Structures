@@ -1009,7 +1009,10 @@ class MCanvas3D(gl.GLViewWidget):
         self.linked_plane_outline = outline
         
     def _draw_elements_wireframe(self, model):
-        if not model.elements: return
+        if not model.elements:
+            self.makeCurrent()
+            self.vbo_manager.upload_line_geometry([], [])
+            return
 
         flex_pos = []; flex_colors = []
         rigid_pos = []; rigid_colors = []
@@ -1089,7 +1092,22 @@ class MCanvas3D(gl.GLViewWidget):
                     cached = self.deflection_cache[cache_key]
                     curve_data_full = cached['curve_data']
                     p1_orig = cached['p1_orig']
-                    
+
+                    _off_i = getattr(el, 'end_offset_i', 0.0)
+                    _off_j = getattr(el, 'end_offset_j', 0.0)
+                    _vec   = p2 - p1
+                    _len   = np.linalg.norm(_vec)
+                    p1_flex, p2_flex = p1.copy(), p2.copy()
+                    if _len > 0.001 and (_off_i > 0 or _off_j > 0):
+                        _u = _vec / _len
+                        if _off_i + _off_j >= _len:
+                            _scale = (_len / (_off_i + _off_j)) * 0.99
+                            p1_flex = p1 + (_u * _off_i * _scale)
+                            p2_flex = p2 - (_u * _off_j * _scale)
+                        else:
+                            p1_flex = p1 + (_u * _off_i)
+                            p2_flex = p2 - (_u * _off_j)
+
                     for k in range(len(curve_data_full) - 1):
                         pos_full, _, _ = curve_data_full[k]
                         pos_full_next, _, _ = curve_data_full[k+1]
@@ -1201,7 +1219,15 @@ class MCanvas3D(gl.GLViewWidget):
             self.element_items.append(ghost_item)
 
     def _draw_elements_extruded(self, model):
-        if not model.elements: return
+        if not model.elements:
+            self.makeCurrent()
+            self.vbo_manager.upload_extruded_geometry(
+                np.empty((0, 3), dtype=np.float32),
+                np.empty((0, 4), dtype=np.float32),
+                np.empty((0, 3), dtype=np.int32),
+            )
+            self.vbo_manager.upload_line_geometry([], [])
+            return
 
         self.ex_vertices = []
         self.ex_faces = []
@@ -1219,6 +1245,9 @@ class MCanvas3D(gl.GLViewWidget):
                        model.has_results and 
                        model.results is not None)
 
+        fallback_line_pos    = []
+        fallback_line_colors = []
+
         for eid, el in model.elements.items():
             n1, n2 = el.node_i, el.node_j
             
@@ -1233,7 +1262,40 @@ class MCanvas3D(gl.GLViewWidget):
 
             sec = el.section
             shape_yz = sec.get_shape_coords()
-            if not shape_yz: continue 
+            if not shape_yz:
+                                                                            
+                _p1 = np.array([n1.x, n1.y, n1.z])
+                _p2 = np.array([n2.x, n2.y, n2.z])
+                _c_raw = list(getattr(sec, 'color', [0.5, 0.5, 0.5, 1.0]))
+                if len(_c_raw) == 3:
+                    _c_raw.append(1.0)
+                _lc = np.array(_c_raw[:4], dtype=np.float32)
+                if not is_active_elem:
+                    _lc = np.array([0.6, 0.6, 0.6, 0.4], dtype=np.float32)
+
+                if can_deflect:
+                    res_i = model.results.get("displacements", {}).get(str(n1.id))
+                    res_j = model.results.get("displacements", {}).get(str(n2.id))
+                    if res_i and res_j:
+                        v1_ax, v2_ax, v3_ax = self._get_consistent_axes(el)
+                        eff_scale = self.deflection_scale * self.anim_factor
+                        curve_data = get_deflected_shape(
+                            [n1.x, n1.y, n1.z], [n2.x, n2.y, n2.z],
+                            res_i, res_j, v1_ax, v2_ax, v3_ax,
+                            scale=eff_scale,
+                            num_points=11,
+                            off_i=getattr(el, 'end_offset_i', 0.0),
+                            off_j=getattr(el, 'end_offset_j', 0.0)
+                        )
+                        curve_pts = [cd[0] for cd in curve_data]
+                        for k in range(len(curve_pts) - 1):
+                            fallback_line_pos.extend([curve_pts[k], curve_pts[k + 1]])
+                            fallback_line_colors.extend([_lc, _lc])
+                        continue
+
+                fallback_line_pos.extend([_p1, _p2])
+                fallback_line_colors.extend([_lc, _lc])
+                continue
 
             needs_caps = isinstance(sec, (RectangularSection, CircularSection, TrapezoidalSection))
                              
@@ -1348,22 +1410,29 @@ class MCanvas3D(gl.GLViewWidget):
                     draw_caps=needs_caps
                 )
 
-        if self.ex_vertices:
-                                        
-            v_arr = np.array(self.ex_vertices, dtype=np.float32)
-            c_arr = np.array(self.ex_colors, dtype=np.float32)
-            f_arr = np.array(self.ex_faces, dtype=np.int32)
-            
-            self.makeCurrent()
-                                     
-            self.vbo_manager.upload_extruded_geometry(v_arr, c_arr, f_arr)
+        v_arr = np.array(self.ex_vertices, dtype=np.float32) if self.ex_vertices else np.empty((0, 3), dtype=np.float32)
+        c_arr = np.array(self.ex_colors,   dtype=np.float32) if self.ex_colors   else np.empty((0, 4), dtype=np.float32)
+        f_arr = np.array(self.ex_faces,    dtype=np.int32)   if self.ex_faces    else np.empty((0, 3), dtype=np.int32)
+
+        self.makeCurrent()
+        self.vbo_manager.upload_extruded_geometry(v_arr, c_arr, f_arr)
 
         if show_edges and self.ex_edges:
             ev_arr = np.array(self.ex_edges, dtype=np.float32)
             ec_arr = np.array(self.ex_edge_colors, dtype=np.float32)
-            
+            if fallback_line_pos:
+                fb_v = np.array(fallback_line_pos, dtype=np.float32)
+                fb_c = np.array(fallback_line_colors, dtype=np.float32)
+                ev_arr = np.vstack([ev_arr, fb_v])
+                ec_arr = np.vstack([ec_arr, fb_c])
             self.makeCurrent()
             self.vbo_manager.upload_line_geometry(ev_arr, ec_arr)
+        elif fallback_line_pos:
+                                                                             
+            fb_v = np.array(fallback_line_pos, dtype=np.float32)
+            fb_c = np.array(fallback_line_colors, dtype=np.float32)
+            self.makeCurrent()
+            self.vbo_manager.upload_line_geometry(fb_v, fb_c)
         else:
                                                   
             self.makeCurrent()

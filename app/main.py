@@ -2254,6 +2254,9 @@ class MainWindow(QMainWindow):
 
         except Exception as e:
             QMessageBox.critical(self, "Error", f"Could not load results:\n{e}")
+            self.canvas.view_deflected = False
+            if getattr(self, 'canvas2_visible', False):
+                self.canvas2.view_deflected = False
             self.unlock_model()
 
     def lock_model(self):
@@ -3229,7 +3232,7 @@ def main():
                 except Exception as e:
                     QMessageBox.critical(window, "Load Error", f"Failed to open file.\n{e}")
     
-    splash.finished.connect(on_splash_finished)
+    splash.finished.connect(on_splash_finished) 
 
     splash.show()
     splash.start()

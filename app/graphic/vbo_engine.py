@@ -77,7 +77,10 @@ class VBORenderManager:
             print(f"❌ VBO Engine Initialization Failed: {e}")
 
     def upload_extruded_geometry(self, vertices, colors, faces, displacements=None):
-        if not self.is_initialized or len(vertices) == 0:
+        if not self.is_initialized:
+            return
+        if len(vertices) == 0:
+            self.index_count = 0                                              
             return
 
         if displacements is None:
