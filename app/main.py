@@ -270,6 +270,7 @@ class MainWindow(QMainWindow):
             print(f"Warning: Sound file not found at {sound_path}")
 
         self.init_ui()
+        QApplication.instance().applicationStateChanged.connect(self._on_app_state_changed)
         self.set_interface_state(False)
     
     def init_ui(self):
@@ -684,6 +685,48 @@ class MainWindow(QMainWindow):
         self.splitter.setSizes([700, 0])   
 
         self.menu_assign = menubar.addMenu("Assign")
+
+        self.menu_select = menubar.addMenu("Select")
+
+        all_action = QAction(qta.icon('fa5s.border-all', color='#6c757d'), "All", self)
+        all_action.setShortcut("Ctrl+A")
+        all_action.triggered.connect(self.on_select_all)
+        self.menu_select.addAction(all_action)
+
+        invert_action = QAction(qta.icon('fa5s.adjust', color='#6c757d'), "Invert", self)
+        invert_action.setShortcut("Ctrl+I")
+        invert_action.triggered.connect(self.on_invert_selection)
+        self.menu_select.addAction(invert_action)
+
+        none_action = QAction(qta.icon('fa5s.times-circle', color='#6c757d'), "None", self)
+        none_action.setShortcut("Escape")
+        none_action.triggered.connect(self.on_select_none)
+        self.menu_select.addAction(none_action)
+
+        self.menu_select.addSeparator()
+
+        props_menu = self.menu_select.addMenu("Select by Properties")
+        props_menu.setIcon(qta.icon('fa5s.filter', color='#6c757d'))
+
+        sec_select_action = QAction(qta.icon('fa5s.shapes', color='#6c757d'),
+                                    "Frame Sections...", self)
+        sec_select_action.triggered.connect(self.on_select_by_section)
+        props_menu.addAction(sec_select_action)
+
+        story_select_action = QAction(qta.icon('fa5s.layer-group', color='#6c757d'),
+                                      "Stories...", self)
+        story_select_action.triggered.connect(self.on_select_by_story)
+        props_menu.addAction(story_select_action)
+
+        self.deselect_menu = self.menu_select.addMenu("Deselect by Properties")
+        self.deselect_menu.setIcon(qta.icon('fa5s.minus-square', color='#6c757d'))
+
+        sec_deselect_action = QAction(qta.icon('fa5s.shapes', color='#6c757d'),
+                                      "Frame Sections...", self)
+        sec_deselect_action.triggered.connect(self.on_deselect_by_section)
+        self.deselect_menu.addAction(sec_deselect_action)
+
+        self.menu_select.aboutToShow.connect(self._update_select_menu_state)
         
         joint_menu = self.menu_assign.addMenu("Joint")
         joint_menu.setIcon(qta.icon('fa5s.dot-circle', color='#6c757d'))
@@ -776,6 +819,68 @@ class MainWindow(QMainWindow):
         
         self.setup_statusbar()
 
+    def on_select_by_story(self):
+        if not self.model:
+            return
+        if not hasattr(self, '_sel_by_story_dlg') or not self._sel_by_story_dlg.isVisible():
+            from app.dialogs.select_by_story_dialog import SelectByStoryDialog
+            self._sel_by_story_dlg = SelectByStoryDialog(self)
+            self._sel_by_story_dlg.show()
+        else:
+            self._sel_by_story_dlg.raise_()
+
+    def _on_app_state_changed(self, state):
+        if state == Qt.ApplicationState.ApplicationInactive:
+                                                                           
+            self._hidden_dialogs = []
+            for widget in QApplication.topLevelWidgets():
+                if (isinstance(widget, QDialog) 
+                        and widget.isVisible() 
+                        and not widget.isModal()):
+                    widget.hide()
+                    self._hidden_dialogs.append(widget)
+
+        elif state == Qt.ApplicationState.ApplicationActive:
+                                               
+            for dlg in getattr(self, '_hidden_dialogs', []):
+                if dlg is not None and not dlg.isModal():
+                    dlg.show()
+            self._hidden_dialogs = []
+
+    def on_select_all(self):
+        if not self.model:
+            return
+        self.selected_ids = list(self.model.elements.keys())
+        self.selected_node_ids = list(self.model.nodes.keys())
+        self._refresh_selection_overlay()
+        self.status.showMessage(
+            f"Selected All: {len(self.selected_ids)} Frames, "
+            f"{len(self.selected_node_ids)} Joints")
+
+    def on_select_none(self):
+        if not self.model:
+            return
+        self.selected_ids = []
+        self.selected_node_ids = []
+        self._refresh_selection_overlay()
+        self.status.showMessage("Selection Cleared")
+
+    def on_invert_selection(self):
+        if not self.model:
+            return
+        all_eids = set(self.model.elements.keys())
+        all_nids = set(self.model.nodes.keys())
+        self.selected_ids = list(all_eids - set(self.selected_ids))
+        self.selected_node_ids = list(all_nids - set(self.selected_node_ids))
+        self._refresh_selection_overlay()
+        self.status.showMessage(
+            f"Inverted: {len(self.selected_ids)} Frames, "
+            f"{len(self.selected_node_ids)} Joints")
+
+    def _refresh_selection_overlay(self):
+        for cvs in [self.canvas, self.canvas2]:
+            cvs.update_selection_overlay(self.selected_ids, self.selected_node_ids)
+
     def _toolbar_zoom_in(self):
         """Zoom in button — simulates a scroll-up at canvas centre."""
         w, h = self.active_canvas.width(), self.active_canvas.height()
@@ -854,6 +959,9 @@ class MainWindow(QMainWindow):
 
         if hasattr(self, 'menu_edit'):
             self.menu_edit.setEnabled(editable)
+
+        if hasattr(self, 'menu_select'):        
+            self.menu_select.setEnabled(editable)
         
         if not editable:
                                    
@@ -1239,22 +1347,34 @@ class MainWindow(QMainWindow):
                 if self.draw_dialog:
                     self.draw_dialog.hide()
                 self.on_draw_finished()
+                if hasattr(self, 'act_select'):
+                    self.act_select.setChecked(True)
+                return                              
             if self.cross_brace_mode_active:
                 if self.cross_brace_dialog:
                     self.cross_brace_dialog.hide()
                 self.on_cross_brace_finished()
+                if hasattr(self, 'act_select'):
+                    self.act_select.setChecked(True)
+                return
             if self.beam_col_mode_active:
                 if self.beam_col_dialog:
                     self.beam_col_dialog.hide()
                 self.on_beam_col_finished()
+                if hasattr(self, 'act_select'):
+                    self.act_select.setChecked(True)
+                return
+                                               
             if hasattr(self, 'act_select'):
-                self.act_select.setChecked(True)                  
+                self.act_select.setChecked(True)
+            self.on_select_none()
+            return
 
         elif event.key() == Qt.Key.Key_Delete:
             if getattr(self, 'is_locked', False):
                 self.status.showMessage("⚠️ Cannot delete objects while Analysis Results are active. Unlock model first.")
                 return
-            self.delete_current_selection()              
+            self.delete_current_selection()
 
         super().keyPressEvent(event)
         
@@ -1674,6 +1794,31 @@ class MainWindow(QMainWindow):
             self.axis_dlg = AssignFrameAxisDialog(self)
             self.axis_dlg.show()
         else: self.axis_dlg.raise_()
+
+    def _update_select_menu_state(self):
+        self.deselect_menu.setEnabled(bool(self.selected_ids))
+
+    def on_select_by_section(self):
+        if not self.model:
+            return
+        if not hasattr(self, '_sel_by_sec_dlg') or not self._sel_by_sec_dlg.isVisible():
+            from app.dialogs.select_by_section_dialog import SelectByFrameSectionDialog
+            self._sel_by_sec_dlg = SelectByFrameSectionDialog(self, mode="select")
+            self._sel_by_sec_dlg.show()
+        else:
+            self._sel_by_sec_dlg._populate()
+            self._sel_by_sec_dlg.raise_()
+
+    def on_deselect_by_section(self):
+        if not self.model or not self.selected_ids:
+            return
+        if not hasattr(self, '_desel_by_sec_dlg') or not self._desel_by_sec_dlg.isVisible():
+            from app.dialogs.select_by_section_dialog import SelectByFrameSectionDialog
+            self._desel_by_sec_dlg = SelectByFrameSectionDialog(self, mode="deselect")
+            self._desel_by_sec_dlg.show()
+        else:
+            self._desel_by_sec_dlg._populate()
+            self._desel_by_sec_dlg.raise_() 
 
     def on_create_slab_from_selection(self):
         if len(self.selected_node_ids) < 3:
