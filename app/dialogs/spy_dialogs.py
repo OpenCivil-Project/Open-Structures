@@ -12,13 +12,183 @@ from matplotlib.figure import Figure
 from mpl_toolkits.mplot3d import Axes3D
 
 from core.units import unit_registry
+from PyQt6.QtCore import Qt, pyqtSignal
+
+class MemberAnalyzer:
+    """
+    Standalone element force analyzer — the single source of truth for NVM results.
+
+    Uses the pre-saved k and T matrices from the solver JSON (ground truth),
+    NOT recomputed matrices.  ForceDiagramBuilder imports this class so that
+    any future fix made here propagates automatically to the 3D canvas diagrams.
+
+    Mirrors the calculation logic of FBDViewerDialog.calculate_forces() and
+    FBDViewerDialog._calculate_nvm_data() — do NOT diverge from those methods.
+    """
+
+    def __init__(self, element, model, num_stations=21,
+                 displacements=None, matrices_path=None):
+        self.el          = element
+        self.model       = model
+        self.n_stations  = num_stations
+
+        self.L_clear  = self.el.length()
+        self.stations = np.linspace(0, self.L_clear, num_stations)
+        self.P  = np.zeros(num_stations)
+        self.V2 = np.zeros(num_stations)
+        self.V3 = np.zeros(num_stations)
+        self.M2 = np.zeros(num_stations)
+        self.M3 = np.zeros(num_stations)
+        self.end_forces = np.zeros(12)
+
+        self._k   = None
+        self._t   = None
+        self._fef = np.zeros(12)
+        self._matrices_loaded = False
+
+        self._displacements = displacements
+
+        self._load_matrices(matrices_path)
+        self._calculate()
+
+    def _load_matrices(self, matrices_path):
+        resolved = None
+        active_results   = getattr(self.model, 'results', {}) or {}
+        active_mat_path  = (active_results.get("matrices_path") or
+                            active_results.get("matrices_file"))
+
+        if matrices_path and os.path.exists(matrices_path):
+            resolved = matrices_path
+        elif active_mat_path and os.path.exists(active_mat_path):
+            resolved = active_mat_path
+        elif hasattr(self.model, "file_path") and self.model.file_path:
+            fallback = self.model.file_path.replace(".mf", "_matrices.json")
+            if os.path.exists(fallback):
+                resolved = fallback
+
+        if not resolved:
+            print(f"[MemberAnalyzer] Warning: matrices file not found for "
+                  f"element {self.el.id}. Forces will be zero.")
+            return
+
+        try:
+            with open(resolved, "r") as f:
+                data = json.load(f)
+            str_id = str(self.el.id)
+            if str_id in data:
+                self._k   = np.array(data[str_id]["k"])
+                self._t   = np.array(data[str_id]["t"])
+                self._fef = np.array(data[str_id]["fef"])
+                self._matrices_loaded = True
+            else:
+                print(f"[MemberAnalyzer] Element {self.el.id} not in matrices file.")
+        except Exception as e:
+            print(f"[MemberAnalyzer] Error loading matrices: {e}")
+
+    def _calculate(self):
+        if not self._matrices_loaded:
+            return
+
+        el     = self.el
+        n1_str = str(el.node_i.id)
+        n2_str = str(el.node_j.id)
+
+        if self._displacements is not None:
+            disp_dict = self._displacements
+        else:
+            res = getattr(self.model, 'results', {}) or {}
+            disp_dict = res.get("_base_displacements",
+                                res.get("displacements", {}))
+
+        u1 = np.array(disp_dict.get(n1_str, [0.0] * 6))
+        u2 = np.array(disp_dict.get(n2_str, [0.0] * 6))
+        u_global = np.concatenate([u1, u2])
+
+        self.end_forces = self._k @ (self._t @ u_global) + self._fef
+
+        Fx1, Fy1, Fz1 = self.end_forces[0], self.end_forces[1], self.end_forces[2]
+        Mx1, My1, Mz1 = self.end_forces[3], self.end_forces[4], self.end_forces[5]
+
+        L = self.L_clear
+        if L < 1e-9:
+            return
+
+        R_3x3 = self._t[0:3, 0:3]
+
+        w_loc       = np.zeros(3)
+        point_loads = []
+
+        res              = getattr(self.model, 'results', {}) or {}
+        active_case_name = res.get("info", {}).get("case_name", "")
+
+        if active_case_name and hasattr(self.model, 'load_cases'):
+            if active_case_name in self.model.load_cases:
+                active_case = self.model.load_cases[active_case_name]
+                for pat_name, scale_factor in active_case.loads:
+                    if pat_name in getattr(self.model, 'load_patterns', {}):
+                        pat = self.model.load_patterns[pat_name]
+                        if getattr(pat, 'self_weight_multiplier', 0) > 0:
+                            area    = getattr(el.section, 'A', 0)
+                            density = getattr(el.section.material, 'density', 0)
+                            w_sw_mag    = area * density * pat.self_weight_multiplier * scale_factor
+                            w_sw_global = np.array([0.0, 0.0, -w_sw_mag])
+                            w_loc      += R_3x3 @ w_sw_global
+
+        for load in self.model.loads:
+            if getattr(load, 'element_id', None) != int(self.el.id):
+                continue
+            is_local = getattr(load, 'coord_system', 'Global').lower() == 'local'
+
+            if hasattr(load, 'wx'):                                            
+                w_vec = np.array([load.wx, load.wy, load.wz])
+                if not is_local:
+                    w_vec = R_3x3 @ w_vec
+                w_loc += w_vec
+
+            elif hasattr(load, 'force'):                                 
+                a       = load.dist * L if getattr(load, 'is_relative', False) else load.dist
+                dir_map = {'X': 0, 'Y': 1, 'Z': 2, '1': 0, '2': 1, '3': 2}
+                idx     = dir_map.get(str(getattr(load, 'direction', 'Z')).upper(), 2)
+                vec     = np.zeros(3)
+                vec[idx] = load.force
+                if not is_local:
+                    vec = R_3x3 @ vec
+                l_type = getattr(load, 'load_type', 'Force').lower()
+                if l_type == 'moment':
+                    point_loads.append({'a': a, 'F': np.zeros(3), 'M': vec})
+                else:
+                    point_loads.append({'a': a, 'F': vec,          'M': np.zeros(3)})
+
+        for i, x in enumerate(self.stations):
+            P_val  = -Fx1 - w_loc[0] * x
+            V2_val = -(Fy1 + w_loc[1] * x)
+            V3_val = -(Fz1 + w_loc[2] * x)
+            M3_val =  Mz1 + Fy1 * x + w_loc[1] * (x ** 2) / 2.0
+            M2_val =  My1 + Fz1 * x + w_loc[2] * (x ** 2) / 2.0
+
+            for pl in point_loads:
+                a = pl['a']
+                if x > a:
+                    dist_x  = x - a
+                    P_val  -= pl['F'][0]
+                    V2_val -= pl['F'][1]
+                    V3_val -= pl['F'][2]
+                    M3_val += pl['F'][1] * dist_x - pl['M'][2]
+                    M2_val += pl['F'][2] * dist_x - pl['M'][1]
+
+            self.P[i]  = P_val
+            self.V2[i] = V2_val
+            self.V3[i] = V3_val
+            self.M3[i] = M3_val
+            self.M2[i] = M2_val
 
 class MatrixSpyDialog(QDialog):
-    def __init__(self, element_id, matrices_path, parent=None):
-        super().__init__(parent)
+    def __init__(self, element_id, model, matrices_path, parent=None):
+        super().__init__(parent, Qt.WindowType.Window)
         self.setWindowTitle(f"Element {element_id} - Internal Matrices Spy")
         self.resize(900, 600)
         self.element_id = str(element_id)
+        self.model = model
         self.matrices_data = self._load_json(matrices_path)
         
         layout = QVBoxLayout(self)
@@ -79,18 +249,22 @@ class FBDViewerDialog(QDialog):
         'deflection': '#000000'                                        
     }
     
+    inspection_location_changed = pyqtSignal(object, float)
+    inspection_closed = pyqtSignal()
+
     def __init__(self, element_id, model, results_path, matrices_path, parent=None):
         super().__init__(parent)
         self.setWindowTitle(f"Element {element_id} - Free Body Diagrams")
-        self.resize(900, 700)
-        self.setMinimumSize(900, 700)
+        self.setFixedSize(500, 600)
         
         self.element_id = str(element_id)
         self.model = model
+        
+        self.element = self.model.elements[int(self.element_id)] 
+        
         self.results = self._load_json(results_path)
         self.matrices = self._load_json(matrices_path)
         
-        self.element = model.elements[int(element_id)]
         self.beam_length = self.element.length()                               
         self.beam_length_display = unit_registry.to_display_length(self.beam_length)
         
@@ -120,7 +294,7 @@ class FBDViewerDialog(QDialog):
         self.add_Major_axis_tab()
         self.add_torsion_tab()
         self.add_nvm_tab()
-
+        
     def _load_json(self, path):
         if not os.path.exists(path): return {}
         with open(path, 'r') as f: return json.load(f)
@@ -390,8 +564,8 @@ class FBDViewerDialog(QDialog):
         else:
             shear  = to_F(V3);  moment = to_M(M2)
             defl   = to_L(Defl_3_Abs) if is_absolute else to_L(Defl_3_Rel)
-            shear_lbl = f'Shear Force (V3) [{self.force_unit}]'
-            mom_lbl   = f'Bending Moment (M2) [{self.moment_unit}]'
+            shear_lbl = f'Shear Force (V2) [{self.force_unit}]'
+            mom_lbl   = f'Bending Moment (M3) [{self.moment_unit}]'
             defl_lbl  = f'{"Absolute" if is_absolute else "Relative"} Deflection (u3) [{self.length_unit}]'
 
         axial  = to_F(P)
@@ -507,6 +681,9 @@ class FBDViewerDialog(QDialog):
             for vl in self._nvm_vlines:
                 vl.set_xdata([x_val, x_val])
             self.nvm_canvas.draw_idle()
+
+        ratio = value / 100.0 
+        self.inspection_location_changed.emit(self.element, ratio)
 
     def _nvm_endpoints(self):
         """Return display-unit NVM values at x=0 (i) and x=L (j).
@@ -647,6 +824,7 @@ class FBDViewerDialog(QDialog):
         m3_i = nvm['M3_i'] if nvm else abs(self.forces[5])
         m3_j = nvm['M3_j'] if nvm else abs(self.forces[11])
         self._add_value_table(ax_table, [
+                                                             
             [f'i  (x = 0.00 {self.length_unit})',  'V3', f'{abs(v2_i):.4f}', self.force_unit],
             [f'j  (x = {L_display:.2f} {self.length_unit})', 'V3', f'{abs(v2_j):.4f}', self.force_unit],
             [f'i  (x = 0.00 {self.length_unit})',  'M2', f'{abs(m3_i):.4f}', self.moment_unit],
@@ -705,6 +883,7 @@ class FBDViewerDialog(QDialog):
         m2_i = nvm['M2_i'] if nvm else abs(self.forces[4])
         m2_j = nvm['M2_j'] if nvm else abs(self.forces[10])
         self._add_value_table(ax_table, [
+                                                             
             [f'i  (x = 0.00 {self.length_unit})',  'V2', f'{abs(v3_i):.4f}', self.force_unit],
             [f'j  (x = {L_display:.2f} {self.length_unit})', 'V2', f'{abs(v3_j):.4f}', self.force_unit],
             [f'i  (x = 0.00 {self.length_unit})',  'M3', f'{abs(m2_i):.4f}', self.moment_unit],
@@ -808,3 +987,8 @@ class FBDViewerDialog(QDialog):
         
         direction = '⟲' if torque > 0 else '⟳'
         ax.text(x_pos, 0, direction, ha='center', va='center', fontsize=18, color=self.COLORS['torsion'], fontweight='bold')
+
+    def closeEvent(self, event):
+        """Hides the red dot when the user closes the FBD dialog."""
+        self.inspection_closed.emit()
+        super().closeEvent(event)

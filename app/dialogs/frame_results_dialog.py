@@ -7,7 +7,7 @@ from PyQt6.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, QLabel,
                              QComboBox, QRadioButton, QGroupBox, QSlider, 
                              QWidget, QFrame, QLineEdit, QGridLayout, QSizePolicy,
                              QPushButton)
-from PyQt6.QtCore import Qt, QRectF, QPointF
+from PyQt6.QtCore import Qt, QRectF, QPointF, pyqtSignal
 from PyQt6.QtGui import QPainter, QPen, QColor, QBrush, QPolygonF
 
 current_dir = os.path.dirname(os.path.abspath(__file__))
@@ -17,28 +17,41 @@ if root_dir not in sys.path:
     sys.path.append(root_dir)
 
 from core.solver.linear_static.element_library import get_local_stiffness_matrix, get_rotation_matrix, get_eccentricity_matrix
+from core.units import unit_registry
 
 class MemberAnalyzer:
-    def __init__(self, element, model, num_stations=101):                                            
+    def __init__(self, element, model, num_stations=101,
+                 displacements=None, matrices_path=None):
         self.el = element
         self.model = model
         self.n_stations = num_stations
+        self._displacements_override = displacements                            
         
         self.element_fef = np.zeros(12) 
 
         try:
-            if hasattr(self.model, "file_path") and self.model.file_path:
-                matrix_path = self.model.file_path.replace(".mf", "_matrices.json")
-                
-                if os.path.exists(matrix_path):
-                    with open(matrix_path, "r") as f:
-                        data = json.load(f)
-                        str_id = str(self.el.id)
-                        if str_id in data:
-                            self.element_fef = np.array(data[str_id]["fef"])
-                            print(f"Loaded FEF for Element {self.el.id}")
+                                                                                   
+            active_results = getattr(self.model, 'results', {}) or {}
+            active_mat_path = active_results.get("matrices_path") or active_results.get("matrices_file")
+
+            if matrices_path and os.path.exists(matrices_path):
+                resolved_mat = matrices_path
+            elif active_mat_path and os.path.exists(active_mat_path):
+                resolved_mat = active_mat_path
+            elif hasattr(self.model, "file_path") and self.model.file_path:
+                resolved_mat = self.model.file_path.replace(".mf", "_matrices.json")
             else:
-                print("Warning: Model does not have a file_path attribute. Cannot find matrices.")
+                resolved_mat = None
+
+            if resolved_mat and os.path.exists(resolved_mat):
+                with open(resolved_mat, "r") as f:
+                    data = json.load(f)
+                str_id = str(self.el.id)
+                if str_id in data:
+                    self.element_fef = np.array(data[str_id]["fef"])
+                    print(f"Loaded FEF for Element {self.el.id} from {resolved_mat}")
+            else:
+                print("Warning: Matrices file not found. FEF defaults to zero.")
         except Exception as e:
             print(f"Error loading FEF: {e}")
 
@@ -55,7 +68,11 @@ class MemberAnalyzer:
         self.calculate_results()
 
     def calculate_results(self):
-        res = self.model.results["displacements"]
+                                                                              
+        if self._displacements_override is not None:
+            res = self._displacements_override
+        else:
+            res = self.model.results["displacements"]
                                      
         u_i = np.array(res.get(str(self.el.node_i.id), [0.0]*6))
         u_j = np.array(res.get(str(self.el.node_j.id), [0.0]*6))
@@ -102,11 +119,19 @@ class MemberAnalyzer:
         u1, v1, w1, thx1, thy1, thz1 = u_flex[0:6]
         u2, v2, w2, thx2, thy2, thz2 = u_flex[6:12]
 
+        active_results = getattr(self.model, 'results', {}) or {}
+        active_case = active_results.get("case_name") or active_results.get("load_case") or active_results.get("pattern_name")
+
         w_loc = np.zeros(3)                                        
         point_loads = []                        
 
         for load in self.model.loads:
             if getattr(load, 'element_id', None) == self.el.id:
+                
+                load_pattern = getattr(load, 'pattern_name', None)
+                if active_case and load_pattern and load_pattern != active_case:
+                    continue
+
                 is_local = getattr(load, 'coord_system', 'Global').lower() == 'local'
                 
                 if hasattr(load, 'wx'):                    
@@ -310,9 +335,9 @@ class ResultRow(QWidget):
         layout = QHBoxLayout(self)
         layout.setContentsMargins(0,0,0,0)
         
-        grp = QGroupBox(title)
-        grp.setStyleSheet("QGroupBox { font-weight: bold; color: #202020; }")
-        v = QVBoxLayout(grp); v.setContentsMargins(5,20,5,5)
+        self.grp = QGroupBox(title)                       
+        self.grp.setStyleSheet("QGroupBox { font-weight: bold; color: #202020; }")
+        v = QVBoxLayout(self.grp); v.setContentsMargins(5,20,5,5)
         v.addWidget(widget)
         
         self.lbl_val = QLabel("0.0")
@@ -320,13 +345,18 @@ class ResultRow(QWidget):
         self.lbl_val.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
         self.lbl_val.setStyleSheet("font-weight: bold; font-size: 12pt; padding-right: 10px; color: #333;")
         
-        layout.addWidget(grp)
+        layout.addWidget(self.grp)
         layout.addWidget(self.lbl_val)
 
     def update_val(self, val):
         self.lbl_val.setText(f"{val:.3f} {self.unit_str}")
+        
+    def set_title(self, title):
+        self.grp.setTitle(title)
 
 class FrameResultDialog(QDialog):
+    inspection_location_changed = pyqtSignal(object, float)
+    inspection_closed = pyqtSignal()
     def __init__(self, element, model, parent=None):
         super().__init__(parent)
         self.element = element
@@ -359,6 +389,22 @@ class FrameResultDialog(QDialog):
         
         self.wid_fbd = FreeBodyWidget()
         main.addWidget(ResultRow("Free Body Diagram (End Forces)", self.wid_fbd, ""))
+
+        f_unit = unit_registry.force_unit_name
+        l_unit = unit_registry.length_unit_name
+        m_unit = f"{f_unit}-{l_unit}"
+        
+        self.wid_shear = DiagramWidget(QColor(255, 230, 230))           
+        self.row_shear = ResultRow("Shear Force", self.wid_shear, f_unit)
+        main.addWidget(self.row_shear)
+        
+        self.wid_mom = DiagramWidget(QColor(230, 230, 255))            
+        self.row_mom = ResultRow("Bending Moment", self.wid_mom, m_unit)
+        main.addWidget(self.row_mom)
+        
+        self.wid_defl = DiagramWidget(QColor(255, 230, 255))              
+        self.row_defl = ResultRow("Relative Deflection", self.wid_defl, l_unit)
+        main.addWidget(self.row_defl)
         
         self.wid_shear = DiagramWidget(QColor(255, 230, 230))           
         self.row_shear = ResultRow("Shear Force", self.wid_shear, "kN")
@@ -395,38 +441,61 @@ class FrameResultDialog(QDialog):
 
     def update_view_mode(self):
         idx = self.cb_mode.currentIndex()
-        x = self.analyzer.stations
         
-        self.wid_fbd.set_data(self.analyzer.end_forces, self.analyzer.L_clear)
+        x_base = self.analyzer.stations
+        x_disp = x_base * unit_registry.length_scale
+        
+        scaled_end_forces = self.analyzer.end_forces.copy()
+                                         
+        scaled_end_forces[0:3] *= unit_registry.force_scale 
+        scaled_end_forces[3:6] *= (unit_registry.force_scale * unit_registry.length_scale)
+                                         
+        scaled_end_forces[6:9] *= unit_registry.force_scale 
+        scaled_end_forces[9:12] *= (unit_registry.force_scale * unit_registry.length_scale)
+        
+        self.wid_fbd.set_data(scaled_end_forces, self.analyzer.L_clear * unit_registry.length_scale)
+        
+        f_scale = unit_registry.force_scale
+        m_scale = unit_registry.force_scale * unit_registry.length_scale
+        l_scale = unit_registry.length_scale
         
         if idx == 0:        
-            self.wid_shear.set_data(x, self.analyzer.V2)
-            self.wid_mom.set_data(x, self.analyzer.M3)
-            self.wid_defl.set_data(x, self.analyzer.Defl_2_Rel)
+            self.row_shear.set_title("Shear Force V2")
+            self.wid_shear.set_data(x_disp, self.analyzer.V2 * f_scale)
+            self.wid_mom.set_data(x_disp, self.analyzer.M3 * m_scale)
+            self.wid_defl.set_data(x_disp, self.analyzer.Defl_2_Rel * l_scale)
             
         elif idx == 1:        
-            self.wid_shear.set_data(x, self.analyzer.V3)
-            self.wid_mom.set_data(x, self.analyzer.M2)
-            self.wid_defl.set_data(x, self.analyzer.Defl_3_Rel)
+            self.row_shear.set_title("Shear Force V3")
+            self.wid_shear.set_data(x_disp, self.analyzer.V3 * f_scale)
+            self.wid_mom.set_data(x_disp, self.analyzer.M2 * m_scale)
+            self.wid_defl.set_data(x_disp, self.analyzer.Defl_3_Rel * l_scale)
             
         elif idx == 2:        
-            self.wid_shear.set_data(x, self.analyzer.P)
-                             
-            zero = np.zeros_like(x)
-            self.wid_mom.set_data(x, zero)
-            self.wid_defl.set_data(x, zero)
+            self.row_shear.set_title("Axial Force P")
+            self.wid_shear.set_data(x_disp, self.analyzer.P * f_scale)
+            zero = np.zeros_like(x_disp)
+            self.wid_mom.set_data(x_disp, zero)
+            self.wid_defl.set_data(x_disp, zero)
 
         self.on_slider(self.slider.value())
 
     def on_slider(self, val):
         ratio = val / 1000.0
-        loc = ratio * self.analyzer.L_clear
+                                                               
+        loc_base = ratio * self.analyzer.L_clear
+        loc_disp = loc_base * unit_registry.length_scale
         
-        self.lbl_loc.setText(f"{loc:.3f} m")
+        self.lbl_loc.setText(f"{loc_disp:.3f} {unit_registry.length_unit_name}")
         
         for w in [self.wid_shear, self.wid_mom, self.wid_defl]:
-            w.set_cursor(loc)
+            w.set_cursor(loc_disp)                           
             
         self.row_shear.update_val(self.wid_shear.cursor_val)
         self.row_mom.update_val(self.wid_mom.cursor_val)
         self.row_defl.update_val(self.wid_defl.cursor_val)
+        self.inspection_location_changed.emit(self.element, ratio)
+
+    def closeEvent(self, event):
+        self.inspection_closed.emit()
+        super().closeEvent(event)

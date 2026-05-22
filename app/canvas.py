@@ -67,6 +67,8 @@ class MCanvas3D(gl.GLViewWidget):
         self.show_grid = True
 
         self.show_ghost_structure = True                       
+        self._pre_force_was_extruded  = False                                                 
+        self._pre_force_was_deflected = False                                                           
 
         self._plane_state = 0
         self._view_mode = "3D"
@@ -153,6 +155,16 @@ class MCanvas3D(gl.GLViewWidget):
         self.snap_ring.setVisible(False)
         self.snap_dot.setVisible(False)
 
+        self.inspection_dot = gl.GLScatterPlotItem(
+            pos=np.array([[0, 0, 0]]),
+            size=14,
+            color=(1, 0, 0, 1),
+            pxMode=True
+        )
+        self.inspection_dot.setGLOptions({'glDepthMask': (True,), 'glDepthFunc': (GL_ALWAYS,)})
+        self.inspection_dot.setVisible(False)
+        self.addItem(self.inspection_dot)
+
         self._draw_start = None  
         self.preview_line = gl.GLLinePlotItem(
             pos=np.array([[0,0,0],[0,0,0]]), 
@@ -200,6 +212,21 @@ class MCanvas3D(gl.GLViewWidget):
         self._beam_col_prev_line.setGLOptions('translucent')
         self._beam_col_prev_line.setVisible(False)
         self.addItem(self._beam_col_prev_line)
+
+        self.force_mesh_item = gl.GLMeshItem(
+            smooth=False,          
+            drawEdges=False, 
+            glOptions='translucent' 
+        )
+        self.addItem(self.force_mesh_item)
+        self.force_mesh_item.hide() 
+
+        self.force_line_item = gl.GLLinePlotItem(
+            mode='lines',
+            antialias=True
+        )
+        self.addItem(self.force_line_item)
+        self.force_line_item.hide()
 
     def initializeGL(self):
         super().initializeGL()
@@ -413,11 +440,14 @@ class MCanvas3D(gl.GLViewWidget):
 
         if self.snap_ring not in self.items: self.addItem(self.snap_ring)
         if self.snap_dot not in self.items: self.addItem(self.snap_dot)
+        if self.inspection_dot not in self.items: self.addItem(self.inspection_dot)              
         if self.preview_line not in self.items: self.addItem(self.preview_line)
         if self._brace_prev_x1 not in self.items: self.addItem(self._brace_prev_x1)
         if self._brace_prev_x2 not in self.items: self.addItem(self._brace_prev_x2)
         if self._brace_prev_border not in self.items: self.addItem(self._brace_prev_border)
         if self._beam_col_prev_line not in self.items: self.addItem(self._beam_col_prev_line)
+        if self.force_mesh_item not in self.items: self.addItem(self.force_mesh_item)
+        if self.force_line_item not in self.items: self.addItem(self.force_line_item)
              
         self.snap_ring.setGLOptions('translucent')
         self.snap_dot.setGLOptions('translucent')
@@ -1500,6 +1530,93 @@ class MCanvas3D(gl.GLViewWidget):
                                                                  
                     self.ex_faces.append([root_b, start_idx + n + i, start_idx + n + i + 1])
     
+    def show_force_diagram(self, model, component='M3', scale_factor=None,
+                       displacements=None, matrices_path=None, show_labels=False):
+        """
+        Builds and renders the 3D force diagrams for the active model.
+        Automatically switches to wireframe if currently in extruded view,
+        and remembers the state so clear_force_diagrams() can restore it.
+        """
+        from core.force_diagram import ForceDiagramBuilder
+
+        needs_redraw = False
+        if self.view_extruded:
+            self._pre_force_was_extruded = True
+            self.view_extruded = False
+            needs_redraw = True
+        if self.view_deflected:
+            self._pre_force_was_deflected = True
+            self.view_deflected = False
+            self.invalidate_deflection_cache()
+            needs_redraw = True
+        if needs_redraw:
+            self._force_draw_model(model)
+
+        builder = ForceDiagramBuilder(
+            model,
+            component=component,
+            scale_factor=scale_factor,
+            displacements=displacements,
+            matrices_path=matrices_path,
+            show_labels=show_labels,
+        )
+        success = builder.build()
+
+        if not success:
+            self.force_mesh_item.hide()
+            self.force_line_item.hide()
+            self.force_labels = []
+            return False
+
+        self.force_labels = builder.labels
+
+        if self.force_mesh_item not in self.items:
+            self.addItem(self.force_mesh_item)
+        if self.force_line_item not in self.items:
+            self.addItem(self.force_line_item)
+
+        if len(builder.fill_verts) > 0:
+            self.force_mesh_item.setMeshData(
+                vertexes=builder.fill_verts,
+                faces=builder.fill_faces,
+                vertexColors=builder.fill_colors
+            )
+            self.force_mesh_item.show()
+        else:
+            self.force_mesh_item.hide()
+
+        if len(builder.line_pos) > 0:
+            self.force_line_item.setData(
+                pos=builder.line_pos,
+                color=builder.line_colors,
+                width=2.0,
+                mode='lines'
+            )
+            self.force_line_item.show()
+        else:
+            self.force_line_item.hide()
+
+        self.update()
+        return True
+
+    def clear_force_diagrams(self):
+        """Hides force diagrams and restores extruded/deformed state that was active before."""
+        self.force_mesh_item.hide()
+        self.force_line_item.hide()
+        self.force_labels = []
+
+        needs_redraw = False
+        if getattr(self, '_pre_force_was_extruded', False):
+            self._pre_force_was_extruded = False
+            self.view_extruded = True
+            needs_redraw = True
+        if getattr(self, '_pre_force_was_deflected', False):
+            self._pre_force_was_deflected = False
+            self.view_deflected = True
+            needs_redraw = True
+        if needs_redraw and self.current_model:
+            self._force_draw_model(self.current_model)
+        
     def _add_loft_to_arrays(self, c1, c2, v2_a, v3_a, v2_b, v3_b, shape, color, show_edges, edge_color,
                             draw_start_ring=False, draw_end_ring=False,
                             ex_vertices=None, ex_faces=None, ex_colors=None,
@@ -3134,6 +3251,51 @@ class MCanvas3D(gl.GLViewWidget):
                 painter.setPen(text_color)
                 painter.drawText(text_x, text_y, text)
 
+        force_labels = getattr(self, 'force_labels', [])
+        if force_labels and self.current_model:
+            w = self.width()
+            h = self.height()
+            full_area = (0, 0, w, h)
+            m_view = self.viewMatrix()
+            m_proj = self.projectionMatrix(region=full_area, viewport=full_area)
+            mvp = np.array((m_proj * m_view).data()).reshape(4, 4).T
+            
+            font = painter.font()
+            font.setPixelSize(12)
+            font.setBold(True)
+            painter.setFont(font)
+            
+            for label in force_labels:
+                pos_3d = label['pos_3d']
+                
+                vec = np.array([pos_3d[0], pos_3d[1], pos_3d[2], 1.0])
+                clip = np.dot(mvp, vec)
+                
+                if clip[3] <= 0.1: continue 
+
+                ndc_x = clip[0] / clip[3]
+                ndc_y = clip[1] / clip[3]
+                sx = (ndc_x + 1) * w / 2
+                sy = (1 - ndc_y) * h / 2
+                
+                if sx < -50 or sx > w + 50 or sy < -50 or sy > h + 50:
+                    continue
+                
+                text = label['text']
+                metrics = painter.fontMetrics()
+                t_width = metrics.horizontalAdvance(text)
+                t_height = metrics.height()
+                
+                text_x = int(sx) - (t_width // 2)
+                text_y = int(sy) - 5
+                
+                bg_rect = QRect(text_x - 4, text_y - t_height + 2, t_width + 8, t_height + 2)
+                painter.fillRect(bg_rect, QColor(255, 255, 255, 200))                              
+                
+                text_color = QColor(30, 100, 255) if label['val'] >= 0 else QColor(255, 50, 50)
+                painter.setPen(text_color)
+                painter.drawText(text_x, text_y, text)
+
         if getattr(self, 'current_hover_data', None):
             hx = self.current_hover_data['x'] + 15
             hy = self.current_hover_data['y'] + 15
@@ -3373,6 +3535,48 @@ class MCanvas3D(gl.GLViewWidget):
         hit = near_w + t * ray_dir
         return hit
 
+    def update_inspection_dot(self, element, ratio):
+        if not element or not self.current_model:
+            return
+
+        n1, n2 = element.node_i, element.node_j
+
+        p1 = np.array([n1.x, n1.y, n1.z], dtype=float)
+        p2 = np.array([n2.x, n2.y, n2.z], dtype=float)
+
+        off_i = getattr(element, 'end_offset_i', 0.0)
+        off_j = getattr(element, 'end_offset_j', 0.0)
+
+        vec = p2 - p1
+        length = np.linalg.norm(vec)
+
+        if length > 1e-6:
+            u = vec / length
+
+            if off_i + off_j >= length:
+                scale = (length / (off_i + off_j)) * 0.99
+                p1 = p1 + (u * off_i * scale)
+                p2 = p2 - (u * off_j * scale)
+            else:
+                p1 = p1 + (u * off_i)
+                p2 = p2 - (u * off_j)
+
+        pos = p1 + ratio * (p2 - p1)
+
+        if not np.all(np.isfinite(pos)):
+            return
+
+        self.inspection_dot.setData(
+            pos=pos.reshape(1, 3),
+            color=(1, 0, 0, 1),
+            size=10
+        )
+
+        self.inspection_dot.setVisible(True)
+
+    def hide_inspection_dot(self):
+        self.inspection_dot.setVisible(False)
+        
     def _find_grid_cell_from_hit(self, hit):
         """Given a world point on the active plane, returns the 4 cell corners or None."""
         if not self.active_view_plane or not self.current_model:
@@ -4007,7 +4211,7 @@ class MCanvas3D(gl.GLViewWidget):
             self.preview_line, self._beam_col_prev_line, 
             self._brace_prev_x1, self._brace_prev_x2, 
             self._brace_prev_border, self.snap_ring, self.snap_dot,
-            self.pivot_dot
+            self.pivot_dot, self.inspection_dot
         ]
         
         vis_states = []

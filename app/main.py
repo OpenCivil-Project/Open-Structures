@@ -67,6 +67,7 @@ from app.dialogs.solid_analysis_dialog import SolidAnalysisDialog
 from app.dialogs.update_dialog import UpdateDialog
 from core.terminal_panel import TerminalPanel
 from app.ipc import IPCManager
+from app.dialogs.display_forces_dialog import DisplayForcesDialog
 
 class OPENCIVILSplash(QSplashScreen):
     def __init__(self, pixmap):
@@ -785,6 +786,15 @@ class MainWindow(QMainWindow):
         self.action_deform_opts.triggered.connect(self.on_view_deformed_shape)
         self.action_deform_opts.setEnabled(False)
         self.menu_analyze.addAction(self.action_deform_opts)
+
+        self.action_display_forces = QAction(
+            qta.icon('fa5s.chart-bar', color='#6c757d'),
+            "Display Frame Forces...",
+            self
+        )
+        self.action_display_forces.setEnabled(False)                                    
+        self.action_display_forces.triggered.connect(self.on_display_frame_forces)
+        self.menu_analyze.addAction(self.action_display_forces)
 
         self.menu_analyze.addSeparator()
         self.res_action = QAction(qta.icon('fa5s.table', color='#6c757d'), "Show Result Tables...", self)
@@ -1582,8 +1592,18 @@ class MainWindow(QMainWindow):
                     if hasattr(self, 'solver_output_path') and self.solver_output_path:
                         base = self.solver_output_path.replace("_results.json", "_matrices.json")
                         from app.dialogs.spy_dialogs import FBDViewerDialog
+                        
                         dlg = FBDViewerDialog(eid, self.model, self.solver_output_path, base, self)
-                        dlg.exec()
+                        
+                        dlg.inspection_location_changed.connect(self.canvas.update_inspection_dot)
+                        dlg.inspection_closed.connect(self.canvas.hide_inspection_dot)
+                        
+                        if getattr(self, 'canvas2_visible', False):
+                            dlg.inspection_location_changed.connect(self.canvas2.update_inspection_dot)
+                            dlg.inspection_closed.connect(self.canvas2.hide_inspection_dot)
+                                                           
+                        dlg.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
+                        dlg.show()
                 fbd_action.triggered.connect(show_fbd)
                 
             hit_something = True
@@ -2274,6 +2294,7 @@ class MainWindow(QMainWindow):
             self.canvas.animation_manager.invalidate_prerender()
 
         self.btn_deform.setEnabled(True)
+        self.action_display_forces.setEnabled(True)
         self.btn_deform.setChecked(True)
         self.canvas.view_deflected = True
         self.lock_model()
@@ -2374,6 +2395,7 @@ class MainWindow(QMainWindow):
                     self.canvas.animation_manager.disable_ltha_mode()
 
             self.btn_deform.setEnabled(True)
+            self.action_display_forces.setEnabled(True)
             self.btn_deform.setChecked(True)                                
             self.canvas.view_deflected = True
             
@@ -2411,6 +2433,75 @@ class MainWindow(QMainWindow):
         self.btn_lock.setIcon(qta.icon('fa5s.lock', color="#c77873")) 
         self.btn_lock.setToolTip("Analysis Results Active. Click to Unlock and Edit.")
 
+    def on_display_frame_forces(self):
+        import glob
+        from app.dialogs.display_forces_dialog import DisplayForcesDialog
+
+        if not self.model or not getattr(self.model, 'file_path', None):
+            return
+
+        base_name = os.path.splitext(self.model.file_path)[0]
+
+        result_files = glob.glob(f"{base_name}_*_results.json")
+        available_cases = []
+        for path in sorted(result_files):
+            fname = os.path.basename(path)
+            prefix = os.path.basename(base_name) + "_"
+            suffix = fname[len(prefix):].replace("_results.json", "")
+            if suffix:
+                available_cases.append(suffix)
+
+        self.forces_dialog = DisplayForcesDialog(
+            self.model, self,
+            available_cases=available_cases,
+            base_path=base_name,
+        )
+        self.forces_dialog.apply_forces_signal.connect(self.apply_force_diagrams_from_dialog)
+        self.forces_dialog.show()
+
+    def apply_force_diagrams_from_dialog(self, settings):
+        """
+        Receives the signal from DisplayForcesDialog.
+        Loads the selected case's result file from disk and pushes it to the GPU.
+        """
+        import json
+        if not self.model or not self.canvas:
+            return
+
+        load_case  = settings['load_case']
+        base_path  = settings.get('base_path', '')
+
+        res_path = f"{base_path}_{load_case}_results.json"
+        mat_path = f"{base_path}_{load_case}_matrices.json"
+
+        if not os.path.exists(res_path):
+            self.statusBar().showMessage(
+                f"No results on disk for '{load_case}'. Run that case first."
+            )
+            return
+
+        with open(res_path, 'r') as f:
+            case_data = json.load(f)
+
+        displacements = case_data.get("displacements", {})
+        matrices_path = mat_path if os.path.exists(mat_path) else None
+
+        success = self.canvas.show_force_diagram(
+            model=self.model,
+            component=settings['component'],
+            scale_factor=settings['scale_factor'],
+            displacements=displacements,
+            matrices_path=matrices_path,
+            show_labels=settings.get('show_labels', False),
+        )
+
+        if success:
+            self.statusBar().showMessage(
+                f"[{load_case}]  {settings['component']}  —  Scale: {settings['scale_factor'] or 'Auto'}"
+            )
+        else:
+            self.statusBar().showMessage("No diagram generated. Check that analysis results exist.")
+
     def unlock_model(self):
                                                        
         if hasattr(self.model, 'has_results') and self.model.has_results:
@@ -2423,7 +2514,11 @@ class MainWindow(QMainWindow):
                 return
 
         self.btn_deform.setEnabled(False)
-        self.btn_deform.setChecked(False)                              
+        self.btn_deform.setChecked(False)     
+        self.action_display_forces.setEnabled(False)                   
+                                                             
+        if hasattr(self.canvas, 'clear_force_diagrams'):
+            self.canvas.clear_force_diagrams()
         self.canvas.view_deflected = False  
 
         self.view_shadow = True
