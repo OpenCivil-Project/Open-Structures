@@ -115,6 +115,21 @@ class MCanvas3D(gl.GLViewWidget):
         self._sel_overlay_items = []      
         self.last_selection_state = {'nodes': [], 'elements': [], 'blink': True}
 
+        self._label_hide_timer = QTimer()
+        self._label_hide_timer.setSingleShot(True)
+        self._label_hide_timer.timeout.connect(lambda: setattr(self, '_is_zooming', False))
+        self._label_hide_timer.timeout.connect(self.update)
+        self._label_pixmap         = None                                 
+        self._label_pixmap_dirty   = False                      
+        self._label_rebuild_timer  = QTimer()
+        self._label_rebuild_timer.setSingleShot(True)
+        self._label_rebuild_timer.timeout.connect(self._rebuild_label_pixmap)
+        
+        self._label_hide_timer.timeout.connect(
+            lambda: self._schedule_label_rebuild(0)
+)
+        self._is_zooming = False
+
         self.active_view_plane = None 
 
         self.linked_plane_item = None
@@ -446,9 +461,7 @@ class MCanvas3D(gl.GLViewWidget):
         if self._brace_prev_x2 not in self.items: self.addItem(self._brace_prev_x2)
         if self._brace_prev_border not in self.items: self.addItem(self._brace_prev_border)
         if self._beam_col_prev_line not in self.items: self.addItem(self._beam_col_prev_line)
-        if self.force_mesh_item not in self.items: self.addItem(self.force_mesh_item)
-        if self.force_line_item not in self.items: self.addItem(self.force_line_item)
-             
+
         self.snap_ring.setGLOptions('translucent')
         self.snap_dot.setGLOptions('translucent')
 
@@ -1563,39 +1576,21 @@ class MCanvas3D(gl.GLViewWidget):
         success = builder.build()
 
         if not success:
-            self.force_mesh_item.hide()
-            self.force_line_item.hide()
+            self.vbo_manager.clear_force_geometry()
             self.force_labels = []
             return False
 
         self.force_labels = builder.labels
 
-        if self.force_mesh_item not in self.items:
-            self.addItem(self.force_mesh_item)
-        if self.force_line_item not in self.items:
-            self.addItem(self.force_line_item)
+        self._schedule_label_rebuild(delay_ms=60)
 
-        if len(builder.fill_verts) > 0:
-            self.force_mesh_item.setMeshData(
-                vertexes=builder.fill_verts,
-                faces=builder.fill_faces,
-                vertexColors=builder.fill_colors
-            )
-            self.force_mesh_item.show()
-        else:
-            self.force_mesh_item.hide()
-
-        if len(builder.line_pos) > 0:
-            self.force_line_item.setData(
-                pos=builder.line_pos,
-                color=builder.line_colors,
-                width=2.0,
-                mode='lines'
-            )
-            self.force_line_item.show()
-        else:
-            self.force_line_item.hide()
-
+        self._pending_force_upload = {
+            'fill_verts':  builder.fill_verts,
+            'fill_colors': builder.fill_colors,
+            'fill_faces':  builder.fill_faces,
+            'line_pos':    builder.line_pos,
+            'line_colors': builder.line_colors,
+        }
         self.update()
         return True
 
@@ -1604,6 +1599,8 @@ class MCanvas3D(gl.GLViewWidget):
         self.force_mesh_item.hide()
         self.force_line_item.hide()
         self.force_labels = []
+        self._label_pixmap = None
+        self.vbo_manager.clear_force_geometry()              
 
         needs_redraw = False
         if getattr(self, '_pre_force_was_extruded', False):
@@ -1616,7 +1613,7 @@ class MCanvas3D(gl.GLViewWidget):
             needs_redraw = True
         if needs_redraw and self.current_model:
             self._force_draw_model(self.current_model)
-        
+            
     def _add_loft_to_arrays(self, c1, c2, v2_a, v3_a, v2_b, v3_b, shape, color, show_edges, edge_color,
                             draw_start_ring=False, draw_end_ring=False,
                             ex_vertices=None, ex_faces=None, ex_colors=None,
@@ -2986,6 +2983,9 @@ class MCanvas3D(gl.GLViewWidget):
         
     def mousePressEvent(self, event):
 
+        self._mouse_pressed = True
+        super().mousePressEvent(event)
+
         hit = self.view_cube.check_click(event.pos().x(), event.pos().y(), self.width(), self.height())
  
         if hit:
@@ -3117,6 +3117,9 @@ class MCanvas3D(gl.GLViewWidget):
         hit   = self._find_zoom_target(pos.x(), pos.y())
         self.camera.zoom(delta, pos.x(), pos.y(), self.width(), self.height(), hit_point=hit)
         self._support_rebuild_timer.start(60)
+        self._is_zooming = True
+        self._label_hide_timer.start(400) 
+        self.update()
         
     def mouseReleaseEvent(self, event):
                                            
@@ -3152,6 +3155,9 @@ class MCanvas3D(gl.GLViewWidget):
             self.drag_current = None
             
         self._is_navigating = False
+        self._schedule_label_rebuild(delay_ms=80)
+        self._mouse_pressed = False
+        self.update()
         super().mouseReleaseEvent(event)
         
     def pick_single_object(self, pos):
@@ -3253,48 +3259,12 @@ class MCanvas3D(gl.GLViewWidget):
 
         force_labels = getattr(self, 'force_labels', [])
         if force_labels and self.current_model:
-            w = self.width()
-            h = self.height()
-            full_area = (0, 0, w, h)
-            m_view = self.viewMatrix()
-            m_proj = self.projectionMatrix(region=full_area, viewport=full_area)
-            mvp = np.array((m_proj * m_view).data()).reshape(4, 4).T
-            
-            font = painter.font()
-            font.setPixelSize(12)
-            font.setBold(True)
-            painter.setFont(font)
-            
-            for label in force_labels:
-                pos_3d = label['pos_3d']
-                
-                vec = np.array([pos_3d[0], pos_3d[1], pos_3d[2], 1.0])
-                clip = np.dot(mvp, vec)
-                
-                if clip[3] <= 0.1: continue 
-
-                ndc_x = clip[0] / clip[3]
-                ndc_y = clip[1] / clip[3]
-                sx = (ndc_x + 1) * w / 2
-                sy = (1 - ndc_y) * h / 2
-                
-                if sx < -50 or sx > w + 50 or sy < -50 or sy > h + 50:
-                    continue
-                
-                text = label['text']
-                metrics = painter.fontMetrics()
-                t_width = metrics.horizontalAdvance(text)
-                t_height = metrics.height()
-                
-                text_x = int(sx) - (t_width // 2)
-                text_y = int(sy) - 5
-                
-                bg_rect = QRect(text_x - 4, text_y - t_height + 2, t_width + 8, t_height + 2)
-                painter.fillRect(bg_rect, QColor(255, 255, 255, 200))                              
-                
-                text_color = QColor(30, 100, 255) if label['val'] >= 0 else QColor(255, 50, 50)
-                painter.setPen(text_color)
-                painter.drawText(text_x, text_y, text)
+            if self._label_pixmap is not None:
+                is_navigating = (getattr(self, '_mouse_pressed', False) or
+                                getattr(self, '_is_zooming', False))
+                painter.setOpacity(0.55 if is_navigating else 1.0)
+                painter.drawPixmap(0, 0, self._label_pixmap)
+                painter.setOpacity(1.0)
 
         if getattr(self, 'current_hover_data', None):
             hx = self.current_hover_data['x'] + 15
@@ -3326,7 +3296,155 @@ class MCanvas3D(gl.GLViewWidget):
             self._draw_axis_overlay(painter, _mvp, _w, _h)
 
         painter.end()
-            
+
+    def _schedule_label_rebuild(self, delay_ms=80):
+        """
+        Debounced trigger for _rebuild_label_pixmap.
+        Safe to call from anywhere (timer callbacks, events, etc.).
+        """
+        self._label_rebuild_timer.start(delay_ms)
+    
+    def _rebuild_label_pixmap(self):
+        """
+        Builds a QPixmap with all visible force labels.
+        Called once per camera-settle; paintEvent just blits the result.
+    
+        Pipeline:
+        1. Vectorized MVP projection  — one (N,4)@(4,4) matmul for all labels
+        2. Screen-space NMS dedup     — greedy AABB, sorted by |val| descending
+        3. Professional pill render   — dark background + colored left accent bar
+        """
+        from PyQt6.QtGui import (QPixmap, QPainter, QColor, QFont,
+                                QFontMetrics, QPen, QBrush)
+        from PyQt6.QtCore import QRectF, Qt
+    
+        force_labels = getattr(self, 'force_labels', [])
+        if not force_labels or not self.current_model:
+            self._label_pixmap = None
+            return
+    
+        w, h = self.width(), self.height()
+        if w <= 0 or h <= 0:
+            return
+    
+        full_area = (0, 0, w, h)
+        mvp = np.array(
+            (self.projectionMatrix(region=full_area, viewport=full_area) *
+            self.viewMatrix()).data()
+        ).reshape(4, 4).T                                                      
+    
+        positions = np.array([lb['pos_3d'] for lb in force_labels],
+                            dtype=np.float64)                       
+        N = len(positions)
+        pos_h = np.ones((N, 4), dtype=np.float64)
+        pos_h[:, :3] = positions
+        clips = pos_h @ mvp.T                                                     
+    
+        w3 = clips[:, 3]
+        valid = w3 > 0.1
+        sx = np.where(valid, (clips[:, 0] / w3 + 1.0) * w * 0.5, -99999.0)
+        sy = np.where(valid, (1.0 - clips[:, 1] / w3) * h * 0.5, -99999.0)
+    
+        FONT_PX   = 9
+        CHAR_W    = 6.8
+        LABEL_H   = 14
+        PAD_X     = 8
+        PAD_Y     = 4
+        MARGIN    = 6                                             
+    
+        vals = np.array([abs(lb['val']) for lb in force_labels], dtype=np.float64)
+        order = np.argsort(-vals)
+    
+        placed   = []                                                    
+        visible  = []                                             
+    
+        for i in order:
+            if not valid[i]:
+                continue
+            lx, ly = sx[i], sy[i]
+            if lx < -60 or lx > w + 60 or ly < -60 or ly > h + 60:
+                continue
+    
+            text = force_labels[i]['text']
+            rw   = len(text) * CHAR_W + PAD_X * 2
+            rh   = LABEL_H + PAD_Y * 2
+    
+            rx1 = lx - rw * 0.5
+            ry1 = ly - rh - 4
+            rx2 = rx1 + rw
+            ry2 = ry1 + rh
+    
+            skip = False
+            for (px1, py1, px2, py2) in placed:
+                if (rx1 - MARGIN < px2 and rx2 + MARGIN > px1 and
+                        ry1 - MARGIN < py2 and ry2 + MARGIN > py1):
+                    skip = True
+                    break
+    
+            if not skip:
+                placed.append((rx1, ry1, rx2, ry2))
+                visible.append((lx, ly, force_labels[i], rx1, ry1, rw, rh))
+    
+        if not visible:
+            self._label_pixmap = None
+            return
+    
+        pixmap = QPixmap(w, h)
+        pixmap.fill(Qt.GlobalColor.transparent)
+    
+        p = QPainter(pixmap)
+        p.setRenderHint(QPainter.RenderHint.Antialiasing)
+        p.setRenderHint(QPainter.RenderHint.TextAntialiasing)
+    
+        font = QFont("Consolas", FONT_PX)
+        font.setBold(True)
+        p.setFont(font)
+    
+        C_POS_BG     = QColor(14,  26,  55,  225)              
+        C_POS_ACCENT = QColor(55,  120, 255)                       
+        C_POS_TEXT   = QColor(200, 220, 255)                            
+    
+        C_NEG_BG     = QColor(55,  14,  14,  225)                 
+        C_NEG_ACCENT = QColor(225,  55,  55)                      
+        C_NEG_TEXT   = QColor(255, 210, 210)                            
+    
+        ACCENT_W = 3.0                                
+        RADIUS   = 3.0                        
+    
+        for (lx, ly, label, rx1, ry1, rw, rh) in visible:
+            is_pos = label['val'] >= 0
+            bg     = C_POS_BG     if is_pos else C_NEG_BG
+            accent = C_POS_ACCENT if is_pos else C_NEG_ACCENT
+            fg     = C_POS_TEXT   if is_pos else C_NEG_TEXT
+    
+            pill = QRectF(rx1, ry1, rw, rh)
+    
+            p.setPen(Qt.PenStyle.NoPen)
+            p.setBrush(QBrush(bg))
+            p.drawRoundedRect(pill, RADIUS, RADIUS)
+    
+            p.setClipRect(QRectF(rx1, ry1, ACCENT_W + RADIUS, rh).toRect())
+            bar = QRectF(rx1, ry1, ACCENT_W + RADIUS, rh)
+            p.setBrush(QBrush(accent))
+            p.drawRoundedRect(bar, RADIUS, RADIUS)
+            p.setClipping(False)
+    
+            p.setBrush(QBrush(accent))
+            p.drawEllipse(QRectF(lx - 2.5, ly - 2.5, 5, 5))
+    
+            p.setPen(fg)
+            text_rect = QRectF(rx1 + ACCENT_W + 5, ry1, rw - ACCENT_W - 8, rh)
+            p.drawText(text_rect,
+                    Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignLeft,
+                    label['text'])
+    
+        p.end()
+        self._label_pixmap = pixmap
+        self.update()    
+
+    def _is_moving(self):
+        return getattr(self, '_mouse_pressed', False)        
+
     def process_box_selection(self, p_start, p_end):
         if not self.current_model: return
         
@@ -4263,6 +4381,16 @@ class MCanvas3D(gl.GLViewWidget):
             else:
                 line_w = float(self.display_config.get("line_width", 2.0))
                 self.vbo_manager.draw_lines(m_view, m_proj, line_width=line_w, alpha_mult=1.0, write_depth=True)
+
+            if getattr(self, '_pending_force_upload', None) is not None:
+                d = self._pending_force_upload
+                self.vbo_manager.upload_force_geometry(
+                    d['fill_verts'], d['fill_colors'], d['fill_faces'],
+                    d['line_pos'],   d['line_colors'],
+                )
+                self._pending_force_upload = None
+
+            self.vbo_manager.draw_force_geometry(m_view, m_proj)
                 
         glClear(GL_DEPTH_BUFFER_BIT)
         
