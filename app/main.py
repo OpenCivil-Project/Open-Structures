@@ -233,7 +233,7 @@ class MainWindow(QMainWindow):
             except Exception:
                 pass
         
-        self.setWindowTitle("OpenCivil v0.7.67")
+        self.setWindowTitle("OpenCivil v0.7.70")
         self.resize(1200, 800)
 
         icon_path = os.path.join(root_dir, "app", "graphic", "logo.png") 
@@ -995,6 +995,15 @@ class MainWindow(QMainWindow):
         if self.model:
             self.draw_both_canvases()
 
+            last = getattr(self, '_last_force_diagram_settings', {})
+            for cvs in [self.canvas, getattr(self, 'canvas2', None)]:
+                if cvs and last.get(cvs) and cvs.force_mesh_item.visible:
+                                                                                              
+                    prev = self.active_canvas
+                    self.active_canvas = cvs
+                    self.apply_force_diagrams_from_dialog(last[cvs])
+                    self.active_canvas = prev
+
     def set_view_3d(self):
         self._reset_plane_buttons()
         self.active_canvas._view_mode = "3D"
@@ -1049,9 +1058,19 @@ class MainWindow(QMainWindow):
             cvs._grid_index = 0
             self.update_view_layer()
             self.status.showMessage(f"View: {axis} — Plane (Ghost ON)")
+        
+        self._restore_force_diagram_if_active()
+        self.update_linked_planes()
 
         self.update_linked_planes()
         
+    def _restore_force_diagram_if_active(self):
+        last = getattr(self, '_last_force_diagram_settings', {})
+        cvs = self.active_canvas
+        settings = last.get(cvs)
+        if settings and (cvs.force_mesh_item.visible or cvs._pending_force_upload is not None):
+            self.apply_force_diagrams_from_dialog(settings)
+
     def move_view_layer(self, direction):
         if self.active_canvas._view_mode in ["3D", "ISO"]: return
         
@@ -1079,6 +1098,7 @@ class MainWindow(QMainWindow):
         self.status.showMessage(f"Filtered View: {cvs._view_mode} @ {axis.upper()}={val:.2f}m")
         if self.cross_brace_dialog:
             self.cross_brace_dialog.update_plane_status(cvs.active_view_plane)
+        self._restore_force_diagram_if_active()
 
     def set_view_iso(self):
         self._reset_plane_buttons()
@@ -1092,10 +1112,33 @@ class MainWindow(QMainWindow):
 
         self.update_linked_planes()
 
+    def _purge_results_and_visuals(self):
+        """Silently purges all post-processing visuals, locks, and GPU buffers for a fresh file."""
+        self.is_locked = False
+        self.btn_deform.setEnabled(False)
+        self.btn_deform.setChecked(False)
+        self.action_display_forces.setEnabled(False)
+        
+        self.btn_lock.setIcon(qta.icon('fa5s.unlock', color='#6c757d'))
+        self.btn_lock.setToolTip("Model is editable.")
+        
+        for cvs in [self.canvas, getattr(self, 'canvas2', None)]:
+            if cvs is not None:
+                if hasattr(cvs, 'clear_force_diagrams'):
+                    cvs.clear_force_diagrams()
+                cvs.view_deflected = False
+                cvs.anim_factor = 0.0
+                cvs.invalidate_animation_cache()
+                if hasattr(cvs, 'animation_manager') and cvs.animation_manager:
+                    cvs.animation_manager.stop_animation()
+                if hasattr(cvs, 'clear_ltha_history'):
+                    cvs.clear_ltha_history()
+
     def on_new_model(self):
         dialog = NewModelDialog(self)
         if dialog.exec(): 
             if dialog.accepted_data:
+                self._purge_results_and_visuals()                
                 data = dialog.grid_data
                 self.model = StructuralModel("New Project")
                 self.terminal_panel.set_model(self.model)
@@ -1165,6 +1208,7 @@ class MainWindow(QMainWindow):
         filename, _ = QFileDialog.getOpenFileName(self, "Open Model", "", "OPENCIVIL Files (*.mf);;All Files (*)")
         if filename:
             try:
+                self._purge_results_and_visuals()                
                 self.model = StructuralModel("Loaded Project")
                 self.terminal_panel.set_model(self.model)
                 self.model.load_from_file(filename)
@@ -1871,8 +1915,15 @@ class MainWindow(QMainWindow):
 
     def apply_view_options(self, settings):
         cvs = self.active_canvas
-        cvs.view_extruded        = settings.get('extrude', False)
-        cvs.show_slabs           = settings.get('areas', True)
+        cvs.view_extruded = settings.get('extrude', False)
+
+        if cvs.view_extruded:
+            if hasattr(cvs, 'clear_force_diagrams'):
+                cvs.clear_force_diagrams()
+                                                                                
+            cvs._pre_force_was_extruded = False
+
+        cvs.show_slabs = settings.get('areas', True)
         cvs.show_grid            = settings.get('grid', True)
         cvs.show_ghost_structure = settings.get('ghost', True)
         cvs.show_joints          = settings.get('joints', True)
@@ -2486,16 +2537,22 @@ class MainWindow(QMainWindow):
         displacements = case_data.get("displacements", {})
         matrices_path = mat_path if os.path.exists(mat_path) else None
 
-        success = self.canvas.show_force_diagram(
+        success = self.active_canvas.show_force_diagram(
             model=self.model,
             component=settings['component'],
             scale_factor=settings['scale_factor'],
             displacements=displacements,
             matrices_path=matrices_path,
             show_labels=settings.get('show_labels', False),
+            show_labels_mode=settings.get('show_labels_mode', 'all'),
+            text_size=settings.get('text_size', None),
+            selected_ids=self.selected_ids
         )
 
         if success:
+            if not hasattr(self, '_last_force_diagram_settings'):
+                self._last_force_diagram_settings = {}
+            self._last_force_diagram_settings[self.active_canvas] = settings
             self.statusBar().showMessage(
                 f"[{load_case}]  {settings['component']}  —  Scale: {settings['scale_factor'] or 'Auto'}"
             )
@@ -2613,7 +2670,7 @@ class MainWindow(QMainWindow):
     def update_window_title(self):
         """Updates window title to show currently active filename and version."""
                                                               
-        base_title = "OpenCivil v0.7.67" 
+        base_title = "OpenCivil v0.7.70" 
         
         if self.model and getattr(self.model, 'file_path', None):
             short_name = os.path.basename(self.model.file_path)
@@ -3015,6 +3072,7 @@ class MainWindow(QMainWindow):
 
     def _on_cli_file_opened(self, new_model):
         """Called by TerminalPanel when the CLI 'open' command succeeds."""
+        self._purge_results_and_visuals()                
         self.model = new_model
         self.undo_stack.clear()
 
@@ -3083,6 +3141,11 @@ class MainWindow(QMainWindow):
     def _apply_canvas_view_settings(self, gs):
         """Applies project-level view toggles from a settings dict to the canvas."""
         self.canvas.view_extruded        = gs.get('view_extruded', False)
+
+        if self.canvas.view_extruded:
+            self.canvas.force_diagram_data = None
+            self.canvas.force_labels = []
+
         self.canvas.show_slabs           = gs.get('show_slabs', True)
         self.canvas.show_joints          = gs.get('show_joints', True)
         self.canvas.show_supports        = gs.get('show_supports', True)

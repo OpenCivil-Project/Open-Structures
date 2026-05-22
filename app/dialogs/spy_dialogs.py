@@ -255,7 +255,7 @@ class FBDViewerDialog(QDialog):
     def __init__(self, element_id, model, results_path, matrices_path, parent=None):
         super().__init__(parent)
         self.setWindowTitle(f"Element {element_id} - Free Body Diagrams")
-        self.setFixedSize(500, 600)
+        self.setFixedSize(650, 700)
         
         self.element_id = str(element_id)
         self.model = model

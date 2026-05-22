@@ -184,9 +184,12 @@ class DeformedShapeDialog(QDialog):
         layout.addStretch()
 
         btn_layout = QHBoxLayout()
+        btn_apply = QPushButton("Apply")
+        btn_apply.clicked.connect(self.on_apply)
         btn_ok = QPushButton("Close")
         btn_ok.clicked.connect(self.accept)
         btn_layout.addStretch()
+        btn_layout.addWidget(btn_apply)
         btn_layout.addWidget(btn_ok)
         layout.addLayout(btn_layout)
 
@@ -324,6 +327,8 @@ class DeformedShapeDialog(QDialog):
                 self.chk_shadow.isChecked(),
                 self.shadow_rgba
             )
+            if self.chk_show.isChecked() and hasattr(self.parent(), 'canvas'):
+                self.parent().canvas.clear_force_diagrams()
             
     def accept(self):
                                                   
@@ -397,7 +402,7 @@ class DeformedShapeDialog(QDialog):
                     prefs = json.load(f)
                     
                 if not self.is_animating:
-                                                                                                 
+                    self.scale_value = prefs.get("deflection_scale", self.scale_value)
                     self.anim_speed = prefs.get("anim_speed", self.anim_speed)
                     
                 self.shadow_active = prefs.get("shadow_active", self.shadow_active)

@@ -30,13 +30,19 @@ class ForceDiagramBuilder:
     }
 
     POS_COLOR  = np.array([0.15, 0.40, 1.00, 0.72], dtype=np.float32)
-    NEG_COLOR  = np.array([1.00, 0.20, 0.20, 0.72], dtype=np.float32)
+    NEG_COLOR = np.array([1.00, 0.35, 0.35, 0.85], dtype=np.float32)
     LINE_COLOR = np.array([0.08, 0.08, 0.08, 0.90], dtype=np.float32)
 
     def __init__(self, model, component='M3', scale_factor=None, n_stations=21,
-                 displacements=None, matrices_path=None, show_labels=True):
+                 displacements=None, matrices_path=None, show_labels=True,
+                 show_labels_mode='all', text_size=None, selected_ids=None, active_view_plane=None, show_ghost_structure=True):
         self.model       = model
         self.show_labels = show_labels
+        self.show_labels_mode = show_labels_mode
+        self.text_size   = text_size
+        self.selected_ids = selected_ids or []
+        self.active_view_plane    = active_view_plane
+        self.show_ghost_structure = show_ghost_structure
         self.component   = component
         self._scale      = scale_factor
         self.n_stations  = max(n_stations, 5)
@@ -86,6 +92,8 @@ class ForceDiagramBuilder:
 
         for el_id, data in nvm_results.items():
             el       = self.model.elements[el_id]
+            if self._elem_visibility(el) == 0:
+                continue
             farr     = data[self.component]
             stations = data['stations']
 
@@ -116,23 +124,69 @@ class ForceDiagramBuilder:
                 disp_scale = unit_registry.force_scale
                 unit_str = unit_registry.force_unit_name
 
-            def add_label(idx):
-                val = farr[idx]
-                                                                
+            label_text_height = 0.08 * 1.5 if self.component == 'P' else 0.15 * 1.5
+
+            if self.text_size is not None and self.text_size > 0:
+                label_text_height = float(self.text_size)
+            else:
+                label_text_height = 0.08 * 1.2 if self.component == 'P' else 0.15 * 1.2
+
+            def add_label(idx, align='center', val_idx=None):
+                val = farr[val_idx if val_idx is not None else idx]                       
                 if abs(val) > 1e-4:
                     disp_val = val * disp_scale
+
+                    safe_dir = -perp if val >= 0 else perp
+
+                    v_right_label = v_x.copy()
+                    v_up_label = perp.copy()
+                    
+                    is_vertical = abs(v_x[2]) > 0.99 
+                    if not is_vertical:
+                                                          
+                        if v_up_label[2] < -0.01 or (abs(v_up_label[2]) <= 0.01 and v_up_label[1] < -0.01):
+                            v_up_label = -v_up_label
+                            
+                        if v_right_label[0] < -0.01:
+                            v_right_label = -v_right_label
+                            if align == 'left': align = 'right'
+                            elif align == 'right': align = 'left'
+
+                    gap = label_text_height * 0.15 
+                    
+                    if np.dot(safe_dir, v_up_label) > 0:
+                                                                         
+                        anchor_offset = (safe_dir * gap) - (v_up_label * (label_text_height * 0.4))
+                    else:
+                                                                                      
+                        anchor_offset = (safe_dir * gap) + (safe_dir * (label_text_height * 1.4))
+
                     self.labels.append({
-                        'pos_3d': tips[idx].tolist(),
-                        'text':   f"{disp_val:.2f} {unit_str}",
-                        'val':    val,
+                        'pos_3d': (bases[idx] + anchor_offset).tolist(),                      
+                        'text':   f"{disp_val:.2f} {unit_str}", 
+                        'val':         val,
+                        'v_right':     v_right_label.tolist(),
+                        'v_up':        v_up_label.tolist(),
+                        'align':       align,
+                        'text_height': label_text_height,
                     })
 
             if self.show_labels:
-                add_label(0)
-                add_label(-1)
-                max_idx = int(np.argmax(np.abs(farr)))
-                if max_idx != 0 and max_idx != (len(farr) - 1):
-                    add_label(max_idx)
+                                                                        
+                show_for_this_element = True
+                if self.show_labels_mode == 'selected' and el_id not in self.selected_ids:
+                    show_for_this_element = False
+                    
+                if show_for_this_element:
+                                                                                    
+                    offset = max(1, int(n * 0.005))
+
+                    add_label(offset,      align='left',  val_idx=0)                                      
+                    add_label(-1 - offset, align='right', val_idx=-1)                                      
+                    
+                    max_idx = int(np.argmax(np.abs(farr)))
+                    if max_idx != 0 and max_idx != (len(farr) - 1):
+                        add_label(max_idx, align='center')
 
             colors = np.where(
                 farr[:, None] >= 0,
@@ -186,6 +240,21 @@ class ForceDiagramBuilder:
             self.line_colors = np.concatenate(all_lc)
 
         return True
+
+    def _elem_visibility(self, elem):
+        """Returns 2=on-plane, 1=ghost, 0=hidden — mirrors canvas._get_visibility_state"""
+        if self.active_view_plane is None:
+            return 2
+        axis = self.active_view_plane['axis']
+        val  = self.active_view_plane['value']
+        tol  = 0.005
+        n1 = elem.node_i
+        n2 = elem.node_j
+        v1 = getattr(n1, axis)
+        v2 = getattr(n2, axis)
+        if abs(v1 - val) < tol and abs(v2 - val) < tol:
+            return 2                                
+        return 1 if self.show_ghost_structure else 0
 
     def _resolve_matrices_path(self):
         """Resolve the matrices JSON path exactly once for the whole batch."""
@@ -390,4 +459,4 @@ class ForceDiagramBuilder:
             'V3': data.V3,
             'M2': data.M2,
             'M3': data.M3,
-        }.get(self.component, data.M3)
+        }.get(self.component, data.M3)  

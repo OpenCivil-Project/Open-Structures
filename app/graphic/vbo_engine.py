@@ -1,6 +1,7 @@
 import numpy as np
 from OpenGL.GL import *
 from OpenGL.GL import shaders
+from PIL import Image
 
 class VBORenderManager:
     def __init__(self):
@@ -25,6 +26,42 @@ class VBORenderManager:
         self.force_line_vao = None
         self.force_line_vbo = None
         self.force_line_vertex_count = 0
+
+        self.sdf_vertex_shader_source = """
+        #version 330 core
+        layout(location = 0) in vec3 a_position;
+        layout(location = 1) in vec2 a_texcoord;
+        layout(location = 2) in vec4 a_color;
+
+        uniform mat4 u_view;
+        uniform mat4 u_projection;
+        uniform float u_camera_dist; 
+
+        out vec2 v_texcoord;
+        out vec4 v_color;
+
+        void main() {
+            gl_Position = u_projection * u_view * vec4(a_position, 1.0);
+            v_texcoord = a_texcoord;
+            v_color = a_color;
+        }
+        """
+
+        self.sdf_fragment_shader_source = """
+        #version 330 core
+        in vec2 v_texcoord;
+        in vec4 v_color;
+        out vec4 FragColor;
+
+        uniform sampler2D u_texture;
+        uniform float u_smoothing; 
+
+        void main() {
+            float distance = texture(u_texture, v_texcoord).r;
+            float alpha = smoothstep(0.5 - u_smoothing, 0.5 + u_smoothing, distance);
+            FragColor = vec4(v_color.rgb, v_color.a * alpha);
+        }
+        """
 
         self.vertex_shader_source = """
         #version 330 core
@@ -80,6 +117,20 @@ class VBORenderManager:
 
             self.force_line_vao = glGenVertexArrays(1)
             self.force_line_vbo = glGenBuffers(1)
+
+            sdf_vert = shaders.compileShader(self.sdf_vertex_shader_source, GL_VERTEX_SHADER)
+            sdf_frag = shaders.compileShader(self.sdf_fragment_shader_source, GL_FRAGMENT_SHADER)
+            self.text_shader_program = shaders.compileProgram(sdf_vert, sdf_frag)
+
+            self.text_vao = glGenVertexArrays(1)
+            self.text_vbo = glGenBuffers(1)
+            self.text_ebo = glGenBuffers(1)
+            self.text_index_count = 0
+
+            self.loc_text_view = glGetUniformLocation(self.text_shader_program, "u_view")
+            self.loc_text_proj = glGetUniformLocation(self.text_shader_program, "u_projection")
+            self.loc_text_tex  = glGetUniformLocation(self.text_shader_program, "u_texture")
+            self.loc_text_smooth = glGetUniformLocation(self.text_shader_program, "u_smoothing")
 
             self.is_initialized = True
 
@@ -371,6 +422,100 @@ class VBORenderManager:
         glBufferSubData(GL_ARRAY_BUFFER, 0, self.persistent_ext_buffer.nbytes, self.persistent_ext_buffer)
         glBindVertexArray(0)
 
+    def load_font_texture(self, image_name="font_atlas.png"):
+        if not self.is_initialized:
+            return
+        
+        import os
+        current_dir = os.path.dirname(os.path.abspath(__file__))
+        path = os.path.join(current_dir, image_name)
+        
+        try:
+                                                                            
+            img = Image.open(path).convert('L')
+                                                                             
+            img = img.transpose(Image.FLIP_TOP_BOTTOM)
+            img_data = np.array(img, np.uint8)
+            
+            self.font_texture_id = glGenTextures(1)
+            glBindTexture(GL_TEXTURE_2D, self.font_texture_id)
+            
+            glPixelStorei(GL_UNPACK_ALIGNMENT, 1)
+            
+            glTexImage2D(GL_TEXTURE_2D, 0, GL_RED, img.width, img.height, 0, GL_RED, GL_UNSIGNED_BYTE, img_data)
+            
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR)
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR)
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE)
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE)
+            
+            glBindTexture(GL_TEXTURE_2D, 0)
+            
+            glPixelStorei(GL_UNPACK_ALIGNMENT, 4)
+            
+            print(">> VBO Engine: SDF Font Texture Loaded!")
+        except Exception as e:
+            print(f"❌ Failed to load font texture: {e}")
+
+    def upload_text_geometry(self, vertices, texcoords, colors, indices):
+        if not self.is_initialized or len(vertices) == 0:
+            self.text_index_count = 0
+            return
+
+        interleaved = np.hstack((vertices, texcoords, colors)).astype(np.float32).flatten()
+        indices = indices.astype(np.uint32).flatten()
+        self.text_index_count = len(indices)
+
+        glBindVertexArray(self.text_vao)
+        
+        glBindBuffer(GL_ARRAY_BUFFER, self.text_vbo)
+        glBufferData(GL_ARRAY_BUFFER, interleaved.nbytes, interleaved, GL_STATIC_DRAW)
+        
+        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, self.text_ebo)
+        glBufferData(GL_ELEMENT_ARRAY_BUFFER, indices.nbytes, indices, GL_STATIC_DRAW)
+
+        stride = 9 * 4
+                  
+        glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, stride, ctypes.c_void_p(0))
+        glEnableVertexAttribArray(0)
+                  
+        glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, stride, ctypes.c_void_p(12))
+        glEnableVertexAttribArray(1)
+               
+        glVertexAttribPointer(2, 4, GL_FLOAT, GL_FALSE, stride, ctypes.c_void_p(20))
+        glEnableVertexAttribArray(2)
+
+        glBindVertexArray(0)
+
+    def draw_text(self, view_matrix, proj_matrix, texture_id):
+        if not self.is_initialized or self.text_index_count == 0:
+            return
+
+        glUseProgram(self.text_shader_program)
+        glUniformMatrix4fv(self.loc_text_view, 1, GL_FALSE, view_matrix)
+        glUniformMatrix4fv(self.loc_text_proj, 1, GL_FALSE, proj_matrix)
+        
+        glUniform1f(self.loc_text_smooth, 0.05) 
+
+        glActiveTexture(GL_TEXTURE0)
+        glBindTexture(GL_TEXTURE_2D, texture_id)
+        glUniform1i(self.loc_text_tex, 0)
+
+        glEnable(GL_BLEND)
+        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA)
+        glDisable(GL_DEPTH_TEST)                                                                        
+
+        glBindVertexArray(self.text_vao)
+        glDrawElements(GL_TRIANGLES, self.text_index_count, GL_UNSIGNED_INT, None)
+        glBindVertexArray(0)
+
+        glEnable(GL_DEPTH_TEST)
+        glUseProgram(0)
+
+        glActiveTexture(GL_TEXTURE0)
+        glBindTexture(GL_TEXTURE_2D, 0)
+        glBindBuffer(GL_ARRAY_BUFFER, 0)
+        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0)
 import numpy as np
 
 class VectorizedLTHAEngine:

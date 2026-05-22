@@ -28,7 +28,27 @@
             0.0,
             1.0
         ],
-        "slab_opacity": 0.4
+        "slab_opacity": 0.4,
+        "edge_opacity": 0.0,
+        "view_extruded": false,
+        "show_slabs": true,
+        "show_joints": true,
+        "show_supports": true,
+        "show_loads": true,
+        "show_local_axes": false,
+        "show_constraints": true,
+        "show_releases": true,
+        "load_type_filter": "both",
+        "visible_load_patterns": [],
+        "deflection_scale": 3902.3,
+        "anim_speed": 1.0,
+        "shadow_active": true,
+        "shadow_color": [
+            0.7,
+            0.7,
+            0.7,
+            0.5
+        ]
     },
     "load_cases": [
         {
@@ -9355,6 +9375,27 @@
             "mx": 0.0,
             "my": 0.0,
             "mz": 0.0
+        },
+        {
+            "pattern": "DEAD",
+            "type": "member_point",
+            "element_id": 184,
+            "force": 10000.0,
+            "dist": 0.5,
+            "is_rel": true,
+            "coord": "Global",
+            "dir": "Gravity",
+            "l_type": "Force"
+        },
+        {
+            "pattern": "DEAD",
+            "type": "member_dist",
+            "element_id": 166,
+            "wx": 0.0,
+            "wy": 0.0,
+            "wz": -10000.0,
+            "projected": false,
+            "coord": "Global"
         }
     ],
     "mass_sources": [

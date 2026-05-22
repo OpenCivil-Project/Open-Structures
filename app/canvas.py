@@ -13,6 +13,7 @@ from OpenGL.GL import *
 from core.properties import RectangularSection, CircularSection, TrapezoidalSection
 from PyQt6.QtWidgets import QLabel        
 from graphic.vbo_engine import VBORenderManager, VectorizedLTHAEngine                               
+from graphic.sdf_text import SDFTextBuilder
 
 class MCanvas3D(gl.GLViewWidget):
     signal_canvas_clicked = pyqtSignal(float, float, float)
@@ -123,7 +124,6 @@ class MCanvas3D(gl.GLViewWidget):
         self._label_pixmap_dirty   = False                      
         self._label_rebuild_timer  = QTimer()
         self._label_rebuild_timer.setSingleShot(True)
-        self._label_rebuild_timer.timeout.connect(self._rebuild_label_pixmap)
         
         self._label_hide_timer.timeout.connect(
             lambda: self._schedule_label_rebuild(0)
@@ -143,6 +143,9 @@ class MCanvas3D(gl.GLViewWidget):
         self.blink_state = True
 
         self.vbo_manager = VBORenderManager()
+
+        self.vbo_manager = VBORenderManager()
+        self.text_builder = SDFTextBuilder()
                                     
         self.pivot_dot = gl.GLScatterPlotItem(pos=np.array([[0,0,0]]), size=6, 
                                               color=(1, 1, 0, 0.3), pxMode=True)
@@ -246,6 +249,7 @@ class MCanvas3D(gl.GLViewWidget):
     def initializeGL(self):
         super().initializeGL()
         self.vbo_manager.init_gl()    
+        self.vbo_manager.load_font_texture()  
 
     def _line_intersects_rect(self, p1, p2, rect):
         """
@@ -420,8 +424,10 @@ class MCanvas3D(gl.GLViewWidget):
 
         self.invalidate_deflection_cache()
 
+        _preserve = {self.force_mesh_item, self.force_line_item}
         for item in self.items[:]:
-            self.removeItem(item)
+            if item not in _preserve:
+                self.removeItem(item)
 
         if not self.view_deflected:
             self._draw_reference_grids(model)
@@ -446,6 +452,10 @@ class MCanvas3D(gl.GLViewWidget):
             self._draw_loads(model)
             self._draw_member_loads(model)
             self._draw_member_point_loads(model)
+            self._upload_load_labels_to_gpu() 
+        else:
+                                                                                                         
+            self._upload_load_labels_to_gpu()
 
         if self.show_slabs:
             self._draw_slabs(model)
@@ -481,9 +491,15 @@ class MCanvas3D(gl.GLViewWidget):
                 self.camera.animate_to(target_center=center, target_dist=needed_dist)
 
     def update_selection_overlay(self, sel_elems, sel_nodes):
+
+        if not hasattr(self, 'current_model') or self.current_model is None:
+            return
+                   
         """Fast-path selection update. Skips full geometry rebuild."""
         self.selected_element_ids = list(sel_elems) if sel_elems is not None else []
         self.selected_node_ids = list(sel_nodes) if sel_nodes is not None else []
+        current_model = self.current_model
+        in_analysis_mode = hasattr(current_model, 'has_results') and current_model.has_results if current_model else False
         
         for item in self._sel_overlay_items:
             try:
@@ -497,16 +513,20 @@ class MCanvas3D(gl.GLViewWidget):
             try: self.removeItem(item)
             except Exception: pass
         self.load_items.clear()
+                            
         self.load_labels.clear()
-
-        if self.current_model:
-            self._rebuild_selection_overlay()
-            
-            in_analysis_mode = hasattr(self.current_model, 'has_results') and self.current_model.has_results
+        if hasattr(self, 'show_loads'):
+            self.load_labels = []
             if self.show_loads and not in_analysis_mode:
                 self._draw_loads(self.current_model)
                 self._draw_member_loads(self.current_model)
                 self._draw_member_point_loads(self.current_model)
+                self._upload_load_labels_to_gpu()
+            else:
+                self._upload_load_labels_to_gpu()
+
+        self._rebuild_selection_overlay()
+        self.update()
 
     def _rebuild_selection_overlay(self):
         """Dispatches to wireframe or extruded overlay builder, then nodes."""
@@ -569,12 +589,27 @@ class MCanvas3D(gl.GLViewWidget):
                     curve_data_full = cached['curve_data']
                     p1_orig = cached['p1_orig']
                     p2_orig = cached['p2_orig']
-                                                                      
+
+                    off_i = getattr(el, 'end_offset_i', 0.0)
+                    off_j = getattr(el, 'end_offset_j', 0.0)
+                    vec = p2_orig - p1_orig
+                    _len = np.linalg.norm(vec)
+                    p1_flex, p2_flex = p1_orig.copy(), p2_orig.copy()
+                    if _len > 0.001 and (off_i > 0 or off_j > 0):
+                        _u = vec / _len
+                        if off_i + off_j >= _len:
+                            _scale = (_len / (off_i + off_j)) * 0.99
+                            p1_flex = p1_orig + (_u * off_i * _scale)
+                            p2_flex = p2_orig - (_u * off_j * _scale)
+                        else:
+                            p1_flex = p1_orig + (_u * off_i)
+                            p2_flex = p2_orig - (_u * off_j)
+
                     curve_pts = []
                     for k in range(len(curve_data_full)):
                         pos_full, _, _ = curve_data_full[k]
                         s = k / (len(curve_data_full) - 1) if len(curve_data_full) > 1 else 0.0
-                        pos_orig = p1_orig + s * (p2_orig - p1_orig)
+                        pos_orig = p1_flex + s * (p2_flex - p1_flex)             
                         curve_pts.append(pos_orig + (pos_full - pos_orig) * self.anim_factor)
                                                                                          
                     dash, gap = 0.4, 0.25
@@ -736,11 +771,26 @@ class MCanvas3D(gl.GLViewWidget):
                     p1_orig = cached['p1_orig']
                     p2_orig = cached['p2_orig']
 
+                    off_i = getattr(el, 'end_offset_i', 0.0)
+                    off_j = getattr(el, 'end_offset_j', 0.0)
+                    vec = p2_orig - p1_orig
+                    _len = np.linalg.norm(vec)
+                    p1_flex, p2_flex = p1_orig.copy(), p2_orig.copy()
+                    if _len > 0.001 and (off_i > 0 or off_j > 0):
+                        _u = vec / _len
+                        if off_i + off_j >= _len:
+                            _scale = (_len / (off_i + off_j)) * 0.99
+                            p1_flex = p1_orig + (_u * off_i * _scale)
+                            p2_flex = p2_orig - (_u * off_j * _scale)
+                        else:
+                            p1_flex = p1_orig + (_u * off_i)
+                            p2_flex = p2_orig - (_u * off_j)
+
                     curve_pts = []
                     for k in range(len(curve_data_full)):
                         pos_full, _, _ = curve_data_full[k]
                         s = k / (len(curve_data_full) - 1) if len(curve_data_full) > 1 else 0.0
-                        pos_orig = p1_orig + s * (p2_orig - p1_orig)
+                        pos_orig = p1_flex + s * (p2_flex - p1_flex)             
                         curve_pts.append(pos_orig + (pos_full - pos_orig) * self.anim_factor)
 
                     dist_accum, on = 0.0, True
@@ -1151,6 +1201,20 @@ class MCanvas3D(gl.GLViewWidget):
                             p1_flex = p1 + (_u * _off_i)
                             p2_flex = p2 - (_u * _off_j)
 
+                    if _off_i > 0:
+                        p1_def = p1 + np.array(res_i[:3]) * self.deflection_scale * self.anim_factor
+                        p1_flex_def, _, _ = curve_data_full[0]
+                        p1_flex_anim = p1_flex + (p1_flex_def - p1_flex) * self.anim_factor
+                        curved_pos.extend([p1_def, p1_flex_anim])
+                        curved_colors.extend([rigid_black, rigid_black])
+
+                    if _off_j > 0:
+                        p2_def = p2 + np.array(res_j[:3]) * self.deflection_scale * self.anim_factor
+                        p2_flex_def, _, _ = curve_data_full[-1]
+                        p2_flex_anim = p2_flex + (p2_flex_def - p2_flex) * self.anim_factor
+                        curved_pos.extend([p2_flex_anim, p2_def])
+                        curved_colors.extend([rigid_black, rigid_black])
+
                     for k in range(len(curve_data_full) - 1):
                         pos_full, _, _ = curve_data_full[k]
                         pos_full_next, _, _ = curve_data_full[k+1]
@@ -1162,7 +1226,7 @@ class MCanvas3D(gl.GLViewWidget):
                         p_start = pos_orig + displacement * self.anim_factor
                         
                         s_next = (k + 1) / (len(curve_data_full) - 1)
-                        pos_orig_next = p1 + s_next * (p2 - p1)
+                        pos_orig_next = p1_flex + s_next * (p2_flex - p1_flex)             
                         displacement_next = pos_full_next - pos_orig_next
                         p_end = pos_orig_next + displacement_next * self.anim_factor
                         
@@ -1544,11 +1608,10 @@ class MCanvas3D(gl.GLViewWidget):
                     self.ex_faces.append([root_b, start_idx + n + i, start_idx + n + i + 1])
     
     def show_force_diagram(self, model, component='M3', scale_factor=None,
-                       displacements=None, matrices_path=None, show_labels=False):
+                           displacements=None, matrices_path=None, show_labels=False,
+                           show_labels_mode='all', text_size=None, selected_ids=None):
         """
         Builds and renders the 3D force diagrams for the active model.
-        Automatically switches to wireframe if currently in extruded view,
-        and remembers the state so clear_force_diagrams() can restore it.
         """
         from core.force_diagram import ForceDiagramBuilder
 
@@ -1572,6 +1635,10 @@ class MCanvas3D(gl.GLViewWidget):
             displacements=displacements,
             matrices_path=matrices_path,
             show_labels=show_labels,
+            show_labels_mode=show_labels_mode,
+            text_size=text_size,active_view_plane=self.active_view_plane,                    
+            show_ghost_structure=self.show_ghost_structure,
+            selected_ids=selected_ids
         )
         success = builder.build()
 
@@ -1582,7 +1649,9 @@ class MCanvas3D(gl.GLViewWidget):
 
         self.force_labels = builder.labels
 
-        self._schedule_label_rebuild(delay_ms=60)
+        self.makeCurrent()
+                                                                                
+        self._upload_load_labels_to_gpu()
 
         self._pending_force_upload = {
             'fill_verts':  builder.fill_verts,
@@ -1601,6 +1670,9 @@ class MCanvas3D(gl.GLViewWidget):
         self.force_labels = []
         self._label_pixmap = None
         self.vbo_manager.clear_force_geometry()              
+
+        self.makeCurrent()
+        self._upload_load_labels_to_gpu()                                                            
 
         needs_redraw = False
         if getattr(self, '_pre_force_was_extruded', False):
@@ -1947,8 +2019,9 @@ class MCanvas3D(gl.GLViewWidget):
                     d = axis_vec * (1 if val > 0 else -1)
                     add_arrow(origin, d, color, is_moment)
                     
-                    l_type = "Moment" if is_moment else "Force"
-                    self._add_load_label(origin, d, val, l_type, color, owner_id=node.id, owner_type='node')
+                    if is_selected:
+                        l_type = "Moment" if is_moment else "Force"
+                        self._add_load_label(origin, d, val, l_type, color, owner_id=node.id, owner_type='node')
 
             c_black = (0, 0, 0, 1)
 
@@ -1980,12 +2053,25 @@ class MCanvas3D(gl.GLViewWidget):
             unit_str = unit_registry.force_unit_name
             
         label_pos = origin - (direction * 2.2)
+        
+        v_right = direction.copy()
+        if v_right[0] < -0.01: v_right = -v_right                                  
+        
+        v_up = np.array([0.0, 0.0, 1.0])
+        if abs(v_right[2]) > 0.99:                            
+            v_up = np.array([1.0, 0.0, 0.0])
+
+        if not hasattr(self, 'load_labels'): self.load_labels = []
         self.load_labels.append({
-            'owner_id': owner_id,
-            'owner_type': owner_type,
-            'pos_3d': label_pos,
-            'text': f"{display_val:.2f} {unit_str}",
-            'color': color
+            'owner_id': owner_id, 'owner_type': owner_type,
+            'pos_3d': label_pos.tolist(),                               
+            'text': f"{display_val:.2f} {unit_str}",  
+            'val': val,
+            'color': list(color[:4]) if len(color) >= 4 else [0,0,0,1],
+            'v_right': v_right.tolist(),
+            'v_up': v_up.tolist(),
+            'align': 'center',
+            'text_height': 0.20
         })
 
     def _screen_scale(self):
@@ -2596,6 +2682,39 @@ class MCanvas3D(gl.GLViewWidget):
             curve_data_full = self.deflection_cache[eid]['curve_data']
             n_pts = len(curve_data_full)
 
+            off_i = getattr(el, 'end_offset_i', 0.0)
+            off_j = getattr(el, 'end_offset_j', 0.0)
+            vec = p2 - p1
+            _len = np.linalg.norm(vec)
+            p1_flex, p2_flex = p1.copy(), p2.copy()
+            if _len > 0.001 and (off_i > 0 or off_j > 0):
+                _u = vec / _len
+                if off_i + off_j >= _len:
+                    _scale = (_len / (off_i + off_j)) * 0.99
+                    p1_flex = p1 + (_u * off_i * _scale)
+                    p2_flex = p2 - (_u * off_j * _scale)
+                else:
+                    p1_flex = p1 + (_u * off_i)
+                    p2_flex = p2 - (_u * off_j)
+
+                if off_i > 0:
+                    p1_flex_def, _, _ = curve_data_full[0]
+                    rest_verts.extend([p1, p1_flex])
+                    displacements.extend([
+                        np.array(res_i[:3]) * self.deflection_scale,
+                        p1_flex_def - p1_flex
+                    ])
+                    colors.extend([np.array([0,0,0,1]), np.array([0,0,0,1])])
+
+                if off_j > 0:
+                    p2_flex_def, _, _ = curve_data_full[-1]
+                    rest_verts.extend([p2_flex, p2])
+                    displacements.extend([
+                        p2_flex_def - p2_flex,
+                        np.array(res_j[:3]) * self.deflection_scale
+                    ])
+                    colors.extend([np.array([0,0,0,1]), np.array([0,0,0,1])])
+
             for k in range(n_pts - 1):
                 pos_full_a, _, _ = curve_data_full[k]
                 pos_full_b, _, _ = curve_data_full[k + 1]
@@ -2603,8 +2722,8 @@ class MCanvas3D(gl.GLViewWidget):
                 s_a = k / (n_pts - 1)
                 s_b = (k + 1) / (n_pts - 1)
 
-                pos_orig_a = p1 + s_a * (p2 - p1)
-                pos_orig_b = p1 + s_b * (p2 - p1)
+                pos_orig_a = p1_flex + s_a * (p2_flex - p1_flex)             
+                pos_orig_b = p1_flex + s_b * (p2_flex - p1_flex)             
 
                 rest_verts.extend([pos_orig_a, pos_orig_b])
                 displacements.extend([pos_full_a - pos_orig_a,
@@ -2763,15 +2882,44 @@ class MCanvas3D(gl.GLViewWidget):
             cached = self.deflection_cache[cache_key]
             curve_data_full = cached['curve_data']
             
+            off_i = getattr(el, 'end_offset_i', 0.0)
+            off_j = getattr(el, 'end_offset_j', 0.0)
+            vec = p2 - p1
+            _len = np.linalg.norm(vec)
+            p1_flex, p2_flex = p1.copy(), p2.copy()
+            if _len > 0.001 and (off_i > 0 or off_j > 0):
+                _u = vec / _len
+                if off_i + off_j >= _len:
+                    _scale = (_len / (off_i + off_j)) * 0.99
+                    p1_flex = p1 + (_u * off_i * _scale)
+                    p2_flex = p2 - (_u * off_j * _scale)
+                else:
+                    p1_flex = p1 + (_u * off_i)
+                    p2_flex = p2 - (_u * off_j)
+
+            if off_i > 0:
+                p1_def = p1 + np.array(res_i[:3]) * self.deflection_scale * anim_factor
+                p1_flex_def, _, _ = curve_data_full[0]
+                p1_flex_anim = p1_flex + (p1_flex_def - p1_flex) * anim_factor
+                curved_pos.extend([p1_def, p1_flex_anim])
+                curved_colors.extend([np.array([0,0,0,1]), np.array([0,0,0,1])])
+
+            if off_j > 0:
+                p2_def = p2 + np.array(res_j[:3]) * self.deflection_scale * anim_factor
+                p2_flex_def, _, _ = curve_data_full[-1]
+                p2_flex_anim = p2_flex + (p2_flex_def - p2_flex) * anim_factor
+                curved_pos.extend([p2_flex_anim, p2_def])
+                curved_colors.extend([np.array([0,0,0,1]), np.array([0,0,0,1])])
+
             for k in range(len(curve_data_full) - 1):
                 pos_full, _, _ = curve_data_full[k]
                 pos_full_next, _, _ = curve_data_full[k+1]
                 
                 s = k / (len(curve_data_full) - 1)
-                pos_orig = p1 + s * (p2 - p1)
+                pos_orig = p1_flex + s * (p2_flex - p1_flex)             
                 
                 s_next = (k + 1) / (len(curve_data_full) - 1)
-                pos_orig_next = p1 + s_next * (p2 - p1)
+                pos_orig_next = p1_flex + s_next * (p2_flex - p1_flex)             
                 
                 displacement = pos_full - pos_orig
                 p_start = pos_orig + displacement * anim_factor
@@ -3191,80 +3339,6 @@ class MCanvas3D(gl.GLViewWidget):
             painter.setBrush(c)
             painter.setPen(QPen(border, 1, Qt.PenStyle.SolidLine))
             painter.drawRect(rect)
-        
-        if self.load_labels and self.current_model:
-            
-            w = self.width()
-            h = self.height()
-            full_area = (0, 0, w, h)
-            m_view = self.viewMatrix()
-            m_proj = self.projectionMatrix(region=full_area, viewport=full_area)
-            mvp = np.array((m_proj * m_view).data()).reshape(4, 4).T
-            
-            TEXT_WORLD_HEIGHT = 0.35
-            
-            font = painter.font()
-            
-            for label in self.load_labels:
-
-                o_id = label.get('owner_id')
-                o_type = label.get('owner_type')
-                
-                if o_type == 'node' and o_id not in self.selected_node_ids:
-                    continue
-                if o_type == 'element' and o_id not in self.selected_element_ids:
-                    continue
-
-                pos_3d = label['pos_3d']
-                
-                vec = np.array([pos_3d[0], pos_3d[1], pos_3d[2], 1.0])
-                clip = np.dot(mvp, vec)
-                
-                if clip[3] <= 0.1: continue 
-
-                ndc_x = clip[0] / clip[3]
-                ndc_y = clip[1] / clip[3]
-                sx = (ndc_x + 1) * w / 2
-                sy = (1 - ndc_y) * h / 2
-                
-                if sx < -50 or sx > w + 50 or sy < -50 or sy > h + 50:
-                    continue
-
-                px_size = (h * TEXT_WORLD_HEIGHT) / (clip[3] * 1.2)
-                
-                if px_size < 6: 
-                    continue
-                
-                if px_size > 60: px_size = 60
-
-                font.setPixelSize(int(px_size))
-                painter.setFont(font)
-
-                r, g, b = label['color'][:3]
-                text_color = QColor(int(r*255), int(g*255), int(b*255))
-    
-                text = label['text']
-                metrics = painter.fontMetrics()
-                t_width = metrics.horizontalAdvance(text)
-                t_height = metrics.height()
-                
-                text_x = int(sx) + 5
-                text_y = int(sy) - 5
-                
-                bg_rect = QRect(text_x - 2, text_y - t_height + 2, t_width + 4, t_height)
-                painter.fillRect(bg_rect, QColor(255, 255, 255, 180))                              
-                
-                painter.setPen(text_color)
-                painter.drawText(text_x, text_y, text)
-
-        force_labels = getattr(self, 'force_labels', [])
-        if force_labels and self.current_model:
-            if self._label_pixmap is not None:
-                is_navigating = (getattr(self, '_mouse_pressed', False) or
-                                getattr(self, '_is_zooming', False))
-                painter.setOpacity(0.55 if is_navigating else 1.0)
-                painter.drawPixmap(0, 0, self._label_pixmap)
-                painter.setOpacity(1.0)
 
         if getattr(self, 'current_hover_data', None):
             hx = self.current_hover_data['x'] + 15
@@ -3278,7 +3352,8 @@ class MCanvas3D(gl.GLViewWidget):
             painter.setFont(font)
             
             metrics = painter.fontMetrics()
-            rect = metrics.boundingRect(0, 0, 400, 400, Qt.TextFlag.TextExpandTabs | Qt.AlignmentFlag.AlignLeft, text)
+            flags = Qt.TextFlag.TextWordWrap | Qt.AlignmentFlag.AlignLeft
+            rect = metrics.boundingRect(0, 0, 400, 400, flags, text)
             
             bg_rect = QRect(int(hx), int(hy), rect.width() + 12, rect.height() + 10)
             painter.fillRect(bg_rect, QColor(40, 40, 40, 200))
@@ -3287,13 +3362,17 @@ class MCanvas3D(gl.GLViewWidget):
             
             painter.setPen(QColor(220, 220, 220)) 
             text_rect = QRect(int(hx) + 6, int(hy) + 5, rect.width(), rect.height())
-            painter.drawText(text_rect, Qt.AlignmentFlag.AlignLeft, text)
+            painter.drawText(text_rect, flags, text)
             
         if self.current_model:
-            _w = self.width(); _h = self.height()
-            _full = (0, 0, _w, _h)
-            _mvp = np.array((self.projectionMatrix(region=_full, viewport=_full) * self.viewMatrix()).data()).reshape(4, 4).T
-            self._draw_axis_overlay(painter, _mvp, _w, _h)
+            w = self.width()
+            h = self.height()
+            full_area = (0, 0, w, h)
+            mvp = np.array(
+                (self.projectionMatrix(region=full_area, viewport=full_area) *
+                 self.viewMatrix()).data()
+            ).reshape(4, 4).T
+            self._draw_axis_overlay(painter, mvp, w, h)
 
         painter.end()
 
@@ -3304,144 +3383,6 @@ class MCanvas3D(gl.GLViewWidget):
         """
         self._label_rebuild_timer.start(delay_ms)
     
-    def _rebuild_label_pixmap(self):
-        """
-        Builds a QPixmap with all visible force labels.
-        Called once per camera-settle; paintEvent just blits the result.
-    
-        Pipeline:
-        1. Vectorized MVP projection  — one (N,4)@(4,4) matmul for all labels
-        2. Screen-space NMS dedup     — greedy AABB, sorted by |val| descending
-        3. Professional pill render   — dark background + colored left accent bar
-        """
-        from PyQt6.QtGui import (QPixmap, QPainter, QColor, QFont,
-                                QFontMetrics, QPen, QBrush)
-        from PyQt6.QtCore import QRectF, Qt
-    
-        force_labels = getattr(self, 'force_labels', [])
-        if not force_labels or not self.current_model:
-            self._label_pixmap = None
-            return
-    
-        w, h = self.width(), self.height()
-        if w <= 0 or h <= 0:
-            return
-    
-        full_area = (0, 0, w, h)
-        mvp = np.array(
-            (self.projectionMatrix(region=full_area, viewport=full_area) *
-            self.viewMatrix()).data()
-        ).reshape(4, 4).T                                                      
-    
-        positions = np.array([lb['pos_3d'] for lb in force_labels],
-                            dtype=np.float64)                       
-        N = len(positions)
-        pos_h = np.ones((N, 4), dtype=np.float64)
-        pos_h[:, :3] = positions
-        clips = pos_h @ mvp.T                                                     
-    
-        w3 = clips[:, 3]
-        valid = w3 > 0.1
-        sx = np.where(valid, (clips[:, 0] / w3 + 1.0) * w * 0.5, -99999.0)
-        sy = np.where(valid, (1.0 - clips[:, 1] / w3) * h * 0.5, -99999.0)
-    
-        FONT_PX   = 9
-        CHAR_W    = 6.8
-        LABEL_H   = 14
-        PAD_X     = 8
-        PAD_Y     = 4
-        MARGIN    = 6                                             
-    
-        vals = np.array([abs(lb['val']) for lb in force_labels], dtype=np.float64)
-        order = np.argsort(-vals)
-    
-        placed   = []                                                    
-        visible  = []                                             
-    
-        for i in order:
-            if not valid[i]:
-                continue
-            lx, ly = sx[i], sy[i]
-            if lx < -60 or lx > w + 60 or ly < -60 or ly > h + 60:
-                continue
-    
-            text = force_labels[i]['text']
-            rw   = len(text) * CHAR_W + PAD_X * 2
-            rh   = LABEL_H + PAD_Y * 2
-    
-            rx1 = lx - rw * 0.5
-            ry1 = ly - rh - 4
-            rx2 = rx1 + rw
-            ry2 = ry1 + rh
-    
-            skip = False
-            for (px1, py1, px2, py2) in placed:
-                if (rx1 - MARGIN < px2 and rx2 + MARGIN > px1 and
-                        ry1 - MARGIN < py2 and ry2 + MARGIN > py1):
-                    skip = True
-                    break
-    
-            if not skip:
-                placed.append((rx1, ry1, rx2, ry2))
-                visible.append((lx, ly, force_labels[i], rx1, ry1, rw, rh))
-    
-        if not visible:
-            self._label_pixmap = None
-            return
-    
-        pixmap = QPixmap(w, h)
-        pixmap.fill(Qt.GlobalColor.transparent)
-    
-        p = QPainter(pixmap)
-        p.setRenderHint(QPainter.RenderHint.Antialiasing)
-        p.setRenderHint(QPainter.RenderHint.TextAntialiasing)
-    
-        font = QFont("Consolas", FONT_PX)
-        font.setBold(True)
-        p.setFont(font)
-    
-        C_POS_BG     = QColor(14,  26,  55,  225)              
-        C_POS_ACCENT = QColor(55,  120, 255)                       
-        C_POS_TEXT   = QColor(200, 220, 255)                            
-    
-        C_NEG_BG     = QColor(55,  14,  14,  225)                 
-        C_NEG_ACCENT = QColor(225,  55,  55)                      
-        C_NEG_TEXT   = QColor(255, 210, 210)                            
-    
-        ACCENT_W = 3.0                                
-        RADIUS   = 3.0                        
-    
-        for (lx, ly, label, rx1, ry1, rw, rh) in visible:
-            is_pos = label['val'] >= 0
-            bg     = C_POS_BG     if is_pos else C_NEG_BG
-            accent = C_POS_ACCENT if is_pos else C_NEG_ACCENT
-            fg     = C_POS_TEXT   if is_pos else C_NEG_TEXT
-    
-            pill = QRectF(rx1, ry1, rw, rh)
-    
-            p.setPen(Qt.PenStyle.NoPen)
-            p.setBrush(QBrush(bg))
-            p.drawRoundedRect(pill, RADIUS, RADIUS)
-    
-            p.setClipRect(QRectF(rx1, ry1, ACCENT_W + RADIUS, rh).toRect())
-            bar = QRectF(rx1, ry1, ACCENT_W + RADIUS, rh)
-            p.setBrush(QBrush(accent))
-            p.drawRoundedRect(bar, RADIUS, RADIUS)
-            p.setClipping(False)
-    
-            p.setBrush(QBrush(accent))
-            p.drawEllipse(QRectF(lx - 2.5, ly - 2.5, 5, 5))
-    
-            p.setPen(fg)
-            text_rect = QRectF(rx1 + ACCENT_W + 5, ry1, rw - ACCENT_W - 8, rh)
-            p.drawText(text_rect,
-                    Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignLeft,
-                    label['text'])
-    
-        p.end()
-        self._label_pixmap = pixmap
-        self.update()    
-
     def _is_moving(self):
         return getattr(self, '_mouse_pressed', False)        
 
@@ -3961,13 +3902,30 @@ class MCanvas3D(gl.GLViewWidget):
                     ghost_line_colors.extend([c_ghost_line, c_ghost_line])
                     continue 
 
-                display_val = val * unit_registry.force_scale / unit_registry.length_scale
+                v_right = beam_dir.copy()
+                if v_right[0] < -0.01: v_right = -v_right                                  
+                
+                v_up_text = np.array([0.0, 0.0, 1.0])
+                if abs(v_right[2]) > 0.99:                            
+                    v_up_text = np.array([1.0, 0.0, 0.0])
+
+                q_scale = unit_registry.force_scale / unit_registry.length_scale
+                display_val = abs(val) * q_scale
+                unit_str = f"{unit_registry.force_unit_name}/{unit_registry.length_unit_name}"
+
                 mid_height = (pt_top_1 + pt_top_2) / 2
+                label_pos = mid_height + (v_up_text * 0.20)
+
                 self.load_labels.append({
                     'owner_id': el.id, 'owner_type': 'element',
-                    'pos_3d': mid_height.tolist(),                               
-                    'text': f"{display_val:.2f} {unit_registry.distributed_load_unit}",  
-                    'color': c_line                                         
+                    'pos_3d': label_pos.tolist(),                               
+                    'text': f"{display_val:.2f} {unit_str}",  
+                    'val': val,
+                    'color': list(c_line[:4]) if len(c_line) >= 4 else [0,0,0,1],
+                    'v_right': v_right.tolist(),
+                    'v_up': v_up_text.tolist(),
+                    'align': 'center',
+                    'text_height': 0.20
                 })
 
                 sel_verts.extend([pt_base_1, pt_base_2, pt_top_2, pt_top_1])
@@ -4208,7 +4166,7 @@ class MCanvas3D(gl.GLViewWidget):
             if is_moment:
                 add_head(tip - (draw_dir * (H * 0.8)))
 
-            if not is_ghosted:
+            if not is_ghosted and is_selected:
                 self._add_load_label(load_pos, draw_dir, val, "Moment" if is_moment else "Force", c, owner_id=el.id, owner_type='element')
 
         if arrow_lines:
@@ -4337,7 +4295,23 @@ class MCanvas3D(gl.GLViewWidget):
             vis_states.append(item.visible())
             item.setVisible(False)
 
-        super().paintGL()
+        self.makeCurrent()
+        glViewport(0, 0, int(self.deviceWidth()), int(self.deviceHeight()))
+        bgcolor = self.opts.get('bgcolor', (0.0, 0.0, 0.0, 1.0))
+        glClearColor(*bgcolor)
+        glClear(GL_DEPTH_BUFFER_BIT | GL_COLOR_BUFFER_BIT)
+        w, h = self.deviceWidth(), self.deviceHeight()
+        region = (0, 0, w, h)
+        self.setProjection(region=region, viewport=region)
+        self.setModelview()
+
+        _skip = {self.force_mesh_item, self.force_line_item}
+        for item in self.items:
+            if item not in _skip and item.visible():
+                try:
+                    item.paint()
+                except Exception:
+                    pass
 
         if getattr(self, '_needs_anim_vbo_build', False):
             self._needs_anim_vbo_build = False
@@ -4391,6 +4365,9 @@ class MCanvas3D(gl.GLViewWidget):
                 self._pending_force_upload = None
 
             self.vbo_manager.draw_force_geometry(m_view, m_proj)
+
+            if hasattr(self.vbo_manager, 'font_texture_id'):
+                self.vbo_manager.draw_text(m_view, m_proj, self.vbo_manager.font_texture_id)
                 
         glClear(GL_DEPTH_BUFFER_BIT)
         
@@ -4836,3 +4813,19 @@ class MCanvas3D(gl.GLViewWidget):
         if show_edges and ex_edges:
             edge_verts_flat = verts_flat.reshape(-1, 3)[self.ltha_engine.edge_indices].flatten()
             self.vbo_manager.upload_line_geometry(edge_verts_flat.reshape(-1, 3), self.ltha_engine.edge_colors_flat.reshape(-1, 4))
+
+    def _upload_load_labels_to_gpu(self):
+        """Pushes current load_labels AND force_labels to the SDF VBO pipeline without wiping each other."""
+        if not hasattr(self, 'text_builder') or not hasattr(self, 'vbo_manager'):
+            return
+            
+        self.makeCurrent()
+        
+        all_labels = getattr(self, 'load_labels', []) + getattr(self, 'force_labels', [])
+        
+        if all_labels:
+            verts, uvs, colors, indices = self.text_builder.build_text_geometry(all_labels, default_text_height=0.25)
+            self.vbo_manager.upload_text_geometry(verts, uvs, colors, indices)
+        else:
+                                                             
+            self.vbo_manager.upload_text_geometry(np.array([]), np.array([]), np.array([]), np.array([]))

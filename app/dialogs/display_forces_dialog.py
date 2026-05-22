@@ -5,6 +5,7 @@ from PyQt6.QtCore import Qt, pyqtSignal
 from PyQt6.QtGui import QFont
 
 class DisplayForcesDialog(QDialog):
+    last_settings = {}
                                                                             
     apply_forces_signal = pyqtSignal(dict)
 
@@ -17,6 +18,7 @@ class DisplayForcesDialog(QDialog):
         self.setMinimumWidth(450)
         
         self.init_ui()
+        self.load_last_settings()
 
     def init_ui(self):
         main_layout = QVBoxLayout(self)
@@ -113,16 +115,48 @@ class DisplayForcesDialog(QDialog):
         main_layout.addWidget(gb_scale)
 
         gb_options = QGroupBox("Options for Diagram")
-        layout_options = QHBoxLayout(gb_options)
+        layout_options = QVBoxLayout(gb_options)
         
+        row_opts = QHBoxLayout()
         self.rb_fill = QRadioButton("Fill Diagram")
         self.rb_show_values = QRadioButton("Show Values")
         self.rb_fill.setChecked(True)
+        row_opts.addWidget(self.rb_fill)
+        row_opts.addWidget(self.rb_show_values)
+        layout_options.addLayout(row_opts)
+
+        self.widget_show_sub = QWidget()
+        sub_layout = QHBoxLayout(self.widget_show_sub)
+        sub_layout.setContentsMargins(20, 0, 0, 0)                  
+        self.rb_show_all = QRadioButton("Show All")
+        self.rb_show_sel = QRadioButton("Show on Select")
+        self.rb_show_all.setChecked(True)
+        sub_layout.addWidget(self.rb_show_all)
+        sub_layout.addWidget(self.rb_show_sel)
+        self.widget_show_sub.setEnabled(False)
         
-        layout_options.addWidget(self.rb_fill)
-        layout_options.addWidget(self.rb_show_values)
+        self.rb_show_values.toggled.connect(self.widget_show_sub.setVisible)
+        self.rb_show_values.toggled.connect(self.widget_show_sub.setEnabled)
+        layout_options.addWidget(self.widget_show_sub)
         
         main_layout.addWidget(gb_options)
+
+        gb_text = QGroupBox("Text Size")
+        grid_text = QGridLayout(gb_text)
+        
+        self.rb_auto_text = QRadioButton("Automatic")
+        self.rb_user_text = QRadioButton("User Defined")
+        self.rb_auto_text.setChecked(True)
+        
+        self.le_text_value = QLineEdit()
+        self.le_text_value.setEnabled(False)
+        self.rb_user_text.toggled.connect(self.le_text_value.setEnabled)
+        
+        grid_text.addWidget(self.rb_auto_text, 0, 0)
+        grid_text.addWidget(self.rb_user_text, 1, 0)
+        grid_text.addWidget(self.le_text_value, 1, 1)
+        
+        main_layout.addWidget(gb_text)
 
         layout_btns = QVBoxLayout()
         
@@ -171,6 +205,15 @@ class DisplayForcesDialog(QDialog):
         show_labels = self.rb_show_values.isChecked()
         style = 'show_values' if show_labels else 'fill'
 
+        show_labels_mode = 'selected' if self.rb_show_sel.isChecked() else 'all'
+        
+        text_size = None
+        if self.rb_user_text.isChecked():
+            try:
+                text_size = float(self.le_text_value.text())
+            except ValueError:
+                text_size = None
+
         load_case = self.cb_case.currentText()
 
         return {
@@ -180,11 +223,62 @@ class DisplayForcesDialog(QDialog):
             'load_case': load_case,
             'base_path': self.base_path,
             'show_labels': show_labels,
+            'show_labels_mode': show_labels_mode,
+            'text_size': text_size,
         }
+    
+    def load_last_settings(self):
+        """Restore previous dialog values."""
+        s = DisplayForcesDialog.last_settings
+
+        if not s:
+            return
+
+        self.cb_case.setCurrentText(s.get("load_case", ""))
+
+        if s.get("scale_factor") is not None:
+            self.rb_user_scale.setChecked(True)
+            self.le_scale_value.setText(str(s["scale_factor"]))
+        else:
+            self.rb_auto_scale.setChecked(True)
+
+        if s.get("text_size") is not None:
+            self.rb_user_text.setChecked(True)
+            self.le_text_value.setText(str(s["text_size"]))
+        else:
+            self.rb_auto_text.setChecked(True)
+
+        if s.get("show_labels"):
+            self.rb_show_values.setChecked(True)
+
+            if s.get("show_labels_mode") == "selected":
+                self.rb_show_sel.setChecked(True)
+            else:
+                self.rb_show_all.setChecked(True)
+        else:
+            self.rb_fill.setChecked(True)
+
+        component = s.get("component", "M3")
+
+        if component == "P":
+            self.rb_axial.setChecked(True)
+        elif component == "V2":
+            self.rb_shear22.setChecked(True)
+        elif component == "V3":
+            self.rb_shear33.setChecked(True)
+        elif component == "M2":
+            self.rb_moment22.setChecked(True)
+        else:
+            self.rb_moment33.setChecked(True)
+
+    def save_last_settings(self):
+        """Save current dialog values."""
+        DisplayForcesDialog.last_settings = self.get_current_settings()
 
     def apply_settings(self):
         """Fires the signal to main.py without closing the window."""
         settings = self.get_current_settings()
+        self.save_last_settings()   
                                                                
         self.apply_forces_signal.emit(settings)
 
