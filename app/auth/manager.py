@@ -68,8 +68,11 @@ class GoogleAuthManager:
         logger.info("User logged out.")
 
     def is_authenticated(self) -> bool:
+        if self.user_info is None:
+            return False
+        if self.user_info.get('provider') == 'guest':
+            return True
         return (
-            self.user_info   is not None and
             self.credentials is not None and
             self.credentials.valid
         )
@@ -96,6 +99,10 @@ class GoogleAuthManager:
                 return False
 
             self.user_info = data['user_info']
+
+            if self.user_info.get('provider') == 'guest':
+                self.credentials = None
+                return True
 
             if 'credentials' in data:
                 cred_data   = data['credentials']

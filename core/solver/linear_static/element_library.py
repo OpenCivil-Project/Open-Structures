@@ -132,60 +132,77 @@ def get_eccentricity_matrix(off_i, off_j):
     Te[6:12, 6:12] = apply_offset(1, off_j)
     return Te
 
-def get_geometric_stiffness_matrix(P_axial, L):
+def get_geometric_stiffness_matrix(P_axial, L, phi_y=0.0, phi_z=0.0, A=1.0, I22=0.0, I33=0.0):
     """
     Calculates the 12x12 Geometric Stiffness Matrix (K_g) for a 3D Frame Element.
-    P_axial: Axial force in the element. 
-             (Standard convention: Positive = Tension, Negative = Compression)
-    L: Clear Length of the element
+    MATCHING SAP2000: Uses Euler-Bernoulli consistent formulation for K_g (phi = 0).
     """
     kg = np.zeros((12, 12))
+    if L <= 1e-9: return kg
+
+    P_c = -P_axial                          
     
-    if L <= 1e-9:
-        return kg
+    phi_y = 0.0
+    phi_z = 0.0
 
-    P_c = -P_axial 
+    if A > 1e-12:
+        r0_sq = (I22 + I33) / A
+        t_term = (P_c * r0_sq) / L
+        kg[3, 3] =  t_term
+        kg[3, 9] = -t_term
+        kg[9, 3] = -t_term
+        kg[9, 9] =  t_term
 
-    c = P_c / (30 * L)
+    cy = P_c / (30 * L * (1 + phi_y)**2)
+    ky_11 = 36 + 60*phi_y + 30*phi_y**2
+    ky_12 = 3*L + 15*L*phi_y
+    ky_22 = 4*L**2 + 5*L**2*phi_y + 2.5*L**2*phi_y**2
+    ky_24 = -L**2 - 5*L**2*phi_y - 2.5*L**2*phi_y**2
 
-    kg[2, 2] = 36 * c
-    kg[2, 4] = -3 * L * c
-    kg[2, 8] = -36 * c
-    kg[2, 10] = -3 * L * c
+    kg[1, 1] =  ky_11 * cy
+    kg[1, 5] =  ky_12 * cy
+    kg[1, 7] = -ky_11 * cy
+    kg[1, 11] = ky_12 * cy
 
-    kg[4, 2] = -3 * L * c
-    kg[4, 4] = 4 * L**2 * c
-    kg[4, 8] = 3 * L * c
-    kg[4, 10] = -L**2 * c
+    kg[5, 1] =  ky_12 * cy
+    kg[5, 5] =  ky_22 * cy
+    kg[5, 7] = -ky_12 * cy
+    kg[5, 11] = ky_24 * cy
 
-    kg[8, 2] = -36 * c
-    kg[8, 4] = 3 * L * c
-    kg[8, 8] = 36 * c
-    kg[8, 10] = 3 * L * c
+    kg[7, 1] = -ky_11 * cy
+    kg[7, 5] = -ky_12 * cy
+    kg[7, 7] =  ky_11 * cy
+    kg[7, 11] = -ky_12 * cy
 
-    kg[10, 2] = -3 * L * c
-    kg[10, 4] = -L**2 * c
-    kg[10, 8] = 3 * L * c
-    kg[10, 10] = 4 * L**2 * c
+    kg[11, 1] =  ky_12 * cy
+    kg[11, 5] =  ky_24 * cy
+    kg[11, 7] = -ky_12 * cy
+    kg[11, 11] = ky_22 * cy
 
-    kg[1, 1] = 36 * c
-    kg[1, 5] = 3 * L * c
-    kg[1, 7] = -36 * c
-    kg[1, 11] = 3 * L * c
+    cz = P_c / (30 * L * (1 + phi_z)**2)
+    kz_11 = 36 + 60*phi_z + 30*phi_z**2
+    kz_12 = 3*L + 15*L*phi_z
+    kz_22 = 4*L**2 + 5*L**2*phi_z + 2.5*L**2*phi_z**2
+    kz_24 = -L**2 - 5*L**2*phi_z - 2.5*L**2*phi_z**2
 
-    kg[5, 1] = 3 * L * c
-    kg[5, 5] = 4 * L**2 * c
-    kg[5, 7] = -3 * L * c
-    kg[5, 11] = -L**2 * c
+    kg[2, 2]  =  kz_11 * cz
+    kg[2, 4]  = -kz_12 * cz
+    kg[2, 8]  = -kz_11 * cz
+    kg[2, 10] = -kz_12 * cz
 
-    kg[7, 1] = -36 * c
-    kg[7, 5] = -3 * L * c
-    kg[7, 7] = 36 * c
-    kg[7, 11] = -3 * L * c
+    kg[4, 2]  = -kz_12 * cz
+    kg[4, 4]  =  kz_22 * cz
+    kg[4, 8]  =  kz_12 * cz
+    kg[4, 10] =  kz_24 * cz
 
-    kg[11, 1] = 3 * L * c
-    kg[11, 5] = -L**2 * c
-    kg[11, 7] = -3 * L * c
-    kg[11, 11] = 4 * L**2 * c
+    kg[8, 2]  = -kz_11 * cz
+    kg[8, 4]  =  kz_12 * cz
+    kg[8, 8]  =  kz_11 * cz
+    kg[8, 10] =  kz_12 * cz
+
+    kg[10, 2]  = -kz_12 * cz
+    kg[10, 4]  =  kz_24 * cz
+    kg[10, 8]  =  kz_12 * cz
+    kg[10, 10] =  kz_22 * cz
 
     return kg

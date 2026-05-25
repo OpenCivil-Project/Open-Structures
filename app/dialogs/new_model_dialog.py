@@ -5,12 +5,14 @@ from PyQt6.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, QLabel,
                              QListWidget, QWidget, QGridLayout)
 from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QFont, QIcon
+from app.ui.theme import apply_dialog_style
 
 class NewModelDialog(QDialog):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setWindowTitle("New Model Initialization")
         self.resize(600, 450)
+        apply_dialog_style(self)
         
         self.selected_units = "kN, m, C"
         self.grid_data = {} 
@@ -119,8 +121,10 @@ class NewModelDialog(QDialog):
 
         btn_layout = QHBoxLayout()
         ok_btn = QPushButton("OK")
+        ok_btn.setObjectName("primary")
         ok_btn.clicked.connect(self.on_ok)
         cancel_btn = QPushButton("Cancel")
+        cancel_btn.setObjectName("secondary")
         cancel_btn.clicked.connect(self.reject)
         
         btn_layout.addStretch()

@@ -231,7 +231,7 @@ class LoginDialog(QDialog):
         self._mode        = "login"
 
         self.setWindowTitle("OpenCivil")
-        self.setFixedSize(420, 570)
+        self.setFixedSize(420, 624)
 
         icon_path = self._find_asset_static("logo.png") or self._find_asset_static("logo.ico")
         if icon_path:
@@ -400,6 +400,30 @@ class LoginDialog(QDialog):
         self.btn_google.clicked.connect(self._on_google_login)
         root.addWidget(self.btn_google)
 
+        root.addSpacing(12)
+
+        self.btn_guest = QPushButton("Continue as Guest")
+        self.btn_guest.setFixedHeight(42)
+        self.btn_guest.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.btn_guest.setFont(QFont("Segoe UI", 10))
+        self.btn_guest.setStyleSheet(f"""
+            QPushButton {{
+                background: transparent;
+                border: 1px solid {INPUT_BORDER};
+                border-radius: 6px;
+                color: {TEXT_SECONDARY};
+                font-size: 13px;
+            }}
+            QPushButton:hover   {{
+                background: rgba(0,0,0,4);
+                border-color: {BORDER_STRONG};
+                color: {TEXT_PRIMARY};
+            }}
+            QPushButton:pressed {{ background: rgba(0,0,0,7); }}
+        """)
+        self.btn_guest.clicked.connect(self._on_guest_login)
+        root.addWidget(self.btn_guest)
+
         root.addSpacing(24)
         root.addStretch()
 
@@ -441,7 +465,7 @@ class LoginDialog(QDialog):
             self.input_name.setVisible(True)
             self.confirm_lbl.setVisible(True)
             self.input_confirm.setVisible(True)
-            self.setFixedHeight(670)
+            self.setFixedHeight(724)
         else:
             self._mode = "login"
             self.lbl_heading.setText("Welcome back.")
@@ -454,7 +478,7 @@ class LoginDialog(QDialog):
             self.input_name.setVisible(False)
             self.confirm_lbl.setVisible(False)
             self.input_confirm.setVisible(False)
-            self.setFixedHeight(570)
+            self.setFixedHeight(624)
         self.lbl_status.setText("")
 
     def _on_primary(self):
@@ -575,6 +599,18 @@ class LoginDialog(QDialog):
         dlg = ResetPasswordDialog(email=email, parent=self)
         if dlg.exec() == QDialog.DialogCode.Accepted:
             self._set_status("Password reset! Please sign in.", error=False)
+
+    def _on_guest_login(self):
+        """Skip authentication and enter as a local guest."""
+        self.user_info = {
+            "name":     "Guest",
+            "email":    "",
+            "picture":  "",
+            "provider": "guest",
+        }
+        self.remember_me = True                                      
+        self._set_status("Continuing as guest…", error=False)
+        QTimer.singleShot(300, self.accept)
 
     def _on_google_login(self):
         """Start the Google OAuth flow in a background thread."""

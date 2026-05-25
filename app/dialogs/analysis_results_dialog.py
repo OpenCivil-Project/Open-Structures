@@ -110,6 +110,61 @@ class AnalysisResultsDialog(QDialog):
             self.tab_base_reac = self.create_table(headers, br_list, ["Case", "Fx", "Fy", "Fz", "Mx", "My", "Mz"])
             self.tabs.addTab(self.tab_base_reac, "Base Reactions")
 
+        case_name = self.results.get("info", {}).get("case_name", "—")
+
+        if "displacements" in self.results:
+            disp_data = []
+            for nid, dofs in sorted(self.results["displacements"].items(), key=lambda x: int(x[0]) if x[0].isdigit() else x[0]):
+                disp_data.append({
+                    "joint": nid,
+                    "case":  case_name,
+                    "u1": dofs[0] * sl,
+                    "u2": dofs[1] * sl,
+                    "u3": dofs[2] * sl,
+                    "r1": dofs[3],
+                    "r2": dofs[4],
+                    "r3": dofs[5],
+                })
+            disp_headers = [
+                "Joint", "Load Case",
+                f"U1 ({u_len})", f"U2 ({u_len})", f"U3 ({u_len})",
+                "R1 (rad)",     "R2 (rad)",     "R3 (rad)"
+            ]
+            self.tab_displacements = self.create_table(
+                disp_headers, disp_data,
+                ["joint", "case", "u1", "u2", "u3", "r1", "r2", "r3"]
+            )
+            self.tabs.addTab(self.tab_displacements, "Joint Displacements")
+
+        if "reactions" in self.results:
+            restrained = set(self.results.get("restrained_nodes", []))
+            reac_data = []
+            for nid, dofs in sorted(self.results["reactions"].items(), key=lambda x: int(x[0]) if x[0].isdigit() else x[0]):
+                if restrained and nid not in restrained:
+                    continue
+                if not restrained and max(abs(v) for v in dofs) < 1e-6:
+                    continue                                 
+                reac_data.append({
+                    "joint": nid,
+                    "case":  case_name,
+                    "f1": dofs[0] * sf,
+                    "f2": dofs[1] * sf,
+                    "f3": dofs[2] * sf,
+                    "m1": dofs[3] * s_mom,
+                    "m2": dofs[4] * s_mom,
+                    "m3": dofs[5] * s_mom,
+                })
+            reac_headers = [
+                "Joint", "Load Case",
+                f"F1 ({u_force})", f"F2 ({u_force})", f"F3 ({u_force})",
+                f"M1 ({u_force}-{u_len})", f"M2 ({u_force}-{u_len})", f"M3 ({u_force}-{u_len})"
+            ]
+            self.tab_reactions = self.create_table(
+                reac_headers, reac_data,
+                ["joint", "case", "f1", "f2", "f3", "m1", "m2", "m3"]
+            )
+            self.tabs.addTab(self.tab_reactions, "Joint Reactions")
+
         if "rsa_detailed" in self.results:
             rsa_dict = self.results["rsa_detailed"]
             

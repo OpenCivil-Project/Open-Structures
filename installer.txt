@@ -33,6 +33,7 @@ pyinstaller --noconsole --onedir --name="OpenCivil" `
   --collect-all "auth" `
   --collect-all "app" `
   --collect-all "section_designer" `
+  --collect-all "ui" `
   --collect-all "graphic" `
   --collect-all "pyqtgraph" `
   --collect-all "qtawesome" `

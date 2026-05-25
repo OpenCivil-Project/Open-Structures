@@ -159,8 +159,9 @@ class UserDropdown(QWidget):
         lbl_name.setStyleSheet(f"color: {TEXT_PRIMARY}; background: transparent;")
         col.addWidget(lbl_name)
 
-        email = self._user_info.get('email', '')
-        lbl_email = QLabel(email)
+        is_guest = self._user_info.get('provider') == 'guest'
+        email_text = "Browsing as guest" if is_guest else self._user_info.get('email', '')
+        lbl_email = QLabel(email_text)
         lbl_email.setFont(QFont("Segoe UI", 8))
         lbl_email.setStyleSheet(f"color: {TEXT_HINT}; background: transparent;")
         lbl_email.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
@@ -177,11 +178,13 @@ class UserDropdown(QWidget):
         m.setContentsMargins(10, 8, 10, 10)
         m.setSpacing(2)
 
-        btn_account = self._menu_btn("Manage Account", danger=False)
-        btn_account.clicked.connect(lambda: None)
-        m.addWidget(btn_account)
+        if not is_guest:
+            btn_account = self._menu_btn("Manage Account", danger=False)
+            btn_account.clicked.connect(lambda: None)
+            m.addWidget(btn_account)
 
-        btn_signout = self._menu_btn("Sign Out", danger=True)
+        signout_label = "Exit Guest Session" if is_guest else "Sign Out"
+        btn_signout = self._menu_btn(signout_label, danger=True)
         btn_signout.clicked.connect(self.logout_requested)
         m.addWidget(btn_signout)
 

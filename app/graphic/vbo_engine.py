@@ -27,6 +27,15 @@ class VBORenderManager:
         self.force_line_vbo = None
         self.force_line_vertex_count = 0
 
+        self.load_fill_vao = None
+        self.load_fill_vbo = None
+        self.load_fill_ebo = None
+        self.load_fill_index_count = 0
+
+        self.load_line_vao = None
+        self.load_line_vbo = None
+        self.load_line_vertex_count = 0
+
         self.sdf_vertex_shader_source = """
         #version 330 core
         layout(location = 0) in vec3 a_position;
@@ -117,6 +126,13 @@ class VBORenderManager:
 
             self.force_line_vao = glGenVertexArrays(1)
             self.force_line_vbo = glGenBuffers(1)
+
+            self.load_fill_vao = glGenVertexArrays(1)
+            self.load_fill_vbo = glGenBuffers(1)
+            self.load_fill_ebo = glGenBuffers(1)
+
+            self.load_line_vao = glGenVertexArrays(1)
+            self.load_line_vbo = glGenBuffers(1)
 
             sdf_vert = shaders.compileShader(self.sdf_vertex_shader_source, GL_VERTEX_SHADER)
             sdf_frag = shaders.compileShader(self.sdf_fragment_shader_source, GL_FRAGMENT_SHADER)
@@ -282,7 +298,100 @@ class VBORenderManager:
         self.force_fill_index_count = 0
         self.force_line_vertex_count = 0
 
+    def clear_load_geometry(self):
+        if not self.is_initialized:
+            return
+        self.load_fill_index_count = 0
+        self.load_line_vertex_count = 0
+
+    def upload_load_geometry(self, fill_verts, fill_colors, fill_faces, line_pos, line_colors):
+        """
+        Uploads load arrow / distributed load geometry to dedicated GPU buffers.
+        Separate from force diagram buffers so both can coexist in the scene.
+        """
+        if not self.is_initialized:
+            return
+
+        if len(fill_verts) > 0:
+            dummy_disp = np.zeros((len(fill_verts), 3), dtype=np.float32)
+            interleaved = np.hstack((fill_verts, dummy_disp, fill_colors)).astype(np.float32).flatten()
+            indices = fill_faces.astype(np.uint32).flatten()
+            self.load_fill_index_count = len(indices)
+
+            glBindVertexArray(self.load_fill_vao)
+            glBindBuffer(GL_ARRAY_BUFFER, self.load_fill_vbo)
+            glBufferData(GL_ARRAY_BUFFER, interleaved.nbytes, interleaved, GL_DYNAMIC_DRAW)
+            glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, self.load_fill_ebo)
+            glBufferData(GL_ELEMENT_ARRAY_BUFFER, indices.nbytes, indices, GL_DYNAMIC_DRAW)
+
+            stride = 10 * 4
+            glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, stride, ctypes.c_void_p(0))
+            glEnableVertexAttribArray(0)
+            glVertexAttribPointer(1, 4, GL_FLOAT, GL_FALSE, stride, ctypes.c_void_p(24))
+            glEnableVertexAttribArray(1)
+            glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, stride, ctypes.c_void_p(12))
+            glEnableVertexAttribArray(2)
+            glBindVertexArray(0)
+        else:
+            self.load_fill_index_count = 0
+
+        if len(line_pos) > 0:
+            dummy_disp = np.zeros((len(line_pos), 3), dtype=np.float32)
+            interleaved = np.hstack((line_pos, dummy_disp, line_colors)).astype(np.float32).flatten()
+            self.load_line_vertex_count = len(line_pos)
+
+            glBindVertexArray(self.load_line_vao)
+            glBindBuffer(GL_ARRAY_BUFFER, self.load_line_vbo)
+            glBufferData(GL_ARRAY_BUFFER, interleaved.nbytes, interleaved, GL_DYNAMIC_DRAW)
+
+            stride = 10 * 4
+            glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, stride, ctypes.c_void_p(0))
+            glEnableVertexAttribArray(0)
+            glVertexAttribPointer(1, 4, GL_FLOAT, GL_FALSE, stride, ctypes.c_void_p(24))
+            glEnableVertexAttribArray(1)
+            glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, stride, ctypes.c_void_p(12))
+            glEnableVertexAttribArray(2)
+            glBindVertexArray(0)
+        else:
+            self.load_line_vertex_count = 0
+
+    def draw_load_geometry(self, view_matrix, proj_matrix):
+        """Draws all load arrows and distributed load curtains in a single pass."""
+        if not self.is_initialized:
+            return
+        if self.load_fill_index_count == 0 and self.load_line_vertex_count == 0:
+            return
+
+        glUseProgram(self.shader_program)
+        glUniformMatrix4fv(self.loc_view, 1, GL_FALSE, view_matrix)
+        glUniformMatrix4fv(self.loc_proj, 1, GL_FALSE, proj_matrix)
+        glUniform1f(self.loc_anim, 0.0)
+        glEnable(GL_DEPTH_TEST)
+        glEnable(GL_BLEND)
+        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA)
+
+        if self.load_fill_index_count > 0:
+            glUniform1f(self.loc_alpha, 1.0)
+            glEnable(GL_POLYGON_OFFSET_FILL)
+            glPolygonOffset(2.0, 2.0)
+            glBindVertexArray(self.load_fill_vao)
+            glDrawElements(GL_TRIANGLES, self.load_fill_index_count, GL_UNSIGNED_INT, None)
+            glBindVertexArray(0)
+            glDisable(GL_POLYGON_OFFSET_FILL)
+
+        if self.load_line_vertex_count > 0:
+            glUniform1f(self.loc_alpha, 1.0)
+            glLineWidth(1.8)
+            glBindVertexArray(self.load_line_vao)
+            glDrawArrays(GL_LINES, 0, self.load_line_vertex_count)
+            glBindVertexArray(0)
+
+        glUseProgram(0)
+
     def set_anim_factor(self, factor):
+        """Sets the animation blend factor for the current frame."""
+        if not self.is_initialized:
+            return
         self.current_anim_factor = float(factor)
 
     def draw(self, view_matrix, proj_matrix):
@@ -312,13 +421,12 @@ class VBORenderManager:
         glUniformMatrix4fv(self.loc_proj,  1, GL_FALSE, proj_matrix)
         glUniform1f(self.loc_alpha, alpha_mult)
         glUniform1f(self.loc_anim, self.current_anim_factor)
-        glLineWidth(float(line_width))
         glEnable(GL_DEPTH_TEST)
         glEnable(GL_BLEND)
         glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA)
         if not write_depth:
             glDepthMask(GL_FALSE)
-        glLineWidth(line_width)
+        glLineWidth(float(line_width))
         glBindVertexArray(self.line_vao)
         glDrawArrays(GL_LINES, 0, self.line_vertex_count)
         glBindVertexArray(0)
@@ -349,18 +457,32 @@ class VBORenderManager:
         glUseProgram(0)
 
     def update_line_geometry_inplace(self, vertices, colors):
-        """For LTHA: same vertex count every frame, just swap data."""
+        """
+        For LTHA/hover: zero-allocation update when vertex count matches.
+        Routes through fast_update_lines when a persistent buffer is ready,
+        falls back to glBufferData only when size changes (rare, e.g. structure edit).
+        """
         if not self.is_initialized or len(vertices) == 0:
             return
+
+        if self.persistent_line_buffer is not None and len(vertices) == self.line_vertex_count:
+            vertices_flat = vertices.flatten() if vertices.ndim > 1 else vertices
+            colors_flat = colors.flatten() if colors.ndim > 1 else colors
+            self.fast_update_lines(vertices_flat, colors_flat)
+            return
+
         zeros = np.zeros((len(vertices), 3), dtype=np.float32)
         data = np.hstack((vertices, zeros, colors)).astype(np.float32).flatten()
         glBindVertexArray(self.line_vao)
         glBindBuffer(GL_ARRAY_BUFFER, self.line_vbo)
         if len(vertices) == self.line_vertex_count:
-            glBufferSubData(GL_ARRAY_BUFFER, 0, data.nbytes, data)                    
+            glBufferSubData(GL_ARRAY_BUFFER, 0, data.nbytes, data)
         else:
             glBufferData(GL_ARRAY_BUFFER, data.nbytes, data, GL_DYNAMIC_DRAW)
             self.line_vertex_count = len(vertices)
+                                                            
+            self.persistent_line_buffer = np.zeros(len(vertices) * 10, dtype=np.float32)
+                                                                                               
         glBindVertexArray(0)
 
     def allocate_ltha_buffers(self, num_line_verts, num_ext_verts=0):
@@ -380,6 +502,64 @@ class VBORenderManager:
             self.persistent_ext_buffer = np.zeros(num_ext_verts * 10, dtype=np.float32)
         else:
             self.persistent_ext_buffer = None
+
+    def allocate_text_buffer(self, num_quads):
+        """
+        Pre-allocates a persistent CPU-side text buffer for num_quads glyphs.
+        Each quad = 4 vertices × 9 floats (xyz + uv + rgba) = 36 floats.
+        Call once after font atlas is loaded and label count is known.
+        """
+        num_verts = num_quads * 4
+        self.persistent_text_buffer = np.zeros(num_verts * 9, dtype=np.float32)
+        self.persistent_text_index_buffer = np.zeros(num_quads * 6, dtype=np.uint32)
+        self.persistent_text_quad_cap = num_quads
+
+        for q in range(num_quads):
+            b = q * 4
+            self.persistent_text_index_buffer[q*6:q*6+6] = [b, b+1, b+2, b+2, b+3, b]
+
+        glBindVertexArray(self.text_vao)
+        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, self.text_ebo)
+        glBufferData(GL_ELEMENT_ARRAY_BUFFER,
+                     self.persistent_text_index_buffer.nbytes,
+                     self.persistent_text_index_buffer,
+                     GL_STATIC_DRAW)
+        glBindVertexArray(0)
+
+    def fast_update_text(self, vertices, texcoords, colors, num_quads):
+        """
+        Zero-allocation text update using SubData.
+        Slices new vertex data directly into the persistent buffer.
+        Only call after allocate_text_buffer().
+        num_quads must be <= persistent_text_quad_cap.
+        """
+        if not self.is_initialized or not hasattr(self, 'persistent_text_buffer'):
+            return
+        if num_quads == 0:
+            self.text_index_count = 0
+            return
+
+        num_verts = num_quads * 4
+        buf = self.persistent_text_buffer
+                                                                  
+        buf[0::9] = vertices[0::3]      
+        buf[1::9] = vertices[1::3]      
+        buf[2::9] = vertices[2::3]      
+        buf[3::9] = texcoords[0::2]     
+        buf[4::9] = texcoords[1::2]     
+        buf[5::9] = colors[0::4]        
+        buf[6::9] = colors[1::4]        
+        buf[7::9] = colors[2::4]        
+        buf[8::9] = colors[3::4]        
+
+        self.text_index_count = num_quads * 6
+
+        glBindVertexArray(self.text_vao)
+        glBindBuffer(GL_ARRAY_BUFFER, self.text_vbo)
+        glBufferSubData(GL_ARRAY_BUFFER, 0,
+                        num_verts * 9 * 4,                                  
+                        buf[:num_verts * 9])
+        glBindVertexArray(0)
 
     def fast_update_lines(self, vertices_flat, colors_flat):
         """
@@ -464,24 +644,25 @@ class VBORenderManager:
 
         interleaved = np.hstack((vertices, texcoords, colors)).astype(np.float32).flatten()
         indices = indices.astype(np.uint32).flatten()
-        self.text_index_count = len(indices)
+        new_index_count = len(indices)
 
         glBindVertexArray(self.text_vao)
-        
         glBindBuffer(GL_ARRAY_BUFFER, self.text_vbo)
-        glBufferData(GL_ARRAY_BUFFER, interleaved.nbytes, interleaved, GL_STATIC_DRAW)
-        
-        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, self.text_ebo)
-        glBufferData(GL_ELEMENT_ARRAY_BUFFER, indices.nbytes, indices, GL_STATIC_DRAW)
+
+        if new_index_count == self.text_index_count:
+            glBufferSubData(GL_ARRAY_BUFFER, 0, interleaved.nbytes, interleaved)
+        else:
+            glBufferData(GL_ARRAY_BUFFER, interleaved.nbytes, interleaved, GL_DYNAMIC_DRAW)
+            glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, self.text_ebo)
+            glBufferData(GL_ELEMENT_ARRAY_BUFFER, indices.nbytes, indices, GL_DYNAMIC_DRAW)
+
+        self.text_index_count = new_index_count
 
         stride = 9 * 4
-                  
         glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, stride, ctypes.c_void_p(0))
         glEnableVertexAttribArray(0)
-                  
         glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, stride, ctypes.c_void_p(12))
         glEnableVertexAttribArray(1)
-               
         glVertexAttribPointer(2, 4, GL_FLOAT, GL_FALSE, stride, ctypes.c_void_p(20))
         glEnableVertexAttribArray(2)
 
@@ -606,38 +787,7 @@ class VectorizedLTHAEngine:
         disp_axial = np.where(mask_j, u1_j * np.ones_like(x_val), disp_axial)
         disp_v = np.where(mask_j, v_j + dv_j * dx_from_j, disp_v)
         disp_w = np.where(mask_j, w_j + dw_j * dx_from_j, disp_w)
-        
-        v_flex_i = v_i + dv_i * self.off_i
-        w_flex_i = w_i + dw_i * self.off_i
-        v_flex_j = v_j - dv_j * self.off_j
-        w_flex_j = w_j - dw_j * self.off_j
-        
-        L_flex = np.maximum(self.L - self.off_i - self.off_j, 1e-6)
-        s_flex = np.clip((x_val - self.off_i) / L_flex, 0.0, 1.0)
-        
-        s2 = s_flex * s_flex
-        s3 = s2 * s_flex
-        H1 = 1.0 - 3.0*s2 + 2.0*s3
-        H2 = (s_flex * L_flex) * (1.0 - s_flex)**2
-        H3 = 3.0*s2 - 2.0*s3
-        H4 = (s_flex * L_flex) * (s2 - s_flex)
-        
-        disp_axial = u1_i + (u1_j - u1_i) * s_flex
-        disp_v = v_flex_i * H1 + dv_i * H2 + v_flex_j * H3 + dv_j * H4
-        disp_w = w_flex_i * H1 + dw_i * H2 + w_flex_j * H3 + dw_j * H4
-        
-        mask_i = x_val <= self.off_i + 1e-6
-        mask_j = x_val >= self.L - self.off_j - 1e-6
-        
-        disp_axial = np.where(mask_i, u1_i * np.ones_like(x_val), disp_axial)
-        disp_v = np.where(mask_i, v_i + dv_i * x_val, disp_v)
-        disp_w = np.where(mask_i, w_i + dw_i * x_val, disp_w)
-        
-        dx_from_j = x_val - self.L
-        disp_axial = np.where(mask_j, u1_j * np.ones_like(x_val), disp_axial)
-        disp_v = np.where(mask_j, v_j + dv_j * dx_from_j, disp_v)
-        disp_w = np.where(mask_j, w_j + dw_j * dx_from_j, disp_w)
-   
+
         local_pos = np.stack([x_val + disp_axial, disp_v, disp_w], axis=2)
         
         RT = self.R.transpose(0, 2, 1)

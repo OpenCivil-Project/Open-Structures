@@ -8,7 +8,7 @@ class GlobalMassAssembler:
         self.M = lil_matrix((self.total_dofs, self.total_dofs))
         print(" [DEBUG] Initialized Mass Assembler (V4 - Net Force Method)")
 
-    def build_mass_matrix(self, mass_source_name):
+    def build_mass_matrix(self, mass_source_name, progress_callback=None):
         print(f"Mass Assembler: Building M for source '{mass_source_name}'...")
         
         ms_def = self._find_mass_source(mass_source_name)
@@ -17,10 +17,14 @@ class GlobalMassAssembler:
             return self.M
 
         if ms_def.get("include_self_mass", True):
+            if progress_callback:
+                progress_callback("Adding element self-weight mass...", 29)
             self._add_element_self_mass()
 
         if ms_def.get("include_patterns", False):
             patterns = ms_def.get("load_patterns", []) 
+            if progress_callback:
+                progress_callback("Adding load pattern mass...", 33)
             self._add_mass_from_net_loads(patterns)
 
         print(f"Mass Assembler: Mass Matrix Assembled. Non-zeros: {self.M.nnz}")

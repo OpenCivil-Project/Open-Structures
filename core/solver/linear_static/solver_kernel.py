@@ -1,4 +1,3 @@
-                                                              
 import numpy as np
 from scipy.sparse.linalg import spsolve
 from scipy.sparse import csc_matrix
@@ -38,6 +37,8 @@ class LinearSolver:
             return np.zeros(self.dm.total_dofs), self.P
 
         print(f"Solver: Solving system with {K_ff.shape[0]} equations...")
+        self.num_free_dofs = K_ff.shape[0]
+        self.K_ff_nnz      = K_ff.nnz
         try:
             U_f = spsolve(K_ff, P_f)
         except (RuntimeError, ValueError) as e:
@@ -92,5 +93,9 @@ class LinearSolver:
             "Fx": sum_fx, "Fy": sum_fy, "Fz": sum_fz,
             "Mx": sum_mx, "My": sum_my, "Mz": sum_mz
         }
-            
+
+        results["restrained_nodes"] = [
+            str(n['id']) for n in self.dm.nodes if any(n['restraints'])
+        ]
+
         return results

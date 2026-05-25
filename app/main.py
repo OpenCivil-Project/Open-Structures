@@ -68,6 +68,7 @@ from app.dialogs.update_dialog import UpdateDialog
 from core.terminal_panel import TerminalPanel
 from app.ipc import IPCManager
 from app.dialogs.display_forces_dialog import DisplayForcesDialog
+from app.dialogs.analysis_progress_dialog import AnalysisProgressDialog
 
 class OPENCIVILSplash(QSplashScreen):
     def __init__(self, pixmap):
@@ -233,7 +234,7 @@ class MainWindow(QMainWindow):
             except Exception:
                 pass
         
-        self.setWindowTitle("OpenCivil v0.7.70")
+        self.setWindowTitle("OpenCivil v0.7.72")
         self.resize(1200, 800)
 
         icon_path = os.path.join(root_dir, "app", "graphic", "logo.png") 
@@ -521,7 +522,7 @@ class MainWindow(QMainWindow):
         self.toolbar.addSeparator()
         self.toolbar.addSeparator()
 
-        self.run_action = QAction(qta.icon('fa5s.play', color="#60916A"), "Run Analysis...", self)
+        self.run_action = QAction(qta.icon('fa5s.play', color="#0078D7"), "Run Analysis...", self)
         self.run_action.setToolTip("Run Analysis Setup (F5)")
         self.run_action.setShortcut("F5") 
         self.run_action.triggered.connect(self.on_run_analysis_dialog)
@@ -672,6 +673,8 @@ class MainWindow(QMainWindow):
         from PyQt6.QtCore import QEvent
         self.canvas.installEventFilter(self)
         self.canvas2.installEventFilter(self)
+
+        self._create_welcome_overlay()
 
         self.terminal_panel = TerminalPanel(
             model=None,
@@ -946,18 +949,139 @@ class MainWindow(QMainWindow):
         
         self.status.addPermanentWidget(self.combo_units)
 
+    def _create_welcome_overlay(self):
+        from PyQt6.QtWidgets import QGraphicsOpacityEffect
+        self.welcome_overlay = QLabel(self.canvas_splitter)
+        self.welcome_overlay.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.welcome_overlay.setTextFormat(Qt.TextFormat.RichText)
+        self.welcome_overlay.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
+        self.welcome_overlay.setText(
+            "<div style='text-align:center; font-family: Segoe UI, sans-serif;'>"
+            "<div style='font-size:26px; font-weight:700; letter-spacing:3px;'><span style='color:#0078D7;'>OPEN</span><span style='color:#1a1a2e;'>CIVIL</span></div>"
+            "<div style='font-size:12px; color:#adb5bd; margin-top:6px; letter-spacing:1px;'>STRUCTURAL ANALYSIS &amp; DESIGN PLATFORM</div>"
+            "<div style='margin-top:30px; font-size:14px; color:#495057;'>No model is currently loaded.</div>"
+            "<div style='margin-top:18px; font-size:13px; color:#6c757d;'>"
+            "<span style='margin-right:6px;'>New Model</span>"
+            "<span style='background:#f0f0f0; padding:2px 8px; border-radius:4px; border:1px solid #ced4da; font-size:12px;'>Ctrl+N</span>"
+            "&nbsp;&nbsp;&nbsp;"
+            "<span style='margin-right:6px;'>Open File</span>"
+            "<span style='background:#f0f0f0; padding:2px 8px; border-radius:4px; border:1px solid #ced4da; font-size:12px;'>Ctrl+O</span>"
+            "</div>"
+            "</div>"
+        )
+        self.welcome_overlay.setStyleSheet("""
+            QLabel {
+                background-color: rgba(248, 249, 250, 200);
+                border-radius: 14px;
+            }
+        """)
+        self._welcome_opacity = QGraphicsOpacityEffect(self.welcome_overlay)
+        self.welcome_overlay.setGraphicsEffect(self._welcome_opacity)
+        self.welcome_overlay.raise_()
+        self.welcome_overlay.hide()
+        self._reposition_welcome_overlay()
+        QTimer.singleShot(80, self._show_welcome_overlay_animated)
+
+    def _reposition_welcome_overlay(self):
+        if not hasattr(self, 'welcome_overlay'):
+            return
+
+        if hasattr(self, '_welcome_anim') and self._welcome_anim.state() == QPropertyAnimation.State.Running:
+            return
+
+        frame = self.canvas_frame1
+        fw = frame.width()
+        fh = frame.height()
+        fx = frame.pos().x()
+        fy = frame.pos().y()
+        w = min(420, fw - 40)
+        h = 160
+        x = fx + (fw - w) // 2
+        y = fy + (fh - h) // 2
+        self.welcome_overlay.setGeometry(x, y, w, h)
+
+    def _show_welcome_overlay_animated(self):
+        from PyQt6.QtCore import QRect, QParallelAnimationGroup
+        overlay = self.welcome_overlay
+        self._reposition_welcome_overlay()
+        center_geo = overlay.geometry()
+        start_geo = QRect(
+            center_geo.x() + 60,
+            center_geo.y(),
+            center_geo.width(),
+            center_geo.height()
+        )
+        overlay.setGeometry(start_geo)
+        self._welcome_opacity.setOpacity(0.0)
+        overlay.show()
+
+        geo_anim = QPropertyAnimation(overlay, b"geometry")
+        geo_anim.setDuration(400)
+        geo_anim.setStartValue(start_geo)
+        geo_anim.setEndValue(center_geo)
+        geo_anim.setEasingCurve(QEasingCurve.Type.OutCubic)
+
+        fade_anim = QPropertyAnimation(self._welcome_opacity, b"opacity")
+        fade_anim.setDuration(400)
+        fade_anim.setStartValue(0.0)
+        fade_anim.setEndValue(1.0)
+        fade_anim.setEasingCurve(QEasingCurve.Type.OutCubic)
+
+        self._welcome_anim = QParallelAnimationGroup()
+        self._welcome_anim.addAnimation(geo_anim)
+        self._welcome_anim.addAnimation(fade_anim)
+        self._welcome_anim.finished.connect(self._reposition_welcome_overlay)
+        self._welcome_anim.start()
+
+    def _hide_welcome_overlay_animated(self):
+        from PyQt6.QtCore import QRect, QParallelAnimationGroup
+        overlay = self.welcome_overlay
+        start_geo = overlay.geometry()
+        end_geo = QRect(
+            start_geo.x() + 60,
+            start_geo.y(),
+            start_geo.width(),
+            start_geo.height()
+        )
+
+        geo_anim = QPropertyAnimation(overlay, b"geometry")
+        geo_anim.setDuration(300)
+        geo_anim.setStartValue(start_geo)
+        geo_anim.setEndValue(end_geo)
+        geo_anim.setEasingCurve(QEasingCurve.Type.InCubic)
+
+        fade_anim = QPropertyAnimation(self._welcome_opacity, b"opacity")
+        fade_anim.setDuration(300)
+        fade_anim.setStartValue(1.0)
+        fade_anim.setEndValue(0.0)
+        fade_anim.setEasingCurve(QEasingCurve.Type.InCubic)
+
+        self._welcome_anim = QParallelAnimationGroup()
+        self._welcome_anim.addAnimation(geo_anim)
+        self._welcome_anim.addAnimation(fade_anim)
+        self._welcome_anim.finished.connect(lambda: overlay.setVisible(False))
+        self._welcome_anim.start()
+
     def set_interface_state(self, editable: bool):
         """
         editable = True:  PRE-PROCESSING (Draw, Assign, Edit enabled).
         editable = False: POST-PROCESSING (Locked. Only View & Info enabled).
         """
                                                                
+        if hasattr(self, 'welcome_overlay'):
+            if self.model is None:
+                self.welcome_overlay.setVisible(True)
+                self._reposition_welcome_overlay()
+            elif self.welcome_overlay.isVisible():
+                self._hide_welcome_overlay_animated()
+
         self.menu_define.setEnabled(editable)
         self.menu_draw.setEnabled(editable)
         self.menu_assign.setEnabled(editable)
         self.run_action.setEnabled(editable)
         self.solid_run_action.setEnabled(editable)
         self.res_action.setEnabled(not editable)
+        self.menu_analyze.setEnabled(editable or self.model is not None)
 
         if hasattr(self, 'btn_deform'):
             self.btn_deform.setEnabled(not editable)
@@ -976,7 +1100,10 @@ class MainWindow(QMainWindow):
         if not editable:
                                    
             self.canvas.setBackgroundColor('#F8F9FA')                  
-            self.status.showMessage("Model Locked. Results Mode.")
+            if self.model is None:
+                self.status.showMessage("Ready. Create a new model or open an existing file to begin.")
+            else:
+                self.status.showMessage("Model Locked. Results Mode.")
         else:
                        
             bg_tuple = self.graphics_settings.get("background_color", (1.0, 1.0, 1.0, 1.0))
@@ -2170,7 +2297,7 @@ class MainWindow(QMainWindow):
         dlg.signal_run_analysis.connect(self.start_analysis_sequence)
         dlg.exec()
 
-    def start_analysis_sequence(self, case_name):
+    def start_analysis_sequence(self, case_name, show_log=True):
 
         if not hasattr(self.model, 'file_path') or not self.model.file_path:
             QMessageBox.warning(self, "Save Required", "Please save the model file before running analysis.")
@@ -2211,16 +2338,29 @@ class MainWindow(QMainWindow):
             return
 
         self.worker = SolverWorker(
-            self.solver_input_path, 
-            self.solver_output_path, 
-            case_type=c_type, 
-            case_name=case_name 
+            self.solver_input_path,
+            self.solver_output_path,
+            case_type=c_type,
+            case_name=case_name
         )
         self.worker.signal_finished.connect(self.finish_analysis_sequence)
+
+        self._progress_dialog = AnalysisProgressDialog(c_type, case_name, parent=self)
+        self.worker.signal_progress.connect(self._progress_dialog.update_stage)
+        if show_log:
+            self._progress_dialog.setProperty("_ghost_animated", True)
+            self._progress_dialog.show()
+
         self.worker.start()
+
     def finish_analysis_sequence(self, success, message):
         """Called when the Solver Thread finishes."""
         QApplication.restoreOverrideCursor()
+
+        if hasattr(self, '_progress_timer'):
+            self._progress_timer.stop()
+        if hasattr(self, '_progress_dialog'):
+            self._progress_dialog.finish(success)
         
         if success:
             self.status.showMessage("Analysis Complete.")
@@ -2272,6 +2412,7 @@ class MainWindow(QMainWindow):
 
         class _BucklingThread(QThread):
             finished = _Signal(bool, str)
+            signal_progress = _Signal(str, int)
 
             def __init__(self, in_path, out_path, res_path, mat_path, c_name):
                 super().__init__()
@@ -2284,7 +2425,10 @@ class MainWindow(QMainWindow):
             def run(self):
                 try:
                     from core.solver.buckling.buckling_engine import run_buckling_analysis
-                    ok = run_buckling_analysis(self._in, self._out, self._res, self._mat, self._cname)
+                    ok = run_buckling_analysis(
+                        self._in, self._out, self._res, self._mat, self._cname,
+                        progress_callback=lambda msg, pct: self.signal_progress.emit(msg, pct)            
+                    )
                     self.finished.emit(bool(ok), "" if ok else "Engine returned failure status.")
                 except Exception as e:
                     self.finished.emit(False, str(e))
@@ -2292,6 +2436,12 @@ class MainWindow(QMainWindow):
         self._buckling_thread = _BucklingThread(
             input_path, buckling_out, static_results, matrices_path, case_name
         )
+
+        self._progress_dialog = AnalysisProgressDialog("Buckling Analysis", case_name, parent=self)
+        self._buckling_thread.signal_progress.connect(self._progress_dialog.update_stage)
+        self._progress_dialog.setProperty("_ghost_animated", True)
+        self._progress_dialog.show()
+
         self._buckling_thread.finished.connect(
             lambda ok, msg: self._finish_buckling(ok, msg, buckling_out, case_name)
         )
@@ -2355,9 +2505,8 @@ class MainWindow(QMainWindow):
         else:
             self.draw_both_canvases()
 
-        from app.dialogs.analysis_results_dialog import AnalysisResultsDialog
-        dlg = AnalysisResultsDialog(self.model.results, self)
-        dlg.exec()
+        if hasattr(self, '_progress_dialog'):
+            self._progress_dialog.finish(success)
 
         if self.model.results.get("mode_shapes") and "Mode 1" in self.model.results["mode_shapes"]:
             self.switch_modal_view("Mode 1")
@@ -2468,8 +2617,6 @@ class MainWindow(QMainWindow):
                                                                            
                 self.switch_modal_view("MAIN_RESULT")
             
-            QMessageBox.information(self, "Success", "Analysis Complete. Results Loaded.\nRight-click any joint to view deformations.")
-
         except Exception as e:
             QMessageBox.critical(self, "Error", f"Could not load results:\n{e}")
             self.canvas.view_deflected = False
@@ -2670,7 +2817,7 @@ class MainWindow(QMainWindow):
     def update_window_title(self):
         """Updates window title to show currently active filename and version."""
                                                               
-        base_title = "OpenCivil v0.7.70" 
+        base_title = "OpenCivil v0.7.72" 
         
         if self.model and getattr(self.model, 'file_path', None):
             short_name = os.path.basename(self.model.file_path)
@@ -2926,7 +3073,7 @@ class MainWindow(QMainWindow):
                                                                  
             max_disp = 0.0
             for vec in target_data.values():
-                d = (vec[0]**2 + vec[1]**2 + vec[2]**2)**0.5
+                d = max(abs(v) for v in vec)                                             
                 if d > max_disp: max_disp = d
                 
             nodes = self.model.nodes.values()
@@ -2956,8 +3103,8 @@ class MainWindow(QMainWindow):
             self.canvas.view_deflected = True
         self.canvas2.view_deflected = True
         
-        self.canvas.anim_factor = 2.0
-        self.canvas2.anim_factor = 2.0
+        self.canvas.anim_factor = 1.5
+        self.canvas2.anim_factor = 1.5
             
         self.canvas.invalidate_deflection_cache()
         self.canvas2.invalidate_deflection_cache()
@@ -3021,6 +3168,7 @@ class MainWindow(QMainWindow):
         super().resizeEvent(event)
         if hasattr(self, 'user_widget'):
             self.user_widget.reposition()
+        self._reposition_welcome_overlay()
 
     def clear_ltha_prerender(self):
         """Clears the LTHA pre-rendered window and returns to full history playback."""

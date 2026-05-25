@@ -32,16 +32,21 @@ def _write_error(out_path, error_code, extra=""):
         pass
     return True
 
-def run_modal_analysis(input_json_path, output_json_path, target_case_name="MODAL"):
+def run_modal_analysis(input_json_path, output_json_path, target_case_name="MODAL", progress_callback=None):
     print("="*60)
     print(f"METUFIRE MODAL ENGINE | V0.3 (Shift-Invert)")
     print(f"Target: {os.path.basename(input_json_path)}")
     print("="*60)
     
     start_time = time.time()
+
+    if progress_callback is None:
+        from progress import noop_callback
+        progress_callback = noop_callback
     
     try:
         print("[1/6] Initializing Data Manager...")
+        progress_callback("Loading model data...", 8)
         dm = DataManager(input_json_path)
         target_case = "MODAL"
         dm.process_all(case_name=target_case_name)
@@ -53,6 +58,8 @@ def run_modal_analysis(input_json_path, output_json_path, target_case_name="MODA
         print("[2/6] Assembling System Matrices (K & M)...")
         
         assembler = GlobalAssembler(dm)
+
+        progress_callback("Assembling stiffness matrix...", 18)
                                                                                                  
         res = assembler.assemble_system()
         K_full = res[0]                    
@@ -61,7 +68,9 @@ def run_modal_analysis(input_json_path, output_json_path, target_case_name="MODA
         ms_name = modal_case_def.get("mass_source", "Default") if modal_case_def else "Default"
         
         mass_assembler = GlobalMassAssembler(dm)
-        M_full = mass_assembler.build_mass_matrix(ms_name)
+
+        progress_callback("Assembling mass matrix...", 28)
+        M_full = mass_assembler.build_mass_matrix(ms_name, progress_callback=progress_callback)
 
         if M_full.nnz == 0 or M_full.diagonal().sum() < 1e-9:
             return _write_error(output_json_path, "E105", f"Mass Source '{ms_name}' resulted in zero mass.")
@@ -78,7 +87,9 @@ def run_modal_analysis(input_json_path, output_json_path, target_case_name="MODA
         return _write_error(output_json_path, "E000", f"Matrix Assembly Error: {e}")
 
     print("[3/6] Applying Boundary Conditions...")
-    
+
+    progress_callback("Applying boundary conditions...", 35)
+
     is_free = np.ones(dm.total_dofs, dtype=bool)
     for node in dm.nodes:
         start_idx = node['idx'] * 6
@@ -92,7 +103,16 @@ def run_modal_analysis(input_json_path, output_json_path, target_case_name="MODA
     
     print(f"      Total DOFs: {dm.total_dofs}")
     print(f"      Free  DOFs: {num_free_dofs}")
-    
+
+    progress_callback("", 35)
+    progress_callback("B E G I N   A N A L Y S I S", 35)
+    progress_callback("", 35)
+    progress_callback(f"NUMBER OF JOINTS                     = {len(dm.nodes):>10}", 35)
+    progress_callback(f"NUMBER OF FRAME ELEMENTS             = {len(dm.elements):>10}", 35)
+    progress_callback(f"NUMBER OF STIFFNESS DOFs             = {dm.total_dofs:>10}", 35)
+    progress_callback(f"NUMBER OF FREE DOFs                  = {num_free_dofs:>10}", 35)
+    progress_callback("", 35)
+
     if num_free_dofs == 0:
         print("Error: Structure is fully constrained.")
         return _write_error(output_json_path, "E301", "Structure is fully constrained. No free DOFs.")
@@ -141,10 +161,19 @@ def run_modal_analysis(input_json_path, output_json_path, target_case_name="MODA
         m_diag = M_free.diagonal()
         zero_m_rows = np.where(m_diag < 1e-10)[0]
         print(f"Zero diagonal in M_free: {len(zero_m_rows)} / {len(m_diag)}")
+
+        progress_callback("Solving eigenvalue problem — this may take a moment...", 42)
                              
         vals, vecs = eigsh(K_free, M=M_free, k=req_modes, sigma=sigma_shift)
         
         print(f"      Converged. Found {len(vals)} modes.")
+
+        progress_callback("Eigenvalue solve complete. Extracting modes...", 65)
+        num_mass_dofs = int(np.sum(M_free.diagonal() > 1e-10))
+        progress_callback(f"NUMBER OF MASS DOFs                  = {num_mass_dofs:>10}", 65)
+        progress_callback(f"NUMBER OF MODES REQUESTED            = {req_modes:>10}", 65)
+        progress_callback(f"NUMBER OF MODES FOUND                = {len(vals):>10}", 65)
+        progress_callback("", 65)
 
     except Exception as e:
         err_str = str(e)
@@ -239,6 +268,9 @@ def run_modal_analysis(input_json_path, output_json_path, target_case_name="MODA
              omega = np.sqrt(w2)
              freq = omega / (2 * np.pi)
              period = 1.0 / freq
+
+        pct = 65 + int(20 * (i + 1) / len(vals))
+        progress_callback(f"Processing mode {i+1} of {len(vals)}  —  T = {period:.3f} s", pct)
         
         results["tables"]["periods"].append({
             "mode": i + 1,
@@ -303,6 +335,7 @@ def run_modal_analysis(input_json_path, output_json_path, target_case_name="MODA
         results["mode_shapes"][f"Mode {i+1}"] = shape_data
 
     try:
+        progress_callback("Computing rotational participation...", 88)
         rot_results, total_mass_rot = compute_rotational_participation(
             dm, M_full, M_free, is_free, vecs, vals
         )
@@ -317,11 +350,32 @@ def run_modal_analysis(input_json_path, output_json_path, target_case_name="MODA
     except Exception as e:
         print(f"WARNING: Rotational participation failed (non-fatal): {e}")
 
+    progress_callback("", 89)
+    progress_callback(f"{'MODE':<6} {'T(s)':>9} {'f(Hz)':>9} {'ω(rad/s)':>10} {'Ux%':>7} {'Uy%':>7} {'Uz%':>7} {'ΣUx%':>8} {'ΣUy%':>8} {'ΣUz%':>8}", 89)
+    progress_callback("-" * 80, 89)
+    for row_p, row_t in zip(results["tables"]["participation_mass"], results["tables"]["periods"]):
+        progress_callback(
+            f"{row_p['mode']:<6} {row_t['T']:>9.4f} {row_t['f']:>9.4f} {row_t['omega']:>10.3f} "
+            f"{row_p['Ux']*100:>7.2f} {row_p['Uy']*100:>7.2f} {row_p['Uz']*100:>7.2f} "
+            f"{row_p['SumUx']*100:>8.2f} {row_p['SumUy']*100:>8.2f} {row_p['SumUz']*100:>8.2f}",
+            89
+        )
+    progress_callback("-" * 80, 89)
+    tm = results["total_mass"]
+    progress_callback(f"TOTAL MASS   X = {tm['x']:.4f} kg    Y = {tm['y']:.4f} kg    Z = {tm['z']:.4f} kg", 90)
+    progress_callback("", 90)
+
     try:
         print("[6/6] Writing Results...")
+        progress_callback("Writing results...", 95)
         with open(output_json_path, 'w') as f:
             json.dump(results, f, indent=4)
         print("Done.")
+        elapsed_total = time.time() - start_time
+        progress_callback("A N A L Y S I S   C O M P L E T E", 98)
+        progress_callback("", 98)
+        progress_callback(f"TOTAL TIME FOR THIS ANALYSIS         = {elapsed_total:>8.3f}  sec", 100)
+        progress_callback("", 100)
         return True
     except Exception as e:
         print(f"FATAL: Write Error: {e}")

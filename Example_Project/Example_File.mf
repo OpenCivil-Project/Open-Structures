@@ -1,7 +1,7 @@
 {
     "info": {
         "name": "New Project",
-        "units": "kN, mm, C"
+        "units": "kN, m, C"
     },
     "graphics": {
         "background_color": [
@@ -75,8 +75,8 @@
             "type": "Modal",
             "loads": [],
             "p_delta": false,
-            "mass_source": "Default",
-            "num_modes": 12,
+            "mass_source": "MSSSRC1",
+            "num_modes": 50,
             "rsa_loads": [],
             "modal_comb": "SRSS",
             "dir_comb": "SRSS",
@@ -133,6 +133,25 @@
                     9810.0
                 ]
             ]
+        },
+        {
+            "name": "CASE2",
+            "type": "Buckling",
+            "loads": [
+                [
+                    "DEAD",
+                    1.0
+                ]
+            ],
+            "p_delta": false,
+            "mass_source": "MSSSRC1",
+            "num_modes": 12,
+            "rsa_loads": [],
+            "modal_comb": "SRSS",
+            "dir_comb": "SRSS",
+            "modal_damping": 0.05,
+            "ltha_damping": 0.05,
+            "ltha_loads": []
         }
     ],
     "grid": {
@@ -9364,40 +9383,7 @@
             "sw_mult": 1.0
         }
     ],
-    "loads": [
-        {
-            "pattern": "DEAD",
-            "type": "nodal",
-            "node_id": 96,
-            "fx": 0.0,
-            "fy": 0.0,
-            "fz": -100000.0,
-            "mx": 0.0,
-            "my": 0.0,
-            "mz": 0.0
-        },
-        {
-            "pattern": "DEAD",
-            "type": "member_point",
-            "element_id": 184,
-            "force": 10000.0,
-            "dist": 0.5,
-            "is_rel": true,
-            "coord": "Global",
-            "dir": "Gravity",
-            "l_type": "Force"
-        },
-        {
-            "pattern": "DEAD",
-            "type": "member_dist",
-            "element_id": 166,
-            "wx": 0.0,
-            "wy": 0.0,
-            "wz": -10000.0,
-            "projected": false,
-            "coord": "Global"
-        }
-    ],
+    "loads": [],
     "mass_sources": [
         {
             "name": "MSSSRC1",

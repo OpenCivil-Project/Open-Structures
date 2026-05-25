@@ -12,10 +12,12 @@ from core.solver.linear_static.main_engine import run_linear_static_analysis
 from core.solver.modal.modal_engine import run_modal_analysis
 from core.solver.RSA.rsa_engine import RSAEngine
 from core.solver.LTHA.ltha_engine import run_ltha_analysis
-from core.model import StructuralModel 
+from core.solver.buckling.buckling_engine import run_buckling_analysis
+from core.model import StructuralModel
 
 class SolverWorker(QThread):
     signal_finished = pyqtSignal(bool, str)
+    signal_progress = pyqtSignal(str, int)                    
 
     def __init__(self, input_path, output_path, case_type="Linear Static", case_name="DEAD"):
         super().__init__()
@@ -30,7 +32,9 @@ class SolverWorker(QThread):
             success = False
             
             if self.case_type == "Modal":
-                success = run_modal_analysis(self.input_path, self.output_path)
+                from progress import make_callback
+                cb = make_callback(self.signal_progress.emit)
+                success = run_modal_analysis(self.input_path, self.output_path, progress_callback=cb)
 
             elif self.case_type in ["Response Spectrum", "LTHA"]:
                 
@@ -184,9 +188,38 @@ class SolverWorker(QThread):
                         case_name=self.case_name
                     )
 
+            elif self.case_type == "Buckling":
+                from progress import make_callback
+                cb = make_callback(self.signal_progress.emit)
+
+                base = self.output_path.replace("_results.json", "")
+
+                static_case_name = "DEAD"
+                try:
+                    temp_model = StructuralModel("Temp")
+                    temp_model.load_from_file(self.input_path)
+                    case_obj = temp_model.load_cases.get(self.case_name)
+                    if case_obj and hasattr(case_obj, 'nonlinear_case') and case_obj.nonlinear_case:
+                        static_case_name = case_obj.nonlinear_case
+                except Exception:
+                    pass
+
+                static_results_path  = base.rsplit("_", 1)[0] + f"_{static_case_name}_results.json"
+                static_matrices_path = base.rsplit("_", 1)[0] + f"_{static_case_name}_matrices.json"
+
+                success = run_buckling_analysis(
+                    self.input_path,
+                    self.output_path,
+                    static_results_path,
+                    static_matrices_path,
+                    case_name=self.case_name,
+                    progress_callback=cb
+                )
+
             else:
-                                               
-                success = run_linear_static_analysis(self.input_path, self.output_path, self.case_name)
+                from progress import make_callback
+                cb = make_callback(self.signal_progress.emit)
+                success = run_linear_static_analysis(self.input_path, self.output_path, self.case_name, progress_callback=cb)
             
             if success:
                 self.signal_finished.emit(True, "Analysis Completed Successfully.")

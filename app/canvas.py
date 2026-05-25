@@ -115,6 +115,7 @@ class MCanvas3D(gl.GLViewWidget):
         self._support_rebuild_timer.timeout.connect(self._rebuild_support_items)
         self._sel_overlay_items = []      
         self.last_selection_state = {'nodes': [], 'elements': [], 'blink': True}
+        self._loads_dirty = True                                                      
 
         self._label_hide_timer = QTimer()
         self._label_hide_timer.setSingleShot(True)
@@ -143,9 +144,10 @@ class MCanvas3D(gl.GLViewWidget):
         self.blink_state = True
 
         self.vbo_manager = VBORenderManager()
-
-        self.vbo_manager = VBORenderManager()
         self.text_builder = SDFTextBuilder()
+
+        self._node_screen_cache = {}
+        self._screen_cache_key = None
                                     
         self.pivot_dot = gl.GLScatterPlotItem(pos=np.array([[0,0,0]]), size=6, 
                                               color=(1, 1, 0, 0.3), pxMode=True)
@@ -412,6 +414,7 @@ class MCanvas3D(gl.GLViewWidget):
         self.current_model = model
         if sel_elems is not None: self.selected_element_ids = sel_elems
         if sel_nodes is not None: self.selected_node_ids = sel_nodes
+        self._loads_dirty = True                                           
         self.load_labels = []
 
         self.node_items.clear()
@@ -436,26 +439,32 @@ class MCanvas3D(gl.GLViewWidget):
             self._draw_nodes(model)
         
         in_analysis_mode = hasattr(model, 'has_results') and model.has_results
-        
-        if self.show_constraints and not in_analysis_mode:  
+
+        if self.show_constraints and not in_analysis_mode:
             self._draw_constraints(model)
-                                                  
+
         if self.view_extruded:
             self._draw_elements_extruded(model)
         else:
-                              
-            self._draw_elements_wireframe(model) 
+            self._draw_elements_wireframe(model)
 
-        in_analysis_mode = hasattr(model, 'has_results') and model.has_results
-        
         if self.show_loads and not in_analysis_mode:
+            self._pending_load_fill_verts = []
+            self._pending_load_fill_colors = []
+            self._pending_load_fill_faces = []
+            self._pending_load_line_pos = []
+            self._pending_load_line_colors = []
             self._draw_loads(model)
             self._draw_member_loads(model)
             self._draw_member_point_loads(model)
+            self._upload_loads_to_vbo()
             self._upload_load_labels_to_gpu() 
         else:
+            self.vbo_manager.clear_load_geometry()
                                                                                                          
             self._upload_load_labels_to_gpu()
+
+        self._loads_dirty = False
 
         if self.show_slabs:
             self._draw_slabs(model)
@@ -513,16 +522,27 @@ class MCanvas3D(gl.GLViewWidget):
             try: self.removeItem(item)
             except Exception: pass
         self.load_items.clear()
-                            
+
         self.load_labels.clear()
         if hasattr(self, 'show_loads'):
             self.load_labels = []
             if self.show_loads and not in_analysis_mode:
+                self._pending_load_fill_verts = []
+                self._pending_load_fill_colors = []
+                self._pending_load_fill_faces = []
+                self._pending_load_line_pos = []
+                self._pending_load_line_colors = []
                 self._draw_loads(self.current_model)
                 self._draw_member_loads(self.current_model)
                 self._draw_member_point_loads(self.current_model)
+                if getattr(self, '_loads_dirty', True):
+                                                             
+                    self._upload_loads_to_vbo()
+                    self._loads_dirty = False
+                                                                                     
                 self._upload_load_labels_to_gpu()
             else:
+                self.vbo_manager.clear_load_geometry()
                 self._upload_load_labels_to_gpu()
 
         self._rebuild_selection_overlay()
@@ -2034,14 +2054,9 @@ class MCanvas3D(gl.GLViewWidget):
             process_component(load.my, np.array([0, 1.0, 0]), c_black, True)
 
         if arrow_lines:
-            item = gl.GLLinePlotItem(
-                pos=np.array(arrow_lines), 
-                color=np.array(arrow_colors), 
-                mode='lines', width=2.0, antialias=True
-            )
-            self.addItem(item)
-            if not hasattr(self, 'load_items'): self.load_items = []
-            self.load_items.append(item)
+                                                                             
+            self._pending_load_line_pos.extend(arrow_lines)
+            self._pending_load_line_colors.extend(arrow_colors)
 
     def _add_load_label(self, origin, direction, val, l_type, color, owner_id=None, owner_type=None):
         if l_type == "Moment":
@@ -2219,7 +2234,6 @@ class MCanvas3D(gl.GLViewWidget):
             return None
         if not self.current_model: return None
 
-        candidates = []
         grids = self.current_model.grid
         
         if self.active_view_plane:
@@ -2233,45 +2247,57 @@ class MCanvas3D(gl.GLViewWidget):
             y_range = grids.y_grids
             x_range = grids.x_grids
 
-        for z in z_range:
-            for x in x_range:
-                for y in y_range:
-                    candidates.append((x, y, z))
-        
-        if not candidates: return None
-        
+        xs = np.array(x_range, dtype=np.float32)
+        ys = np.array(y_range, dtype=np.float32)
+        zs = np.array(z_range, dtype=np.float32)
+        gx, gy, gz = np.meshgrid(xs, ys, zs, indexing='ij')
+        pts_xyz = np.column_stack([gx.ravel(), gy.ravel(), gz.ravel()])          
+
+        if len(pts_xyz) == 0: return None
+
         view_w = self.width()
         view_h = self.height()
         full_area = (0, 0, view_w, view_h)
         m_view = self.viewMatrix()
         m_proj = self.projectionMatrix(region=full_area, viewport=full_area)
-        mvp = m_proj * m_view
-        mvp_matrix = np.array(mvp.data()).reshape(4, 4).T
+
+        _snap_key = (m_view.data(), view_w, view_h)
+        if getattr(self, '_snap_cache_key', None) != _snap_key:
+            mvp = m_proj * m_view
+            self._snap_mvp_matrix = np.array(mvp.data(), dtype=np.float32).reshape(4, 4).T
+            self._snap_inv_view   = np.linalg.inv(np.array(m_view.data(), dtype=np.float32).reshape(4, 4).T)
+            self._snap_cache_key  = _snap_key
+
+        mvp_matrix = self._snap_mvp_matrix
+        inv_view   = self._snap_inv_view
+
+        ones  = np.ones((len(pts_xyz), 1), dtype=np.float32)
+        pts_h = np.hstack([pts_xyz, ones])           
+        clip  = pts_h @ mvp_matrix.T                 
+
+        valid = clip[:, 3] > 0
+        if not valid.any():
+            self.snap_ring.setVisible(False)
+            self.snap_dot.setVisible(False)
+            self.snap_text.setVisible(False)
+            return None
+
+        clip_v = clip[valid]
+        pts_v  = pts_xyz[valid]
+
+        w_inv    = 1.0 / clip_v[:, 3]
+        screen_x = (clip_v[:, 0] * w_inv + 1.0) * view_w * 0.5
+        screen_y = (1.0 - clip_v[:, 1] * w_inv) * view_h * 0.5
+
+        dists = np.hypot(screen_x - mouse_x, screen_y - mouse_y)
+        idx   = int(np.argmin(dists))
 
         best_point = None
-        closest_dist = 25.0                                 
-        
-        for pt in candidates:
-            vec = np.array([pt[0], pt[1], pt[2], 1.0])
-            clip = np.dot(mvp_matrix, vec)
-            if clip[3] <= 0: continue
-            ndc_x = clip[0] / clip[3]
-            ndc_y = clip[1] / clip[3]
-            screen_x = (ndc_x + 1) * view_w / 2
-            screen_y = (1 - ndc_y) * view_h / 2
-            
-            dx = screen_x - mouse_x
-            dy = screen_y - mouse_y
-            dist = (dx**2 + dy**2)**0.5
-            
-            if dist < closest_dist:
-                closest_dist = dist
-                best_point = pt
+        if dists[idx] < 25.0:
+            best_point = tuple(float(v) for v in pts_v[idx])
 
         if best_point:
             bx, by, bz = best_point
-            
-            inv_view = np.linalg.inv(np.array(m_view.data()).reshape(4,4).T)
             cam_pos = inv_view[:3, 3]
             dir_vec = np.array([cam_pos[0]-bx, cam_pos[1]-by, cam_pos[2]-bz])
             dist_cam = np.linalg.norm(dir_vec)
@@ -3194,15 +3220,8 @@ class MCanvas3D(gl.GLViewWidget):
             self.update()
         if self.is_selecting:
             self.drag_current = event.pos()
-            if self.is_selecting:
-                self.drag_current = event.pos()
-                self.update()
-                return
             self.update()
             return
-
-        is_middle_pan = (event.buttons() == Qt.MouseButton.MiddleButton)
-        is_tool_pan = (event.buttons() == Qt.MouseButton.LeftButton and getattr(self, 'single_use_pan_active', False))
 
         if is_middle_pan or is_tool_pan:
             if hasattr(self, '_prev_mouse_pos'):
@@ -3961,31 +3980,30 @@ class MCanvas3D(gl.GLViewWidget):
                     add_arrow(pt_tip, arrow_dir, c_line)
 
         if ghost_verts:
-            mesh_ghost = gl.GLMeshItem(
-                vertexes=np.array(ghost_verts, dtype=np.float32), faces=np.array(ghost_faces, dtype=np.int32),
-                vertexColors=np.array(ghost_colors, dtype=np.float32), smooth=False, shader='balloon', glOptions='translucent'
-            )
-            self.addItem(mesh_ghost)
-            self.load_items.append(mesh_ghost)
+            base_idx = len(self._pending_load_fill_verts)
+            self._pending_load_fill_verts.extend(ghost_verts)
+            for face in ghost_faces:
+                self._pending_load_fill_faces.append([face[0] + base_idx,
+                                                      face[1] + base_idx,
+                                                      face[2] + base_idx])
+            self._pending_load_fill_colors.extend(ghost_colors)
 
         if ghost_lines:
-            g_lines = gl.GLLinePlotItem(pos=np.array(ghost_lines), color=np.array(ghost_line_colors), mode='lines', width=1.0, antialias=True)
-            g_lines.setGLOptions('translucent')
-            self.addItem(g_lines)
-            self.load_items.append(g_lines)
+            self._pending_load_line_pos.extend(ghost_lines)
+            self._pending_load_line_colors.extend(ghost_line_colors)
 
         if sel_verts:
-            mesh_sel = gl.GLMeshItem(
-                vertexes=np.array(sel_verts, dtype=np.float32), faces=np.array(sel_faces, dtype=np.int32),
-                vertexColors=np.array(sel_colors, dtype=np.float32), smooth=False, shader='balloon', glOptions='translucent'
-            )
-            self.addItem(mesh_sel)
-            self.load_items.append(mesh_sel)
+            base_idx = len(self._pending_load_fill_verts)
+            self._pending_load_fill_verts.extend(sel_verts)
+            for face in sel_faces:
+                self._pending_load_fill_faces.append([face[0] + base_idx,
+                                                      face[1] + base_idx,
+                                                      face[2] + base_idx])
+            self._pending_load_fill_colors.extend(sel_colors)
 
         if sel_lines:
-            lines = gl.GLLinePlotItem(pos=np.array(sel_lines), color=np.array(sel_line_colors), mode='lines', width=2, antialias=True)
-            self.addItem(lines)
-            self.load_items.append(lines)
+            self._pending_load_line_pos.extend(sel_lines)
+            self._pending_load_line_colors.extend(sel_line_colors)
 
     def _draw_local_axes(self, model):
         """Draws RGB arrows at the center of each element representing local axes."""
@@ -4066,7 +4084,7 @@ class MCanvas3D(gl.GLViewWidget):
                 pos=np.array(conn_lines),
                 color=(0, 1, 0, 0.85),                             
                 mode='lines',
-                width=2.5,                                  
+                width=0.7,                                  
                 antialias=True
             ))
 
@@ -4170,11 +4188,8 @@ class MCanvas3D(gl.GLViewWidget):
                 self._add_load_label(load_pos, draw_dir, val, "Moment" if is_moment else "Force", c, owner_id=el.id, owner_type='element')
 
         if arrow_lines:
-            self.addItem(gl.GLLinePlotItem(
-                pos=np.array(arrow_lines), 
-                color=np.array(arrow_colors), 
-                mode='lines', width=2.0, antialias=True
-            ))
+            self._pending_load_line_pos.extend(arrow_lines)
+            self._pending_load_line_colors.extend(arrow_colors)
 
     def show_pivot_dot(self, visible=True):
         if visible:
@@ -4245,40 +4260,30 @@ class MCanvas3D(gl.GLViewWidget):
         """
         Efficiently updates only the selection-dependent items.
         Used by blink timer to avoid full scene rebuild.
+        Blink is implemented by toggling overlay visibility — no geometry rebuild.
         """
         if not self.current_model:
             return
-        
+
         current_state = {
             'nodes': self.selected_node_ids[:],
             'elements': self.selected_element_ids[:],
             'blink': self.blink_state
         }
-        
+
         if current_state == self.last_selection_state:
             return
-        
+
         self.last_selection_state = current_state
-        
-        for item in self.node_items:
-            try: self.removeItem(item)
-            except: pass                         
-            
-        for item in self.element_items:
-            try: self.removeItem(item)
-            except: pass 
-        
-        self.node_items.clear()
-        self.element_items.clear()
-        
-        if self.show_joints or self.show_supports:
-            self._draw_nodes(self.current_model)
-        
-        if not self.view_deflected:
-            if self.view_extruded:
-                self._draw_elements_extruded(self.current_model)
-            else:
-                self._draw_elements_wireframe(self.current_model)
+
+        visible = self.blink_state
+        for item in getattr(self, '_sel_overlay_items', []):
+            try:
+                item.setVisible(visible)
+            except Exception:
+                pass
+
+        self.update()
 
     def paintGL(self, *args, **kwargs):
         glEnable(GL_MULTISAMPLE)
@@ -4335,8 +4340,13 @@ class MCanvas3D(gl.GLViewWidget):
         if hasattr(self, 'vbo_manager') and self.vbo_manager.is_initialized:
             w, h = self.width(), self.height()
             full_area = (0, 0, w, h)
-            m_view = np.array(self.viewMatrix().data(), dtype=np.float32).reshape(4,4)
-            m_proj = np.array(self.projectionMatrix(region=full_area, viewport=full_area).data(), dtype=np.float32).reshape(4,4)
+            if not hasattr(self, '_paintgl_m_view'):
+                self._paintgl_m_view = np.empty((4, 4), dtype=np.float32)
+                self._paintgl_m_proj = np.empty((4, 4), dtype=np.float32)
+            self._paintgl_m_view[:] = np.array(self.viewMatrix().data(), dtype=np.float32).reshape(4, 4)
+            self._paintgl_m_proj[:] = np.array(self.projectionMatrix(region=full_area, viewport=full_area).data(), dtype=np.float32).reshape(4, 4)
+            m_view = self._paintgl_m_view
+            m_proj = self._paintgl_m_proj
 
             if self.view_extruded:
                 edge_w = float(self.display_config.get("edge_width", 1.5))
@@ -4365,6 +4375,7 @@ class MCanvas3D(gl.GLViewWidget):
                 self._pending_force_upload = None
 
             self.vbo_manager.draw_force_geometry(m_view, m_proj)
+            self.vbo_manager.draw_load_geometry(m_view, m_proj)
 
             if hasattr(self.vbo_manager, 'font_texture_id'):
                 self.vbo_manager.draw_text(m_view, m_proj, self.vbo_manager.font_texture_id)
@@ -4577,8 +4588,9 @@ class MCanvas3D(gl.GLViewWidget):
 
     def _handle_hover_tooltip(self, px, py):
         if not self.current_model:
-            self.current_hover_data = None
-            self.update()
+            if self.current_hover_data is not None:
+                self.current_hover_data = None
+                self.update()
             return
 
         w, h = self.width(), self.height()
@@ -4587,35 +4599,48 @@ class MCanvas3D(gl.GLViewWidget):
         m_proj = self.projectionMatrix(region=full_area, viewport=full_area)
         mvp = np.array((m_proj * m_view).data()).reshape(4, 4).T
 
+        can_deflect = (self.view_deflected and
+                       hasattr(self.current_model, 'has_results') and
+                       self.current_model.has_results and
+                       self.current_model.results is not None)
+
+        _cache_key = (
+            mvp.tobytes(),
+            can_deflect,
+            self.anim_factor   if can_deflect else 0.0,
+            self.deflection_scale if can_deflect else 0.0,
+            len(self.current_model.nodes),
+        )
+
+        if self._screen_cache_key != _cache_key:
+            node_screens = {}
+            for nid, node in self.current_model.nodes.items():
+                if self._get_visibility_state(node.x, node.y, node.z) != 2:
+                    continue
+                nx, ny, nz = node.x, node.y, node.z
+                if can_deflect:
+                    disp = self.current_model.results.get("displacements", {}).get(str(nid))
+                    if disp:
+                        nx += disp[0] * self.deflection_scale * self.anim_factor
+                        ny += disp[1] * self.deflection_scale * self.anim_factor
+                        nz += disp[2] * self.deflection_scale * self.anim_factor
+                s_pos = self._project_to_screen(nx, ny, nz, mvp, w, h)
+                if s_pos:
+                    node_screens[nid] = s_pos
+            self._node_screen_cache = node_screens
+            self._screen_cache_key = _cache_key
+        else:
+            node_screens = self._node_screen_cache
+
         hovered_node = None
         hovered_elem = None
         min_dist = 15.0
 
-        can_deflect = (self.view_deflected and 
-                       hasattr(self.current_model, 'has_results') and 
-                       self.current_model.has_results and 
-                       self.current_model.results is not None)
-
-        node_screens = {}
-        for nid, node in self.current_model.nodes.items():
-            if self._get_visibility_state(node.x, node.y, node.z) != 2: continue
-            
-            nx, ny, nz = node.x, node.y, node.z
-            
-            if can_deflect:
-                disp = self.current_model.results.get("displacements", {}).get(str(nid))
-                if disp:
-                    nx += disp[0] * self.deflection_scale * self.anim_factor
-                    ny += disp[1] * self.deflection_scale * self.anim_factor
-                    nz += disp[2] * self.deflection_scale * self.anim_factor
-
-            s_pos = self._project_to_screen(nx, ny, nz, mvp, w, h)
-            if s_pos:
-                node_screens[nid] = s_pos
-                dist = ((s_pos[0] - px)**2 + (s_pos[1] - py)**2)**0.5
-                if dist < min_dist:
-                    min_dist = dist
-                    hovered_node = nid
+        for nid, s_pos in node_screens.items():
+            dist = ((s_pos[0] - px)**2 + (s_pos[1] - py)**2)**0.5
+            if dist < min_dist:
+                min_dist = dist
+                hovered_node = nid
 
         if hovered_node is None:
             min_dist_edge = 10.0
@@ -4627,21 +4652,18 @@ class MCanvas3D(gl.GLViewWidget):
                     curve_data_full = cached['curve_data']
                     p1_orig = cached['p1_orig']
                     p2_orig = cached['p2_orig']
-                    
+
                     screen_pts = []
                     for k in range(len(curve_data_full)):
                         pos_full, _, _ = curve_data_full[k]
                         s = k / (len(curve_data_full) - 1) if len(curve_data_full) > 1 else 0.0
                         pos_orig = p1_orig + s * (p2_orig - p1_orig)
-                        
                         displacement = pos_full - pos_orig
-                                                                                          
                         pos_anim = pos_orig + displacement * self.anim_factor
-                        
                         s_pos = self._project_to_screen(pos_anim[0], pos_anim[1], pos_anim[2], mvp, w, h)
                         if s_pos:
                             screen_pts.append(s_pos)
-                            
+
                     if len(screen_pts) >= 2:
                         use_curve = True
                         for i in range(len(screen_pts) - 1):
@@ -4655,11 +4677,10 @@ class MCanvas3D(gl.GLViewWidget):
                                 proj_x = x1 + t * (x2 - x1)
                                 proj_y = y1 + t * (y2 - y1)
                                 dist = ((px - proj_x)**2 + (py - proj_y)**2)**0.5
-                                
                             if dist < min_dist_edge:
                                 min_dist_edge = dist
                                 hovered_elem = eid
-                                                                                 
+
                 if not use_curve:
                     if el.node_i.id in node_screens and el.node_j.id in node_screens:
                         x1, y1 = node_screens[el.node_i.id]
@@ -4678,7 +4699,7 @@ class MCanvas3D(gl.GLViewWidget):
 
         text = ""
         in_analysis = getattr(self.current_model, 'has_results', False)
-        
+
         if hovered_node is not None:
             if in_analysis:
                 results = self.current_model.results.get("displacements", {})
@@ -4692,22 +4713,18 @@ class MCanvas3D(gl.GLViewWidget):
             else:
                 node = self.current_model.nodes[hovered_node]
                 text = f"JOINT {hovered_node}\nX: {node.x:.2f}\nY: {node.y:.2f}\nZ: {node.z:.2f}"
-            
+
                 if hasattr(node, 'restraints') and any(node.restraints):
                     r = node.restraints
-                    
-                    is_fixed = all(r[:3]) and all(r[3:])
+                    is_fixed  = all(r[:3]) and all(r[3:])
                     is_pinned = all(r[:3]) and not any(r[3:])
                     is_roller = r[2] and not any(r[0:2]) and not any(r[3:])
-                    
-                    if is_fixed: s_type = "Fixed"
+                    if is_fixed:   s_type = "Fixed"
                     elif is_pinned: s_type = "Pinned"
                     elif is_roller: s_type = "Roller"
-                    else: s_type = "Custom"
-                    
-                    dof_names = ["UX", "UY", "UZ", "RX", "RY", "RZ"]
+                    else:           s_type = "Custom"
+                    dof_names   = ["UX", "UY", "UZ", "RX", "RY", "RZ"]
                     active_dofs = [dof_names[i] for i, state in enumerate(r) if state]
-                    
                     text += f"\nSupport: {s_type}\nRestraints: [{', '.join(active_dofs)}]"
 
         elif hovered_elem is not None:
@@ -4715,15 +4732,21 @@ class MCanvas3D(gl.GLViewWidget):
             sec_name = el.section.name if el.section else "None"
             text = f"FRAME {hovered_elem}\nSection: {sec_name}"
 
-        if text:
-            self.current_hover_data = {'text': text, 'x': px, 'y': py}
-        else:
-            self.current_hover_data = None
+        new_hover_data = {'text': text, 'x': px, 'y': py} if text else None
 
-        self.hovered_node_id = hovered_node
-        self.hovered_elem_id = hovered_elem
-            
-        self.update()
+        prev_nothing = (self.hovered_node_id is None and
+                        self.hovered_elem_id is None and
+                        self.current_hover_data is None)
+        new_nothing  = (hovered_node is None and
+                        hovered_elem is None and
+                        new_hover_data is None)
+
+        self.current_hover_data = new_hover_data
+        self.hovered_node_id    = hovered_node
+        self.hovered_elem_id    = hovered_elem
+
+        if not (prev_nothing and new_nothing):
+            self.update()
 
     def _build_ltha_extruded_metadata(self):
         """Builds initial topology and vertex mappings for the GPU Extruded Tensor."""
@@ -4813,6 +4836,32 @@ class MCanvas3D(gl.GLViewWidget):
         if show_edges and ex_edges:
             edge_verts_flat = verts_flat.reshape(-1, 3)[self.ltha_engine.edge_indices].flatten()
             self.vbo_manager.upload_line_geometry(edge_verts_flat.reshape(-1, 3), self.ltha_engine.edge_colors_flat.reshape(-1, 4))
+
+    def _upload_loads_to_vbo(self):
+        """
+        Flushes all pending load geometry (nodal arrows, dist load curtains,
+        member point load arrows) into the dedicated load VBO in one call.
+        Called after _draw_loads / _draw_member_loads / _draw_member_point_loads
+        have populated the self._pending_load_* accumulators.
+        """
+        if not hasattr(self, 'vbo_manager') or not self.vbo_manager.is_initialized:
+            return
+
+        self.makeCurrent()
+
+        fill_verts  = self._pending_load_fill_verts
+        fill_colors = self._pending_load_fill_colors
+        fill_faces  = self._pending_load_fill_faces
+        line_pos    = self._pending_load_line_pos
+        line_colors = self._pending_load_line_colors
+
+        fv = np.array(fill_verts,  dtype=np.float32) if fill_verts  else np.zeros((0, 3), dtype=np.float32)
+        fc = np.array(fill_colors, dtype=np.float32) if fill_colors else np.zeros((0, 4), dtype=np.float32)
+        ff = np.array(fill_faces,  dtype=np.uint32)  if fill_faces  else np.zeros((0, 3), dtype=np.uint32)
+        lp = np.array(line_pos,    dtype=np.float32) if line_pos    else np.zeros((0, 3), dtype=np.float32)
+        lc = np.array(line_colors, dtype=np.float32) if line_colors else np.zeros((0, 4), dtype=np.float32)
+
+        self.vbo_manager.upload_load_geometry(fv, fc, ff, lp, lc)
 
     def _upload_load_labels_to_gpu(self):
         """Pushes current load_labels AND force_labels to the SDF VBO pipeline without wiping each other."""
