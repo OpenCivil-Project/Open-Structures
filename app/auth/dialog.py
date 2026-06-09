@@ -1,7 +1,7 @@
 """
 auth/dialog.py
 --------------
-Redesigned login dialog for OpenCivil.
+Redesigned login dialog for Open / Structure.
 Quiet-confidence aesthetic: off-white textured surface, zero gradients,
 IBM blue (#0F62FE) as the single accent. All backend logic preserved.
 """
@@ -23,7 +23,7 @@ from PyQt6.QtWidgets import (
     QApplication, QSpacerItem
 )
 
-from .thread import GoogleAuthThread
+from .thread import GoogleAuthThread, _CANCELLED
 from . import email_auth
 
 BG            = "#F5F4F0"                            
@@ -150,6 +150,7 @@ class GoogleButton(QPushButton):
         self.setFont(QFont("Segoe UI Semibold", 10))
         self._logo_path  = logo_path
         self._use_pixmap = False
+        self._waiting = False
 
         if logo_path and os.path.exists(logo_path):
             icon = QIcon(logo_path)
@@ -157,26 +158,53 @@ class GoogleButton(QPushButton):
             self.setIconSize(__import__('PyQt6.QtCore', fromlist=['QSize']).QSize(20, 20))
             self._use_pixmap = True
 
-        self.setStyleSheet(f"""
-            QPushButton {{
-                background: {GOOGLE_BG};
-                border: 1px solid {GOOGLE_BORDER};
-                border-radius: 6px;
-                color: {TEXT_PRIMARY};
-                font-size: 13px;
-                font-weight: 600;
-                padding-left: 8px;
-                text-align: center;
-            }}
-            QPushButton:hover   {{ background: {GOOGLE_HOVER}; border-color: {BORDER_STRONG}; }}
-            QPushButton:pressed {{ background: #E8E7E3; }}
-            QPushButton:disabled {{ color: {TEXT_HINT}; }}
-        """)
+        self._apply_style()
+
+    def _apply_style(self):
+        if self._waiting:
+            self.setStyleSheet(f"""
+                QPushButton {{
+                    background: {GOOGLE_BG};
+                    border: 1px solid {GOOGLE_BORDER};
+                    border-radius: 6px;
+                    color: {TEXT_SECONDARY};
+                    font-size: 13px;
+                    font-weight: 600;
+                    padding-left: 8px;
+                    text-align: center;
+                }}
+                QPushButton:hover   {{ background: {GOOGLE_HOVER}; border-color: {BORDER_STRONG}; color: #DC2626; }}
+                QPushButton:pressed {{ background: #E8E7E3; }}
+            """)
+        else:
+            self.setStyleSheet(f"""
+                QPushButton {{
+                    background: {GOOGLE_BG};
+                    border: 1px solid {GOOGLE_BORDER};
+                    border-radius: 6px;
+                    color: {TEXT_PRIMARY};
+                    font-size: 13px;
+                    font-weight: 600;
+                    padding-left: 8px;
+                    text-align: center;
+                }}
+                QPushButton:hover   {{ background: {GOOGLE_HOVER}; border-color: {BORDER_STRONG}; }}
+                QPushButton:pressed {{ background: #E8E7E3; }}
+                QPushButton:disabled {{ color: {TEXT_HINT}; }}
+            """)
+
+    def set_waiting(self, waiting: bool):
+        self._waiting = waiting
+        if waiting:
+            self.setText("Cancel Google Sign-In")
+        else:
+            self.setText("Continue with Google")
+        self._apply_style()
+        self.update()
 
     def paintEvent(self, event):
         super().paintEvent(event)
-                                                                
-        if not self._use_pixmap:
+        if not self._use_pixmap and not self._waiting:
             p = QPainter(self)
             p.setRenderHint(QPainter.RenderHint.Antialiasing)
             icon_cx = 28
@@ -219,7 +247,7 @@ def _field_label(text: str) -> QLabel:
 
 class LoginDialog(QDialog):
     """
-    Redesigned OpenCivil login dialog.
+    Redesigned Open / Structure login dialog.
     Quiet-confidence aesthetic — all auth logic preserved.
     """
 
@@ -230,7 +258,7 @@ class LoginDialog(QDialog):
         self._auth_thread = None
         self._mode        = "login"
 
-        self.setWindowTitle("OpenCivil")
+        self.setWindowTitle("Open / Structure")
         self.setFixedSize(420, 624)
 
         icon_path = self._find_asset_static("logo.png") or self._find_asset_static("logo.ico")
@@ -272,10 +300,10 @@ class LoginDialog(QDialog):
             )
             logo_lbl.setPixmap(px)
         else:
-            logo_lbl.setText("◈")
-            logo_lbl.setStyleSheet(f"color: {ACCENT}; font-size: 18px;")
+            logo_lbl.setText("O/S")
+            logo_lbl.setStyleSheet(f"color: {ACCENT}; font-size: 18px; font-weight: bold;")
 
-        app_name = QLabel("OpenCivil")
+        app_name = QLabel("Open / Structure")
         app_name.setFont(QFont("Segoe UI Semibold", 12))
         app_name.setStyleSheet(f"color: {TEXT_PRIMARY};")
 
@@ -456,7 +484,7 @@ class LoginDialog(QDialog):
         if self._mode == "login":
             self._mode = "register"
             self.lbl_heading.setText("Create account.")
-            self.tagline.setText("Join OpenCivil today")
+            self.tagline.setText("Join Open / Structure today")
             self.btn_primary.setText("Create Account")
             self.lbl_toggle_hint.setText("Already have an account?")
             self.btn_toggle.setText("Sign in")
@@ -614,9 +642,15 @@ class LoginDialog(QDialog):
 
     def _on_google_login(self):
         """Start the Google OAuth flow in a background thread."""
-        self.btn_google.setEnabled(False)
+        if self._auth_thread and self._auth_thread.isRunning():
+            self._cancel_google_auth()
+            return
+
+        self.btn_google.set_waiting(True)
+        self.btn_google.setEnabled(True)                                           
         self.btn_primary.setEnabled(False)
-        self._set_status("Opening browser…", error=False)
+        self.btn_guest.setEnabled(False)
+        self._set_status("Opening browser — please sign in…", error=False)
 
         self._auth_thread = GoogleAuthThread()
         self._auth_thread.auth_progress.connect(
@@ -626,21 +660,48 @@ class LoginDialog(QDialog):
         self._auth_thread.auth_failed.connect(self._on_auth_failed)
         self._auth_thread.start()
 
+    def _cancel_google_auth(self):
+        """Signal the auth thread to stop, and reset the UI."""
+        if self._auth_thread:
+            self._auth_thread.cancel()
+        self._reset_google_ui()
+
+    def _reset_google_ui(self):
+        self.btn_google.set_waiting(False)
+        self.btn_google.setEnabled(True)
+        self.btn_primary.setEnabled(True)
+        self.btn_guest.setEnabled(True)
+        self._set_status("", error=False)
+
     def _on_auth_complete(self, user_info: dict):
+        self._reset_google_ui()
         self.user_info   = user_info
         self.remember_me = self.chk_remember.isChecked()
         self._set_status(f"Welcome, {user_info.get('name', 'User')}!", error=False)
         QTimer.singleShot(600, self.accept)
 
     def _on_auth_failed(self, message: str):
-        self.btn_google.setEnabled(True)
-        self.btn_primary.setEnabled(True)
+        self._reset_google_ui()
+        if message == _CANCELLED:
+                                                             
+            return
         self._set_status(message, error=True)
 
     def _set_status(self, text: str, error: bool = False):
         color = ERROR_COLOR if error else TEXT_SECONDARY
         self.lbl_status.setStyleSheet(f"color: {color}; font-size: 11px;")
         self.lbl_status.setText(text)
+
+    def reject(self):
+        """Ensure thread is killed if dialog is closed."""
+        if self._auth_thread and self._auth_thread.isRunning():
+            self._auth_thread.cancel()
+        super().reject()
+
+    def closeEvent(self, event):
+        if self._auth_thread and self._auth_thread.isRunning():
+            self._auth_thread.cancel()
+        super().closeEvent(event)
 
     @staticmethod
     def _find_asset_static(filename: str):

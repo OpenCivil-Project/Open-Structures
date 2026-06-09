@@ -97,7 +97,7 @@ class GraphicsOptionsDialog(QDialog):
 
         h_nc = QHBoxLayout()
         h_nc.addWidget(QLabel("Node Color:"))
-        self.btn_node_col = ColorButton(self.settings.get("node_color", (1,1,0,1)), self)
+        self.btn_node_col = ColorButton(self.settings.get("node_color", (1,0,0,1)), self)
         h_nc.addWidget(self.btn_node_col)
         v_nodes.addLayout(h_nc)
 
@@ -183,7 +183,7 @@ class GraphicsOptionsDialog(QDialog):
         h_btns = QHBoxLayout()
         h_btns.addStretch()
         self.btn_ok = QPushButton("OK")
-        self.btn_ok.clicked.connect(self.accept)
+        self.btn_ok.clicked.connect(self._on_ok)
         self.btn_cancel = QPushButton("Cancel")
         self.btn_cancel.clicked.connect(self.reject)
         self.btn_apply = QPushButton("Apply")
@@ -246,6 +246,11 @@ class GraphicsOptionsDialog(QDialog):
             
             "slab_opacity": self.sl_slab_op.value() / 100.0,
         }
+
+    def _on_ok(self):
+        """Apply settings then close — so OK behaves like Apply + close."""
+        self.on_apply()
+        self.accept()
 
     def on_apply(self):
         if self.parent() and hasattr(self.parent(), "update_graphics_settings"):

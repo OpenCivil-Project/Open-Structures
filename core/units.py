@@ -29,16 +29,28 @@ class UnitConverter:
         elif length_unit == "in": self.length_scale = 39.3701
 
     def to_display_force(self, base_val):
+        """Convert SI force (N) → display units (e.g. kN)."""
         return base_val * self.force_scale
 
     def from_display_force(self, disp_val):
+        """Convert display force → SI (N)."""
         return disp_val / self.force_scale
 
     def to_display_length(self, base_val):
+        """Convert SI length (m) → display units (e.g. mm)."""
         return base_val * self.length_scale
         
     def from_display_length(self, disp_val):
+        """Convert display length → SI (m)."""
         return disp_val / self.length_scale
+
+    def to_display_pressure(self, base_val):
+        """Convert SI pressure (N/m²) → display units (e.g. kN/m²)."""
+        return base_val * self.force_scale / (self.length_scale ** 2)
+
+    def from_display_pressure(self, disp_val):
+        """Convert display pressure (force/length²) → SI (N/m²)."""
+        return disp_val * (self.length_scale ** 2) / self.force_scale
 
     @property
     def force_unit_name(self):
@@ -56,5 +68,10 @@ class UnitConverter:
     def distributed_load_unit(self):
         """Returns force/length unit (e.g., 'kN/m', 'kip/ft')"""
         return f"{self.force_unit_name}/{self.length_unit_name}"
-    
+
+    @property
+    def pressure_unit(self):
+        """Returns force/length² unit label (e.g., 'kN/m²', 'kip/ft²')"""
+        return f"{self.force_unit_name}/{self.length_unit_name}\u00b2"
+
 unit_registry = UnitConverter()

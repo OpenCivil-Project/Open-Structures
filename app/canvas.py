@@ -19,6 +19,7 @@ class MCanvas3D(gl.GLViewWidget):
     signal_canvas_clicked = pyqtSignal(float, float, float)
     signal_right_clicked = pyqtSignal()
     signal_box_selection = pyqtSignal(list, list, bool, bool)
+    signal_area_box_selection = pyqtSignal(list, bool, bool)                                   
     signal_element_selected = pyqtSignal(int)
     signal_mouse_moved = pyqtSignal(float, float, float)
 
@@ -28,7 +29,7 @@ class MCanvas3D(gl.GLViewWidget):
 
         self.display_config = {
             "node_size": 6,
-            "node_color": (1, 1, 0, 1),
+            "node_color": (1, 0, 0, 1),
             "line_width": 2.0,
             "extrude_opacity": 0.65,
             "show_edges": True,
@@ -44,9 +45,26 @@ class MCanvas3D(gl.GLViewWidget):
         self.opts['center']    = QVector3D(0, 0, 0)                                                     
         self.setBackgroundColor('#FFFFFF')
 
+        self._area_preview_line = gl.GLLinePlotItem(color=(0, 1, 1, 1), width=2, mode='line_strip')
+        self._area_preview_line.setVisible(False)
+
+        _dummy_pos = np.zeros((2, 3), dtype=np.float32)
+        _dummy_col = np.zeros((2, 4), dtype=np.float32)
+        self._area_interior_lines = gl.GLLinePlotItem(
+            pos=_dummy_pos, color=_dummy_col, width=1.5, mode='lines', antialias=False
+        )
+        self._area_interior_lines.setGLOptions({
+            'glEnable':    (GL_BLEND,),
+            'glBlendFunc': (GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA),
+            'glDisable':   (GL_DEPTH_TEST,),
+        })
+        self._area_interior_lines.setVisible(False)
+        self.hovered_area_id = None                                           
+
         self.current_model = None
         self.selected_element_ids = [] 
         self.selected_node_ids = [] 
+        self.selected_area_ids = []
         self.view_extruded = True
         self.snapping_enabled = False
         self.load_labels = []
@@ -91,7 +109,9 @@ class MCanvas3D(gl.GLViewWidget):
         self.ltha_n_steps = 0
         self.ltha_dt = 0.01
         self.ltha_mode = False                                            
-        self.ltha_highlight = None                                                        
+        self.ltha_highlight = None  
+
+        self.force_diagram_active = False
 
         self._accel_overlay_pixmap    = None                                            
         self._accel_overlay_size      = (0, 0)                                  
@@ -406,6 +426,337 @@ class MCanvas3D(gl.GLViewWidget):
         
         self._force_draw_model(model, sel_elems, sel_nodes)
     
+    def update_area_preview(self, node_coords, mouse_x, mouse_y, mouse_z):
+        """Draws a rubber-band polygon from the clicked nodes to the mouse cursor."""
+        if not node_coords:
+            self._area_preview_line.setVisible(False)
+            return
+            
+        pts = list(node_coords)
+        pts.append((mouse_x, mouse_y, mouse_z))
+        pts.append(pts[0])                                        
+        
+        self._area_preview_line.setData(pos=np.array(pts), color=(0, 1, 1, 1), width=2, mode='line_strip')
+        self._area_preview_line.setVisible(True)
+
+    def hide_area_preview(self):
+        self._area_preview_line.setVisible(False)
+
+    def _shell_interior_dashes(self, pts, inset=0.18, n_dashes=5):
+        """
+        Compute interior dashed line segments for a shell face (SAP2000 style).
+
+        The polygon is shrunk toward its centroid by `inset` fraction, then each
+        edge of that inset polygon is split into `n_dashes` dash segments.
+
+        pts      : (N, 3) float array — 3-D world-space polygon vertices in order
+        inset    : 0..1 fraction to shrink toward centroid (0.18 → 18 % inward)
+        n_dashes : number of dash/gap cycles per inset edge
+
+        Returns list of [p_start, p_end] pairs; each element is a list of 3 floats.
+        """
+        centroid  = pts.mean(axis=0)
+        inset_pts = pts + (centroid - pts) * inset
+        n         = len(inset_pts)
+
+        segs = []
+        for i in range(n):
+            p1 = inset_pts[i]
+            p2 = inset_pts[(i + 1) % n]
+            d  = p2 - p1
+            L  = np.linalg.norm(d)
+            if L < 1e-6:
+                continue
+            u        = d / L
+            period   = L / n_dashes
+            dash_len = period * 0.55                        
+
+            t = 0.0
+            for _ in range(n_dashes):
+                s = p1 + t * u
+                e = p1 + (t + dash_len) * u
+                segs.append([s.tolist(), e.tolist()])
+                t += period
+        return segs
+
+    def _rebuild_area_interior_lines(self):
+        """
+        Rebuild the interior dashed-line overlay for shells.
+
+        Shows pure yellow dashes (matching frame selection colour) only for areas
+        that are currently selected or hovered.  All other shells are invisible.
+        Called from _update_area_vbo (selection change) and _handle_hover_tooltip
+        (hover change).
+        """
+        if not hasattr(self, '_area_interior_lines'):
+            return
+        model = self.current_model
+        if not model or not getattr(self, 'show_slabs', True):
+            self._area_interior_lines.setVisible(False)
+            return
+
+        sel_ids     = set(getattr(self, 'selected_area_ids', []))
+        hov_id      = getattr(self, 'hovered_area_id', None)
+        active_ids  = sel_ids | ({hov_id} if hov_id is not None else set())
+
+        if not active_ids:
+            self._area_interior_lines.setVisible(False)
+            return
+
+        SEL_COLOR = [1.0, 1.0, 0.0, 1.0]                                        
+        verts, colors = [], []
+
+        for aeid in active_ids:
+            ae = model.area_elements.get(aeid)
+            if ae is None or len(ae.nodes) < 3:
+                continue
+
+            states = [self._get_visibility_state(n.x, n.y, n.z) for n in ae.nodes]
+            if min(states) < 2:
+                continue
+                                                                   
+            pts = np.array([[n.x, n.y, n.z] for n in ae.nodes])
+            for seg in self._shell_interior_dashes(pts):
+                verts.extend(seg)
+                colors.extend([SEL_COLOR, SEL_COLOR])
+
+        if verts:
+            iv = np.array(verts,  dtype=np.float32)
+            ic = np.array(colors, dtype=np.float32)
+            self._area_interior_lines.setData(pos=iv, color=ic, width=1.5, mode='lines')
+            self._area_interior_lines.setVisible(True)
+        else:
+            self._area_interior_lines.setVisible(False)
+    
+    def clear_selection(self):
+        """Clears all selection state from the canvas."""
+        self.selected_element_ids = []
+        self.selected_node_ids    = []
+        self.selected_area_ids    = []
+        self._rebuild_selection_overlay()
+        self._rebuild_area_interior_lines()                                        
+        self.update()                               
+
+    def rebuild_scene(self):
+        """Full scene rebuild — use after any structural model change (mesh, delete, etc.)."""
+        if self.current_model is not None:
+            self.invalidate_area_vbo()                                          
+            self._force_draw_model(self.current_model)
+
+    def invalidate_area_vbo(self):
+        """Force the next _update_area_vbo call to do a full rebuild,
+        bypassing the structural cache.  Call this whenever area section
+        properties change (colour, thickness) without changing element count."""
+        self._area_vbo_dirty = True
+
+    def _update_area_vbo(self, model):
+        if not hasattr(self, 'vbo_manager') or not self.vbo_manager.is_initialized:
+            return
+
+        _plane = self.active_view_plane
+        _new_key = (
+            frozenset(model.area_elements.keys()),
+                                                                                  
+            getattr(self, 'show_slabs',          True),
+            getattr(self, 'view_extruded',        False),
+            _plane['axis']  if _plane else None,
+            _plane['value'] if _plane else None,
+            getattr(self, 'show_ghost_structure', True),
+            float(self.display_config.get('slab_opacity',    0.45)),
+            float(self.display_config.get('extrude_opacity', 0.65)),
+            tuple(self.display_config.get('edge_color',      (0, 0, 0, 1))),
+        )
+        if (not getattr(self, '_area_vbo_dirty', True) and
+                getattr(self, '_area_vbo_key', None) == _new_key):
+            self._rebuild_area_interior_lines()                                              
+            return                          
+        self._area_vbo_dirty = False
+        self._area_vbo_key   = _new_key
+                                                                                   
+        if not getattr(self, 'show_slabs', True): 
+            self.vbo_manager.upload_area_geometry(
+                np.array([], dtype=np.float32), np.array([], dtype=np.float32), np.array([], dtype=np.uint32),
+                np.array([], dtype=np.float32), np.array([], dtype=np.float32)
+            )
+            if hasattr(self, '_area_interior_lines'):
+                self._area_interior_lines.setVisible(False)
+            return
+
+        is_extruded = getattr(self, 'view_extruded', False)
+
+        face_opacity  = float(self.display_config.get("extrude_opacity", 0.65)) if is_extruded\
+                        else float(self.display_config.get("slab_opacity", 0.45))
+        ec_raw        = self.display_config.get("edge_color", (0, 0, 0, 1))
+        global_edge_c = list(ec_raw[:3]) + [1.0]                                      
+
+        _color_cache = {}
+        def _parse_hex(c_hex):
+            if c_hex not in _color_cache:
+                if isinstance(c_hex, str) and c_hex.startswith('#'):
+                    h = c_hex.lstrip('#')
+                    _color_cache[c_hex] = (int(h[0:2], 16) / 255.0, int(h[2:4], 16) / 255.0, int(h[4:6], 16) / 255.0)
+                else:
+                    _color_cache[c_hex] = (0.5, 0.5, 0.5)
+            return _color_cache[c_hex]
+
+        _no_plane = (self.active_view_plane is None)
+        if not _no_plane:
+            _ax, _val = self.active_view_plane['axis'], self.active_view_plane['value']
+            _ghost_ok = getattr(self, 'show_ghost_structure', True)
+            _vis_cache = {}
+            def _vis(x, y, z):
+                k = (x, y, z)
+                if k not in _vis_cache:
+                    cv = x if _ax == 'x' else (y if _ax == 'y' else z)
+                    _vis_cache[k] = 2 if abs(cv - _val) < 0.005 else (1 if _ghost_ok else 0)
+                return _vis_cache[k]
+        else:
+            def _vis(x, y, z): return 2
+
+        tri_pts, tri_fc, tri_ec = [], [], []
+        ghost_pts, ghost_fc = [], []
+
+        fill_verts, fill_colors, fill_faces = [], [], []
+        edge_verts, edge_colors = [], []
+        ghost_verts, ghost_faces, ghost_colors = [], [], []
+        vert_offset, ghost_v_offset = 0, 0
+
+        for aeid, ae in model.area_elements.items():
+            nodes = ae.nodes
+            n_count = len(nodes)
+            if n_count < 3: continue
+
+            min_state = min(_vis(n.x, n.y, n.z) for n in nodes)
+            if min_state == 0: continue
+
+            r, g, b = _parse_hex(getattr(ae.section, 'display_color', '#808080'))
+            pts = np.array([[n.x, n.y, n.z] for n in nodes], dtype=np.float32)
+
+            is_selected = hasattr(self, 'selected_area_ids') and aeid in self.selected_area_ids
+
+            if min_state == 1:        
+                                                                                  
+                if n_count == 3:
+                    ghost_pts.append(pts); ghost_fc.append([r, g, b, 0.15])
+                else:
+                    for pt in pts:
+                        ghost_verts.append(pt.tolist()); ghost_colors.append([r, g, b, 0.15])
+                    for i in range(1, n_count - 1):
+                        ghost_faces.append([ghost_v_offset, ghost_v_offset + i, ghost_v_offset + i + 1])
+                    ghost_v_offset += n_count
+                continue
+
+            fill_color = [r, g, b, face_opacity]
+            edge_c = global_edge_c
+            
+            if not is_extruded and n_count == 3:                            
+                tri_pts.append(pts); tri_fc.append(fill_color); tri_ec.append(edge_c)
+            elif not is_extruded:                        
+                for pt in pts:
+                    fill_verts.append(pt.tolist()); fill_colors.append(fill_color)
+                for i in range(1, n_count - 1):
+                    fill_faces.append([vert_offset, vert_offset + i, vert_offset + i + 1])
+                for i in range(n_count):
+                    ni = (i + 1) % n_count
+                    edge_verts.extend([pts[i].tolist(), pts[ni].tolist()])
+                    edge_colors.extend([edge_c, edge_c])
+                vert_offset += n_count
+            else:                       
+                t = getattr(ae.section, 'membrane_thickness', getattr(ae.section, 'thickness', 0.2))
+                if n_count == 4: v1, v2 = pts[2] - pts[0], pts[3] - pts[1]
+                else: v1, v2 = pts[1] - pts[0], pts[2] - pts[0]
+                
+                normal = np.cross(v1, v2)
+                nlen = np.linalg.norm(normal)
+                normal = normal / nlen if nlen > 1e-9 else np.array([0, 0, 1.0])
+                offset = normal * (t / 2.0)
+                top_pts, bot_pts = pts + offset, pts - offset
+
+                for pt in top_pts: fill_verts.append(pt.tolist()); fill_colors.append(fill_color)
+                for pt in bot_pts: fill_verts.append(pt.tolist()); fill_colors.append(fill_color)
+                for i in range(1, n_count - 1): fill_faces.append([vert_offset, vert_offset + i, vert_offset + i + 1])
+                b_off = vert_offset + n_count
+                for i in range(1, n_count - 1): fill_faces.append([b_off, b_off + i + 1, b_off + i])
+                for i in range(n_count):
+                    ni = (i + 1) % n_count
+                    t1, t2 = vert_offset + i, vert_offset + ni
+                    b1, b2 = b_off + i, b_off + ni
+                    fill_faces.extend([[t1, b1, b2], [t1, b2, t2]])
+                    edge_verts.extend([top_pts[i].tolist(), top_pts[ni].tolist(), bot_pts[i].tolist(), bot_pts[ni].tolist(), top_pts[i].tolist(), bot_pts[i].tolist()])
+                    edge_colors.extend([edge_c] * 6)
+                vert_offset += 2 * n_count
+
+        N_tri = len(tri_pts)
+        if N_tri > 0:
+            b_fv = np.concatenate(tri_pts, axis=0)
+            b_fc = np.repeat(np.array(tri_fc, dtype=np.float32), 3, axis=0)
+            base = (np.arange(N_tri, dtype=np.uint32) * 3) + vert_offset
+            b_ff = np.stack([base, base + 1, base + 2], axis=1)
+
+            p0, p1, p2 = b_fv[0::3], b_fv[1::3], b_fv[2::3]
+            b_ev = np.empty((N_tri * 6, 3), dtype=np.float32)
+            b_ev[0::6], b_ev[1::6] = p0, p1
+            b_ev[2::6], b_ev[3::6] = p1, p2
+            b_ev[4::6], b_ev[5::6] = p2, p0
+            b_ec = np.repeat(np.array(tri_ec, dtype=np.float32), 6, axis=0)
+
+            if fill_verts:
+                all_fv = np.concatenate([np.array(fill_verts, dtype=np.float32), b_fv], axis=0)
+                all_fc = np.concatenate([np.array(fill_colors, dtype=np.float32), b_fc], axis=0)
+                all_ff = np.concatenate([np.array(fill_faces, dtype=np.uint32), b_ff], axis=0)
+                all_ev = np.concatenate([np.array(edge_verts, dtype=np.float32), b_ev], axis=0)
+                all_ec = np.concatenate([np.array(edge_colors, dtype=np.float32), b_ec], axis=0)
+            else:
+                all_fv, all_fc, all_ff, all_ev, all_ec = b_fv, b_fc, b_ff, b_ev, b_ec
+        else:
+            all_fv = np.array(fill_verts, dtype=np.float32).reshape(-1, 3) if fill_verts else np.array([], dtype=np.float32)
+            all_fc = np.array(fill_colors, dtype=np.float32).reshape(-1, 4) if fill_colors else np.array([], dtype=np.float32)
+            all_ff = np.array(fill_faces, dtype=np.uint32).reshape(-1, 3) if fill_faces else np.array([], dtype=np.uint32)
+            all_ev = np.array(edge_verts, dtype=np.float32).reshape(-1, 3) if edge_verts else np.array([], dtype=np.float32)
+            all_ec = np.array(edge_colors, dtype=np.float32).reshape(-1, 4) if edge_colors else np.array([], dtype=np.float32)
+
+        if hasattr(self, '_area_ghost_items'):
+            for item in self._area_ghost_items:
+                try:
+                    self.removeItem(item)
+                    if item in self.element_items:
+                        self.element_items.remove(item)
+                except Exception:
+                    pass
+        self._area_ghost_items = []
+
+        N_gh = len(ghost_pts)
+        if N_gh > 0:
+            b_gv = np.concatenate(ghost_pts, axis=0)
+            b_gc = np.repeat(np.array(ghost_fc, dtype=np.float32), 3, axis=0)
+            base_g = (np.arange(N_gh, dtype=np.int32) * 3) + ghost_v_offset
+            b_gf = np.stack([base_g, base_g + 1, base_g + 2], axis=1)
+
+            gv = np.concatenate([np.array(ghost_verts, dtype=np.float32), b_gv], axis=0) if ghost_verts else b_gv
+            gc = np.concatenate([np.array(ghost_colors, dtype=np.float32), b_gc], axis=0) if ghost_colors else b_gc
+            gf = np.concatenate([np.array(ghost_faces, dtype=np.int32), b_gf], axis=0) if ghost_faces else b_gf
+        else:
+            gv = np.array(ghost_verts, dtype=np.float32) if ghost_verts else None
+            gc = np.array(ghost_colors, dtype=np.float32) if ghost_colors else None
+            gf = np.array(ghost_faces, dtype=np.int32) if ghost_faces else None
+
+        if gv is not None and gv.size > 0:
+            ghost_mesh = gl.GLMeshItem(vertexes=gv, faces=gf, vertexColors=gc, smooth=False, glOptions='translucent')
+            self.addItem(ghost_mesh)
+            self.element_items.append(ghost_mesh)
+                                                                               
+            self._area_ghost_items.append(ghost_mesh)
+
+        if all_fv.size > 0 or all_ev.size > 0:
+            self.vbo_manager.upload_area_geometry(all_fv, all_fc, all_ff, all_ev, all_ec)
+        else:
+            self.vbo_manager.upload_area_geometry(
+                np.array([], dtype=np.float32), np.array([], dtype=np.float32), np.array([], dtype=np.uint32),
+                np.array([], dtype=np.float32), np.array([], dtype=np.float32)
+            )
+
+        self._rebuild_area_interior_lines()
+
     def _force_draw_model(self, model, sel_elems=None, sel_nodes=None):
         """
         Force redraw the model even if animation is running.
@@ -457,6 +808,7 @@ class MCanvas3D(gl.GLViewWidget):
             self._draw_loads(model)
             self._draw_member_loads(model)
             self._draw_member_point_loads(model)
+            self._draw_area_loads(model)  
             self._upload_loads_to_vbo()
             self._upload_load_labels_to_gpu() 
         else:
@@ -468,6 +820,7 @@ class MCanvas3D(gl.GLViewWidget):
 
         if self.show_slabs:
             self._draw_slabs(model)
+            self._update_area_vbo(model)
 
         if self.show_local_axes:
             self._draw_local_axes(model)
@@ -476,6 +829,8 @@ class MCanvas3D(gl.GLViewWidget):
         if self.snap_dot not in self.items: self.addItem(self.snap_dot)
         if self.inspection_dot not in self.items: self.addItem(self.inspection_dot)              
         if self.preview_line not in self.items: self.addItem(self.preview_line)
+        if self._area_preview_line not in self.items: self.addItem(self._area_preview_line)
+        if self._area_interior_lines not in self.items: self.addItem(self._area_interior_lines)
         if self._brace_prev_x1 not in self.items: self.addItem(self._brace_prev_x1)
         if self._brace_prev_x2 not in self.items: self.addItem(self._brace_prev_x2)
         if self._brace_prev_border not in self.items: self.addItem(self._brace_prev_border)
@@ -499,14 +854,15 @@ class MCanvas3D(gl.GLViewWidget):
                 self.opts['center'] = center
                 self.camera.animate_to(target_center=center, target_dist=needed_dist)
 
-    def update_selection_overlay(self, sel_elems, sel_nodes):
+    def update_selection_overlay(self, sel_elems, sel_nodes, sel_areas=None):
 
         if not hasattr(self, 'current_model') or self.current_model is None:
             return
                    
         """Fast-path selection update. Skips full geometry rebuild."""
         self.selected_element_ids = list(sel_elems) if sel_elems is not None else []
-        self.selected_node_ids = list(sel_nodes) if sel_nodes is not None else []
+        self.selected_node_ids    = list(sel_nodes)  if sel_nodes  is not None else []
+        self.selected_area_ids    = list(sel_areas)  if sel_areas  is not None else []
         current_model = self.current_model
         in_analysis_mode = hasattr(current_model, 'has_results') and current_model.has_results if current_model else False
         
@@ -535,16 +891,17 @@ class MCanvas3D(gl.GLViewWidget):
                 self._draw_loads(self.current_model)
                 self._draw_member_loads(self.current_model)
                 self._draw_member_point_loads(self.current_model)
-                if getattr(self, '_loads_dirty', True):
-                                                             
-                    self._upload_loads_to_vbo()
-                    self._loads_dirty = False
-                                                                                     
+                self._draw_area_loads(self.current_model)
+
+                self._upload_loads_to_vbo()
+                self._loads_dirty = False
+
                 self._upload_load_labels_to_gpu()
             else:
                 self.vbo_manager.clear_load_geometry()
                 self._upload_load_labels_to_gpu()
 
+        self._update_area_vbo(self.current_model)
         self._rebuild_selection_overlay()
         self.update()
 
@@ -902,10 +1259,11 @@ class MCanvas3D(gl.GLViewWidget):
 
         if sel_pos:
             sp = gl.GLScatterPlotItem(
-                pos=np.array(sel_pos), size=size + 2,
-                color=(1, 0, 0, 1), pxMode=True
+                pos=np.array(sel_pos),
+                size=size,
+                color=(1, 1, 0, 1),
+                pxMode=True
             )
-                                                                                       
             sp.setGLOptions({
                 'glEnable': (GL_BLEND,),
                 'glBlendFunc': (GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA),
@@ -922,7 +1280,7 @@ class MCanvas3D(gl.GLViewWidget):
         supports_fixed = []; supports_pinned = []; supports_roller = []; supports_custom = []
 
         size = self.display_config.get("node_size", 6)
-        color_tuple = self.display_config.get("node_color", (1, 1, 0, 1))
+        color_tuple = self.display_config.get("node_color", (1, 0, 0, 1))
         
         can_deflect = (self.view_deflected and 
                        hasattr(model, 'has_results') and 
@@ -1361,6 +1719,8 @@ class MCanvas3D(gl.GLViewWidget):
         self.ex_colors = []
         self.ex_edges = []
         self.ex_edge_colors = []
+
+        ghost_ex_verts, ghost_ex_faces, ghost_ex_colors = [], [], []
       
         opacity = self.display_config.get("extrude_opacity", 0.35)
         show_edges = self.display_config.get("show_edges", False)
@@ -1425,19 +1785,19 @@ class MCanvas3D(gl.GLViewWidget):
                 continue
 
             needs_caps = isinstance(sec, (RectangularSection, CircularSection, TrapezoidalSection))
-                             
+            
             if not is_active_elem:
-                                                          
-                face_color = np.array([0.6, 0.6, 0.6, 0.3]) 
-                current_edge_color = np.array([0.6, 0.6, 0.6, 0.1])
+                face_color = np.array([0.6, 0.6, 0.6, 0.15])
+                current_edge_color = np.array([0.6, 0.6, 0.6, 0.1])           
+                show_edges_for_this = False                                    
             else:
-                                            
                 c_raw = getattr(sec, 'color', [0.7, 0.7, 0.7])
                 if len(c_raw) == 4: c_raw = c_raw[:3]
                 face_color = np.array([c_raw[0], c_raw[1], c_raw[2], opacity])
                 current_edge_color = edge_c
+                show_edges_for_this = show_edges
 
-            path_points = [] 
+            path_points = []
             
             p1 = np.array([n1.x, n1.y, n1.z])
             p2 = np.array([n2.x, n2.y, n2.z])
@@ -1527,15 +1887,37 @@ class MCanvas3D(gl.GLViewWidget):
                 is_first_seg = (i == 0)
                 is_last_seg = (i == num_pts - 2)
 
-                self._add_loft_segment(
-                    center_a, center_b, 
-                    v2_a, v3_a, v2_b, v3_b,
-                    shape_yz, face_color, 
-                    show_edges, current_edge_color,
-                    draw_start_ring=is_first_seg, 
-                    draw_end_ring=is_last_seg,
-                    draw_caps=needs_caps
-                )
+                for i in range(num_pts - 1):
+                    pos_a, v2_a, v3_a = path_points[i]
+                    pos_b, v2_b, v3_b = path_points[i+1]
+                    
+                    center_a = pos_a + curr_off_a + (y_shift * v2_a) + (z_shift * v3_a)
+                    center_b = pos_b + curr_off_b + (y_shift * v2_b) + (z_shift * v3_b)
+
+                    is_first_seg = (i == 0)
+                    is_last_seg = (i == num_pts - 2)
+
+                    if not is_active_elem:
+                        self._add_loft_to_arrays(
+                            center_a, center_b, v2_a, v3_a, v2_b, v3_b,
+                            shape_yz, face_color, show_edges=False, edge_color=None,
+                            draw_start_ring=is_first_seg, draw_end_ring=is_last_seg,
+                            draw_caps=needs_caps,
+                            ex_vertices=ghost_ex_verts,                          
+                            ex_faces=ghost_ex_faces, 
+                            ex_colors=ghost_ex_colors,
+                            ex_edges=[], ex_edge_colors=[] 
+                        )
+                    else:
+                        self._add_loft_segment(
+                            center_a, center_b, 
+                            v2_a, v3_a, v2_b, v3_b,
+                            shape_yz, face_color, 
+                            show_edges_for_this, current_edge_color,
+                            draw_start_ring=is_first_seg, 
+                            draw_end_ring=is_last_seg,
+                            draw_caps=needs_caps
+                        )
 
         v_arr = np.array(self.ex_vertices, dtype=np.float32) if self.ex_vertices else np.empty((0, 3), dtype=np.float32)
         c_arr = np.array(self.ex_colors,   dtype=np.float32) if self.ex_colors   else np.empty((0, 4), dtype=np.float32)
@@ -1565,6 +1947,17 @@ class MCanvas3D(gl.GLViewWidget):
             self.makeCurrent()
             if hasattr(self, 'vbo_manager'):
                 self.vbo_manager.upload_line_geometry([], [])
+
+        if ghost_ex_verts:
+            ghost_ext_mesh = gl.GLMeshItem(
+                vertexes=np.array(ghost_ex_verts, dtype=np.float32),
+                faces=np.array(ghost_ex_faces, dtype=np.int32),
+                vertexColors=np.array(ghost_ex_colors, dtype=np.float32),
+                smooth=False,
+                glOptions='translucent'
+            )
+            self.addItem(ghost_ext_mesh)
+            self.element_items.append(ghost_ext_mesh)
 
     def _add_loft_segment(self, c1, c2, v2_a, v3_a, v2_b, v3_b, shape, color, show_edges, edge_color, draw_start_ring=False, draw_end_ring=False, draw_caps=False):
         """
@@ -1680,11 +2073,15 @@ class MCanvas3D(gl.GLViewWidget):
             'line_pos':    builder.line_pos,
             'line_colors': builder.line_colors,
         }
+
+        self.force_diagram_active = True
+
         self.update()
         return True
 
     def clear_force_diagrams(self):
         """Hides force diagrams and restores extruded/deformed state that was active before."""
+        self.force_diagram_active = False
         self.force_mesh_item.hide()
         self.force_line_item.hide()
         self.force_labels = []
@@ -1794,36 +2191,8 @@ class MCanvas3D(gl.GLViewWidget):
             full_colors.append(color)
 
     def _draw_slabs(self, model):
-        if not hasattr(model, 'slabs') or not model.slabs: return
-        
-        opacity = self.display_config.get("slab_opacity", 0.4)
-                              
-        base_color = (0.7, 0.7, 0.7, opacity)                   
-        
-        verts = []; faces = []; colors = []
-        v_start_idx = 0 
-
-        for slab in model.slabs.values():
-            nodes = slab.nodes
-            n_count = len(nodes)
-            if n_count < 3: continue
-            if not self._is_visible(nodes[0].x, nodes[0].y, nodes[0].z): continue
-
-            for n in nodes:
-                verts.append([n.x, n.y, n.z])
-                colors.append(base_color)
-            
-            for i in range(1, n_count - 1):
-                faces.append([v_start_idx, v_start_idx + i, v_start_idx + i + 1])
-            v_start_idx += n_count
-
-        if not verts: return
-
-        mesh = gl.GLMeshItem(
-            vertexes=np.array(verts), faces=np.array(faces, dtype=np.int32),
-            vertexColors=np.array(colors), smooth=False, shader='balloon',
-            glOptions='translucent')
-        self.addItem(mesh)
+                                                                                                
+        pass
 
     def _get_visibility_state(self, x, y, z):
         if self.active_view_plane is None:
@@ -3282,12 +3651,30 @@ class MCanvas3D(gl.GLViewWidget):
         delta = event.angleDelta().y()
         pos   = event.position()
         hit   = self._find_zoom_target(pos.x(), pos.y())
+        
         self.camera.zoom(delta, pos.x(), pos.y(), self.width(), self.height(), hit_point=hit)
+        
         self._support_rebuild_timer.start(60)
         self._is_zooming = True
-        self._label_hide_timer.start(400) 
-        self.update()
+        self._label_hide_timer.start(400)
         
+        self._is_navigating = True
+        
+        if not hasattr(self, '_zoom_lod_timer'):
+            self._zoom_lod_timer = QTimer()
+            self._zoom_lod_timer.setSingleShot(True)
+            self._zoom_lod_timer.timeout.connect(self._end_zoom_navigation)
+            
+        self._zoom_lod_timer.start(150) 
+        
+        self.update()
+
+    def _end_zoom_navigation(self):
+        """Snaps back to high-quality rendering 150ms after the scroll wheel stops."""
+        self._is_navigating = False
+        self._is_zooming = False                           
+        self.update()
+
     def mouseReleaseEvent(self, event):
                                            
         if event.button() == Qt.MouseButton.LeftButton and getattr(self, 'single_use_pan_active', False):
@@ -3360,28 +3747,31 @@ class MCanvas3D(gl.GLViewWidget):
             painter.drawRect(rect)
 
         if getattr(self, 'current_hover_data', None):
+            from PyQt6.QtGui import QFont, QImage, QFontMetrics
             hx = self.current_hover_data['x'] + 15
             hy = self.current_hover_data['y'] + 15
             text = self.current_hover_data['text']
-            
-            font = painter.font()
-            font.setFamily("Consolas")
-            font.setPixelSize(11) 
+
+            font = QFont("Consolas")
+            font.setPixelSize(11)
             font.setBold(False)
-            painter.setFont(font)
-            
-            metrics = painter.fontMetrics()
+
             flags = Qt.TextFlag.TextWordWrap | Qt.AlignmentFlag.AlignLeft
-            rect = metrics.boundingRect(0, 0, 400, 400, flags, text)
-            
-            bg_rect = QRect(int(hx), int(hy), rect.width() + 12, rect.height() + 10)
-            painter.fillRect(bg_rect, QColor(40, 40, 40, 200))
-            painter.setPen(QColor(80, 80, 80, 200))                     
-            painter.drawRect(bg_rect)
-            
-            painter.setPen(QColor(220, 220, 220)) 
-            text_rect = QRect(int(hx) + 6, int(hy) + 5, rect.width(), rect.height())
-            painter.drawText(text_rect, flags, text)
+                                                                    
+            rect = QFontMetrics(font).boundingRect(0, 0, 400, 400, flags, text)
+
+            img = QImage(rect.width() + 12, rect.height() + 10, QImage.Format.Format_ARGB32)
+            img.fill(Qt.GlobalColor.transparent)
+            rp = QPainter(img)
+            rp.setFont(font)
+            rp.fillRect(img.rect(), QColor(40, 40, 40, 200))
+            rp.setPen(QColor(80, 80, 80, 200))
+            rp.drawRect(img.rect().adjusted(0, 0, -1, -1))
+            rp.setPen(QColor(220, 220, 220))
+            rp.drawText(QRect(6, 5, rect.width(), rect.height()), flags, text)
+            rp.end()
+
+            painter.drawImage(int(hx), int(hy), img)
             
         if self.current_model:
             w = self.width()
@@ -3480,10 +3870,58 @@ class MCanvas3D(gl.GLViewWidget):
                 if self._line_intersects_rect(p1, p2, rect):
                     found_elems.append(eid)
 
+        found_area_elems = []
+        for aeid, ae in self.current_model.area_elements.items():
+            corner_screens = []
+            for n in ae.nodes:
+                s = node_screens.get(n.id)
+                if s is None:
+                    s = self._project_to_screen(n.x, n.y, n.z, mvp, w, h)
+                if s:
+                    corner_screens.append(s)
+            if len(corner_screens) < 3:
+                continue
+
+            if is_window_select:
+                if all(x_min <= p[0] <= x_max and y_min <= p[1] <= y_max
+                       for p in corner_screens):
+                    found_area_elems.append(aeid)
+            else:
+                                                          
+                cx_pick = (x_min + x_max) / 2.0
+                cy_pick = (y_min + y_max) / 2.0
+                
+                if self._point_in_polygon_2d(cx_pick, cy_pick, corner_screens):
+                    found_area_elems.append(aeid)
+                else:
+                                                                 
+                    rect = (x_min, y_min, x_max, y_max)
+                    n_pts = len(corner_screens)
+                    for i in range(n_pts):
+                        if self._line_intersects_rect(corner_screens[i], corner_screens[(i + 1) % n_pts], rect):
+                            found_area_elems.append(aeid)
+                            break
+
         modifiers = QApplication.keyboardModifiers()
         is_additive = (modifiers == Qt.KeyboardModifier.ControlModifier)
         is_deselect = (modifiers == Qt.KeyboardModifier.ShiftModifier)
         self.signal_box_selection.emit(found_nodes, found_elems, is_additive, is_deselect)
+        self.signal_area_box_selection.emit(found_area_elems, is_additive, is_deselect)
+
+    def _point_in_polygon_2d(self, px, py, pts):
+        """Winding number test — works for convex and concave screen-space polygons."""
+        winding = 0
+        n = len(pts)
+        for i in range(n):
+            x1, y1 = pts[i]
+            x2, y2 = pts[(i + 1) % n]
+            if y1 <= py:
+                if y2 > py and (x2-x1)*(py-y1) - (px-x1)*(y2-y1) > 0:
+                    winding += 1
+            else:
+                if y2 <= py and (x2-x1)*(py-y1) - (px-x1)*(y2-y1) < 0:
+                    winding -= 1
+        return winding != 0
 
     def _project_to_screen(self, x, y, z, mvp, w, h):
         vec = np.array([x, y, z, 1.0])
@@ -4099,6 +4537,236 @@ class MCanvas3D(gl.GLViewWidget):
             master_item.setGLOptions('translucent')
             self.addItem(master_item)
 
+    def _area_load_sample_points(self, pts, centroid, n=5):
+        """
+        Returns up to n interior sample points within a shell polygon
+        for evenly distributing load arrows across the face.
+        """
+        n_nodes = len(pts)
+        samples = [centroid]
+ 
+        if n_nodes == 3:                                                              
+            for i in range(3):
+                mid = (pts[i] + pts[(i + 1) % 3]) / 2.0
+                samples.append(0.55 * mid + 0.45 * centroid)
+        elif n_nodes == 4:                                      
+            for i in range(4):
+                qc = (pts[i] + pts[(i + 1) % 4] + 2.0 * centroid) / 4.0
+                samples.append(qc)
+        else:                                                           
+            step = max(1, n_nodes // 4)
+            for i in range(0, n_nodes, step):
+                mid = (pts[i] + pts[(i + 1) % n_nodes]) / 2.0
+                samples.append(0.55 * mid + 0.45 * centroid)
+ 
+        return samples[:n]
+ 
+    def _fan_triangulate(self, pts):
+        """Fan-triangulate a convex polygon (list / array of np.ndarray)."""
+        return [(pts[0], pts[i], pts[i + 1]) for i in range(1, len(pts) - 1)]
+ 
+    def _draw_area_loads(self, model):
+        """
+        Visualizes AreaUniformLoad and AreaGravityLoad over shell faces.
+ 
+        Visual language
+        ---------------
+        Ghosted (other plane) : skipped entirely — no clutter
+        Unselected            : faint arrows at 3 points, no fill
+        Selected              : full-color arrows at 5 points
+                                + tinted fill overlay
+                                + floating label
+ 
+        Colors
+        ------
+        AreaUniformLoad  → blue   (pressure / force-per-area)
+        AreaGravityLoad  → orange (gravity multiplier ×g)
+        """
+        if not model.loads:
+            return
+        if not self.show_loads:
+            return
+        if self.load_type_filter == "nodal":
+            return
+ 
+        COLOR_UNIFORM = (0.0, 0.0, 0.0)                                         
+        COLOR_GRAVITY = (0.0, 0.0, 0.0) 
+ 
+        for load in model.loads:
+                                     
+            if not hasattr(load, 'area_id'):
+                continue
+            if (self.visible_load_patterns
+                    and load.pattern_name not in self.visible_load_patterns):
+                continue
+ 
+            ae = model.area_elements.get(load.area_id)
+            if ae is None or len(ae.nodes) < 3:
+                continue
+ 
+            states = [self._get_visibility_state(n.x, n.y, n.z) for n in ae.nodes]
+            if min(states) == 0:
+                continue                             
+ 
+            is_ghosted  = (min(states) < 2)
+            is_selected = (ae.id in self.selected_area_ids)
+ 
+            if is_ghosted:
+                continue
+ 
+            pts      = np.array([[n.x, n.y, n.z] for n in ae.nodes], dtype=np.float64)
+            centroid = pts.mean(axis=0)
+ 
+            v1    = pts[1] - pts[0]
+            v2    = pts[2] - pts[0]
+            raw_n = np.cross(v1, v2)
+            n_len = np.linalg.norm(raw_n)
+            if n_len < 1e-9:
+                continue
+            shell_normal = raw_n / n_len
+ 
+            shell_size = float(np.max(np.linalg.norm(pts - centroid, axis=1)))
+ 
+            arrows_spec = []
+ 
+            if hasattr(load, 'uniform_load'):                                
+                val = load.uniform_load
+                if abs(val) < 1e-9:
+                    continue
+                base_rgb = COLOR_UNIFORM
+                sign     = 1.0 if val > 0 else -1.0
+ 
+                d = load.load_direction
+                if   d == 'Gravity':  dir_vec = np.array([0., 0., -1.])
+                elif d == 'Local 1':  dir_vec = shell_normal.copy()
+                elif d == 'Local 2':
+                    lv2   = np.cross(shell_normal, v1 / (np.linalg.norm(v1) + 1e-12))
+                    lv2_n = np.linalg.norm(lv2)
+                    dir_vec = (lv2 / lv2_n) if lv2_n > 1e-9 else np.array([1., 0., 0.])
+                elif d == 'Local 3':
+                    v1_n    = np.linalg.norm(v1)
+                    dir_vec = v1 / v1_n if v1_n > 1e-9 else np.array([1., 0., 0.])
+                elif d == 'Global X': dir_vec = np.array([1., 0., 0.])
+                elif d == 'Global Y': dir_vec = np.array([0., 1., 0.])
+                elif d == 'Global Z': dir_vec = np.array([0., 0., 1.])
+                else:                  dir_vec = np.array([0., 0., -1.])
+ 
+                arrows_spec.append((sign * dir_vec, abs(val), base_rgb))
+ 
+            elif hasattr(load, 'gx'):                                         
+                base_rgb = COLOR_GRAVITY
+                for gval, gdir in [
+                    (load.gx, np.array([1., 0., 0.])),
+                    (load.gy, np.array([0., 1., 0.])),
+                    (load.gz, np.array([0., 0., 1.])),
+                ]:
+                    if abs(gval) < 1e-9:
+                        continue
+                    arrows_spec.append(
+                        ((1. if gval > 0 else -1.) * gdir, abs(gval), base_rgb)
+                    )
+ 
+            if not arrows_spec:
+                continue
+ 
+            for (dir_vec, magnitude, base_rgb) in arrows_spec:
+ 
+                log_s      = min(2.0, 0.4 + np.log10(max(1.0, magnitude)) * 0.2)
+                arrow_len  = max(log_s * shell_size * 0.45, shell_size * 0.18)
+ 
+                if not is_selected:
+                    c_fill     = (*base_rgb, 0.0)                                   
+                    c_line     = (*base_rgb, 0.35)                 
+                    do_fill    = False
+                    do_label   = False
+                    n_samples  = 3                                         
+                else:
+                    c_fill     = (*base_rgb, 0.22)                   
+                    c_line     = (*base_rgb, 1.00)                
+                    do_fill    = True
+                    do_label   = True
+                    n_samples  = 5                                         
+ 
+                if do_fill:
+                    tris   = self._fan_triangulate(pts)
+                    base_v = len(self._pending_load_fill_verts)
+                    for tri in tris:
+                        for pt in tri:
+                            self._pending_load_fill_verts.append(pt.tolist())
+                            self._pending_load_fill_colors.append(c_fill)
+                    for i in range(len(tris)):
+                        b = base_v + i * 3
+                        self._pending_load_fill_faces.append([b, b + 1, b + 2])
+ 
+                head_len = arrow_len * 0.28
+ 
+                perp_seed = (np.array([1., 0., 0.])
+                             if abs(dir_vec[2]) > 0.8 else np.array([0., 0., 1.]))
+                side_raw  = np.cross(dir_vec, perp_seed)
+                side_n    = np.linalg.norm(side_raw)
+                side_vec  = ((side_raw / side_n) * head_len * 0.4
+                             if side_n > 1e-9 else np.zeros(3))
+ 
+                is_ext = getattr(self, 'view_extruded', False)
+                t = getattr(ae.section, 'membrane_thickness', getattr(ae.section, 'thickness', 0.2)) if is_ext else 0.0
+                
+                offset_mag = (t / 2.0) + (shell_size * 0.005)
+                surface_offset = shell_normal * offset_mag
+                
+                if np.dot(dir_vec, shell_normal) > 0:
+                    surface_offset = -surface_offset
+
+                sample_pts = self._area_load_sample_points(pts, centroid, n_samples)
+ 
+                for sp in sample_pts:
+                    tip  = np.array(sp) + surface_offset
+                    tail = tip - dir_vec * arrow_len                               
+ 
+                    self._pending_load_line_pos.extend([tail.tolist(), tip.tolist()])
+                    self._pending_load_line_colors.extend([c_line, c_line])
+ 
+                    if is_selected:
+                                         
+                        base_pt = tip - dir_vec * head_len
+                        self._pending_load_line_pos.extend([
+                            tip.tolist(), (base_pt + side_vec).tolist(),
+                            tip.tolist(), (base_pt - side_vec).tolist(),
+                        ])
+                        self._pending_load_line_colors.extend([c_line] * 4)
+ 
+                if do_label:
+                    if hasattr(load, 'uniform_load'):
+                        q_scale     = unit_registry.force_scale / (unit_registry.length_scale ** 2)
+                        display_val = magnitude * q_scale
+                        unit_str    = (f"{unit_registry.force_unit_name}/"
+                                       f"{unit_registry.length_unit_name}\u00b2")
+                    else:                                                         
+                        display_val = magnitude
+                        unit_str    = "\u00d7g"                   
+ 
+                    label_pos = centroid + surface_offset - dir_vec * (arrow_len * 1.30)
+ 
+                    v_up    = np.array([0., 0., 1.])
+                    v_right = np.cross(v_up, dir_vec)
+                    vr_n    = np.linalg.norm(v_right)
+                    if vr_n < 0.1:                                                
+                        v_right = np.array([1., 0., 0.])
+                    else:
+                        v_right = v_right / vr_n
+ 
+                    self.load_labels.append({
+                        'owner_id':    ae.id,
+                        'owner_type':  'area',
+                        'pos_3d':      label_pos.tolist(),
+                        'text':        f"{display_val:.2f} {unit_str}",
+                        'val':         magnitude,
+                        'color':       list(base_rgb) + [1.0],
+                        'v_right':     v_right.tolist(),
+                        'v_up':        v_up.tolist(),
+                        'align':       'center',
+                        'text_height': 0.22,
+                    })
+
     def _draw_member_point_loads(self, model):
         """
         Visualizes Member Point Loads.
@@ -4292,7 +4960,8 @@ class MCanvas3D(gl.GLViewWidget):
             self.preview_line, self._beam_col_prev_line, 
             self._brace_prev_x1, self._brace_prev_x2, 
             self._brace_prev_border, self.snap_ring, self.snap_dot,
-            self.pivot_dot, self.inspection_dot
+            self.pivot_dot, self.inspection_dot,
+            self._area_preview_line, self._area_interior_lines
         ]
         
         vis_states = []
@@ -4322,20 +4991,36 @@ class MCanvas3D(gl.GLViewWidget):
             self._needs_anim_vbo_build = False
             if not getattr(self, '_anim_vbo_built', False):
                 self._anim_vbo_built = True
-                if self.view_extruded:
-                    self._build_animated_extruded_vbo()
-                else:
-                    self._build_animated_line_vbo()
-                self._clear_static_elements()
+    
+            if self.view_extruded:
+                self._build_animated_extruded_vbo()
+            else:
+                self._build_animated_line_vbo()
+            self._clear_static_elements()
+
+            if getattr(self, 'show_slabs', True):
+                self.vbo_manager.draw_area_depth_prepass(m_view, m_proj)
+                self.vbo_manager.draw_area_edges(m_view, m_proj,
+                    line_width=float(self.display_config.get("edge_width", 1.5)),
+                    alpha_mult=1.0, write_depth=True)
+                self.vbo_manager.draw_areas(m_view, m_proj)
 
         if getattr(self, '_needs_ltha_vbo_update', False):
             self._needs_ltha_vbo_update = False
             t = getattr(self, '_ltha_pending_t', 0)
             self.vbo_manager.set_anim_factor(1.0)
+
             if self.view_extruded:
                 self._build_ltha_extruded_frame(t)
             else:
                 self._build_ltha_line_frame(t)
+
+            if getattr(self, 'show_slabs', True):
+                self.vbo_manager.draw_area_depth_prepass(m_view, m_proj)
+                self.vbo_manager.draw_area_edges(m_view, m_proj,
+                    line_width=float(self.display_config.get("edge_width", 1.5)),
+                    alpha_mult=1.0, write_depth=True)
+                self.vbo_manager.draw_areas(m_view, m_proj)
 
         if hasattr(self, 'vbo_manager') and self.vbo_manager.is_initialized:
             w, h = self.width(), self.height()
@@ -4350,21 +5035,36 @@ class MCanvas3D(gl.GLViewWidget):
 
             if self.view_extruded:
                 edge_w = float(self.display_config.get("edge_width", 1.5))
-                                                                              
-                edge_alpha = float(self.display_config.get("edge_opacity", 0.08)) 
-                
+                edge_alpha = float(self.display_config.get("edge_opacity", 0.08))
+
                 is_anim = self.animation_manager.is_running and self.view_deflected
                 if is_anim:
                     self.vbo_manager.draw(m_view, m_proj)
                     self.vbo_manager.draw_lines(m_view, m_proj, line_width=edge_w, alpha_mult=1.0, write_depth=True)
                 else:
-                                                 
+                                                                                         
                     self.vbo_manager.draw_lines(m_view, m_proj, line_width=edge_w, alpha_mult=edge_alpha, write_depth=False)
+                                                                                                    
                     self.vbo_manager.draw(m_view, m_proj)
+                                                                                                
                     self.vbo_manager.draw_lines(m_view, m_proj, line_width=edge_w, alpha_mult=1.0, write_depth=True)
             else:
                 line_w = float(self.display_config.get("line_width", 2.0))
                 self.vbo_manager.draw_lines(m_view, m_proj, line_width=line_w, alpha_mult=1.0, write_depth=True)
+
+            if getattr(self, 'show_slabs', True):
+                edge_w = float(self.display_config.get("edge_width", 1.5))
+                
+                if getattr(self, '_is_navigating', False):
+                                                                                                      
+                    self.vbo_manager.draw_areas(m_view, m_proj)
+                else:
+                                                                                                   
+                    self.vbo_manager.draw_area_depth_prepass(m_view, m_proj)
+                    self.vbo_manager.draw_area_edges(m_view, m_proj, line_width=edge_w, alpha_mult=1.0, write_depth=True)
+                    self.vbo_manager.draw_areas(m_view, m_proj)
+
+            glClear(GL_DEPTH_BUFFER_BIT)
 
             if getattr(self, '_pending_force_upload', None) is not None:
                 d = self._pending_force_upload
@@ -4380,6 +5080,11 @@ class MCanvas3D(gl.GLViewWidget):
             if hasattr(self.vbo_manager, 'font_texture_id'):
                 self.vbo_manager.draw_text(m_view, m_proj, self.vbo_manager.font_texture_id)
                 
+            glEnable(GL_DEPTH_TEST)
+            glDepthMask(GL_TRUE)
+                                     
+            glDepthFunc(GL_LESS)
+                                           
         glClear(GL_DEPTH_BUFFER_BIT)
         
         for item, was_visible in zip(top_items, vis_states):
@@ -4634,6 +5339,7 @@ class MCanvas3D(gl.GLViewWidget):
 
         hovered_node = None
         hovered_elem = None
+        hovered_area = None
         min_dist = 15.0
 
         for nid, s_pos in node_screens.items():
@@ -4697,6 +5403,21 @@ class MCanvas3D(gl.GLViewWidget):
                             min_dist_edge = dist
                             hovered_elem = eid
 
+        if hovered_node is None and hovered_elem is None and self.current_model.area_elements:
+            for aeid, ae in self.current_model.area_elements.items():
+                corner_screens = []
+                for n in ae.nodes:
+                    s = node_screens.get(n.id)
+                    if s is None:
+                        s = self._project_to_screen(n.x, n.y, n.z, mvp, w, h)
+                    if s:
+                        corner_screens.append(s)
+                if len(corner_screens) < 3:
+                    continue
+                if self._point_in_polygon_2d(px, py, corner_screens):
+                    hovered_area = aeid
+                    break
+
         text = ""
         in_analysis = getattr(self.current_model, 'has_results', False)
 
@@ -4732,6 +5453,16 @@ class MCanvas3D(gl.GLViewWidget):
             sec_name = el.section.name if el.section else "None"
             text = f"FRAME {hovered_elem}\nSection: {sec_name}"
 
+        elif hovered_area is not None:
+            ae  = self.current_model.area_elements[hovered_area]
+            sec = ae.section
+            sec_name = getattr(sec, 'name', 'Unknown')
+            t = getattr(sec, 'membrane_thickness', getattr(sec, 'thickness', None))
+            t_str = f"{t:.3f}" if isinstance(t, (int, float)) else "—"
+            n_corners = len(ae.nodes)
+            shape = "Tri" if n_corners == 3 else ("Quad" if n_corners == 4 else f"{n_corners}-gon")
+            text = f"AREA {hovered_area}  [{shape}]\nSection: {sec_name}\nThickness: {t_str}"
+
         new_hover_data = {'text': text, 'x': px, 'y': py} if text else None
 
         prev_nothing = (self.hovered_node_id is None and
@@ -4744,6 +5475,11 @@ class MCanvas3D(gl.GLViewWidget):
         self.current_hover_data = new_hover_data
         self.hovered_node_id    = hovered_node
         self.hovered_elem_id    = hovered_elem
+
+        prev_hov_area = getattr(self, 'hovered_area_id', None)
+        self.hovered_area_id  = hovered_area
+        if hovered_area != prev_hov_area:
+            self._rebuild_area_interior_lines()
 
         if not (prev_nothing and new_nothing):
             self.update()

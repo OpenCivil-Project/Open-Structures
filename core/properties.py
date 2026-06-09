@@ -462,3 +462,86 @@ class ArbitrarySection(GeneralSection):
         get_bbox_offsets() and the 3D extrusion work correctly.
         """
         return [(y - self._y_c, z - self._z_c) for y, z in self.vertices]
+
+class AreaSection:
+    """
+    Base class for 2D area element sections (Shell, Plane, Asolid).
+    Intentionally separate from the frame Section class — area sections
+    have no A, I33, J etc.  Stored in model.area_sections (not model.sections).
+    """
+    section_category = "area"
+
+    def __init__(self, name, material, material_angle=0.0, display_color="#FF00FF"):
+        self.name            = str(name)
+        self.material        = material                                   
+        self.material_angle  = float(material_angle)
+        self.display_color   = display_color or "#FF00FF"
+                                                                                  
+        self.stiffness_modifiers = {
+            "f11": 1.0, "f22": 1.0, "f12": 1.0,
+            "m11": 1.0, "m22": 1.0, "m12": 1.0,
+            "v13": 1.0, "v23": 1.0,
+            "mass": 1.0, "weight": 1.0,
+        }
+
+    def __repr__(self):
+        return f"{self.__class__.__name__}({self.name})"
+
+class ShellSection(AreaSection):
+    """
+    Shell / Plate / Membrane area section.
+    Covers all six SAP2000 shell types.
+    No stiffness computation yet — full solver integration later.
+    """
+    TYPES = [
+        "Shell - Thin",
+        "Shell - Thick",
+        "Plate - Thin",
+        "Plate Thick",
+        "Membrane",
+        "Shell - Layered/Nonlinear",
+    ]
+
+    def __init__(self, name, material,
+                 shell_type="Shell - Thin",
+                 membrane_thickness=0.1,
+                 bending_thickness=0.1,
+                 material_angle=0.0,
+                 display_color="#FF00FF"):
+        super().__init__(name, material, material_angle, display_color)
+        self.shell_type         = shell_type
+        self.membrane_thickness = float(membrane_thickness)
+        self.bending_thickness  = float(bending_thickness)
+
+class PlaneSection(AreaSection):
+    """
+    2-D Plane-Stress or Plane-Strain section.
+    No stiffness computation yet — placeholder.
+    """
+    def __init__(self, name, material,
+                 plane_type="Plane-Stress",
+                 incompatible_modes=True,
+                 thickness=0.1,
+                 material_angle=0.0,
+                 display_color="#FF00FF"):
+        super().__init__(name, material, material_angle, display_color)
+        self.plane_type         = plane_type                                           
+        self.incompatible_modes = bool(incompatible_modes)
+        self.thickness          = float(thickness)
+
+class AsolidSection(AreaSection):
+    """
+    Axisymmetric Solid (Asolid) section.
+    arc_degrees=0 means 1 radian — SAP2000 convention.
+    No stiffness computation yet — placeholder.
+    """
+    def __init__(self, name, material,
+                 incompatible_modes=True,
+                 coord_system="GLOBAL",
+                 arc_degrees=0.0,
+                 material_angle=0.0,
+                 display_color="#FFFF00"):
+        super().__init__(name, material, material_angle, display_color)
+        self.incompatible_modes = bool(incompatible_modes)
+        self.coord_system       = str(coord_system)
+        self.arc_degrees        = float(arc_degrees)

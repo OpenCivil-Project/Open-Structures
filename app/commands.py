@@ -72,43 +72,65 @@ class CmdDrawFrame(QUndoCommand):
         
 class CmdDeleteSelection(QUndoCommand):
     """
-    Command to Delete Frames and/or Joints.
+    Command to Delete Frames, Shells and/or Joints.
     Includes DOUBLE SAFETY CHECK:
-    1. Auto-detects orphans created by deleting frames.
-    2. Protects explicitly selected nodes if they are still supporting other frames.
+    1. Auto-detects orphans created by deleting frames OR shells.
+    2. Protects explicitly selected nodes if they are still supporting other frames/shells.
     """
-    def __init__(self, model, main_window, node_ids, elem_ids):
+    def __init__(self, model, main_window, node_ids, elem_ids, area_elem_ids=None):
         super().__init__("Delete Selection")
         self.model = model
         self.main_window = main_window
         
         ids_elements_to_delete = set(elem_ids)
+        ids_area_elements_to_delete = set(area_elem_ids or [])
+        
+        nodes_to_actually_delete = set()
+        
+        for nid in node_ids:
+                                                                       
+            if self._is_truly_orphaned(model, nid, ids_elements_to_delete, ids_area_elements_to_delete):
+                nodes_to_actually_delete.add(nid)
+        
+        self.node_ids_to_del = list(nodes_to_actually_delete)
+        self.elem_ids_to_del = list(ids_elements_to_delete)
+        self.area_elem_ids_to_del = list(ids_area_elements_to_delete)
         
         safe_nodes_to_delete = set()
-        for nid in node_ids:
-            if self._will_become_orphan(model, nid, ids_elements_to_delete):
-                safe_nodes_to_delete.add(nid)
                                                                                       
         for eid in ids_elements_to_delete:
             if eid in model.elements:
                 el = model.elements[eid]
-                
-                if self._will_become_orphan(model, el.node_i.id, ids_elements_to_delete):
+                if self._will_become_orphan(model, el.node_i.id, ids_elements_to_delete, ids_area_elements_to_delete):
                     safe_nodes_to_delete.add(el.node_i.id)
-                
-                if self._will_become_orphan(model, el.node_j.id, ids_elements_to_delete):
+                if self._will_become_orphan(model, el.node_j.id, ids_elements_to_delete, ids_area_elements_to_delete):
                     safe_nodes_to_delete.add(el.node_j.id)
+
+        if hasattr(model, 'area_elements'):
+            for aeid in ids_area_elements_to_delete:
+                if aeid in model.area_elements:
+                    ae = model.area_elements[aeid]
+                    for node in ae.nodes:
+                        if self._will_become_orphan(model, node.id, ids_elements_to_delete, ids_area_elements_to_delete):
+                            safe_nodes_to_delete.add(node.id)
         
         self.node_ids_to_del = list(safe_nodes_to_delete)
         self.elem_ids_to_del = list(ids_elements_to_delete)
+        self.area_elem_ids_to_del = list(ids_area_elements_to_delete)
 
-        self.saved_nodes = {}                        
-        self.saved_elems = {}                                
-        self.saved_loads = []                                   
+        self.saved_nodes = {}
+        self.saved_elems = {}
+        self.saved_area_elems = {}
+        self.saved_loads = []
 
         for eid in self.elem_ids_to_del:
             if eid in model.elements:
                 self.saved_elems[eid] = copy.deepcopy(model.elements[eid])
+
+        if hasattr(model, 'area_elements'):
+            for aeid in self.area_elem_ids_to_del:
+                if aeid in model.area_elements:
+                    self.saved_area_elems[aeid] = copy.deepcopy(model.area_elements[aeid])
         
         for nid in self.node_ids_to_del:
             if nid in model.nodes:
@@ -120,30 +142,62 @@ class CmdDeleteSelection(QUndoCommand):
                 should_save = True
             elif hasattr(load, 'node_id') and load.node_id in self.node_ids_to_del:
                 should_save = True
-            
             if should_save:
                 self.saved_loads.append(copy.deepcopy(load))
 
-    def _will_become_orphan(self, model, node_id, deleted_element_ids):
+    def _is_truly_orphaned(self, model, node_id, deleted_elem_ids, deleted_area_ids):
         """
-        Returns True if the node will have NO connected elements 
-        after the specified elements are deleted.
+        Returns True if the node is NOT connected to any element that is 
+        staying in the model.
         """
-                                                   
+                                                                             
         for el in model.elements.values():
-                                                            
-            if el.id not in deleted_element_ids:
-                                                
+            if el.id not in deleted_elem_ids:
                 if el.node_i.id == node_id or el.node_j.id == node_id:
-                    return False                                           
+                    return False 
         
-        return True 
+        if hasattr(model, 'area_elements'):
+            for ae in model.area_elements.values():
+                if ae.id not in deleted_area_ids:
+                    if any(n.id == node_id for n in ae.nodes):
+                        return False 
+        
+        if any(model.nodes[node_id].restraints):
+            return False 
+            
+        return True
+    
+    def _will_become_orphan(self, model, node_id, deleted_element_ids, deleted_area_ids=None):
+        """
+        Returns True if the node will have NO connected elements
+        after the specified frame elements AND shell elements are deleted.
+        Checks both model.elements (frames) and model.area_elements (shells).
+        """
+        deleted_area_ids = deleted_area_ids or set()
+
+        for el in model.elements.values():
+            if el.id not in deleted_element_ids:
+                if el.node_i.id == node_id or el.node_j.id == node_id:
+                    return False
+
+        if hasattr(model, 'area_elements'):
+            for ae in model.area_elements.values():
+                if ae.id not in deleted_area_ids:
+                    if any(n.id == node_id for n in ae.nodes):
+                        return False
+
+        return True
 
     def redo(self):
                             
         for eid in self.elem_ids_to_del:
             if eid in self.model.elements:
                 self.model.remove_element(eid)
+
+        if hasattr(self.model, 'area_elements'):
+            for aeid in self.area_elem_ids_to_del:
+                if aeid in self.model.area_elements:
+                    del self.model.area_elements[aeid]
         
         for nid in self.node_ids_to_del:
             if nid in self.model.nodes:
@@ -157,6 +211,8 @@ class CmdDeleteSelection(QUndoCommand):
 
         self.main_window.selected_ids = []
         self.main_window.selected_node_ids = []
+        if hasattr(self.main_window, 'selected_area_ids'):
+            self.main_window.selected_area_ids = []
         self._refresh_view()
 
     def undo(self):
@@ -179,6 +235,21 @@ class CmdDeleteSelection(QUndoCommand):
 
             self.model.elements[eid] = el_obj
             self.model._elem_counter = max(self.model._elem_counter, eid + 1)
+
+        if hasattr(self.model, 'area_elements'):
+            for aeid, ae_obj in self.saved_area_elems.items():
+                ae_obj.nodes = [
+                    self.model.nodes.get(n.id, n) for n in ae_obj.nodes
+                ]
+                if hasattr(ae_obj, 'section') and ae_obj.section is not None:
+                    sec_name = ae_obj.section.name
+                    if hasattr(self.model, 'area_sections') and sec_name in self.model.area_sections:
+                        ae_obj.section = self.model.area_sections[sec_name]
+                    elif sec_name in self.model.sections:
+                        ae_obj.section = self.model.sections[sec_name]
+                self.model.area_elements[aeid] = ae_obj
+                if hasattr(self.model, '_area_elem_counter'):
+                    self.model._area_elem_counter = max(self.model._area_elem_counter, aeid + 1)
 
         for load in self.saved_loads:
             self.model.loads.append(copy.deepcopy(load))
@@ -544,12 +615,14 @@ class CmdReplicate(QUndoCommand):
     """
     Handles Linear Replication (Copy/Move).
     """
-    def __init__(self, model, main_window, node_ids, elem_ids, dx, dy, dz, num, delete_original=False):
+    def __init__(self, model, main_window, node_ids, elem_ids, area_elem_ids=None,
+                 dx=0.0, dy=0.0, dz=0.0, num=1, delete_original=False):
         super().__init__("Replicate Selection")
         self.model = model
         self.main_window = main_window
         self.node_ids_src = node_ids
         self.elem_ids_src = elem_ids
+        self.area_elem_ids_src = list(area_elem_ids or [])
         self.dx = dx
         self.dy = dy
         self.dz = dz
@@ -558,15 +631,18 @@ class CmdReplicate(QUndoCommand):
 
         self.created_node_ids = []
         self.created_elem_ids = []
+        self.created_area_elem_ids = []
 
         self.delete_cmd = None
         if self.delete_original:
-            self.delete_cmd = CmdDeleteSelection(model, main_window, node_ids, elem_ids)
+            self.delete_cmd = CmdDeleteSelection(model, main_window, node_ids, elem_ids,
+                                                 self.area_elem_ids_src)
 
     def redo(self):
                                                                 
         self.created_node_ids = []
         self.created_elem_ids = []
+        self.created_area_elem_ids = []
 
         involved_node_ids = set(self.node_ids_src)
         for eid in self.elem_ids_src:
@@ -574,6 +650,12 @@ class CmdReplicate(QUndoCommand):
                 el = self.model.elements[eid]
                 involved_node_ids.add(el.node_i.id)
                 involved_node_ids.add(el.node_j.id)
+
+        if hasattr(self.model, 'area_elements'):
+            for aeid in self.area_elem_ids_src:
+                if aeid in self.model.area_elements:
+                    for node in self.model.area_elements[aeid].nodes:
+                        involved_node_ids.add(node.id)
 
         node_load_map = {}
         elem_load_map = {}
@@ -631,6 +713,9 @@ class CmdReplicate(QUndoCommand):
                 
                 n1 = node_map[orig.node_i.id]
                 n2 = node_map[orig.node_j.id]
+
+                if self._frame_exists(n1, n2):
+                    continue
                 
                 new_elem = self.model.add_element(n1, n2, orig.section, orig.beta_angle)
                 self.created_elem_ids.append(new_elem.id)
@@ -663,6 +748,29 @@ class CmdReplicate(QUndoCommand):
                                 mode="add"
                             )
 
+            if hasattr(self.model, 'area_elements'):
+                for aeid in self.area_elem_ids_src:
+                    if aeid not in self.model.area_elements:
+                        continue
+                    orig_ae = self.model.area_elements[aeid]
+
+                    mapped_nodes = []
+                    all_mapped = True
+                    for ae_node in orig_ae.nodes:
+                        if ae_node.id not in node_map:
+                            all_mapped = False
+                            break
+                        mapped_nodes.append(node_map[ae_node.id])
+
+                    if not all_mapped:
+                        continue
+
+                    if self._shell_exists(mapped_nodes):
+                        continue
+
+                    new_ae = self.model.add_area_element(mapped_nodes, orig_ae.section)
+                    self.created_area_elem_ids.append(new_ae.id)
+
         if self.delete_original and self.delete_cmd:
             self.delete_cmd.redo()
 
@@ -676,6 +784,11 @@ class CmdReplicate(QUndoCommand):
         for eid in reversed(self.created_elem_ids):
             if eid in self.model.elements:
                 self.model.remove_element(eid)
+
+        if hasattr(self.model, 'area_elements'):
+            for aeid in reversed(self.created_area_elem_ids):
+                if aeid in self.model.area_elements:
+                    del self.model.area_elements[aeid]
         
         for nid in reversed(self.created_node_ids):
             if nid not in self.model.nodes: continue
@@ -685,8 +798,155 @@ class CmdReplicate(QUndoCommand):
                 if el.node_i.id == nid or el.node_j.id == nid:
                     is_connected = True
                     break
+
+            if not is_connected and hasattr(self.model, 'area_elements'):
+                for ae in self.model.area_elements.values():
+                    if any(n.id == nid for n in ae.nodes):
+                        is_connected = True
+                        break
             
             if not is_connected:
                 del self.model.nodes[nid]
 
         self.main_window.draw_both_canvases()
+
+    def _frame_exists(self, n1, n2):
+        """Return True if a frame element already connects these two nodes (either direction)."""
+        pair = {n1.id, n2.id}
+        for el in self.model.elements.values():
+            if {el.node_i.id, el.node_j.id} == pair:
+                return True
+        return False
+
+    def _shell_exists(self, nodes):
+        """Return True if a shell with the exact same node set already exists."""
+        target_ids = {n.id for n in nodes}
+        if hasattr(self.model, 'area_elements'):
+            for ae in self.model.area_elements.values():
+                if {n.id for n in ae.nodes} == target_ids:
+                    return True
+        return False
+
+class CmdDrawAreaElement(QUndoCommand):
+    """
+    Command to Draw a Shell/Area Element (and potentially new nodes).
+    Mirrors CmdDrawFrame: takes node coordinates, uses get_or_create_node,
+    tracks which nodes were newly created, and cleans them up on undo.
+    """
+    def __init__(self, model, window, node_coords, section, description="Draw Shell"):
+        super().__init__(description)
+        self.model = model
+        self.window = window
+        self.node_coords = node_coords                                                           
+        self.section = section
+        self.added_element_id = None
+        self.created_node_ids = []                                                      
+
+    def redo(self):
+        self.created_node_ids = []
+        existing_ids_before = set(self.model.nodes.keys())                                     
+
+        nodes = []
+        for coords in self.node_coords:
+            node = self.model.get_or_create_node(*coords)
+            if node.id not in existing_ids_before:
+                self.created_node_ids.append(node.id)
+            nodes.append(node)
+
+        ae = self.model.add_area_element(nodes, self.section)
+        self.added_element_id = ae.id
+        self.window.draw_both_canvases()
+
+    def undo(self):
+                                  
+        if self.added_element_id is not None:
+            if hasattr(self.model, 'area_elements') and self.added_element_id in self.model.area_elements:
+                del self.model.area_elements[self.added_element_id]
+
+        for nid in self.created_node_ids:
+            if nid not in self.model.nodes:
+                continue
+
+            is_orphan = True
+
+            for el in self.model.elements.values():
+                if el.node_i.id == nid or el.node_j.id == nid:
+                    is_orphan = False
+                    break
+
+            if is_orphan and hasattr(self.model, 'area_elements'):
+                for ae in self.model.area_elements.values():
+                    if any(n.id == nid for n in ae.nodes):
+                        is_orphan = False
+                        break
+
+            if is_orphan:
+                del self.model.nodes[nid]
+
+        self.window.draw_both_canvases()
+
+class CmdMeshAreaElements(QUndoCommand):
+    """
+    Command to Mesh Area Elements.
+    Uses a snapshot approach to safely undo/redo complex topological changes 
+    (new nodes, split frames, deleted original areas).
+    """
+    def __init__(self, model, window, area_ids, params):
+        super().__init__("Mesh Area Elements")
+        self.model = model
+        self.window = window
+        self.area_ids = area_ids
+        self.params = params
+        
+        self.pre_nodes = {k: copy.deepcopy(v) for k, v in model.nodes.items()}
+        self.pre_elements = {k: copy.deepcopy(v) for k, v in model.elements.items()}
+        self.pre_area_elements = {k: copy.deepcopy(v) for k, v in getattr(model, 'area_elements', {}).items()}
+        
+        self.post_nodes = None
+        self.post_elements = None
+        self.post_area_elements = None
+        
+        self.first_run = True
+
+    def redo(self):
+        if self.first_run:
+                                                                           
+            meshed_count = self.model.mesh_area_elements(
+                area_ids=self.area_ids,
+                mode=self.params["mode"],
+                n=self.params["n"],
+                m=self.params["m"],
+                max_x=self.params["max_x"],
+                max_y=self.params["max_y"],
+                divide_frames=self.params["divide_frames"]
+            )
+            
+            self.post_nodes = {k: copy.deepcopy(v) for k, v in self.model.nodes.items()}
+            self.post_elements = {k: copy.deepcopy(v) for k, v in self.model.elements.items()}
+            self.post_area_elements = {k: copy.deepcopy(v) for k, v in getattr(self.model, 'area_elements', {}).items()}
+            self.first_run = False
+        else:
+                                                                               
+            self._restore_snapshot(self.post_nodes, self.post_elements, self.post_area_elements)
+            
+        self.window.draw_both_canvases()
+
+    def undo(self):
+                                                         
+        self._restore_snapshot(self.pre_nodes, self.pre_elements, self.pre_area_elements)
+        self.window.draw_both_canvases()
+        
+    def _restore_snapshot(self, nodes, elements, areas):
+        self.model.nodes = {k: copy.deepcopy(v) for k, v in nodes.items()}
+        self.model.elements = {k: copy.deepcopy(v) for k, v in elements.items()}
+        self.model.area_elements = {k: copy.deepcopy(v) for k, v in areas.items()}
+        
+        for el in self.model.elements.values():
+            if el.node_i.id in self.model.nodes: el.node_i = self.model.nodes[el.node_i.id]
+            if el.node_j.id in self.model.nodes: el.node_j = self.model.nodes[el.node_j.id]
+            if el.section.name in self.model.sections: el.section = self.model.sections[el.section.name]
+            
+        for ae in self.model.area_elements.values():
+            ae.nodes = [self.model.nodes.get(n.id, n) for n in ae.nodes]
+            if ae.section.name in self.model.area_sections: 
+                ae.section = self.model.area_sections[ae.section.name]

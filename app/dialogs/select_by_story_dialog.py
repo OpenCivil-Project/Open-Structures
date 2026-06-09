@@ -10,7 +10,7 @@ def detect_stories(model, tolerance_internal):
     Clusters node Z values into stories using tolerance in internal (SI) units.
     Returns:
         clusters : list of float  — representative Z for each story (internal)
-        stories  : dict {cluster_z: [elem_ids]}
+        stories  : dict {cluster_z: {'frames': [], 'areas': []}}
     """
     if not model or not model.nodes:
         return [], {}
@@ -20,16 +20,23 @@ def detect_stories(model, tolerance_internal):
     clusters = []
     for z in z_values:
         if clusters and abs(z - clusters[-1]) <= tolerance_internal:
-                                           
+                                             
             clusters[-1] = (clusters[-1] + z) / 2.0
         else:
             clusters.append(z)
 
-    stories = {z: [] for z in clusters}
+    stories = {z: {'frames': [], 'areas': []} for z in clusters}
+    
     for eid, elem in model.elements.items():
         top_z = max(elem.node_i.z, elem.node_j.z)
         nearest = min(clusters, key=lambda c: abs(c - top_z))
-        stories[nearest].append(eid)
+        stories[nearest]['frames'].append(eid)
+        
+    if hasattr(model, 'area_elements'):
+        for aid, ae in model.area_elements.items():
+            top_z = max(n.z for n in ae.nodes)
+            nearest = min(clusters, key=lambda c: abs(c - top_z))
+            stories[nearest]['areas'].append(aid)
 
     return clusters, stories
 
@@ -132,7 +139,8 @@ class SelectByStoryDialog(QDialog):
         unit = unit_registry.length_unit_name
 
         for idx, z in enumerate(sorted(self._clusters)):
-            count     = len(self._stories.get(z, []))
+            story_data = self._stories.get(z, {'frames': [], 'areas': []})
+            count     = len(story_data['frames']) + len(story_data['areas'])
             z_display = unit_registry.to_display_length(z)
             label     = f"Story {idx + 1}  (Z = {z_display:.3f} {unit})  — {count} elements"
             item      = QListWidgetItem(label)
@@ -145,17 +153,21 @@ class SelectByStoryDialog(QDialog):
 
     def _set_buttons_enabled(self, state):
         self.btn_select.setEnabled(state)
-        self.btn_deselect.setEnabled(state and bool(self.main_window.selected_ids))
+        has_selection = bool(self.main_window.selected_ids) or bool(getattr(self.main_window, 'selected_area_ids', []))
+        self.btn_deselect.setEnabled(state and has_selection)
 
     def _check_selection_changed(self):
         """Update unit label and deselect button state on external changes."""
-                                                      
         self.lbl_unit.setText(unit_registry.length_unit_name)
 
-        current = set(self.main_window.selected_ids)
-        if current != self._last_snapshot:
+        current_frames = tuple(self.main_window.selected_ids)
+        current_areas = tuple(getattr(self.main_window, 'selected_area_ids', []))
+        current = (current_frames, current_areas)
+        
+        if current != getattr(self, '_last_snapshot', None):
             self._last_snapshot = current
-            self.btn_deselect.setEnabled(bool(current) and bool(self._clusters))
+            has_selection = bool(current_frames) or bool(current_areas)
+            self.btn_deselect.setEnabled(has_selection and bool(self._clusters))
 
     def _selected_cluster_zs(self):
         return [
@@ -174,30 +186,55 @@ class SelectByStoryDialog(QDialog):
     def _refresh_overlay(self):
         mw = self.main_window
         for cvs in [mw.canvas, mw.canvas2]:
-            cvs.update_selection_overlay(mw.selected_ids, mw.selected_node_ids)
-        n = len(mw.selected_ids)
+            cvs.update_selection_overlay(mw.selected_ids, mw.selected_node_ids, getattr(mw, 'selected_area_ids', []))
+        
+        n_frames = len(mw.selected_ids)
+        n_areas = len(getattr(mw, 'selected_area_ids', []))
         mw.status.showMessage(
-            f"Selected: {n} Frame{'s' if n != 1 else ''}, "
+            f"Selected: {n_frames} Frame{'s' if n_frames != 1 else ''}, "
+            f"{n_areas} Area{'s' if n_areas != 1 else ''}, "
             f"{len(mw.selected_node_ids)} Joints")
 
     def _do_select(self):
-        ids = self._elem_ids_for_selected_stories()
-        if not ids:
+        selected_zs = self._selected_cluster_zs()
+        if not selected_zs:
             return
         mw = self.main_window
-        for eid in ids:
-            if eid not in mw.selected_ids:
-                mw.selected_ids.append(eid)
+        
+        for z in selected_zs:
+            story_data = self._stories.get(z, {'frames': [], 'areas': []})
+            
+            for eid in story_data['frames']:
+                if eid not in mw.selected_ids:
+                    mw.selected_ids.append(eid)
+                    
+            if not hasattr(mw, 'selected_area_ids'): mw.selected_area_ids = []
+            for aid in story_data['areas']:
+                if aid not in mw.selected_area_ids:
+                    mw.selected_area_ids.append(aid)
+                    
         self._refresh_overlay()
 
     def _do_deselect(self):
-        ids = set(self._elem_ids_for_selected_stories())
-        if not ids:
+        selected_zs = self._selected_cluster_zs()
+        if not selected_zs:
             return
         mw = self.main_window
-        mw.selected_ids = [eid for eid in mw.selected_ids if eid not in ids]
+        
+        frames_to_remove = set()
+        areas_to_remove = set()
+        
+        for z in selected_zs:
+            story_data = self._stories.get(z, {'frames': [], 'areas': []})
+            frames_to_remove.update(story_data['frames'])
+            areas_to_remove.update(story_data['areas'])
+            
+        mw.selected_ids = [eid for eid in mw.selected_ids if eid not in frames_to_remove]
+        if hasattr(mw, 'selected_area_ids'):
+            mw.selected_area_ids = [aid for aid in mw.selected_area_ids if aid not in areas_to_remove]
+            
         self._refresh_overlay()
-
+        
     def closeEvent(self, event):
         self._poll_timer.stop()
         super().closeEvent(event)

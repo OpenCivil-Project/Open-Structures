@@ -211,3 +211,15 @@ class Slab:
 
     def __repr__(self):
         return f"Slab({self.id})"
+
+class AreaElement:
+    """
+    Represents a finite element area (Shell, Plane, or Asolid).
+    """
+    def __init__(self, element_id, nodes, section):
+        self.id = int(element_id)
+        self.nodes = nodes                                                      
+        self.section = section                                          
+
+    def __repr__(self):
+        return f"AreaElement({self.id}, sec={self.section.name})"

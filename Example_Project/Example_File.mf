@@ -9375,6 +9375,8 @@
         }
     ],
     "slabs": [],
+    "area_elements": [],
+    "area_sections": [],
     "constraints": [],
     "load_patterns": [
         {

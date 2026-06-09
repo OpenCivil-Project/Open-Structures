@@ -2,13 +2,13 @@ import json
 from core.mesh import Node, FrameElement
 from core.properties import (Material, RectangularSection, ISection, GeneralSection,
                              CircularSection, PipeSection, TubeSection, TrapezoidalSection,
-                             ArbitrarySection)
+                             ArbitrarySection, ShellSection, PlaneSection, AsolidSection, AreaSection)
 from core.grid import GridLines
 from core.boundary import apply_restraint, Restraint
-from core.mesh import Slab 
+from core.mesh import Slab, AreaElement 
 from core.units import unit_registry
 import numpy as np
-from core.loads import LoadPattern, NodalLoad, MemberLoad, MemberPointLoad
+from core.loads import LoadPattern, NodalLoad, MemberLoad, MemberPointLoad, AreaGravityLoad, AreaUniformLoad
                       
 class MassSource:
     def __init__(self, name):
@@ -76,6 +76,10 @@ class StructuralModel:
         self.add_load_pattern("DEAD", "DEAD", 1.0)
         self.create_default_cases()
         self.slabs = {}
+        self.area_sections = {}
+        self.area_elements = {}
+        self._area_elem_counter = 1
+
         self.functions = {}
         self.th_functions = {}
         self.constraints = {}
@@ -134,6 +138,18 @@ class StructuralModel:
         self.slabs[self._slab_counter] = new_slab
         self._slab_counter += 1
         return new_slab
+    
+    def add_area_element(self, nodes, section):
+        """Creates and adds an AreaElement (Shell/Plane/Asolid) with a unique ID."""
+        new_area = AreaElement(self._area_elem_counter, nodes, section)
+        self.area_elements[self._area_elem_counter] = new_area
+        self._area_elem_counter += 1
+        return new_area
+
+    def add_area_section(self, section):
+        """Add or replace an area section (Shell / Plane / Asolid)."""
+        self.area_sections[section.name] = section
+        return section
 
     def get_total_dofs(self):
         """Returns total degrees of freedom (Nodes * 6)"""
@@ -223,6 +239,10 @@ class StructuralModel:
                 if n.id == node_id:
                     return True
                     
+        for ae in self.area_elements.values():
+            for n in ae.nodes:
+                if n.id == node_id:
+                    return True
         return False
     
     def assign_member_load(self, element_id, pattern_name, wx=0, wy=0, wz=0, 
@@ -289,7 +309,9 @@ class StructuralModel:
             "sections": [],
             "nodes": [],
             "elements": [],
-            "slabs": [],       
+            "slabs": [],    
+            "area_elements": [],
+            "area_sections": [],   
             "constraints": [],
             "load_patterns": [],
             "loads": [],
@@ -387,6 +409,14 @@ class StructuralModel:
 
         for slab in self.slabs.values():
             data["slabs"].append({"id": slab.id, "node_ids": [n.id for n in slab.nodes], "thick": slab.thickness})
+
+        for ae in self.area_elements.values():
+            data["area_elements"].append({
+                "id": ae.id, 
+                "node_ids": [n.id for n in ae.nodes], 
+                "sec_name": ae.section.name
+            })
+
         for name, const in self.constraints.items():
             data["constraints"].append({"name": name, "axis": const.axis})
         for lp in self.load_patterns.values():
@@ -395,7 +425,25 @@ class StructuralModel:
         for load in self.loads:
             load_data = {"pattern": load.pattern_name}
             
-            if hasattr(load, 'force'): 
+            if hasattr(load, 'uniform_load'):                                  
+                load_data.update({
+                    "type":      "area_uniform",
+                    "area_id":   load.area_id,
+                    "load":      load.uniform_load,
+                    "direction": load.load_direction,
+                    "coord":     load.coord_system
+                })
+            elif hasattr(load, 'gx'):                                          
+                load_data.update({
+                    "type":    "area_gravity",
+                    "area_id": load.area_id,
+                    "gx":      load.gx,
+                    "gy":      load.gy,
+                    "gz":      load.gz,
+                    "coord":   load.coord_system
+                })
+                                                                              
+            elif hasattr(load, 'force'): 
                 load_data.update({
                     "type": "member_point",
                     "element_id": load.element_id,
@@ -444,6 +492,33 @@ class StructuralModel:
             for func_name, func_data in self.th_functions.items():
                 data["th_functions"].append(func_data)
 
+        data["area_sections"] = [
+            {
+                "type":              s.__class__.__name__,                               
+                "name":              s.name,
+                "material":          s.material.name if s.material else None,
+                "material_angle":    s.material_angle,
+                "display_color":     s.display_color,
+                "stiffness_modifiers": s.stiffness_modifiers,
+                                     
+                **( {"shell_type": s.shell_type,
+                     "membrane_thickness": s.membrane_thickness,
+                     "bending_thickness":  s.bending_thickness}
+                    if isinstance(s, ShellSection) else {} ),
+                                     
+                **( {"plane_type": s.plane_type,
+                     "incompatible_modes": s.incompatible_modes,
+                     "thickness": s.thickness}
+                    if isinstance(s, PlaneSection) else {} ),
+                                      
+                **( {"incompatible_modes": s.incompatible_modes,
+                     "coord_system": s.coord_system,
+                     "arc_degrees": s.arc_degrees}
+                    if isinstance(s, AsolidSection) else {} ),
+            }
+            for s in self.area_sections.values()
+        ]
+
         with open(filepath, 'w') as f:
             json.dump(data, f, indent=4)
         print(f"Model saved to {filepath}")
@@ -454,11 +529,11 @@ class StructuralModel:
             data = json.load(f)
             
         self.nodes.clear(); self.elements.clear(); self.materials.clear()
-        self.sections.clear(); self.load_patterns.clear(); self.loads.clear()
-        self.slabs.clear(); self.constraints.clear()
+        self.sections.clear(); self.area_sections.clear(); self.load_patterns.clear(); self.loads.clear()                                  
+        self.slabs.clear(); self.area_elements.clear(); self.constraints.clear()
         self.functions = {}
         self.th_functions = {}
-        self._node_counter = 1; self._elem_counter = 1; self._slab_counter = 1 
+        self._node_counter = 1; self._elem_counter = 1; self._slab_counter = 1; self._area_elem_counter = 1
         
         self.name = data["info"]["name"]
         self.saved_unit_system = data["info"].get("units", "kN, m, C")
@@ -518,6 +593,34 @@ class StructuralModel:
                 if "modifiers" in s_data: sec.modifiers = s_data["modifiers"]
                 self.add_section(sec)
 
+        _AREA_CLS = {"ShellSection": ShellSection,
+                     "PlaneSection": PlaneSection,
+                     "AsolidSection": AsolidSection}
+        
+        for d in data.get("area_sections", []):
+            cls  = _AREA_CLS.get(d["type"])
+            mat  = self.materials.get(d["material"])
+            if cls is None: continue
+            
+            sec  = cls.__new__(cls)
+            AreaSection.__init__(sec, d["name"], mat, d["material_angle"], d["display_color"])
+            sec.stiffness_modifiers = d.get("stiffness_modifiers", sec.stiffness_modifiers)
+            
+            if cls is ShellSection:
+                sec.shell_type         = d["shell_type"]
+                sec.membrane_thickness = d["membrane_thickness"]
+                sec.bending_thickness  = d["bending_thickness"]
+            elif cls is PlaneSection:
+                sec.plane_type         = d["plane_type"]
+                sec.incompatible_modes = d["incompatible_modes"]
+                sec.thickness          = d["thickness"]
+            elif cls is AsolidSection:
+                sec.incompatible_modes = d["incompatible_modes"]
+                sec.coord_system       = d["coord_system"]
+                sec.arc_degrees        = d["arc_degrees"]
+                
+            self.area_sections[sec.name] = sec
+
         for n_data in data["nodes"]:
             n_id = n_data["id"]
             node = self.add_node(n_data["x"], n_data["y"], n_data["z"])
@@ -532,6 +635,40 @@ class StructuralModel:
         self.slabs.clear(); 
         self.graphics_settings = data.get("graphics", {})
         self.name = data["info"]["name"]
+
+        for s_data in data.get("area_sections", []):
+            mat = self.materials.get(s_data["material"])
+            if not mat: continue
+            sec = None
+            if s_data["type"] == "ShellSection":
+                sec = ShellSection(
+                    s_data["name"], mat,
+                    shell_type=s_data.get("shell_type", "Shell - Thin"),
+                    membrane_thickness=s_data.get("membrane_thickness", 0.1),
+                    bending_thickness=s_data.get("bending_thickness", 0.1),
+                    material_angle=s_data.get("material_angle", 0.0),
+                    display_color=s_data.get("display_color", "#FF00FF")
+                )
+            elif s_data["type"] == "PlaneSection":
+                sec = PlaneSection(
+                    s_data["name"], mat,
+                    plane_type=s_data.get("plane_type", "Plane-Stress"),
+                    incompatible_modes=s_data.get("incompatible_modes", True),
+                    thickness=s_data.get("thickness", 0.1),
+                    material_angle=s_data.get("material_angle", 0.0),
+                    display_color=s_data.get("display_color", "#FF00FF")
+                )
+            elif s_data["type"] == "AsolidSection":
+                sec = AsolidSection(
+                    s_data["name"], mat,
+                    incompatible_modes=s_data.get("incompatible_modes", True),
+                    coord_system=s_data.get("coord_system", "GLOBAL"),
+                    arc_degrees=s_data.get("arc_degrees", 0.0),
+                    material_angle=s_data.get("material_angle", 0.0),
+                    display_color=s_data.get("display_color", "#FFFF00")
+                )
+            if sec:
+                self.add_area_section(sec)
 
         for el_data in data["elements"]:
             n1 = self.nodes.get(el_data["n1_id"])
@@ -557,6 +694,18 @@ class StructuralModel:
                 el.end_offset_i = el_data.get("end_off_i", 0.0)
                 el.end_offset_j = el_data.get("end_off_j", 0.0)
                 el.rigid_zone_factor = el_data.get("rz_factor", 0.0)
+
+        if "area_elements" in data:
+            for ae_data in data["area_elements"]:
+                ae_nodes = [self.nodes[nid] for nid in ae_data["node_ids"] if nid in self.nodes]
+                sec = self.area_sections.get(ae_data["sec_name"])
+                
+                if len(ae_nodes) >= 3 and sec:
+                    new_ae = self.add_area_element(ae_nodes, sec)
+                    del self.area_elements[new_ae.id]
+                    new_ae.id = ae_data["id"]
+                    self.area_elements[new_ae.id] = new_ae
+                    self._area_elem_counter = max(self._area_elem_counter, new_ae.id + 1)
 
         if "slabs" in data:
             for sl_data in data["slabs"]:
@@ -652,6 +801,29 @@ class StructuralModel:
                         load_data["dir"], load_data.get("l_type", "Force")
                     )
                     self.loads.append(new_load)
+
+                elif l_type == "area_gravity":
+                    aid = load_data.get("area_id")
+                    if aid in self.area_elements:
+                        new_load = AreaGravityLoad(
+                            aid, pattern_name,
+                            load_data.get("coord", "GLOBAL"),
+                            load_data.get("gx", 0.0),
+                            load_data.get("gy", 0.0),
+                            load_data.get("gz", 0.0)
+                        )
+                        self.loads.append(new_load)
+
+                elif l_type == "area_uniform":
+                    aid = load_data.get("area_id")
+                    if aid in self.area_elements:
+                        new_load = AreaUniformLoad(
+                            aid, pattern_name,
+                            load_data.get("coord", "GLOBAL"),
+                            load_data.get("direction", "Gravity"),
+                            load_data.get("load", 0.0)
+                        )
+                        self.loads.append(new_load)
         
         print(f"Model loaded from {filepath}")
 
@@ -827,6 +999,12 @@ class StructuralModel:
                     new_nodes.append(n)
             slab.nodes = new_nodes
 
+        for ae in self.area_elements.values():
+            ae.nodes = [
+                self.nodes[remap_dict[n.id]] if n.id in remap_dict else n
+                for n in ae.nodes
+            ]
+
         for load in self.loads:
             if hasattr(load, 'node_id') and load.node_id in remap_dict:
                 load.node_id = remap_dict[load.node_id]
@@ -846,7 +1024,8 @@ class StructuralModel:
         self.nodes = {k: self.nodes[k] for k in sorted(self.nodes.keys())}
         self.elements = {k: self.elements[k] for k in sorted(self.elements.keys())}
         self.slabs = {k: self.slabs[k] for k in sorted(self.slabs.keys())}
-        
+        self.area_elements = {k: self.area_elements[k] for k in sorted(self.area_elements.keys())}
+
         for el in self.elements.values():
             if el.node_i.id in self.nodes:
                 el.node_i = self.nodes[el.node_i.id]
@@ -861,6 +1040,12 @@ class StructuralModel:
                 else:
                     relinked_nodes.append(n)
             slab.nodes = relinked_nodes
+
+        for ae in self.area_elements.values():
+            ae.nodes = [
+                self.nodes[n.id] if n.id in self.nodes else n
+                for n in ae.nodes
+            ]
 
     def get_or_create_node(self, x, y, z, tol=0.005):
         """
@@ -907,6 +1092,11 @@ class StructuralModel:
             for n in slab.nodes:
                 if n.id == node_id:
                     return               
+
+        for ae in self.area_elements.values():
+            for n in ae.nodes:
+                if n.id == node_id:
+                    return
 
         if any(self.nodes[node_id].restraints):
             return 
@@ -958,6 +1148,262 @@ class StructuralModel:
                                            is_relative, coord_system, direction, load_type)
                 self.loads.append(new_load)
 
+    def assign_area_gravity_load(self, area_id, pattern_name,
+                                  gx=0.0, gy=0.0, gz=0.0,
+                                  coord_system="GLOBAL", mode="replace"):
+        """
+        Assigns gravity multiplier loads to an AreaElement.
+        gx/gy/gz scale element self-weight in global X/Y/Z.
+        Typical dead-load usage: gz=-1.0.
+        Only valid on area elements (shells/planes/asolids) — not on frames.
+        mode: 'add' | 'replace' | 'delete'
+        """
+        if area_id not in self.area_elements:
+            raise KeyError(f"Area element {area_id} does not exist.")
+
+        existing = [
+            i for i, ld in enumerate(self.loads)
+            if hasattr(ld, 'gx') and ld.area_id == area_id
+            and ld.pattern_name == pattern_name
+        ]
+
+        if mode == "delete":
+            for i in reversed(existing):
+                del self.loads[i]
+            return
+
+        if mode == "replace":
+            for i in reversed(existing):
+                del self.loads[i]
+            if any([gx, gy, gz]):
+                self.loads.append(
+                    AreaGravityLoad(area_id, pattern_name, coord_system, gx, gy, gz))
+
+        elif mode == "add":
+            if existing:
+                ld = self.loads[existing[0]]
+                ld.gx += gx; ld.gy += gy; ld.gz += gz
+            elif any([gx, gy, gz]):
+                self.loads.append(
+                    AreaGravityLoad(area_id, pattern_name, coord_system, gx, gy, gz))
+
+    def assign_area_uniform_load(self, area_id, pattern_name,
+                                  uniform_load=0.0, load_direction="Gravity",
+                                  coord_system="GLOBAL", mode="replace"):
+        """
+        Assigns a uniform pressure (force/area) to an AreaElement.
+        uniform_load: pressure magnitude in current working units (e.g. kN/m², kip/ft²).
+        load_direction: 'Gravity' | 'Local 1' | 'Local 2' | 'Local 3' |
+                        'Global X' | 'Global Y' | 'Global Z'
+        Only valid on area elements (shells/planes/asolids) — not on frames.
+        mode: 'add' | 'replace' | 'delete'
+        """
+        if area_id not in self.area_elements:
+            raise KeyError(f"Area element {area_id} does not exist.")
+
+        same_dir_indices = [
+            i for i, ld in enumerate(self.loads)
+            if hasattr(ld, 'uniform_load') and ld.area_id == area_id
+            and ld.pattern_name == pattern_name
+            and ld.load_direction == load_direction
+        ]
+        all_uniform_indices = [
+            i for i, ld in enumerate(self.loads)
+            if hasattr(ld, 'uniform_load') and ld.area_id == area_id
+            and ld.pattern_name == pattern_name
+        ]
+
+        if mode == "delete":
+            for i in reversed(all_uniform_indices):
+                del self.loads[i]
+            return
+
+        if mode == "replace":
+            for i in reversed(all_uniform_indices):
+                del self.loads[i]
+            if uniform_load != 0.0:
+                self.loads.append(
+                    AreaUniformLoad(area_id, pattern_name, coord_system,
+                                    load_direction, uniform_load))
+
+        elif mode == "add":
+            if same_dir_indices:
+                self.loads[same_dir_indices[0]].uniform_load += uniform_load
+            elif uniform_load != 0.0:
+                self.loads.append(
+                    AreaUniformLoad(area_id, pattern_name, coord_system,
+                                    load_direction, uniform_load))
+
+    def mesh_area_elements(self, area_ids, mode="divisions", n=1, m=1, max_x=0.5, max_y=0.5, divide_frames=True):
+        """
+        Meshes selected 4-node AreaElements either by exact N x M divisions or by a Max Size.
+        Optionally divides any adjacent frame elements that touch the new nodes.
+        """
+        import math
+        if not area_ids:
+            return 0
+
+        elements_meshed = 0
+        elements_to_delete = []
+        new_mesh_nodes = set()                                                  
+
+        for eid in area_ids:
+            if eid not in self.area_elements:
+                continue
+
+            old_elem = self.area_elements[eid]
+            nodes = old_elem.nodes
+            
+            if len(nodes) != 4:
+                print(f"Skipping AreaElement {eid}: Mesher currently supports 4-node quads only.")
+                continue
+            
+            p1 = np.array([nodes[0].x, nodes[0].y, nodes[0].z])
+            p2 = np.array([nodes[1].x, nodes[1].y, nodes[1].z])
+            p3 = np.array([nodes[2].x, nodes[2].y, nodes[2].z])
+            p4 = np.array([nodes[3].x, nodes[3].y, nodes[3].z])
+
+            if mode == "size":
+                                                                                   
+                L_u = max(np.linalg.norm(p2 - p1), np.linalg.norm(p3 - p4))
+                                                                                   
+                L_v = max(np.linalg.norm(p4 - p1), np.linalg.norm(p3 - p2))
+                
+                n_divisions = max(1, math.ceil(L_u / max_x))
+                m_divisions = max(1, math.ceil(L_v / max_y))
+            else:
+                n_divisions = n
+                m_divisions = m
+
+            if n_divisions == 1 and m_divisions == 1:
+                continue
+
+            section = old_elem.section
+
+            node_grid = {}
+            for i in range(n_divisions + 1):
+                node_grid[i] = {}
+                u = i / n_divisions
+                for j in range(m_divisions + 1):
+                    v = j / m_divisions
+                    
+                    p_uv = (1-u)*(1-v)*p1 + u*(1-v)*p2 + u*v*p3 + (1-u)*v*p4
+                    
+                    new_node = self.get_or_create_node(p_uv[0], p_uv[1], p_uv[2])
+                    node_grid[i][j] = new_node
+
+                    if new_node not in nodes:
+                        new_mesh_nodes.add(new_node)
+
+            for i in range(n_divisions):
+                for j in range(m_divisions):
+                                                             
+                    n1 = node_grid[i][j]
+                    n2 = node_grid[i+1][j]
+                    n3 = node_grid[i+1][j+1]
+                    n4 = node_grid[i][j+1]
+                    
+                    self.add_area_element([n1, n2, n3, n4], section)
+
+            elements_to_delete.append((eid, nodes))
+            elements_meshed += 1
+
+        for eid, original_nodes in elements_to_delete:
+            del self.area_elements[eid]
+            for n in original_nodes:
+                self._cleanup_orphan_node(n.id)
+
+        if divide_frames and new_mesh_nodes:
+            self._split_frames_by_nodes(new_mesh_nodes)
+        
+        return elements_meshed
+
+    def _split_frames_by_nodes(self, split_nodes):
+        """
+        Helper method to split existing frame elements if any of the passed nodes
+        lie exactly on their line segment. Keeps end releases intact.
+        """
+                                                                                             
+        for el in list(self.elements.values()):
+            p_i = np.array([el.node_i.x, el.node_i.y, el.node_i.z])
+            p_j = np.array([el.node_j.x, el.node_j.y, el.node_j.z])
+            L_total = np.linalg.norm(p_j - p_i)
+            
+            if L_total < 1e-6: 
+                continue
+
+            nodes_on_segment = []
+            for n in split_nodes:
+                                               
+                if n.id == el.node_i.id or n.id == el.node_j.id:
+                    continue
+                
+                p_n = np.array([n.x, n.y, n.z])
+                d1 = np.linalg.norm(p_n - p_i)
+                d2 = np.linalg.norm(p_j - p_n)
+                
+                if abs((d1 + d2) - L_total) < 1e-5:
+                    nodes_on_segment.append((d1, n))
+            
+            if not nodes_on_segment:
+                continue
+                
+            nodes_on_segment.sort(key=lambda x: x[0])
+            
+            sec = el.section
+            beta = el.beta_angle
+            rel_i = el.releases_i
+            rel_j = el.releases_j
+            eid_to_remove = el.id
+            
+            current_start_node = el.node_i
+            for i, (dist, n_mid) in enumerate(nodes_on_segment):
+                new_el = self.add_element(current_start_node, n_mid, sec, beta)
+                if i == 0:
+                    new_el.releases_i = rel_i                                                   
+                current_start_node = n_mid
+            
+            last_el = self.add_element(current_start_node, el.node_j, sec, beta)
+            last_el.releases_j = rel_j                                                
+            
+            self.remove_element(eid_to_remove)
+
+    def remove_orphan_nodes(self):
+        """
+        Deletes nodes not connected to any frame, slab, or area element.
+        Respects supports — restrained nodes are never deleted.
+        Returns count of nodes removed.
+        """
+        used_node_ids = set()
+
+        for el in self.elements.values():
+            used_node_ids.add(el.node_i.id)
+            used_node_ids.add(el.node_j.id)
+
+        for slab in self.slabs.values():
+            for n in slab.nodes:
+                used_node_ids.add(n.id)
+
+        for ae in self.area_elements.values():
+            for n in ae.nodes:
+                used_node_ids.add(n.id)
+
+        orphan_ids = [
+            nid for nid in list(self.nodes)
+            if nid not in used_node_ids
+            and not any(self.nodes[nid].restraints)
+        ]
+
+        for nid in orphan_ids:
+            self.loads = [
+                l for l in self.loads
+                if not (hasattr(l, 'node_id') and l.node_id == nid)
+            ]
+            del self.nodes[nid]
+
+        print(f"Orphan cleanup: removed {len(orphan_ids)} nodes.")
+        return len(orphan_ids)
+            
 class LoadCase:
     def __init__(self, name, case_type="Linear Static"):
         self.name = name

@@ -37,11 +37,6 @@ _ARROW_DOWN = _os.path.join(_THEME_DIR, "_arrow_down.svg").replace("\\", "/")
 _SVG_UP   = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 6 4"><polygon points="3,0 6,4 0,4" fill="#555555"/></svg>'
 _SVG_DOWN = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 6 4"><polygon points="0,0 6,0 3,4" fill="#555555"/></svg>'
 
-for _path, _svg in ((_ARROW_UP, _SVG_UP), (_ARROW_DOWN, _SVG_DOWN)):
-    if not _os.path.exists(_path):
-        with open(_path, "w") as _f:
-            _f.write(_svg)
-
 COLORS = {
                           
     "accent":               "#0078D7",

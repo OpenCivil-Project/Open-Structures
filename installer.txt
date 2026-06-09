@@ -23,6 +23,8 @@ pyinstaller --noconsole --onedir --name="OpenCivil" `
   --paths="..\core\solver\modal" `
   --paths="..\core\solver\LTHA" `
   --paths="..\core\solver\solid_elements" `
+  --add-data "ui\_arrow_up.svg;app/ui" `
+  --add-data "ui\_arrow_down.svg;app/ui" `
   --paths="..\core\solver\buckling" `
   --add-data "graphic;app/graphic" `
   --add-data "resources;resources" `

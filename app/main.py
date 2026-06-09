@@ -34,41 +34,31 @@ else:
 
 sys.path.append(root_dir)
 
-from app.commands import CmdDrawFrame, CmdDeleteSelection, CmdReplicate, CmdAssignInsertion
+from app.commands import CmdDrawFrame, CmdDeleteSelection, CmdReplicate, CmdAssignInsertion, CmdDrawAreaElement
 from core.model import StructuralModel, LoadCase
 from app.canvas import MCanvas3D
-from app.dialogs.new_model_dialog import NewModelDialog
 from app.dialogs.material_dialog import MaterialManagerDialog
-from app.dialogs.section_dialog import SectionManagerDialog
 from app.dialogs.draw_dialog import DrawFrameDialog
-from app.dialogs.restraint_dialog import RestraintDialog
 from app.dialogs.load_pattern_dialog import LoadPatternDialog
-from app.dialogs.assign_load_dialog import AssignJointLoadDialog
-from app.dialogs.assign_member_load_dialog import AssignFrameLoadDialog
-from app.dialogs.release_dialog import FrameReleaseDialog
 from app.dialogs.draw_cross_brace_dialog import DrawCrossBraceDialog
 from app.dialogs.draw_beam_column_dialog import DrawBeamColumnDialog
 from app.dialogs.view_options_dialog import ViewOptionsDialog
-from app.dialogs.assign_local_axis_dialog import AssignFrameAxisDialog
 from app.dialogs.graphics_dialog import GraphicsOptionsDialog
-from app.dialogs.element_info_dialog import ElementInfoDialog
 from core.units import unit_registry
 from app.dialogs.assign_frame_point_load_dialog import AssignFramePointLoadDialog
-from app.dialogs.load_case_dialog import LoadCaseManagerDialog
 from app.dialogs.analysis_dialog import AnalysisDialog
 from app.solver_worker import SolverWorker
-from app.dialogs.spy_dialogs import MatrixSpyDialog, FBDViewerDialog
 from app.dialogs.deformed_shape_dialog import DeformedShapeDialog
 from app.dialogs.mass_source_dialog import MassSourceManagerDialog
-from app.dialogs.analysis_results_dialog import AnalysisResultsDialog
 from app.auth import GoogleAuthManager, UserProfileWidget
 from app.dialogs.time_history_manager import TimeHistoryManagerDialog
 from app.dialogs.solid_analysis_dialog import SolidAnalysisDialog
 from app.dialogs.update_dialog import UpdateDialog
 from core.terminal_panel import TerminalPanel
 from app.ipc import IPCManager
-from app.dialogs.display_forces_dialog import DisplayForcesDialog
 from app.dialogs.analysis_progress_dialog import AnalysisProgressDialog
+from app.dialogs.area_mesh_dialog import AreaMeshDialog
+from release_notes import RELEASE_NOTES, NOTICES
 
 class OPENCIVILSplash(QSplashScreen):
     def __init__(self, pixmap):
@@ -211,7 +201,7 @@ class MainWindow(QMainWindow):
             "background_color": (1.0, 1.0, 1.0, 1.0), 
             "antialias": True,
             "node_size": 6,
-            "node_color": (1.0, 1.0, 0.0, 1.0),       
+            "node_color": (1.0, 0.0, 0.0, 1.0),     
             "line_width": 2.0,
             "extrude_opacity": 0.35,
             "show_edges": True,
@@ -230,11 +220,14 @@ class MainWindow(QMainWindow):
                     for _k in ("background_color", "node_color", "edge_color"):
                         if _k in _saved and isinstance(_saved[_k], list):
                             _saved[_k] = tuple(_saved[_k])
+                    # If prefs still carry the old yellow default, reset to red
+                    if _saved.get("node_color") == (1.0, 1.0, 0.0, 1.0):
+                        _saved["node_color"] = (1.0, 0.0, 0.0, 1.0)
                     self.graphics_settings.update(_saved)
             except Exception:
                 pass
         
-        self.setWindowTitle("OpenCivil v0.7.72")
+        self.setWindowTitle("OpenCivil v0.7.75")
         self.resize(1200, 800)
 
         icon_path = os.path.join(root_dir, "app", "graphic", "logo.png") 
@@ -254,6 +247,7 @@ class MainWindow(QMainWindow):
         self.beam_col_dialog = None
         self.selected_ids = []
         self.selected_node_ids = []
+        self.selected_area_ids = []
         
         self.picking_replicate = False 
         self.replicate_p1 = None      
@@ -271,6 +265,11 @@ class MainWindow(QMainWindow):
         else:
             print(f"Warning: Sound file not found at {sound_path}")
 
+
+        self.draw_area_mode_active = False
+        self.draw_area_dialog = None
+        self._current_area_nodes = []
+        
         self.init_ui()
         QApplication.instance().applicationStateChanged.connect(self._on_app_state_changed)
         self.set_interface_state(False)
@@ -335,6 +334,7 @@ class MainWindow(QMainWindow):
         self.menu_edit.addAction(merge_action)
 
         self.menu_define = menubar.addMenu("Define")
+
         
         grid_action = QAction(qta.icon('fa5s.th', color='#6c757d'), "Grid System...", self)
         grid_action.triggered.connect(self.open_grid_editor)
@@ -348,6 +348,10 @@ class MainWindow(QMainWindow):
         sec_action = QAction(qta.icon('fa5s.shapes', color='#6c757d'), "Section Properties...", self)
         sec_action.triggered.connect(self.on_define_sections) 
         self.menu_define.addAction(sec_action)
+
+        area_sec_action = QAction(qta.icon('fa5s.vector-square', color='#6c757d'), "Area Sections...", self)
+        area_sec_action.triggered.connect(self.on_define_area_sections)
+        self.menu_define.addAction(area_sec_action)
 
         mass_action = QAction(qta.icon('fa5s.weight-hanging', color='#6c757d'), "Mass Source...", self)
         mass_action.triggered.connect(self.on_define_mass_source)
@@ -374,12 +378,16 @@ class MainWindow(QMainWindow):
         self.menu_functions.addAction(th_action)
         
         self.menu_define.addSeparator()
-        
+
         self.menu_draw = menubar.addMenu("Draw")
         
         draw_action = QAction(qta.icon('fa5s.pencil-alt', color='#6c757d'), "Draw Frame/Cable...", self)
         draw_action.triggered.connect(self.on_draw_frame)
         self.menu_draw.addAction(draw_action)
+
+        draw_area_action = QAction(qta.icon('fa5s.vector-square', color='#6c757d'), "Draw Poly Area...", self)
+        draw_area_action.triggered.connect(self.on_draw_poly_area)
+        self.menu_draw.addAction(draw_area_action)
         
         draw_slab_action = QAction(qta.icon('fa5s.draw-polygon', color='#6c757d'), "Create Slab from Selection", self)
         draw_slab_action.triggered.connect(self.on_create_slab_from_selection)
@@ -645,6 +653,12 @@ class MainWindow(QMainWindow):
         self.canvas2 = MCanvas3D()
         self.active_canvas = self.canvas
 
+        # Sync display_config from persisted/default graphics_settings immediately,
+        # so node color, size, etc. are correct even before any file is opened
+        # or update_graphics_settings() is explicitly called.
+        self.canvas.display_config  = self.graphics_settings
+        self.canvas2.display_config = self.graphics_settings
+
         self.canvas_frame1 = QFrame()
         self.canvas_frame1.setLayout(QVBoxLayout())
         self.canvas_frame1.layout().setContentsMargins(2,2,2,2)
@@ -690,6 +704,26 @@ class MainWindow(QMainWindow):
 
         self.menu_assign = menubar.addMenu("Assign")
 
+        self.menu_assign_area = self.menu_assign.addMenu("Area") 
+        self.menu_assign_area.setIcon(qta.icon('fa5s.vector-square', color='#6c757d')) # Optional: adds icon to the Area submenu too
+        
+        self.action_area_mesh = QAction(qta.icon('fa5s.th', color='#6c757d'), "Automatic Area Mesh...", self)
+        self.action_area_mesh.triggered.connect(self.on_assign_area_mesh)
+        self.menu_assign_area.addAction(self.action_area_mesh)
+
+        self.menu_assign_area.addSeparator()
+ 
+        self.action_area_uniform_load = QAction(
+            qta.icon('fa5s.arrows-alt-v', color='#6c757d'), "Uniform Load...", self)
+        self.action_area_uniform_load.triggered.connect(self.on_assign_area_uniform_load)
+        self.menu_assign_area.addAction(self.action_area_uniform_load)
+ 
+        self.action_area_gravity_load = QAction(
+            qta.icon('fa5s.weight', color='#6c757d'), "Gravity Load...", self)
+        self.action_area_gravity_load.triggered.connect(self.on_assign_area_gravity_load)
+        self.menu_assign_area.addAction(self.action_area_gravity_load)
+        
+
         self.menu_select = menubar.addMenu("Select")
 
         all_action = QAction(qta.icon('fa5s.border-all', color='#6c757d'), "All", self)
@@ -717,6 +751,11 @@ class MainWindow(QMainWindow):
         sec_select_action.triggered.connect(self.on_select_by_section)
         props_menu.addAction(sec_select_action)
 
+        area_sec_select_action = QAction(qta.icon('fa5s.vector-square', color='#6c757d'),
+                                         "Area Sections...", self)
+        area_sec_select_action.triggered.connect(self.on_select_by_area_section)
+        props_menu.addAction(area_sec_select_action)
+
         story_select_action = QAction(qta.icon('fa5s.layer-group', color='#6c757d'),
                                       "Stories...", self)
         story_select_action.triggered.connect(self.on_select_by_story)
@@ -729,6 +768,11 @@ class MainWindow(QMainWindow):
                                       "Frame Sections...", self)
         sec_deselect_action.triggered.connect(self.on_deselect_by_section)
         self.deselect_menu.addAction(sec_deselect_action)
+        
+        area_sec_deselect_action = QAction(qta.icon('fa5s.vector-square', color='#6c757d'),
+                                           "Area Sections...", self)
+        area_sec_deselect_action.triggered.connect(self.on_deselect_by_area_section)
+        self.deselect_menu.addAction(area_sec_deselect_action)
 
         self.menu_select.aboutToShow.connect(self._update_select_menu_state)
         
@@ -819,6 +863,7 @@ class MainWindow(QMainWindow):
         self.canvas.signal_canvas_clicked.connect(self.handle_canvas_click) 
         self.canvas.signal_right_clicked.connect(self.handle_right_click) 
         self.canvas.signal_box_selection.connect(self.handle_box_selection)
+        self.canvas.signal_area_box_selection.connect(self.handle_area_box_selection)
         self.canvas.signal_mouse_moved.connect(self.on_mouse_moved)
 
         self.canvas2.signal_canvas_clicked.connect(
@@ -828,6 +873,9 @@ class MainWindow(QMainWindow):
             lambda: self.handle_right_click() if self.active_canvas is self.canvas2 else None
         )
         self.canvas2.signal_box_selection.connect(self._handle_box_selection_canvas2)
+        self.canvas2.signal_area_box_selection.connect(
+            lambda ids, add, de: self.handle_area_box_selection(ids, add, de) if self.active_canvas is self.canvas2 else None
+        )
         self.canvas2.signal_mouse_moved.connect(self.on_mouse_moved)
         
         self.setup_statusbar()
@@ -865,16 +913,19 @@ class MainWindow(QMainWindow):
             return
         self.selected_ids = list(self.model.elements.keys())
         self.selected_node_ids = list(self.model.nodes.keys())
+        self.selected_area_ids = list(self.model.area_elements.keys()) if hasattr(self.model, 'area_elements') else []
         self._refresh_selection_overlay()
         self.status.showMessage(
             f"Selected All: {len(self.selected_ids)} Frames, "
-            f"{len(self.selected_node_ids)} Joints")
+            f"{len(self.selected_node_ids)} Joints, "
+            f"{len(self.selected_area_ids)} Areas")
 
     def on_select_none(self):
         if not self.model:
             return
         self.selected_ids = []
         self.selected_node_ids = []
+        self.selected_area_ids = []
         self._refresh_selection_overlay()
         self.status.showMessage("Selection Cleared")
 
@@ -885,14 +936,20 @@ class MainWindow(QMainWindow):
         all_nids = set(self.model.nodes.keys())
         self.selected_ids = list(all_eids - set(self.selected_ids))
         self.selected_node_ids = list(all_nids - set(self.selected_node_ids))
+        
+        if hasattr(self.model, 'area_elements'):
+            all_aids = set(self.model.area_elements.keys())
+            self.selected_area_ids = list(all_aids - set(self.selected_area_ids))
+            
         self._refresh_selection_overlay()
         self.status.showMessage(
             f"Inverted: {len(self.selected_ids)} Frames, "
-            f"{len(self.selected_node_ids)} Joints")
+            f"{len(self.selected_node_ids)} Joints, "
+            f"{len(self.selected_area_ids)} Areas")
 
     def _refresh_selection_overlay(self):
         for cvs in [self.canvas, self.canvas2]:
-            cvs.update_selection_overlay(self.selected_ids, self.selected_node_ids)
+            cvs.update_selection_overlay(self.selected_ids, self.selected_node_ids, self.selected_area_ids)
 
     def _toolbar_zoom_in(self):
         """Zoom in button — simulates a scroll-up at canvas centre."""
@@ -921,6 +978,8 @@ class MainWindow(QMainWindow):
 
     def on_mouse_moved(self, x, y, z):
         self.lbl_coords.setText(f"X: {x:.2f}  Y: {y:.2f}  Z: {z:.2f}")
+        if getattr(self, 'draw_area_mode_active', False) and len(self._current_area_nodes) > 0:
+            self.active_canvas.update_area_preview(list(self._current_area_nodes), x, y, z)
 
     def setup_statusbar(self):
         
@@ -950,42 +1009,179 @@ class MainWindow(QMainWindow):
         self.status.addPermanentWidget(self.combo_units)
 
     def _create_welcome_overlay(self):
-        from PyQt6.QtWidgets import QGraphicsOpacityEffect
-        self.welcome_overlay = QLabel(self.canvas_splitter)
-        self.welcome_overlay.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.welcome_overlay.setTextFormat(Qt.TextFormat.RichText)
-        self.welcome_overlay.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
-        self.welcome_overlay.setText(
-            "<div style='text-align:center; font-family: Segoe UI, sans-serif;'>"
-            "<div style='font-size:26px; font-weight:700; letter-spacing:3px;'><span style='color:#0078D7;'>OPEN</span><span style='color:#1a1a2e;'>CIVIL</span></div>"
-            "<div style='font-size:12px; color:#adb5bd; margin-top:6px; letter-spacing:1px;'>STRUCTURAL ANALYSIS &amp; DESIGN PLATFORM</div>"
-            "<div style='margin-top:30px; font-size:14px; color:#495057;'>No model is currently loaded.</div>"
-            "<div style='margin-top:18px; font-size:13px; color:#6c757d;'>"
-            "<span style='margin-right:6px;'>New Model</span>"
-            "<span style='background:#f0f0f0; padding:2px 8px; border-radius:4px; border:1px solid #ced4da; font-size:12px;'>Ctrl+N</span>"
-            "&nbsp;&nbsp;&nbsp;"
-            "<span style='margin-right:6px;'>Open File</span>"
-            "<span style='background:#f0f0f0; padding:2px 8px; border-radius:4px; border:1px solid #ced4da; font-size:12px;'>Ctrl+O</span>"
-            "</div>"
-            "</div>"
-        )
+        from PyQt6.QtWidgets import QScrollArea, QVBoxLayout, QWidget, QLabel, QFrame
+        from PyQt6.QtCore import Qt
+
+        # Light theme IDE aesthetic: Monospace tags, high-contrast crisp colors.
+        TAG_STYLES = {
+            "new":  ("color: #0F7B0F; font-family: Consolas, monospace; font-weight: bold;", "[+] NEW "), # Deep Green
+            "fix":  ("color: #B85C00; font-family: Consolas, monospace; font-weight: bold;", "[~] FIX "), # Burnt Orange
+            "impr": ("color: #5C5C5C; font-family: Consolas, monospace; font-weight: bold;", "[*] IMPR"), # Slate Gray
+        }
+
+        # ── Root widget ────────────────────────────────────────────────────────
+        self.welcome_overlay = QWidget(self.canvas_splitter)
+        self.welcome_overlay.setObjectName("welcome_overlay_root")
+        
+        # Locked white background with a sharp, subtle structural border
         self.welcome_overlay.setStyleSheet("""
-            QLabel {
-                background-color: rgba(248, 249, 250, 200);
-                border-radius: 14px;
+            #welcome_overlay_root {
+                background-color: #FFFFFF;
+                border: 1px solid #D1D1D1;
+                border-radius: 4px;
             }
         """)
-        self._welcome_opacity = QGraphicsOpacityEffect(self.welcome_overlay)
-        self.welcome_overlay.setGraphicsEffect(self._welcome_opacity)
+
+        root_layout = QVBoxLayout(self.welcome_overlay)
+        root_layout.setContentsMargins(32, 32, 32, 24)
+        root_layout.setSpacing(0)
+
+        # ── Branding ───────────────────────────────────────────────────────────
+        branding = QLabel()
+        branding.setAlignment(Qt.AlignmentFlag.AlignLeft)
+        branding.setTextFormat(Qt.TextFormat.RichText)
+        branding.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
+        branding.setText(
+            "<div style='font-family: \"Segoe UI\", sans-serif;'>"
+            "<div style='font-size: 26px; font-weight: 300; color: #111111; letter-spacing: 1px;'>"
+            "Open<span style='font-weight: 700; color: #005A9E;'>Civil</span></div>"
+            "<div style='font-size: 11px; color: #666666; margin-top: 4px; font-weight: 600; letter-spacing: 1px;'>"
+            "STRUCTURAL ANALYSIS &amp; DESIGN PLATFORM</div>"
+            "<div style='margin-top: 24px; font-size: 13px; color: #333333;'>Status: Ready. No model loaded.</div>"
+            "<div style='margin-top: 12px; font-size: 12px; color: #333333;'>"
+            "<span style='color: #005A9E; font-family: Consolas, monospace; font-weight: 600;'>Ctrl+N</span> New Model "
+            "&nbsp;&nbsp;&nbsp;&nbsp; "
+            "<span style='color: #005A9E; font-family: Consolas, monospace; font-weight: 600;'>Ctrl+O</span> Open File"
+            "</div></div>"
+        )
+        root_layout.addWidget(branding)
+
+        # ── Separator ──────────────────────────────────────────────────────────
+        sep = QFrame()
+        sep.setFrameShape(QFrame.Shape.HLine)
+        sep.setStyleSheet("background-color: #E6E6E6; max-height: 1px; margin-top: 20px; margin-bottom: 16px;")
+        root_layout.addWidget(sep)
+
+        # ── "What's New" label ─────────────────────────────────────────────────
+        whats_new_lbl = QLabel("SYSTEM LOG // RELEASE NOTES")
+        whats_new_lbl.setStyleSheet(
+            "font-family: 'Segoe UI'; font-size: 10px; font-weight: 700; color: #767676; letter-spacing: 1.5px; margin-bottom: 8px;"
+        )
+        root_layout.addWidget(whats_new_lbl)
+
+        # ── Scroll area ────────────────────────────────────────────────────────
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        scroll.setFrameShape(QFrame.Shape.NoFrame)
+        
+        # Clean, flat light-mode scrollbar.
+        scroll.setStyleSheet("""
+            QScrollArea { background: transparent; border: none; }
+            QWidget#notes_container { background: transparent; }
+            QScrollBar:vertical {
+                background: #F3F3F3; width: 10px; margin: 0px;
+            }
+            QScrollBar::handle:vertical {
+                background: #CDCDCD; min-height: 20px;
+            }
+            QScrollBar::handle:vertical:hover {
+                background: #A6A6A6;
+            }
+            QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical { height: 0px; }
+        """)
+
+        notes_container = QWidget()
+        notes_container.setObjectName("notes_container")
+        notes_layout = QVBoxLayout(notes_container)
+        notes_layout.setContentsMargins(0, 0, 16, 0)
+        notes_layout.setSpacing(0)
+
+        # ── Notices (inside scroll) ────────────────────────────────────────────
+        if NOTICES:
+            notice_box = QWidget()
+            notice_box.setObjectName("notice_box") # Assign a specific ID
+            
+            # Target ONLY the #notice_box ID so child QLabels don't inherit the border
+            notice_box.setStyleSheet("""
+                #notice_box {
+                    background-color: #FFFDF0;
+                    border-left: 3px solid #D4B106;
+                }
+            """)
+            
+            notice_layout = QVBoxLayout(notice_box)
+            notice_layout.setContentsMargins(12, 12, 12, 12)
+            notice_layout.setSpacing(6)
+
+            for title, detail in NOTICES:
+                title_lbl = QLabel(
+                    f"<span style='font-family: \"Segoe UI\"; font-size: 12px; font-weight: 700; color: #8A6D00;'>"
+                    f"NOTICE: {title}</span>"
+                )
+                title_lbl.setTextFormat(Qt.TextFormat.RichText)
+                notice_layout.addWidget(title_lbl)
+
+                detail_lbl = QLabel(
+                    f"<span style='font-family: \"Segoe UI\"; font-size: 12px; color: #333333;'>{detail}</span>"
+                )
+                detail_lbl.setTextFormat(Qt.TextFormat.RichText)
+                detail_lbl.setWordWrap(True)
+                notice_layout.addWidget(detail_lbl)
+
+            notes_layout.addWidget(notice_box)
+            notes_layout.addSpacing(16)
+
+        # ── Release notes (inside scroll) ─────────────────────────────────────
+        for i, release in enumerate(RELEASE_NOTES):
+            ver_lbl = QLabel(
+                f"<span style='font-family: Consolas, monospace; font-weight: 700; font-size: 13px; color: #005A9E;'>"
+                f"v{release['version']}</span>"
+                f"&nbsp;&nbsp;<span style='font-family: Consolas, monospace; font-size: 11px; color: #767676;'>"
+                f"{release['date']}</span>"
+            )
+            ver_lbl.setTextFormat(Qt.TextFormat.RichText)
+            ver_lbl.setContentsMargins(0, 8 if i > 0 else 0, 0, 6)
+            notes_layout.addWidget(ver_lbl)
+
+            for tag, text in release["items"]:
+                tag_style, tag_text = TAG_STYLES.get(tag, TAG_STYLES["impr"])
+                item_lbl = QLabel(
+                    f"<span style='font-size: 12px;'>"
+                    f"<span style='{tag_style}'>{tag_text}</span>"
+                    f"&nbsp;&nbsp;<span style='font-family: \"Segoe UI\"; color: #111111;'>{text}</span></span>"
+                )
+                item_lbl.setTextFormat(Qt.TextFormat.RichText)
+                item_lbl.setWordWrap(True)
+                item_lbl.setContentsMargins(0, 2, 0, 2)
+                notes_layout.addWidget(item_lbl)
+
+            if i < len(RELEASE_NOTES) - 1:
+                div = QFrame()
+                div.setFrameShape(QFrame.Shape.HLine)
+                div.setStyleSheet("background-color: #E6E6E6; max-height: 1px; margin-top: 12px; margin-bottom: 8px;")
+                notes_layout.addWidget(div)
+
+        notes_layout.addStretch()
+        scroll.setWidget(notes_container)
+        root_layout.addWidget(scroll, 1)
+
+        # ── Opacity effect (needed by _show/_hide_welcome_overlay_animated) ────
+        from PyQt6.QtWidgets import QGraphicsOpacityEffect
+        _opacity_effect = QGraphicsOpacityEffect(self.welcome_overlay)
+        _opacity_effect.setOpacity(1.0)
+        self.welcome_overlay.setGraphicsEffect(_opacity_effect)
+        self._welcome_opacity = _opacity_effect
+
+        # ── Show (Instant Native Feel) ─────────────────────────────────────────
         self.welcome_overlay.raise_()
-        self.welcome_overlay.hide()
+        self.welcome_overlay.show()
         self._reposition_welcome_overlay()
-        QTimer.singleShot(80, self._show_welcome_overlay_animated)
 
     def _reposition_welcome_overlay(self):
+
         if not hasattr(self, 'welcome_overlay'):
             return
-
+        
         if hasattr(self, '_welcome_anim') and self._welcome_anim.state() == QPropertyAnimation.State.Running:
             return
 
@@ -995,7 +1191,7 @@ class MainWindow(QMainWindow):
         fx = frame.pos().x()
         fy = frame.pos().y()
         w = min(420, fw - 40)
-        h = 160
+        h = min(420, fh - 60)   
         x = fx + (fw - w) // 2
         y = fy + (fh - h) // 2
         self.welcome_overlay.setGeometry(x, y, w, h)
@@ -1124,8 +1320,8 @@ class MainWindow(QMainWindow):
 
             last = getattr(self, '_last_force_diagram_settings', {})
             for cvs in [self.canvas, getattr(self, 'canvas2', None)]:
-                if cvs and last.get(cvs) and cvs.force_mesh_item.visible:
-                                                                                              
+
+                if cvs and last.get(cvs) and getattr(cvs, 'force_diagram_active', False):
                     prev = self.active_canvas
                     self.active_canvas = cvs
                     self.apply_force_diagrams_from_dialog(last[cvs])
@@ -1195,7 +1391,8 @@ class MainWindow(QMainWindow):
         last = getattr(self, '_last_force_diagram_settings', {})
         cvs = self.active_canvas
         settings = last.get(cvs)
-        if settings and (cvs.force_mesh_item.visible or cvs._pending_force_upload is not None):
+        
+        if settings and (getattr(cvs, 'force_diagram_active', False) or cvs._pending_force_upload is not None):
             self.apply_force_diagrams_from_dialog(settings)
 
     def move_view_layer(self, direction):
@@ -1262,6 +1459,7 @@ class MainWindow(QMainWindow):
                     cvs.clear_ltha_history()
 
     def on_new_model(self):
+        from app.dialogs.new_model_dialog import NewModelDialog
         dialog = NewModelDialog(self)
         if dialog.exec(): 
             if dialog.accepted_data:
@@ -1421,7 +1619,15 @@ class MainWindow(QMainWindow):
 
     def on_define_sections(self):
         if not self.model: return
+        from app.dialogs.section_dialog import SectionManagerDialog
         dialog = SectionManagerDialog(self.model, self)
+        dialog.exec()
+        self.draw_both_canvases()
+
+    def on_define_area_sections(self):
+        if not self.model: return
+        from app.dialogs.area_section_dialog import AreaSectionsManagerDialog
+        dialog = AreaSectionsManagerDialog(self.model, self)
         dialog.exec()
         self.draw_both_canvases()
 
@@ -1450,6 +1656,10 @@ class MainWindow(QMainWindow):
             self.canvas2.setCursor(Qt.CursorShape.ArrowCursor)
             
         self.status.showMessage("Ready (Selection Mode)")
+
+        if getattr(self, 'draw_area_mode_active', False):
+            if getattr(self, 'draw_area_dialog', None): self.draw_area_dialog.hide()
+            self.on_draw_poly_area_finished()
 
     def _frame_exists_between(self, p1, p2):
         """Return True if an element already connects the same two points (either direction)."""
@@ -1523,6 +1733,12 @@ class MainWindow(QMainWindow):
         return None
 
     def keyPressEvent(self, event):
+
+        if event.key() in (Qt.Key.Key_Return, Qt.Key.Key_Enter):
+            if getattr(self, 'draw_area_mode_active', False):
+                self._finalize_poly_area()
+                return
+
         if event.key() == Qt.Key.Key_Escape:
             if self.draw_mode_active:
                 if self.draw_dialog:
@@ -1631,7 +1847,62 @@ class MainWindow(QMainWindow):
         else:
             self.status.showMessage("Cross Brace placed. Click another cell or Esc to exit.")
 
+
+    def on_draw_poly_area(self):
+        if not self.model.area_sections:
+            from PyQt6.QtWidgets import QMessageBox
+            QMessageBox.warning(self, "Error", "Define an Area Section Property first!")
+            if hasattr(self, 'act_select'):
+                self.act_select.setChecked(True)
+            return
+            
+        self.draw_area_mode_active = True
+        self._current_area_nodes = []
+        for cvs in [self.canvas, getattr(self, 'canvas2', None)]:
+            if cvs: cvs.snapping_enabled = True
+        
+        if self.draw_area_dialog is None:
+            from app.dialogs.draw_poly_area_dialog import DrawPolyAreaDialog
+            self.draw_area_dialog = DrawPolyAreaDialog(self.model, self)
+        
+        self.draw_area_dialog.refresh_sections()
+        self.draw_area_dialog.show()
+        self.status.showMessage("Draw Poly Area: Click nodes sequentially to define corners...")
+
+    def on_draw_poly_area_finished(self):
+        self.draw_area_mode_active = False
+        self._current_area_nodes = []
+        for cvs in [self.canvas, getattr(self, 'canvas2', None)]:
+            if cvs: 
+                cvs.hide_area_preview()
+                cvs.snapping_enabled = False
+        self.status.showMessage("Ready")
+        if hasattr(self, 'act_select'):
+            self.act_select.setChecked(True)
+
+    def _finalize_poly_area(self):
+        if len(self._current_area_nodes) >= 3:
+            sec = self.draw_area_dialog.get_selected_section()
+            if sec:
+                cmd = CmdDrawAreaElement(self.model, self, list(self._current_area_nodes), sec)
+                self.add_command(cmd)
+                self.status.showMessage(f"Area Element drawn with {len(self._current_area_nodes)} nodes.")
+            else:
+                self.status.showMessage("Error: No Section Selected.")
+        else:
+            self.status.showMessage("Area canceled: Requires at least 3 nodes to form a face.")
+            
+        self._current_area_nodes = []
+        for cvs in [self.canvas, getattr(self, 'canvas2', None)]:
+            if cvs: cvs.hide_area_preview()
+
     def handle_canvas_click(self, x, y, z):
+        if getattr(self, 'draw_area_mode_active', False):
+            coord = (x, y, z)
+            if coord not in self._current_area_nodes:
+                self._current_area_nodes.append(coord)
+                self.status.showMessage(f"Area Node {len(self._current_area_nodes)} added. Press Enter or Right-Click to finish.")
+            return
         if self.cross_brace_mode_active:
             self._draw_cross_brace_at(x, y, z)
             return
@@ -1694,6 +1965,9 @@ class MainWindow(QMainWindow):
                 self.status.showMessage("Error: No Section Selected")
                 
     def handle_right_click(self):
+        if getattr(self, 'draw_area_mode_active', False):
+            self._finalize_poly_area()
+            return
         if self.draw_mode_active:
             for cvs in [self.canvas, self.canvas2]:
                 cvs.hide_preview_line()
@@ -1814,6 +2088,64 @@ class MainWindow(QMainWindow):
             return
         self.handle_box_selection(node_ids, elem_ids, is_additive, is_deselect)
 
+    def handle_area_box_selection(self, area_ids, is_additive, is_deselect):
+        """Handle selection/deselection of area elements from canvas signals."""
+        
+        # --- NEW: Filter out areas not on the active 2D plane ---
+        active_plane = self.active_canvas.active_view_plane
+        is_2d_view = self.active_canvas._view_mode in ["XY", "XZ", "YZ"]
+        
+        if is_2d_view and active_plane:
+            axis = active_plane['axis']       # 'x', 'y', or 'z'
+            plane_val = active_plane['value']
+            tol = 1e-5                        # Tolerance for floating-point inaccuracies
+            
+            filtered_ids = []
+            for aid in area_ids:
+                area_obj = None
+                if hasattr(self.model, 'area_elements'):
+                    area_obj = self.model.area_elements.get(aid)
+                
+                if not area_obj or not hasattr(area_obj, 'nodes'):
+                    continue
+                    
+                # Check if all nodes of the area element lie mathematically on the active plane
+                on_plane = True
+                for node in area_obj.nodes:
+                    node_val = getattr(node, axis)
+                    if abs(node_val - plane_val) > tol:
+                        on_plane = False
+                        break
+                        
+                if on_plane:
+                    filtered_ids.append(aid)
+                    
+            area_ids = filtered_ids
+        # --------------------------------------------------------
+
+        if is_deselect:
+            for aid in area_ids:
+                if aid in self.selected_area_ids:
+                    self.selected_area_ids.remove(aid)
+        else:
+            hit_something = len(area_ids) > 0
+            if hit_something:
+                for aid in area_ids:
+                    if aid not in self.selected_area_ids:
+                        self.selected_area_ids.append(aid)
+
+        n_areas = len(self.selected_area_ids)
+        n_frames = len(self.selected_ids)
+        n_joints = len(self.selected_node_ids)
+        parts = []
+        if n_frames: parts.append(f"{n_frames} Frames")
+        if n_joints: parts.append(f"{n_joints} Joints")
+        if n_areas:  parts.append(f"{n_areas} Areas")
+        self.status.showMessage(f"Selected: {', '.join(parts)}" if parts else "Selection Cleared")
+
+        for cvs in [self.canvas, self.canvas2]:
+            cvs.update_selection_overlay(self.selected_ids, self.selected_node_ids, self.selected_area_ids)
+            
     def handle_box_selection(self, node_ids, elem_ids, is_additive, is_deselect):
         if is_deselect:
             for nid in node_ids:
@@ -1831,14 +2163,9 @@ class MainWindow(QMainWindow):
                 for eid in elem_ids:
                     if eid not in self.selected_ids: self.selected_ids.append(eid)
                 self.status.showMessage(f"Selected: {len(self.selected_ids)} Frames, {len(self.selected_node_ids)} Joints")
-            else:
-                if not is_additive:
-                    self.selected_ids = []
-                    self.selected_node_ids = []
-                    self.status.showMessage("Selection Cleared")
         
         for cvs in [self.canvas, self.canvas2]:
-            cvs.update_selection_overlay(self.selected_ids, self.selected_node_ids)
+            cvs.update_selection_overlay(self.selected_ids, self.selected_node_ids, self.selected_area_ids)
 
         modifiers = QApplication.keyboardModifiers()
         is_focus_requested = (modifiers == Qt.KeyboardModifier.AltModifier)
@@ -1888,7 +2215,7 @@ class MainWindow(QMainWindow):
     def delete_current_selection(self):
         if not self.model: return
         
-        if not self.selected_ids and not self.selected_node_ids:
+        if not self.selected_ids and not self.selected_node_ids and not self.selected_area_ids:
             return
 
         final_elem_ids = list(self.selected_ids)
@@ -1915,25 +2242,44 @@ class MainWindow(QMainWindow):
                         break
 
             if is_safe_to_delete:
+                for ae in self.model.area_elements.values():
+                    if ae.id not in self.selected_area_ids:  # only protect if area not being deleted too
+                        if any(n.id == nid for n in ae.nodes):
+                            is_safe_to_delete = False
+                            break
+
+            if is_safe_to_delete:
                 final_node_ids.append(nid)
             else:
                 print(f"Node {nid} is protected because it supports an existing object.")
 
-        if self.selected_node_ids and not final_node_ids and not final_elem_ids:
-            self.status.showMessage("⚠️ Cannot delete selected joints. They are supporting existing frames.")
+        skipped_shared_joints = len(self.selected_node_ids) - len(final_node_ids)
+
+        if self.selected_node_ids and not final_node_ids and not final_elem_ids and not self.selected_area_ids:
+            self.status.showMessage("⚠️ Cannot delete selected joints. They are shared with existing elements.")
             return
 
+        # Shell/area elements go through CmdDeleteSelection for full undo support
+        deleted_area_count = len(self.selected_area_ids)
         cmd = CmdDeleteSelection(
             self.model, 
             self, 
             final_node_ids, 
-            final_elem_ids
+            final_elem_ids,
+            area_elem_ids=list(self.selected_area_ids)
         )
         self.add_command(cmd)
         
         self.selected_ids = [] 
         self.selected_node_ids = []
-        msg = f"Deleted {len(final_elem_ids)} Frames and {len(final_node_ids)} Joints."
+        self.selected_area_ids = []
+        parts = []
+        if final_elem_ids:    parts.append(f"{len(final_elem_ids)} Frames")
+        if final_node_ids:    parts.append(f"{len(final_node_ids)} Joints")
+        if deleted_area_count: parts.append(f"{deleted_area_count} Areas")
+        msg = f"Deleted {', '.join(parts)}." if parts else "Nothing deleted."
+        if skipped_shared_joints:
+            msg += f" (⚠️ {skipped_shared_joints} shared joint(s) skipped — still in use by other elements)"
         self.status.showMessage(msg)
         print(f"> GUI: {msg}")
 
@@ -1987,7 +2333,29 @@ class MainWindow(QMainWindow):
         else: self.axis_dlg.raise_()
 
     def _update_select_menu_state(self):
-        self.deselect_menu.setEnabled(bool(self.selected_ids))
+        self.deselect_menu.setEnabled(bool(self.selected_ids) or bool(self.selected_area_ids))
+
+    def on_select_by_area_section(self):
+        if not self.model:
+            return
+        if not hasattr(self, '_sel_by_area_sec_dlg') or not self._sel_by_area_sec_dlg.isVisible():
+            from app.dialogs.select_by_section_dialog import SelectByAreaSectionDialog
+            self._sel_by_area_sec_dlg = SelectByAreaSectionDialog(self, mode="select")
+            self._sel_by_area_sec_dlg.show()
+        else:
+            self._sel_by_area_sec_dlg._populate()
+            self._sel_by_area_sec_dlg.raise_()
+
+    def on_deselect_by_area_section(self):
+        if not self.model or not getattr(self, 'selected_area_ids', []):
+            return
+        if not hasattr(self, '_desel_by_area_sec_dlg') or not self._desel_by_area_sec_dlg.isVisible():
+            from app.dialogs.select_by_section_dialog import SelectByAreaSectionDialog
+            self._desel_by_area_sec_dlg = SelectByAreaSectionDialog(self, mode="deselect")
+            self._desel_by_area_sec_dlg.show()
+        else:
+            self._desel_by_area_sec_dlg._populate()
+            self._desel_by_area_sec_dlg.raise_()
 
     def on_select_by_section(self):
         if not self.model:
@@ -2066,7 +2434,7 @@ class MainWindow(QMainWindow):
         self.status.showMessage(f"Display Options Updated")
 
     def on_edit_replicate(self):
-        if not self.selected_ids and not self.selected_node_ids:
+        if not self.selected_ids and not self.selected_node_ids and not self.selected_area_ids:
             QMessageBox.warning(self, "Selection", "Please select objects to replicate first.")
             return
 
@@ -2084,10 +2452,11 @@ class MainWindow(QMainWindow):
             delete = self.replicate_dialog.delete_original
 
             cmd = CmdReplicate(
-                self.model, 
-                self, 
-                list(self.selected_node_ids), 
-                list(self.selected_ids), 
+                self.model,
+                self,
+                list(self.selected_node_ids),
+                list(self.selected_ids),
+                list(self.selected_area_ids),
                 dx, dy, dz, num, delete
             )
             self.add_command(cmd)
@@ -2201,17 +2570,20 @@ class MainWindow(QMainWindow):
         self.status.showMessage("Replicate: Click First Point...")
 
     def on_edit_merge(self):
-        if not self.model: return
+        merged = self.model.merge_nodes(tolerance=0.005)
+        orphans = self.model.remove_orphan_nodes()          # <-- add this
         
-        count = self.model.merge_nodes(tolerance=0.005)                
-        
-        if count > 0:
-            self.draw_both_canvases()
-            self.status.showMessage(f"Merge Complete: {count} joints removed.")
-            QMessageBox.information(self, "Merge", f"Successfully merged {count} duplicate joints.")
+        total = merged + orphans
+        if total > 0:
+            msg = []
+            if merged:  msg.append(f"{merged} duplicate joints merged")
+            if orphans: msg.append(f"{orphans} orphan nodes removed")
+            self.status.showMessage("Cleanup: " + ", ".join(msg) + ".")
+            QMessageBox.information(self, "Merge & Cleanup", "\n".join(msg) + ".")
+            self.canvas.draw_model(self.model)
         else:
-            self.status.showMessage("Merge Complete: No duplicates found.")
-            QMessageBox.information(self, "Merge", "No duplicate joints found within tolerance.")
+            self.status.showMessage("Merge Complete: Nothing to clean up.")
+            QMessageBox.information(self, "Merge & Cleanup", "No duplicates or orphans found.")
             
     def on_assign_insertion_point(self):
         if not hasattr(self, 'insertion_dlg') or not self.insertion_dlg.isVisible():
@@ -2284,7 +2656,7 @@ class MainWindow(QMainWindow):
         if not self.model: return
                                                                 
         self.model.create_default_cases()
-        
+        from app.dialogs.load_case_dialog import LoadCaseManagerDialog
         dialog = LoadCaseManagerDialog(self.model, self)
         dialog.exec()
 
@@ -2817,7 +3189,7 @@ class MainWindow(QMainWindow):
     def update_window_title(self):
         """Updates window title to show currently active filename and version."""
                                                               
-        base_title = "OpenCivil v0.7.72" 
+        base_title = "OpenCivil v0.7.75" 
         
         if self.model and getattr(self.model, 'file_path', None):
             short_name = os.path.basename(self.model.file_path)
@@ -3286,6 +3658,82 @@ class MainWindow(QMainWindow):
             self.active_canvas.single_use_pan_active = False
             self.status.showMessage("Ready")
 
+    def on_assign_area_uniform_load(self):
+        """Assign > Area > Uniform Load..."""
+        if not self.model:
+            return
+        selected_ids = getattr(self.canvas, 'selected_area_ids', [])
+        if not selected_ids:
+            QMessageBox.information(self, "No Selection",
+                                    "Select one or more area elements first.")
+            return
+        from app.dialogs.dlg_area_uniform_load import AreaUniformLoadDialog
+        dlg = AreaUniformLoadDialog(self.model, selected_ids, parent=self)
+        dlg.exec()
+        self.draw_both_canvases()
+ 
+    def on_assign_area_gravity_load(self):
+        """Assign > Area > Gravity Load..."""
+        if not self.model:
+            return
+        selected_ids = getattr(self.canvas, 'selected_area_ids', [])
+        if not selected_ids:
+            QMessageBox.information(self, "No Selection",
+                                    "Select one or more area elements first.")
+            return
+        from app.dialogs.dlg_area_gravity_load import AreaGravityLoadDialog
+        dlg = AreaGravityLoadDialog(self.model, selected_ids, parent=self)
+        dlg.exec()
+        self.draw_both_canvases()
+
+    def on_assign_area_mesh(self):
+        """Triggered from Assign > Area > Automatic Area Mesh"""
+        
+        # 1. Check if dialog already exists and is open. If not, create it.
+        if not hasattr(self, '_area_mesh_dlg') or not self._area_mesh_dlg.isVisible():
+            from app.dialogs.area_mesh_dialog import AreaMeshDialog
+            self._area_mesh_dlg = AreaMeshDialog(self)
+            
+            # Connect the "Apply" signal to the actual meshing logic
+            self._area_mesh_dlg.signal_apply_mesh.connect(self._execute_area_mesh)
+            
+            # Use .show() instead of .exec() so it runs modelessly (doesn't block the app)
+            self._area_mesh_dlg.show()
+        else:
+            # If it's already open, just bring it to the front
+            self._area_mesh_dlg.raise_()
+            self._area_mesh_dlg.activateWindow()
+
+    def _execute_area_mesh(self, params: dict):
+        """Executes the mesh operation via the Undo Stack."""
+        
+        selected_ids = getattr(self.canvas, 'selected_area_ids', []) 
+        
+        if not selected_ids:
+            from PyQt6.QtWidgets import QMessageBox
+            QMessageBox.information(self, "Selection Required", "Please select at least one Area Element to mesh.")
+            return
+
+        if params["mode"] == "divisions" and params["n"] == 1 and params["m"] == 1:
+            return 
+
+        # Import the new command we just made
+        from app.commands import CmdMeshAreaElements
+        
+        # Push to the undo stack! This executes the meshing AND marks the file as unsaved
+        cmd = CmdMeshAreaElements(self.model, self, list(selected_ids), params)
+        self.add_command(cmd)
+
+        # Clear the UI selection so we don't hold references to deleted elements
+        if hasattr(self.canvas, 'clear_selection'):
+            self.canvas.clear_selection()
+        else:
+            self.canvas.selected_area_ids.clear()
+            self.canvas.selected_node_ids.clear()
+            self.canvas.selected_element_ids.clear()
+            
+        self.status.showMessage("Area mesh applied.", 3000)
+                      
     def _apply_canvas_view_settings(self, gs):
         """Applies project-level view toggles from a settings dict to the canvas."""
         self.canvas.view_extruded        = gs.get('view_extruded', False)
@@ -3430,7 +3878,17 @@ def main():
 
     QApplication.setAttribute(Qt.ApplicationAttribute.AA_ShareOpenGLContexts)
 
+    if sys.platform == 'win32':
+        _existing_platform = os.environ.get("QT_QPA_PLATFORM", "windows")
+        if "darkmode" not in _existing_platform:
+            os.environ["QT_QPA_PLATFORM"] = _existing_platform + ":darkmode=0"
+
     app = QApplication(sys.argv)
+
+    try:
+        app.styleHints().setColorScheme(Qt.ColorScheme.Light)
+    except AttributeError:
+        pass
 
     animator = GlobalDialogAnimator(app)
     app.installEventFilter(animator)
@@ -3576,11 +4034,16 @@ def main():
         sys.exit(app.exec())
 
     splash = VideoSplash(video_path)
+    
+    splash.show()
+    splash.start()
+    
+    app.processEvents()
+    
     window = MainWindow()
     ipc.raise_requested.connect(lambda: (window.showNormal(), window.raise_(), window.activateWindow()))
     
     def on_splash_finished():
-                                                                  
         if hasattr(splash, 'cleanup_player'):
             splash.cleanup_player()
             
@@ -3684,9 +4147,6 @@ def main():
                     QMessageBox.critical(window, "Load Error", f"Failed to open file.\n{e}")
     
     splash.finished.connect(on_splash_finished) 
-
-    splash.show()
-    splash.start()
     
     sys.exit(app.exec())
 
