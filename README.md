@@ -1,20 +1,20 @@
-# OpenCivil
+# Open//Structures
 
 **A Transparent 3D Structural Analysis Engine for Learning Finite Element Methods**
 
-OpenCivil bridges the gap between simplified 2D textbook problems and complex commercial "black box" software. Built as an educational tool, it provides full visibility into the FEM solver logic, making it perfect for civil engineering students learning structural analysis.
+Open//Structures bridges the gap between simplified 2D textbook problems and complex commercial "black box" software. Built as an educational tool, it provides full visibility into the FEM solver logic, making it perfect for civil engineering students learning structural analysis.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
-[![Platform](https://img.shields.io/badge/platform-Windows-blue.svg)](https://github.com/OpenCivil-Project/OpenCivil/releases)
-[![Version](https://img.shields.io/badge/version-v0.655%20Pre--Alpha-orange.svg)](https://github.com/OpenCivil-Project/OpenCivil/releases/latest)
+[![Platform](https://img.shields.io/badge/platform-Windows-blue.svg)](https://github.com/Open//Structures-Project/Open//Structures/releases)
+[![Version](https://img.shields.io/badge/version-v0.655%20Pre--Alpha-orange.svg)](https://github.com/Open//Structures-Project/Open//Structures/releases/latest)
 
-![OpenCivil Main Interface](images/hero-main.png)
+![Open//Structures Main Interface](images/hero-main.png)
 
 ---
 
 ## ✅ Validation & Accuracy
 
-**OpenCivil has been rigorously validated for mathematical correctness.**
+**Open//Structures has been rigorously validated for mathematical correctness.**
 
 All analysis implementations have been independently verified against industry-standard commercial FEM software and analytical solutions, demonstrating **6-7 decimal place agreement** across all analysis types.
 
@@ -49,7 +49,7 @@ A 3-story steel frame structure (200+ nodes) was modeled and analyzed:
 *Side-by-side comparison showing identical natural periods across all modes*
 
 **Natural Periods (first 5 modes):**
-| Mode | Reference Software | OpenCivil | Difference |
+| Mode | Reference Software | Open//Structures | Difference |
 |------|-------------------|-----------|------------|
 | 1 | 0.919124 sec | 0.919124 sec | 0.000000 |
 | 2 | 0.892762 sec | 0.892762 sec | 0.000000 |
@@ -62,7 +62,7 @@ A 3-story steel frame structure (200+ nodes) was modeled and analyzed:
 *TBDY 2018 response spectrum analysis showing matching spectral accelerations*
 
 **Spectral Accelerations (first 5 modes):**
-| Mode | Period (sec) | Reference Sa (m/s²) | OpenCivil Sa (m/s²) | Difference |
+| Mode | Period (sec) | Reference Sa (m/s²) | Open//Structures Sa (m/s²) | Difference |
 |------|-------------|---------------------|---------------------|------------|
 | 1 | 0.919124 | 1.573690 | 1.573692 | 0.000002 |
 | 2 | 0.692762 | 2.105810 | 2.105812 | 0.000002 |
@@ -72,17 +72,17 @@ A 3-story steel frame structure (200+ nodes) was modeled and analyzed:
 
 ### Why This Matters for Learning
 
-Unlike commercial "black box" software, OpenCivil's transparency **combined with validated accuracy** means:
+Unlike commercial "black box" software, Open//Structures's transparency **combined with validated accuracy** means:
 - Students can inspect the math **and trust the results**
 - Hand calculations can be verified against a **proven-correct solver**
 - Matrix exports can be used for homework **with confidence**
 - Understanding is built on **rigorous foundations**
 
-**Note:** Validation performed using academic software licenses for educational comparison purposes only. OpenCivil is an independent open-source implementation and is not affiliated with any commercial software vendor.
+**Note:** Validation performed using academic software licenses for educational comparison purposes only. Open//Structures is an independent open-source implementation and is not affiliated with any commercial software vendor.
 
 ---
 
-## 🎯 Why OpenCivil?
+## 🎯 Why Open//Structures?
 
 **For Students:**
 - See exactly how FEM works under the hood
@@ -103,7 +103,7 @@ Unlike commercial "black box" software, OpenCivil's transparency **combined with
 ## ✨ Key Features
 
 ### 🔬 **"Glass Box" FEM Solver**
-Unlike commercial software, OpenCivil lets you see everything:
+Unlike commercial software, Open//Structures lets you see everything:
 - **12×12 Element Stiffness Matrices [k]** in local coordinates
 - **Transformation Matrices [T]** showing global-to-local conversion
 - **Fixed End Forces (FEF)** from distributed and point loads
@@ -170,8 +170,8 @@ Unlike commercial software, OpenCivil lets you see everything:
 ## 📥 Installation
 
 ### Option 1: Windows Installer (Recommended)
-1. Download the latest installer from [Releases](https://github.com/OpenCivil-Project/OpenCivil/releases/latest)
-2. Run `OpenCivil_Setup_v0.x.exe`
+1. Download the latest installer from [Releases](https://github.com/Open//Structures-Project/Open//Structures/releases/latest)
+2. Run `Open//Structures_Setup_v0.x.exe`
 3. Follow installation wizard
 4. Launch from desktop shortcut
 
@@ -179,8 +179,8 @@ Unlike commercial software, OpenCivil lets you see everything:
 
 ### Option 2: Run from Source (Developers)
 ```bash
-git clone https://github.com/OpenCivil-Project/OpenCivil.git
-cd OpenCivil
+git clone https://github.com/Open//Structures-Project/Open//Structures.git
+cd Open//Structures
 pip install -r requirements.txt
 python app/main.py
 ```
@@ -307,8 +307,8 @@ COMB1 = 1.2×DEAD + 1.6×LIVE
 This project is currently in **active development** (Pre-Alpha stage). 
 
 **Not accepting code contributions yet**, but feedback is welcome:
-- 🐛 **Bug Reports**: [Open an Issue](https://github.com/OpenCivil-Project/OpenCivil/issues)
-- 💡 **Feature Requests**: [Start a Discussion](https://github.com/OpenCivil-Project/OpenCivil/discussions)
+- 🐛 **Bug Reports**: [Open an Issue](https://github.com/Open//Structures-Project/Open//Structures/issues)
+- 💡 **Feature Requests**: [Start a Discussion](https://github.com/Open//Structures-Project/Open//Structures/discussions)
 - 📧 **Contact**: [GitHub Profile](https://github.com/ShaikhAhmedAzad)
 
 ---
@@ -373,12 +373,12 @@ Civil Engineering Student | Middle East Technical University (METU)
 ## ❓ FAQ
 
 **Q: Is this suitable for real engineering design?**  
-A: No - OpenCivil is an **educational tool**. Use commercial software (SAP2000, ETABS, etc.) for actual building design. However, OpenCivil's results are validated to match commercial software accuracy for learning purposes.
+A: No - Open//Structures is an **educational tool**. Use commercial software (SAP2000, ETABS, etc.) for actual building design. However, Open//Structures's results are validated to match commercial software accuracy for learning purposes.
 
 **Q: How accurate are the results?**  
-A: OpenCivil has been validated against industry-standard commercial FEM software and shows 6-7 decimal place agreement for all analysis types. See the Validation section above for details.
+A: Open//Structures has been validated against industry-standard commercial FEM software and shows 6-7 decimal place agreement for all analysis types. See the Validation section above for details.
 
-**Q: Can I use OpenCivil for my thesis/research?**  
+**Q: Can I use Open//Structures for my thesis/research?**  
 A: Yes! Export the matrices and results for your analysis. The solver has been validated for accuracy. Please cite the software if used in publications.
 
 **Q: Does it support plate/shell elements?**  
@@ -391,22 +391,22 @@ A: The developer is based in Turkey, and TBDY 2018 integration makes it valuable
 A: Currently Windows-only via installer. If you run from source (Python), it *should* work on Mac/Linux but is untested.
 
 **Q: How can I verify the accuracy myself?**  
-A: Use the Matrix Spy tool to export stiffness matrices and compare with hand calculations or other software. The transparent nature of OpenCivil allows full verification of all calculations.
+A: Use the Matrix Spy tool to export stiffness matrices and compare with hand calculations or other software. The transparent nature of Open//Structures allows full verification of all calculations.
 
 ---
 
-**⭐ If OpenCivil helped you learn FEM, please star this repo!**
+**⭐ If Open//Structures helped you learn FEM, please star this repo!**
 
-[Download Now](https://github.com/OpenCivil-Project/OpenCivil/releases/latest) | [Report Bug](https://github.com/OpenCivil-Project/OpenCivil/issues) | [Website](https://opencivil-project.github.io/)
+[Download Now](https://github.com/Open//Structures-Project/Open//Structures/releases/latest) | [Report Bug](https://github.com/Open//Structures-Project/Open//Structures/issues) | [Website](https://Open//Structures-project.github.io/)
 
 ---
 
 ## 📄 Citation
 
-If you use OpenCivil in academic work, please cite:
+If you use Open//Structures in academic work, please cite:
 
 ```
-Azad, S. A. (2025). OpenCivil: A Transparent 3D Structural Analysis Engine 
+Azad, S. A. (2025). Open//Structures: A Transparent 3D Structural Analysis Engine 
 for Learning Finite Element Methods (Version 0.655) [Computer software]. 
-https://github.com/OpenCivil-Project/OpenCivil
+https://github.com/Open//Structures-Project/Open//Structures
 ```
