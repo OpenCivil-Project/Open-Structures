@@ -161,9 +161,9 @@ class MemberAnalyzer:
 
         for i, x in enumerate(self.stations):
             P_val  = -Fx1 - w_loc[0] * x
-            V2_val = -(Fy1 + w_loc[1] * x)
+            V2_val = Fy1 + w_loc[1] * x
             V3_val = -(Fz1 + w_loc[2] * x)
-            M3_val =  Mz1 + Fy1 * x + w_loc[1] * (x ** 2) / 2.0
+            M3_val =  Mz1 - Fy1 * x - w_loc[1] * (x ** 2) / 2.0
             M2_val =  My1 + Fz1 * x + w_loc[2] * (x ** 2) / 2.0
 
             for pl in point_loads:
@@ -171,9 +171,9 @@ class MemberAnalyzer:
                 if x > a:
                     dist_x  = x - a
                     P_val  -= pl['F'][0]
-                    V2_val -= pl['F'][1]
+                    V2_val += pl['F'][1]
                     V3_val -= pl['F'][2]
-                    M3_val += pl['F'][1] * dist_x - pl['M'][2]
+                    M3_val += -pl['F'][1] * dist_x - pl['M'][2]
                     M2_val += pl['F'][2] * dist_x - pl['M'][1]
 
             self.P[i]  = P_val
@@ -330,9 +330,13 @@ class FBDViewerDialog(QDialog):
         return forces_display
 
     def _calculate_nvm_data(self):
-        L = self.beam_length
+        L_full = self.beam_length
+        ri = getattr(self.element, 'end_offset_i', 0.0)
+        rj = getattr(self.element, 'end_offset_j', 0.0)
+        L_clear = L_full - ri - rj
+        
         Defl_2_Abs = np.zeros(101); Defl_3_Abs = np.zeros(101)
-        stations = np.linspace(0, L, 101)
+        stations = np.linspace(ri, L_full - rj, 101)
         
         Fx1, Fy1, Fz1, Mx1, My1, Mz1 = self.forces_base[0:6]
         
@@ -364,7 +368,6 @@ class FBDViewerDialog(QDialog):
                     pat = self.model.load_patterns[pat_name]
                     
                     if pat.self_weight_multiplier > 0:
-                                                                              
                         area = getattr(self.element.section, 'A', 0)
                         density = getattr(self.element.section.material, 'density', 0)
                         
@@ -385,47 +388,51 @@ class FBDViewerDialog(QDialog):
                     w_loc += w_vec
                     
                 elif hasattr(load, 'force'): 
-                    a = load.dist * L if getattr(load, 'is_relative', False) else load.dist
-                    dir_map = {'X': 0, 'Y': 1, 'Z': 2, '1': 0, '2': 1, '3': 2}
-                    idx = dir_map.get(str(getattr(load, 'direction', 'Z')).upper(), 2)
+                    a = load.dist * L_full if getattr(load, 'is_relative', False) else load.dist
+                    a_clear = a - ri
                     
-                    vec = np.zeros(3)
-                    vec[idx] = load.force
-                    if not is_local: vec = R_3x3 @ vec
-                    
-                    l_type = getattr(load, 'load_type', 'Force').lower()
-                    if l_type == 'moment': point_loads.append({'a': a, 'F': np.zeros(3), 'M': vec})
-                    else: point_loads.append({'a': a, 'F': vec, 'M': np.zeros(3)})
+                    if 0 <= a_clear <= L_clear:
+                        dir_map = {'X': 0, 'Y': 1, 'Z': 2, '1': 0, '2': 1, '3': 2}
+                        idx = dir_map.get(str(getattr(load, 'direction', 'Z')).upper(), 2)
+                        
+                        vec = np.zeros(3)
+                        vec[idx] = load.force
+                        if not is_local: vec = R_3x3 @ vec
+                        
+                        l_type = getattr(load, 'load_type', 'Force').lower()
+                        if l_type == 'moment': point_loads.append({'a_clear': a_clear, 'F': np.zeros(3), 'M': vec})
+                        else: point_loads.append({'a_clear': a_clear, 'F': vec, 'M': np.zeros(3)})
         
         P = np.zeros(101)
         V2 = np.zeros(101); M3 = np.zeros(101)
         V3 = np.zeros(101); M2 = np.zeros(101)
         Defl_2_Rel = np.zeros(101); Defl_3_Rel = np.zeros(101)
         
-        for i, x in enumerate(stations):
-            xi = x / L if L > 0 else 0
+        for i, x_abs in enumerate(stations):
+            x_c = x_abs - ri
+            xi = x_c / L_clear if L_clear > 0 else 0
             
-            P[i] = -Fx1 - w_loc[0] * x
-            V2[i] = -(Fy1 + w_loc[1] * x)
-            V3[i] = -(Fz1 + w_loc[2] * x)
+            P[i] = -Fx1 - w_loc[0] * x_c
+            V2[i] = Fy1 + w_loc[1] * x_c
+            V3[i] = -(Fz1 + w_loc[2] * x_c)
             
-            M3[i] = Mz1 + Fy1 * x + w_loc[1] * (x**2) / 2.0
-            M2[i] = My1 + Fz1 * x + w_loc[2] * (x**2) / 2.0
+            M3[i] = Mz1 - Fy1 * x_c - w_loc[1] * (x_c**2) / 2.0
+            M2[i] = My1 + Fz1 * x_c + w_loc[2] * (x_c**2) / 2.0
             
             for pl in point_loads:
-                a = pl['a']
-                if x > a:
-                    dist_x = x - a
+                a_c = pl['a_clear']
+                if x_c > a_c:
+                    dist_x = x_c - a_c
                     P[i] -= pl['F'][0]
-                    V2[i] -= pl['F'][1]                              
+                    V2[i] += pl['F'][1]                            
                     V3[i] -= pl['F'][2]                              
-                    M3[i] += pl['F'][1] * dist_x - pl['M'][2]
+                    M3[i] += -pl['F'][1] * dist_x - pl['M'][2]
                     M2[i] += pl['F'][2] * dist_x - pl['M'][1]
             
             N1 = 1 - 3*xi**2 + 2*xi**3
-            N2 = x * (1 - 2*xi + xi**2)
+            N2 = x_c * (1 - 2*xi + xi**2)
             N3 = 3*xi**2 - 2*xi**3
-            N4 = x * (xi**2 - xi)
+            N4 = x_c * (xi**2 - xi)
             
             defl_2_abs = N1*v1 + N2*thz1 + N3*v2 + N4*thz2
             defl_3_abs = N1*w1 + N2*(-thy1) + N3*w2 + N4*(-thy2) 
@@ -437,8 +444,8 @@ class FBDViewerDialog(QDialog):
             I33 = getattr(self.element.section, 'I33', 1.0)
             I22 = getattr(self.element.section, 'I22', 1.0)
             
-            defl_bubble_2 = (w_loc[1] * (x**2) * ((L - x)**2)) / (24 * E * I33) if I33 > 0 else 0
-            defl_bubble_3 = (w_loc[2] * (x**2) * ((L - x)**2)) / (24 * E * I22) if I22 > 0 else 0
+            defl_bubble_2 = (w_loc[1] * (x_c**2) * ((L_clear - x_c)**2)) / (24 * E * I33) if I33 > 0 else 0
+            defl_bubble_3 = (w_loc[2] * (x_c**2) * ((L_clear - x_c)**2)) / (24 * E * I22) if I22 > 0 else 0
             
             Defl_2_Rel[i] = (defl_2_abs - chord_2) + defl_bubble_2
             Defl_3_Rel[i] = (defl_3_abs - chord_3) + defl_bubble_3

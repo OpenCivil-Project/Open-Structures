@@ -23,10 +23,10 @@ class ForceDiagramBuilder:
 
     PERP_AXIS = {
         'P':  'y',
-        'V2': 'y',                         
-        'V3': 'z',                         
-        'M3': 'y',                         
-        'M2': 'z',                         
+        'V2': 'y',                                     
+        'V3': 'z',                                       
+        'M3': 'y',                                                 
+        'M2': 'z',                
     }
 
     POS_COLOR  = np.array([0.15, 0.40, 1.00, 0.72], dtype=np.float32)
@@ -102,8 +102,25 @@ class ForceDiagramBuilder:
                 continue
 
             v_x, v_y, v_z = el.get_local_axes()
-            perp = v_y if self.PERP_AXIS.get(self.component, 'y') == 'y' else v_z
+            
+            is_vertical = abs(v_x[2]) > 0.999 
+            
+            default_perp = self.PERP_AXIS.get(self.component, 'y')
+            
+            if is_vertical and self.component in ['V2', 'V3', 'M2', 'M3']:
+                perp = v_z if default_perp == 'y' else v_y
+            else:
+                perp = v_y if default_perp == 'y' else v_z
+                
             perp = np.asarray(perp, dtype=np.float64)
+
+            if self.component in ['V2', 'V3']:
+                                                                                     
+                dom_idx = np.argmax(np.abs(perp))
+                                                                                                 
+                if perp[dom_idx] < -0.001:
+                    perp = -perp                                  
+                    farr = -farr                                                           
 
             if self.component in ['M2', 'M3']:
                 perp = -perp
@@ -275,7 +292,7 @@ class ForceDiagramBuilder:
     def _batch_compute_nvm(self):
         """
         Computes P, V2, V3, M2, M3 arrays for every element in a single
-        vectorized pass.  Mirrors MemberAnalyzer._calculate() exactly —
+        vectorized pass. Mirrors MemberAnalyzer._calculate() exactly —
         same DOF convention, same sign convention, same load handling —
         but eliminates all per-element Python overhead.
 
@@ -312,6 +329,8 @@ class ForceDiagramBuilder:
         FEF_list     = []
         U_list       = []                               
         L_list       = []
+        ri_list      = []
+        rj_list      = []
 
         for el_id, el in self.model.elements.items():
             str_id = str(el_id)
@@ -332,6 +351,8 @@ class ForceDiagramBuilder:
 
             L_list.append(el.length())
             el_ids.append(el_id)
+            ri_list.append(getattr(el, 'end_offset_i', 0.0))
+            rj_list.append(getattr(el, 'end_offset_j', 0.0))
 
         if not el_ids:
             return {}
@@ -344,6 +365,9 @@ class ForceDiagramBuilder:
         FEF_all = np.array(FEF_list, dtype=np.float64)            
         U_all   = np.array(U_list,   dtype=np.float64)            
         L_all   = np.array(L_list,   dtype=np.float64)         
+        ri_all  = np.array(ri_list,  dtype=np.float64)
+        rj_all  = np.array(rj_list,  dtype=np.float64)
+        Lc_all  = L_all - ri_all - rj_all
 
         TU         = np.einsum('eij,ej->ei', T_all, U_all)                 
         end_forces = np.einsum('eij,ej->ei', K_all, TU) + FEF_all           
@@ -384,19 +408,22 @@ class ForceDiagramBuilder:
                     w_vec = R_3x3 @ w_vec
                 w_loc[e] += w_vec
 
-        x = np.linspace(0.0, 1.0, S)[None, :] * L_all[:, None]           
+        x_clear = np.linspace(0.0, 1.0, S)[None, :] * Lc_all[:, None]           
+        x_node  = x_clear + ri_all[:, None]
 
-        P_all  = -Fx1[:, None] - w_loc[:, 0:1] * x
-        V2_all = -(Fy1[:, None] + w_loc[:, 1:2] * x)
-        V3_all = -(Fz1[:, None] + w_loc[:, 2:3] * x)
-        M3_all =  Mz1[:, None] + Fy1[:, None] * x + w_loc[:, 1:2] * x**2 / 2.0
-        M2_all =  My1[:, None] + Fz1[:, None] * x + w_loc[:, 2:3] * x**2 / 2.0
+        P_all  = -Fx1[:, None] - w_loc[:, 0:1] * x_clear
+        V2_all = Fy1[:, None] + w_loc[:, 1:2] * x_clear
+        V3_all = -(Fz1[:, None] + w_loc[:, 2:3] * x_clear)
+        M3_all =  Mz1[:, None] - Fy1[:, None] * x_clear - w_loc[:, 1:2] * x_clear**2 / 2.0
+        M2_all =  My1[:, None] + Fz1[:, None] * x_clear + w_loc[:, 2:3] * x_clear**2 / 2.0
 
         for e, el_id in enumerate(el_ids):
             el    = self.model.elements[el_id]
             L_e   = L_all[e]
+            Lc_e  = Lc_all[e]
+            ri_e  = ri_all[e]
             R_3x3 = T_all[e, 0:3, 0:3]
-            x_e   = x[e]                                              
+            x_c_e = x_clear[e]                                              
 
             for load in self.model.loads:
                 if getattr(load, 'element_id', None) != int(el_id):
@@ -404,9 +431,13 @@ class ForceDiagramBuilder:
                 if not hasattr(load, 'force'):
                     continue                                                
 
-                a        = load.dist * L_e if getattr(load, 'is_relative', False) else load.dist
-                is_local = getattr(load, 'coord_system', 'Global').lower() == 'local'
+                a = load.dist * L_e if getattr(load, 'is_relative', False) else load.dist
+                a_clear = a - ri_e
+                
+                if a_clear < 0 or a_clear > Lc_e:
+                    continue
 
+                is_local = getattr(load, 'coord_system', 'Global').lower() == 'local'
                 dir_map = {'X': 0, 'Y': 1, 'Z': 2, '1': 0, '2': 1, '3': 2}
                 idx_d   = dir_map.get(str(getattr(load, 'direction', 'Z')).upper(), 2)
                 vec     = np.zeros(3)
@@ -422,19 +453,19 @@ class ForceDiagramBuilder:
                     F_vec = vec
                     M_vec = np.zeros(3)
 
-                mask   = x_e > a                     
-                dist_x = x_e - a                      
+                mask   = x_c_e > a_clear                     
+                dist_x = x_c_e - a_clear                      
 
                 P_all[e]  -= F_vec[0] * mask
-                V2_all[e] -= F_vec[1] * mask
+                V2_all[e] += F_vec[1] * mask
                 V3_all[e] -= F_vec[2] * mask
-                M3_all[e] += (F_vec[1] * dist_x - M_vec[2]) * mask
-                M2_all[e] += (F_vec[2] * dist_x - M_vec[1]) * mask
+                M3_all[e] += (-F_vec[1] * dist_x - M_vec[2]) * mask
+                M2_all[e] += ( F_vec[2] * dist_x - M_vec[1]) * mask
 
         results = {}
         for e, el_id in enumerate(el_ids):
             results[el_id] = {
-                'stations': x[e],
+                'stations': x_node[e],
                 'P':        P_all[e],
                 'V2':       V2_all[e],
                 'V3':       V3_all[e],
@@ -442,7 +473,7 @@ class ForceDiagramBuilder:
                 'M3':       M3_all[e],
             }
         return results
-
+    
     def _get_array(self, data):
         """
         Fetches the correct results array.

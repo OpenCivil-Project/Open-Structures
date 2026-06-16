@@ -925,6 +925,9 @@ class MCanvas3D(gl.GLViewWidget):
                        model.has_results and
                        model.results is not None)
 
+        # FIX: Hoist displacements
+        displacements = model.results.get("displacements", {}) if can_deflect else {}
+
         if can_deflect:
             curved_pos = []
             curved_colors = []
@@ -940,8 +943,9 @@ class MCanvas3D(gl.GLViewWidget):
                 p1 = np.array([n1.x, n1.y, n1.z])
                 p2 = np.array([n2.x, n2.y, n2.z])
                 
-                res_i = model.results.get("displacements", {}).get(str(n1.id))
-                res_j = model.results.get("displacements", {}).get(str(n2.id))
+                # FIX: Use hoisted dict
+                res_i = displacements.get(str(n1.id))
+                res_j = displacements.get(str(n2.id))
                 
                 if res_i and res_j:
                     if eid not in self.deflection_cache:
@@ -982,12 +986,12 @@ class MCanvas3D(gl.GLViewWidget):
                             p1_flex = p1_orig + (_u * off_i)
                             p2_flex = p2_orig - (_u * off_j)
 
-                    curve_pts = []
-                    for k in range(len(curve_data_full)):
-                        pos_full, _, _ = curve_data_full[k]
-                        s = k / (len(curve_data_full) - 1) if len(curve_data_full) > 1 else 0.0
-                        pos_orig = p1_flex + s * (p2_flex - p1_flex)             
-                        curve_pts.append(pos_orig + (pos_full - pos_orig) * self.anim_factor)
+                    # FIX: Vectorized curve pts
+                    K = len(curve_data_full)
+                    pos_full_arr = np.array([cd[0] for cd in curve_data_full], dtype=np.float64)
+                    s_arr = (np.arange(K) / (K - 1))[:, None] if K > 1 else np.zeros((K, 1))
+                    pos_orig_arr = p1_flex + s_arr * (p2_flex - p1_flex)
+                    curve_pts = pos_orig_arr + (pos_full_arr - pos_orig_arr) * self.anim_factor
                                                                                          
                     dash, gap = 0.4, 0.25
                     dist_accum, on = 0.0, True
@@ -1063,8 +1067,7 @@ class MCanvas3D(gl.GLViewWidget):
             sel_pos.extend([p1_flex, p2_flex])
             sel_colors.extend([sel_color, sel_color]) 
             
-        if sel_pos:
-                                                        
+        if sel_pos:                                          
             dash_pos, dash_colors = [], []
             for k in range(0, len(sel_pos) - 1, 2):
                 p1_d = np.array(sel_pos[k])
@@ -1094,6 +1097,7 @@ class MCanvas3D(gl.GLViewWidget):
             })
             self.addItem(item)
             self._sel_overlay_items.append(item)
+
     def _rebuild_extruded_selection_overlay(self):
         if not self.selected_element_ids or not self.current_model:
             return
@@ -1104,6 +1108,9 @@ class MCanvas3D(gl.GLViewWidget):
                        hasattr(model, 'has_results') and
                        model.has_results and
                        model.results is not None)
+
+        # FIX: Hoist displacements
+        displacements = model.results.get("displacements", {}) if can_deflect else {}
 
         dash_lines = []
         dash_colors_ext = []
@@ -1122,8 +1129,9 @@ class MCanvas3D(gl.GLViewWidget):
             p2 = np.array([n2.x, n2.y, n2.z])
 
             if can_deflect:
-                res_i = model.results.get("displacements", {}).get(str(n1.id))
-                res_j = model.results.get("displacements", {}).get(str(n2.id))
+                # FIX: Use hoisted dict
+                res_i = displacements.get(str(n1.id))
+                res_j = displacements.get(str(n2.id))
 
                 if res_i and res_j:
                     if eid not in self.deflection_cache:
@@ -1163,12 +1171,12 @@ class MCanvas3D(gl.GLViewWidget):
                             p1_flex = p1_orig + (_u * off_i)
                             p2_flex = p2_orig - (_u * off_j)
 
-                    curve_pts = []
-                    for k in range(len(curve_data_full)):
-                        pos_full, _, _ = curve_data_full[k]
-                        s = k / (len(curve_data_full) - 1) if len(curve_data_full) > 1 else 0.0
-                        pos_orig = p1_flex + s * (p2_flex - p1_flex)             
-                        curve_pts.append(pos_orig + (pos_full - pos_orig) * self.anim_factor)
+                    # FIX: Vectorized curve pts
+                    K = len(curve_data_full)
+                    pos_full_arr = np.array([cd[0] for cd in curve_data_full], dtype=np.float64)
+                    s_arr = (np.arange(K) / (K - 1))[:, None] if K > 1 else np.zeros((K, 1))
+                    pos_orig_arr = p1_flex + s_arr * (p2_flex - p1_flex)
+                    curve_pts = pos_orig_arr + (pos_full_arr - pos_orig_arr) * self.anim_factor
 
                     dist_accum, on = 0.0, True
                     for k in range(len(curve_pts) - 1):
@@ -1227,7 +1235,7 @@ class MCanvas3D(gl.GLViewWidget):
             
             self.addItem(cl)
             self._sel_overlay_items.append(cl)
-
+            
     def _rebuild_node_selection_overlay(self):
         if not self.selected_node_ids or not self.current_model:
             return
@@ -1485,22 +1493,22 @@ class MCanvas3D(gl.GLViewWidget):
             self.vbo_manager.upload_line_geometry([], [])
             return
 
-        flex_pos = []; flex_colors = []
-        rigid_pos = []; rigid_colors = []
+        flex_pos    = []; flex_colors    = []
+        rigid_pos   = []; rigid_colors   = []
         rigid_black = (0, 0, 0, 1)
-        
-        curved_pos = []; curved_colors = []
-        
+        curved_pos  = []; curved_colors  = []
         release_dots = []
+        ghost_pos   = []
+        def_color   = np.array([0.5, 0.5, 0.5, 1.0])
+        width       = self.display_config.get("line_width", 2.0)
 
-        ghost_pos = []
-        def_color = np.array([0.5, 0.5, 0.5, 1.0]) 
-        width = self.display_config.get("line_width", 2.0)
+        can_deflect = (self.view_deflected and
+                    hasattr(model, 'has_results') and
+                    model.has_results and
+                    model.results is not None)
 
-        can_deflect = (self.view_deflected and 
-                       hasattr(model, 'has_results') and 
-                       model.has_results and 
-                       model.results is not None)
+        # FIX 1: hoist — was model.results.get("displacements", {}) twice per element inside loop
+        displacements = model.results.get("displacements", {}) if can_deflect else {}
 
         for eid, el in model.elements.items():
             n1, n2 = el.node_i, el.node_j
@@ -1508,7 +1516,7 @@ class MCanvas3D(gl.GLViewWidget):
             v2 = self._get_visibility_state(n2.x, n2.y, n2.z)
 
             if v1 == 0 or v2 == 0:
-                continue                               
+                continue
 
             is_active_elem = (v1 == 2 and v2 == 2)
 
@@ -1517,52 +1525,49 @@ class MCanvas3D(gl.GLViewWidget):
                 p2 = np.array([n2.x, n2.y, n2.z])
                 ghost_pos.extend([p1, p2])
                 continue
-                
+
             p1 = np.array([n1.x, n1.y, n1.z])
             p2 = np.array([n2.x, n2.y, n2.z])
-                             
+
             c = getattr(el.section, 'color', def_color)
             if len(c) == 3: c = (*c, 1.0)
             c = np.array(c)
 
             drawn_as_curve = False
-            
+
             if can_deflect:
-                res_i = model.results.get("displacements", {}).get(str(n1.id))
-                res_j = model.results.get("displacements", {}).get(str(n2.id))
-                
+                # FIX 1: use pre-fetched dict
+                res_i = displacements.get(str(n1.id))
+                res_j = displacements.get(str(n2.id))
+
                 if res_i and res_j:
-                                                         
                     cache_key = eid
-                    
+
                     if self.cache_scale_used != self.deflection_scale:
                         self.invalidate_deflection_cache()
                         self.deflection_cache.clear()
                         self.cache_scale_used = self.deflection_scale
-                    
+
                     if cache_key not in self.deflection_cache:
-                        v1, v2, v3 = self._get_consistent_axes(el)
-                        
+                        v1_ax, v2_ax, v3_ax = self._get_consistent_axes(el)
                         curve_data = get_deflected_shape(
-                            [n1.x, n1.y, n1.z], 
-                            [n2.x, n2.y, n2.z], 
-                            res_i, res_j, 
-                            v1, v2, v3, 
-                            scale=self.deflection_scale,                            
+                            [n1.x, n1.y, n1.z],
+                            [n2.x, n2.y, n2.z],
+                            res_i, res_j,
+                            v1_ax, v2_ax, v3_ax,
+                            scale=self.deflection_scale,
                             num_points=11,
                             off_i=getattr(el, 'end_offset_i', 0.0),
                             off_j=getattr(el, 'end_offset_j', 0.0)
                         )
-                        
                         self.deflection_cache[cache_key] = {
                             'curve_data': curve_data,
                             'p1_orig': p1.copy(),
                             'p2_orig': p2.copy()
                         }
-                    
-                    cached = self.deflection_cache[cache_key]
+
+                    cached          = self.deflection_cache[cache_key]
                     curve_data_full = cached['curve_data']
-                    p1_orig = cached['p1_orig']
 
                     _off_i = getattr(el, 'end_offset_i', 0.0)
                     _off_j = getattr(el, 'end_offset_j', 0.0)
@@ -1572,7 +1577,7 @@ class MCanvas3D(gl.GLViewWidget):
                     if _len > 0.001 and (_off_i > 0 or _off_j > 0):
                         _u = _vec / _len
                         if _off_i + _off_j >= _len:
-                            _scale = (_len / (_off_i + _off_j)) * 0.99
+                            _scale  = (_len / (_off_i + _off_j)) * 0.99
                             p1_flex = p1 + (_u * _off_i * _scale)
                             p2_flex = p2 - (_u * _off_j * _scale)
                         else:
@@ -1580,41 +1585,33 @@ class MCanvas3D(gl.GLViewWidget):
                             p2_flex = p2 - (_u * _off_j)
 
                     if _off_i > 0:
-                        p1_def = p1 + np.array(res_i[:3]) * self.deflection_scale * self.anim_factor
+                        p1_def       = p1 + np.array(res_i[:3]) * self.deflection_scale * self.anim_factor
                         p1_flex_def, _, _ = curve_data_full[0]
                         p1_flex_anim = p1_flex + (p1_flex_def - p1_flex) * self.anim_factor
                         curved_pos.extend([p1_def, p1_flex_anim])
                         curved_colors.extend([rigid_black, rigid_black])
 
                     if _off_j > 0:
-                        p2_def = p2 + np.array(res_j[:3]) * self.deflection_scale * self.anim_factor
+                        p2_def       = p2 + np.array(res_j[:3]) * self.deflection_scale * self.anim_factor
                         p2_flex_def, _, _ = curve_data_full[-1]
                         p2_flex_anim = p2_flex + (p2_flex_def - p2_flex) * self.anim_factor
                         curved_pos.extend([p2_flex_anim, p2_def])
                         curved_colors.extend([rigid_black, rigid_black])
 
-                    for k in range(len(curve_data_full) - 1):
-                        pos_full, _, _ = curve_data_full[k]
-                        pos_full_next, _, _ = curve_data_full[k+1]
-                        
-                        s = k / (len(curve_data_full) - 1)                         
-                        pos_orig = p1_flex + s * (p2_flex - p1_flex)
-                        
-                        displacement = pos_full - pos_orig
-                        p_start = pos_orig + displacement * self.anim_factor
-                        
-                        s_next = (k + 1) / (len(curve_data_full) - 1)
-                        pos_orig_next = p1_flex + s_next * (p2_flex - p1_flex)             
-                        displacement_next = pos_full_next - pos_orig_next
-                        p_end = pos_orig_next + displacement_next * self.anim_factor
-                        
-                        curved_pos.append(p_start)
-                        curved_pos.append(p_end)
-                        curved_colors.append(c)
-                        curved_colors.append(c)
-                    
+                    # FIX 2: vectorized — replaces the 10-iteration Python loop per element
+                    K            = len(curve_data_full)
+                    pos_full_arr = np.array([cd[0] for cd in curve_data_full], dtype=np.float64)
+                    s_arr        = (np.arange(K) / (K - 1))[:, None]
+                    pos_orig_arr = p1_flex + s_arr * (p2_flex - p1_flex)
+                    pts          = pos_orig_arr + (pos_full_arr - pos_orig_arr) * self.anim_factor
+                    pairs        = np.empty((2 * (K - 1), 3), dtype=np.float64)
+                    pairs[0::2]  = pts[:-1]
+                    pairs[1::2]  = pts[1:]
+                    curved_pos.extend(pairs)
+                    curved_colors.extend([c] * (2 * (K - 1)))
+
                     drawn_as_curve = True
-                                                         
+
                     if self.view_shadow:
                         dist = np.linalg.norm(p2 - p1)
                         dash_len = 0.5
@@ -1625,22 +1622,21 @@ class MCanvas3D(gl.GLViewWidget):
                                 d_start = p1 + (vec * d * dash_len)
                                 d_end   = p1 + (vec * (d + 1) * dash_len)
                                 if np.linalg.norm(d_end - p1) > dist: d_end = p2
-                                
                                 ghost_pos.append(d_start)
                                 ghost_pos.append(d_end)
 
             if not drawn_as_curve:
                 off_i = getattr(el, 'end_offset_i', 0.0)
                 off_j = getattr(el, 'end_offset_j', 0.0)
-                
-                vec = p2 - p1
+
+                vec    = p2 - p1
                 length = np.linalg.norm(vec)
                 p1_flex = p1; p2_flex = p2
-                
+
                 if length > 0.001 and (off_i > 0 or off_j > 0):
                     u = vec / length
                     if off_i + off_j >= length:
-                        scale = (length / (off_i + off_j)) * 0.99
+                        scale   = (length / (off_i + off_j)) * 0.99
                         p1_flex = p1 + (u * off_i * scale)
                         p2_flex = p2 - (u * off_j * scale)
                     else:
@@ -1649,11 +1645,11 @@ class MCanvas3D(gl.GLViewWidget):
 
                     if off_i > 0:
                         curved_pos.extend([p1, p1_flex])
-                        curved_colors.extend([rigid_black, rigid_black]) 
+                        curved_colors.extend([rigid_black, rigid_black])
                     if off_j > 0:
                         curved_pos.extend([p2_flex, p2])
                         curved_colors.extend([rigid_black, rigid_black])
-                
+
                 flex_pos.extend([p1_flex, p2_flex])
                 flex_colors.extend([c, c])
 
@@ -1661,31 +1657,25 @@ class MCanvas3D(gl.GLViewWidget):
                     flex_vec = p2_flex - p1_flex
                     flex_len = np.linalg.norm(flex_vec)
                     if flex_len > 0:
-                                                                         
                         offset_vec = (flex_vec / flex_len) * 0.15
-                        
                         if hasattr(el, 'releases_i') and (el.releases_i[4] or el.releases_i[5]):
                             release_dots.append(p1_flex + offset_vec)
-                        
                         if hasattr(el, 'releases_j') and (el.releases_j[4] or el.releases_j[5]):
                             release_dots.append(p2_flex - offset_vec)
-                                                     
-        all_line_pos = flex_pos + rigid_pos + curved_pos
+
+        all_line_pos    = flex_pos + rigid_pos + curved_pos
         all_line_colors = flex_colors + rigid_colors + curved_colors
 
         if all_line_pos:
-            v_arr = np.array(all_line_pos, dtype=np.float32)
+            v_arr = np.array(all_line_pos,    dtype=np.float32)
             c_arr = np.array(all_line_colors, dtype=np.float32)
-
             self.makeCurrent()
-
             self.vbo_manager.upload_line_geometry(v_arr, c_arr)
         else:
-                                               
             self.makeCurrent()
             if hasattr(self, 'vbo_manager'):
-                 self.vbo_manager.upload_line_geometry([], [])
-                 
+                self.vbo_manager.upload_line_geometry([], [])
+
         if release_dots:
             dot_item = gl.GLScatterPlotItem(
                 pos=np.array(release_dots), size=0.25, color=(0, 1, 0, 1), pxMode=False
@@ -1693,7 +1683,7 @@ class MCanvas3D(gl.GLViewWidget):
             dot_item.setGLOptions('opaque')
             self.addItem(dot_item)
             self.element_items.append(dot_item)
-            
+
         if ghost_pos:
             c = self.shadow_color
             ghost_item = gl.GLLinePlotItem(
@@ -1702,7 +1692,7 @@ class MCanvas3D(gl.GLViewWidget):
             ghost_item.setGLOptions('translucent')
             self.addItem(ghost_item)
             self.element_items.append(ghost_item)
-
+            
     def _draw_elements_extruded(self, model):
         if not model.elements:
             self.makeCurrent()
@@ -1732,6 +1722,9 @@ class MCanvas3D(gl.GLViewWidget):
                        model.has_results and 
                        model.results is not None)
 
+        # FIX 1: Hoist displacements dictionary
+        displacements = model.results.get("displacements", {}) if can_deflect else {}
+
         fallback_line_pos    = []
         fallback_line_colors = []
 
@@ -1745,12 +1738,9 @@ class MCanvas3D(gl.GLViewWidget):
 
             is_active_elem = (v1 == 2 and v2 == 2)
 
-            is_active_elem = (v1 == 2 and v2 == 2)
-
             sec = el.section
             shape_yz = sec.get_shape_coords()
             if not shape_yz:
-                                                                            
                 _p1 = np.array([n1.x, n1.y, n1.z])
                 _p2 = np.array([n2.x, n2.y, n2.z])
                 _c_raw = list(getattr(sec, 'color', [0.5, 0.5, 0.5, 1.0]))
@@ -1761,8 +1751,9 @@ class MCanvas3D(gl.GLViewWidget):
                     _lc = np.array([0.6, 0.6, 0.6, 0.4], dtype=np.float32)
 
                 if can_deflect:
-                    res_i = model.results.get("displacements", {}).get(str(n1.id))
-                    res_j = model.results.get("displacements", {}).get(str(n2.id))
+                    # FIX 1: Use hoisted dict
+                    res_i = displacements.get(str(n1.id))
+                    res_j = displacements.get(str(n2.id))
                     if res_i and res_j:
                         v1_ax, v2_ax, v3_ax = self._get_consistent_axes(el)
                         eff_scale = self.deflection_scale * self.anim_factor
@@ -1803,8 +1794,9 @@ class MCanvas3D(gl.GLViewWidget):
             p2 = np.array([n2.x, n2.y, n2.z])
             
             if can_deflect:
-                res_i = model.results.get("displacements", {}).get(str(n1.id))
-                res_j = model.results.get("displacements", {}).get(str(n2.id))
+                # FIX 1: Use hoisted dict
+                res_i = displacements.get(str(n1.id))
+                res_j = displacements.get(str(n2.id))
                 
                 if res_i and res_j:
                     v1_orig, v2_orig, v3_orig = self._get_consistent_axes(el)
@@ -1838,7 +1830,6 @@ class MCanvas3D(gl.GLViewWidget):
                         path_points.append( (pos, v2_curr, v3_curr) )
 
             if not path_points:
-                                            
                 off_i = getattr(el, 'end_offset_i', 0.0)
                 off_j = getattr(el, 'end_offset_j', 0.0)
                 
@@ -1868,6 +1859,7 @@ class MCanvas3D(gl.GLViewWidget):
             
             num_pts = len(path_points)
             
+            # FIX 2: Outer loop remains, inner shadowed loop completely removed.
             for i in range(num_pts - 1):
                 pos_a, v2_a, v3_a = path_points[i]
                 pos_b, v2_b, v3_b = path_points[i+1]
@@ -1887,37 +1879,27 @@ class MCanvas3D(gl.GLViewWidget):
                 is_first_seg = (i == 0)
                 is_last_seg = (i == num_pts - 2)
 
-                for i in range(num_pts - 1):
-                    pos_a, v2_a, v3_a = path_points[i]
-                    pos_b, v2_b, v3_b = path_points[i+1]
-                    
-                    center_a = pos_a + curr_off_a + (y_shift * v2_a) + (z_shift * v3_a)
-                    center_b = pos_b + curr_off_b + (y_shift * v2_b) + (z_shift * v3_b)
-
-                    is_first_seg = (i == 0)
-                    is_last_seg = (i == num_pts - 2)
-
-                    if not is_active_elem:
-                        self._add_loft_to_arrays(
-                            center_a, center_b, v2_a, v3_a, v2_b, v3_b,
-                            shape_yz, face_color, show_edges=False, edge_color=None,
-                            draw_start_ring=is_first_seg, draw_end_ring=is_last_seg,
-                            draw_caps=needs_caps,
-                            ex_vertices=ghost_ex_verts,                          
-                            ex_faces=ghost_ex_faces, 
-                            ex_colors=ghost_ex_colors,
-                            ex_edges=[], ex_edge_colors=[] 
-                        )
-                    else:
-                        self._add_loft_segment(
-                            center_a, center_b, 
-                            v2_a, v3_a, v2_b, v3_b,
-                            shape_yz, face_color, 
-                            show_edges_for_this, current_edge_color,
-                            draw_start_ring=is_first_seg, 
-                            draw_end_ring=is_last_seg,
-                            draw_caps=needs_caps
-                        )
+                if not is_active_elem:
+                    self._add_loft_to_arrays(
+                        center_a, center_b, v2_a, v3_a, v2_b, v3_b,
+                        shape_yz, face_color, show_edges=False, edge_color=None,
+                        draw_start_ring=is_first_seg, draw_end_ring=is_last_seg,
+                        draw_caps=needs_caps,
+                        ex_vertices=ghost_ex_verts,                          
+                        ex_faces=ghost_ex_faces, 
+                        ex_colors=ghost_ex_colors,
+                        ex_edges=[], ex_edge_colors=[] 
+                    )
+                else:
+                    self._add_loft_segment(
+                        center_a, center_b, 
+                        v2_a, v3_a, v2_b, v3_b,
+                        shape_yz, face_color, 
+                        show_edges_for_this, current_edge_color,
+                        draw_start_ring=is_first_seg, 
+                        draw_end_ring=is_last_seg,
+                        draw_caps=needs_caps
+                    )
 
         v_arr = np.array(self.ex_vertices, dtype=np.float32) if self.ex_vertices else np.empty((0, 3), dtype=np.float32)
         c_arr = np.array(self.ex_colors,   dtype=np.float32) if self.ex_colors   else np.empty((0, 4), dtype=np.float32)
@@ -1937,13 +1919,11 @@ class MCanvas3D(gl.GLViewWidget):
             self.makeCurrent()
             self.vbo_manager.upload_line_geometry(ev_arr, ec_arr)
         elif fallback_line_pos:
-                                                                             
             fb_v = np.array(fallback_line_pos, dtype=np.float32)
             fb_c = np.array(fallback_line_colors, dtype=np.float32)
             self.makeCurrent()
             self.vbo_manager.upload_line_geometry(fb_v, fb_c)
         else:
-                                                  
             self.makeCurrent()
             if hasattr(self, 'vbo_manager'):
                 self.vbo_manager.upload_line_geometry([], [])
@@ -3796,82 +3776,129 @@ class MCanvas3D(gl.GLViewWidget):
         return getattr(self, '_mouse_pressed', False)        
 
     def process_box_selection(self, p_start, p_end):
-        if not self.current_model: return
-        
+        if not self.current_model:
+            return
+
         x_min = min(p_start.x(), p_end.x())
         x_max = max(p_start.x(), p_end.x())
         y_min = min(p_start.y(), p_end.y())
         y_max = max(p_start.y(), p_end.y())
-        
+
         is_window_select = (p_end.x() > p_start.x())
 
         w = self.width()
         h = self.height()
-        
+
         full_area = (0, 0, w, h)
         m_view = self.viewMatrix()
         m_proj = self.projectionMatrix(region=full_area, viewport=full_area)
         mvp = np.array((m_proj * m_view).data()).reshape(4, 4).T
 
+        can_deflect = (
+            self.view_deflected
+            and hasattr(self.current_model, 'has_results')
+            and self.current_model.has_results
+            and self.current_model.results is not None
+        )
+
+        model = self.current_model
+
+        # ── 1. BATCH NODE PROJECTION ──────────────────────────────────────────────
+        # OLD: _project_to_screen() called once per node = N individual 4x4 multiplies
+        # NEW: one batched (N,4) @ (4,4) numpy op for all nodes at once
+
+        node_items = list(model.nodes.items())
         found_nodes = []
-        found_elems = []
-
-        can_deflect = (self.view_deflected and 
-                       hasattr(self.current_model, 'has_results') and 
-                       self.current_model.has_results and 
-                       self.current_model.results is not None)
-
         node_screens = {}
-        for nid, node in self.current_model.nodes.items():
-                                                                
-            if self._get_visibility_state(node.x, node.y, node.z) != 2: 
+
+        if node_items:
+            all_nids   = [nid for nid, _ in node_items]
+            all_nodes  = [n   for _, n  in node_items]
+
+            # Visibility filter — logic lives in _get_visibility_state, can't vectorize
+            # without seeing its body, but at least the matrix math is no longer inside
+            vis_mask  = [self._get_visibility_state(n.x, n.y, n.z) == 2 for n in all_nodes]
+            vis_nids  = [all_nids[i]  for i, v in enumerate(vis_mask) if v]
+            vis_nodes = [all_nodes[i] for i, v in enumerate(vis_mask) if v]
+
+            if vis_nids:
+                positions = np.array([[n.x, n.y, n.z] for n in vis_nodes], dtype=np.float64)
+
+                # Vectorized deflection — dict lookups + array write, no matrix math
+                if can_deflect:
+                    displacements = model.results.get("displacements", {})
+                    disp = np.zeros_like(positions)
+                    for i, nid in enumerate(vis_nids):
+                        d = displacements.get(str(nid))
+                        if d is not None:
+                            disp[i] = d[:3]
+                    positions += disp * (self.deflection_scale * self.anim_factor)
+
+                # Single batched MVP transform (replaces N calls to _project_to_screen)
+                N     = len(positions)
+                pos_h = np.hstack([positions, np.ones((N, 1))])  # (N, 4)
+                clip  = pos_h @ mvp.T                             # (N, 4)
+
+                w_clip       = clip[:, 3]
+                screen_valid = w_clip > 0
+                safe_w       = np.where(screen_valid, w_clip, 1.0)
+
+                sx = (clip[:, 0] / safe_w *  0.5 + 0.5) * w
+                sy = (1.0 - (clip[:, 1] / safe_w * 0.5 + 0.5)) * h
+
+                # Vectorized box test
+                in_box = (screen_valid
+                        & (sx >= x_min) & (sx <= x_max)
+                        & (sy >= y_min) & (sy <= y_max))
+
+                for i, nid in enumerate(vis_nids):
+                    if screen_valid[i]:
+                        node_screens[nid] = (float(sx[i]), float(sy[i]))
+                        if in_box[i]:
+                            found_nodes.append(nid)
+
+        # ── 2. ELEMENT SELECTION ──────────────────────────────────────────────────
+        # OLD: _get_visibility_state called twice per element (redundant —
+        #      if a node is already in node_screens it is already visibility-cleared)
+        # NEW: presence in node_screens IS the visibility check
+
+        found_elems = []
+        e_ids, p1s, p2s = [], [], []
+
+        for eid, el in model.elements.items():
+            p1 = node_screens.get(el.node_i.id)
+            p2 = node_screens.get(el.node_j.id)
+            if p1 is None or p2 is None:
                 continue
-            
-            nx, ny, nz = node.x, node.y, node.z
-            
-            if can_deflect:
-                disp = self.current_model.results.get("displacements", {}).get(str(nid))
-                if disp:
-                    nx += disp[0] * self.deflection_scale * self.anim_factor
-                    ny += disp[1] * self.deflection_scale * self.anim_factor
-                    nz += disp[2] * self.deflection_scale * self.anim_factor
+            e_ids.append(eid)
+            p1s.append(p1)
+            p2s.append(p2)
 
-            s_pos = self._project_to_screen(nx, ny, nz, mvp, w, h)
-            if s_pos:
-                node_screens[nid] = s_pos
-                sx, sy = s_pos
-                if x_min <= sx <= x_max and y_min <= sy <= y_max:
-                    found_nodes.append(nid)
-
-        for eid, el in self.current_model.elements.items():
-            n1, n2 = el.node_i, el.node_j
-            
-            v1 = self._get_visibility_state(n1.x, n1.y, n1.z)
-            v2 = self._get_visibility_state(n2.x, n2.y, n2.z)
-            
-            if v1 != 2 or v2 != 2: 
-                continue              
-
-            if el.node_i.id not in node_screens or el.node_j.id not in node_screens:
-                continue
-            
-            p1 = node_screens[el.node_i.id]
-            p2 = node_screens[el.node_j.id]
-            
-            p1_in = (x_min <= p1[0] <= x_max and y_min <= p1[1] <= y_max)
-            p2_in = (x_min <= p2[0] <= x_max and y_min <= p2[1] <= y_max)
-
+        if e_ids:
             if is_window_select:
-                                                  
-                if p1_in and p2_in: found_elems.append(eid)
+                # Vectorized both-endpoints-in-box test
+                p1_arr = np.array(p1s)
+                p2_arr = np.array(p2s)
+                p1_in  = ((p1_arr[:, 0] >= x_min) & (p1_arr[:, 0] <= x_max) &
+                        (p1_arr[:, 1] >= y_min) & (p1_arr[:, 1] <= y_max))
+                p2_in  = ((p2_arr[:, 0] >= x_min) & (p2_arr[:, 0] <= x_max) &
+                        (p2_arr[:, 1] >= y_min) & (p2_arr[:, 1] <= y_max))
+                found_elems = [e_ids[i] for i in np.where(p1_in & p2_in)[0]]
             else:
-                                                    
+                # Crossing select — _line_intersects_rect is hard to vectorize,
+                # but the list is already pre-filtered to visible elements only
                 rect = (x_min, y_min, x_max, y_max)
-                if self._line_intersects_rect(p1, p2, rect):
-                    found_elems.append(eid)
+                found_elems = [
+                    e_ids[i] for i in range(len(e_ids))
+                    if self._line_intersects_rect(p1s[i], p2s[i], rect)
+                ]
+
+        # ── 3. AREA ELEMENT SELECTION ─────────────────────────────────────────────
+        # Logic identical to original — node_screens lookup avoids re-projecting
+        # corners that were already computed in step 1
 
         found_area_elems = []
-        for aeid, ae in self.current_model.area_elements.items():
+        for aeid, ae in model.area_elements.items():
             corner_screens = []
             for n in ae.nodes:
                 s = node_screens.get(n.id)
@@ -3884,30 +3911,30 @@ class MCanvas3D(gl.GLViewWidget):
 
             if is_window_select:
                 if all(x_min <= p[0] <= x_max and y_min <= p[1] <= y_max
-                       for p in corner_screens):
+                    for p in corner_screens):
                     found_area_elems.append(aeid)
             else:
-                                                          
                 cx_pick = (x_min + x_max) / 2.0
                 cy_pick = (y_min + y_max) / 2.0
-                
                 if self._point_in_polygon_2d(cx_pick, cy_pick, corner_screens):
                     found_area_elems.append(aeid)
                 else:
-                                                                 
-                    rect = (x_min, y_min, x_max, y_max)
+                    rect  = (x_min, y_min, x_max, y_max)
                     n_pts = len(corner_screens)
                     for i in range(n_pts):
-                        if self._line_intersects_rect(corner_screens[i], corner_screens[(i + 1) % n_pts], rect):
+                        if self._line_intersects_rect(
+                            corner_screens[i], corner_screens[(i + 1) % n_pts], rect
+                        ):
                             found_area_elems.append(aeid)
                             break
 
-        modifiers = QApplication.keyboardModifiers()
+        # ── 4. EMIT ───────────────────────────────────────────────────────────────
+        modifiers   = QApplication.keyboardModifiers()
         is_additive = (modifiers == Qt.KeyboardModifier.ControlModifier)
         is_deselect = (modifiers == Qt.KeyboardModifier.ShiftModifier)
         self.signal_box_selection.emit(found_nodes, found_elems, is_additive, is_deselect)
         self.signal_area_box_selection.emit(found_area_elems, is_additive, is_deselect)
-
+        
     def _point_in_polygon_2d(self, px, py, pts):
         """Winding number test — works for convex and concave screen-space polygons."""
         winding = 0
@@ -4987,42 +5014,11 @@ class MCanvas3D(gl.GLViewWidget):
                 except Exception:
                     pass
 
-        if getattr(self, '_needs_anim_vbo_build', False):
-            self._needs_anim_vbo_build = False
-            if not getattr(self, '_anim_vbo_built', False):
-                self._anim_vbo_built = True
-    
-            if self.view_extruded:
-                self._build_animated_extruded_vbo()
-            else:
-                self._build_animated_line_vbo()
-            self._clear_static_elements()
-
-            if getattr(self, 'show_slabs', True):
-                self.vbo_manager.draw_area_depth_prepass(m_view, m_proj)
-                self.vbo_manager.draw_area_edges(m_view, m_proj,
-                    line_width=float(self.display_config.get("edge_width", 1.5)),
-                    alpha_mult=1.0, write_depth=True)
-                self.vbo_manager.draw_areas(m_view, m_proj)
-
-        if getattr(self, '_needs_ltha_vbo_update', False):
-            self._needs_ltha_vbo_update = False
-            t = getattr(self, '_ltha_pending_t', 0)
-            self.vbo_manager.set_anim_factor(1.0)
-
-            if self.view_extruded:
-                self._build_ltha_extruded_frame(t)
-            else:
-                self._build_ltha_line_frame(t)
-
-            if getattr(self, 'show_slabs', True):
-                self.vbo_manager.draw_area_depth_prepass(m_view, m_proj)
-                self.vbo_manager.draw_area_edges(m_view, m_proj,
-                    line_width=float(self.display_config.get("edge_width", 1.5)),
-                    alpha_mult=1.0, write_depth=True)
-                self.vbo_manager.draw_areas(m_view, m_proj)
-
+        # ---> THE FIX: We calculate the matrices here first! <---
+        # Wrap everything VBO-related in the initialization check
         if hasattr(self, 'vbo_manager') and self.vbo_manager.is_initialized:
+            
+            # Fetch and assign m_view and m_proj so they exist for the whole block
             w, h = self.width(), self.height()
             full_area = (0, 0, w, h)
             if not hasattr(self, '_paintgl_m_view'):
@@ -5033,6 +5029,35 @@ class MCanvas3D(gl.GLViewWidget):
             m_view = self._paintgl_m_view
             m_proj = self._paintgl_m_proj
 
+            # Now process the updates safely
+            if getattr(self, '_needs_anim_vbo_build', False):
+                self._needs_anim_vbo_build = False
+                if not getattr(self, '_anim_vbo_built', False):
+                    self._anim_vbo_built = True
+    
+                if self.view_extruded:
+                    self._build_animated_extruded_vbo()
+                else:
+                    self._build_animated_line_vbo()
+                self._clear_static_elements()
+                
+                # ❌ REMOVED REDUNDANT DRAW CALL HERE
+
+            if getattr(self, '_needs_ltha_vbo_update', False):
+                self._needs_ltha_vbo_update = False
+                t = getattr(self, '_ltha_pending_t', 0)
+                self.vbo_manager.set_anim_factor(1.0)
+
+                if self.view_extruded:
+                    self._build_ltha_extruded_frame(t)
+                else:
+                    self._build_ltha_line_frame(t)
+
+                # ❌ REMOVED REDUNDANT DRAW CALL HERE
+
+            # ==========================================
+            # Process the MAIN drawing loops (Keep this part!)
+            # ==========================================
             if self.view_extruded:
                 edge_w = float(self.display_config.get("edge_width", 1.5))
                 edge_alpha = float(self.display_config.get("edge_opacity", 0.08))
@@ -5042,24 +5067,20 @@ class MCanvas3D(gl.GLViewWidget):
                     self.vbo_manager.draw(m_view, m_proj)
                     self.vbo_manager.draw_lines(m_view, m_proj, line_width=edge_w, alpha_mult=1.0, write_depth=True)
                 else:
-                                                                                         
                     self.vbo_manager.draw_lines(m_view, m_proj, line_width=edge_w, alpha_mult=edge_alpha, write_depth=False)
-                                                                                                    
                     self.vbo_manager.draw(m_view, m_proj)
-                                                                                                
                     self.vbo_manager.draw_lines(m_view, m_proj, line_width=edge_w, alpha_mult=1.0, write_depth=True)
             else:
                 line_w = float(self.display_config.get("line_width", 2.0))
                 self.vbo_manager.draw_lines(m_view, m_proj, line_width=line_w, alpha_mult=1.0, write_depth=True)
 
+            # ✅ THIS IS THE ONLY SLAB DRAW CALL YOU NEED
             if getattr(self, 'show_slabs', True):
                 edge_w = float(self.display_config.get("edge_width", 1.5))
                 
                 if getattr(self, '_is_navigating', False):
-                                                                                                      
                     self.vbo_manager.draw_areas(m_view, m_proj)
                 else:
-                                                                                                   
                     self.vbo_manager.draw_area_depth_prepass(m_view, m_proj)
                     self.vbo_manager.draw_area_edges(m_view, m_proj, line_width=edge_w, alpha_mult=1.0, write_depth=True)
                     self.vbo_manager.draw_areas(m_view, m_proj)
@@ -5082,9 +5103,9 @@ class MCanvas3D(gl.GLViewWidget):
                 
             glEnable(GL_DEPTH_TEST)
             glDepthMask(GL_TRUE)
-                                     
             glDepthFunc(GL_LESS)
-                                           
+            
+        # UI overlays and ViewCube drawn at the very end
         glClear(GL_DEPTH_BUFFER_BIT)
         
         for item, was_visible in zip(top_items, vis_states):

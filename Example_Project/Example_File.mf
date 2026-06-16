@@ -1,7 +1,7 @@
 {
     "info": {
         "name": "New Project",
-        "units": "kN, m, C"
+        "units": "kN, mm, C"
     },
     "graphics": {
         "background_color": [

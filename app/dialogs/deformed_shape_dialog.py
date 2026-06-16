@@ -77,7 +77,10 @@ class DeformedShapeDialog(QDialog):
         self.spin_scale.setRange(0.1, 10000.0)
         self.spin_scale.setValue(self.scale_value)
         self.spin_scale.setSingleStep(10.0)
-        self.spin_scale.setDecimals(1)
+        
+        # Change this line from 1 to 4
+        self.spin_scale.setDecimals(4) 
+        
         self.spin_scale.setEnabled(self.show_deformed)
         self.spin_scale.valueChanged.connect(self.on_apply)
         s_layout.addWidget(self.spin_scale)
