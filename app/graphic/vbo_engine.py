@@ -1,17 +1,15 @@
-# app/graphic/vbo_engine.py
+                           
 import numpy as np
 from OpenGL.GL import *
 from OpenGL.GL import shaders
 import ctypes
 
-# Import our new mixins
 from app.graphic._vbo_area import AreaMixin
 from app.graphic._vbo_lines import LineMixin
 from app.graphic._vbo_extruded import ExtrudedMixin
 from app.graphic._vbo_force_load import ForceLoadMixin
 from app.graphic._vbo_text import TextMixin
 
-# Re-export the LTHA engine so canvas.py can still import it from here
 from app.graphic.ltha_renderer import VectorizedLTHAEngine 
 
 class VBORenderManager(AreaMixin, LineMixin, ExtrudedMixin, ForceLoadMixin, TextMixin):
@@ -28,7 +26,7 @@ class VBORenderManager(AreaMixin, LineMixin, ExtrudedMixin, ForceLoadMixin, Text
         self.line_vao = None
         self.line_vbo = None
         self.line_vertex_count = 0
-        self.persistent_line_buffer = None  # Safely initialized here
+        self.persistent_line_buffer = None                           
 
         self.area_vao = None
         self.area_vbo = None
@@ -57,7 +55,7 @@ class VBORenderManager(AreaMixin, LineMixin, ExtrudedMixin, ForceLoadMixin, Text
         self.load_line_vbo = None
         self.load_line_vertex_count = 0
         
-        self.persistent_ext_buffer = None   # Safely initialized here
+        self.persistent_ext_buffer = None                            
 
         self.sdf_vertex_shader_source = """
         #version 330 core

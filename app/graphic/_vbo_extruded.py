@@ -1,4 +1,4 @@
-# app/graphic/_vbo_extruded.py
+                              
 import numpy as np
 from OpenGL.GL import *
 import ctypes

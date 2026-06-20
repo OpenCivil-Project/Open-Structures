@@ -118,7 +118,7 @@ class GlobalAssembler:
                 k_final[old_r, old_c] = K_new_small[r_i, c_i]
 
         k_ref = np.max(np.abs(k))
-        penalty = k_ref * 1e-8
+        penalty = k_ref * 1e-12
 
         rot_dofs = [3, 4, 5, 9, 10, 11]
 

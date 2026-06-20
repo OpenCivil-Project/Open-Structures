@@ -130,6 +130,11 @@ class GlobalMassAssembler:
                     F_accum[dof + 2] += F_total[2] / 2.0
 
             elif load["type"] == "member_point":
+                                        
+                l_type = load.get('l_type', 'Force')
+                if l_type.lower() == 'moment':
+                    continue                                         
+                
                 el = next((e for e in self.dm.elements if e['id'] == load['element_id']), None)
                 if not el: continue
 
@@ -175,9 +180,9 @@ class GlobalMassAssembler:
         for i in range(2, self.total_dofs, 6):
             Fz_net = F_accum[i]
             
-            if Fz_net < -1e-5:
-                mass_val = abs(Fz_net) / g
-                
+            mass_val = -Fz_net / g
+            
+            if abs(mass_val) > 1e-8:
                 self.M[i-2, i-2] += mass_val
                 self.M[i-1, i-1] += mass_val
                 self.M[i,   i]   += mass_val

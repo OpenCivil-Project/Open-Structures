@@ -50,13 +50,13 @@ class NodeResultsDialog(QDialog):
         self.txt_rz = QLabel("Rot Z [rad]:") 
 
         val_style = "color: #0078D7; font-family: Consolas; font-weight: bold; font-size: 11pt;"
-        self.lbl_ux = QLabel("0.0000"); self.lbl_ux.setStyleSheet(val_style)
-        self.lbl_uy = QLabel("0.0000"); self.lbl_uy.setStyleSheet(val_style)
-        self.lbl_uz = QLabel("0.0000"); self.lbl_uz.setStyleSheet(val_style)
+        self.lbl_ux = QLabel("0.000000"); self.lbl_ux.setStyleSheet(val_style)
+        self.lbl_uy = QLabel("0.000000"); self.lbl_uy.setStyleSheet(val_style)
+        self.lbl_uz = QLabel("0.000000"); self.lbl_uz.setStyleSheet(val_style)
         
-        self.lbl_rx = QLabel("0.0000"); self.lbl_rx.setStyleSheet(val_style)
-        self.lbl_ry = QLabel("0.0000"); self.lbl_ry.setStyleSheet(val_style)
-        self.lbl_rz = QLabel("0.0000"); self.lbl_rz.setStyleSheet(val_style)
+        self.lbl_rx = QLabel("0.000000"); self.lbl_rx.setStyleSheet(val_style)
+        self.lbl_ry = QLabel("0.000000"); self.lbl_ry.setStyleSheet(val_style)
+        self.lbl_rz = QLabel("0.000000"); self.lbl_rz.setStyleSheet(val_style)
 
         for lbl in [self.lbl_ux, self.lbl_uy, self.lbl_uz, self.lbl_rx, self.lbl_ry, self.lbl_rz]:
             lbl.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
@@ -169,9 +169,7 @@ class NodeResultsDialog(QDialog):
         uz_disp = unit_registry.to_display_length(uz_m)
 
         def fmt(val):
-            if abs(val) < 1e-10: return "0.0000"
-            if abs(val) < 1e-4: return f"{val:.4e}"
-            return f"{val:.4f}"
+            return f"{val:.6f}"
 
         self.lbl_ux.setText(fmt(ux_disp))
         self.lbl_uy.setText(fmt(uy_disp))

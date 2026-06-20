@@ -113,6 +113,11 @@ class MCanvas3D(gl.GLViewWidget):
 
         self.force_diagram_active = False
 
+        self.reaction_diagram_active = False
+        self.reaction_data = {}
+        self._pre_reaction_was_extruded = False
+        self._pre_reaction_was_deflected = False
+
         self._accel_overlay_pixmap    = None                                            
         self._accel_overlay_size      = (0, 0)                                  
         self._accel_overlay_last_step = -1                                                
@@ -811,6 +816,15 @@ class MCanvas3D(gl.GLViewWidget):
             self._draw_area_loads(model)  
             self._upload_loads_to_vbo()
             self._upload_load_labels_to_gpu() 
+        elif self.reaction_diagram_active and in_analysis_mode and self.reaction_data:
+            self._pending_load_fill_verts = []
+            self._pending_load_fill_colors = []
+            self._pending_load_fill_faces = []
+            self._pending_load_line_pos = []
+            self._pending_load_line_colors = []
+            self._draw_reactions(model)
+            self._upload_loads_to_vbo()
+            self._upload_load_labels_to_gpu()
         else:
             self.vbo_manager.clear_load_geometry()
                                                                                                          
@@ -897,6 +911,16 @@ class MCanvas3D(gl.GLViewWidget):
                 self._loads_dirty = False
 
                 self._upload_load_labels_to_gpu()
+            elif self.reaction_diagram_active and in_analysis_mode and self.reaction_data:
+                self._pending_load_fill_verts = []
+                self._pending_load_fill_colors = []
+                self._pending_load_fill_faces = []
+                self._pending_load_line_pos = []
+                self._pending_load_line_colors = []
+                self._draw_reactions(current_model)
+                self._upload_loads_to_vbo()
+                self._upload_load_labels_to_gpu()
+            
             else:
                 self.vbo_manager.clear_load_geometry()
                 self._upload_load_labels_to_gpu()
@@ -925,7 +949,6 @@ class MCanvas3D(gl.GLViewWidget):
                        model.has_results and
                        model.results is not None)
 
-        # FIX: Hoist displacements
         displacements = model.results.get("displacements", {}) if can_deflect else {}
 
         if can_deflect:
@@ -943,7 +966,6 @@ class MCanvas3D(gl.GLViewWidget):
                 p1 = np.array([n1.x, n1.y, n1.z])
                 p2 = np.array([n2.x, n2.y, n2.z])
                 
-                # FIX: Use hoisted dict
                 res_i = displacements.get(str(n1.id))
                 res_j = displacements.get(str(n2.id))
                 
@@ -986,7 +1008,6 @@ class MCanvas3D(gl.GLViewWidget):
                             p1_flex = p1_orig + (_u * off_i)
                             p2_flex = p2_orig - (_u * off_j)
 
-                    # FIX: Vectorized curve pts
                     K = len(curve_data_full)
                     pos_full_arr = np.array([cd[0] for cd in curve_data_full], dtype=np.float64)
                     s_arr = (np.arange(K) / (K - 1))[:, None] if K > 1 else np.zeros((K, 1))
@@ -1109,7 +1130,6 @@ class MCanvas3D(gl.GLViewWidget):
                        model.has_results and
                        model.results is not None)
 
-        # FIX: Hoist displacements
         displacements = model.results.get("displacements", {}) if can_deflect else {}
 
         dash_lines = []
@@ -1129,7 +1149,7 @@ class MCanvas3D(gl.GLViewWidget):
             p2 = np.array([n2.x, n2.y, n2.z])
 
             if can_deflect:
-                # FIX: Use hoisted dict
+                                       
                 res_i = displacements.get(str(n1.id))
                 res_j = displacements.get(str(n2.id))
 
@@ -1171,7 +1191,6 @@ class MCanvas3D(gl.GLViewWidget):
                             p1_flex = p1_orig + (_u * off_i)
                             p2_flex = p2_orig - (_u * off_j)
 
-                    # FIX: Vectorized curve pts
                     K = len(curve_data_full)
                     pos_full_arr = np.array([cd[0] for cd in curve_data_full], dtype=np.float64)
                     s_arr = (np.arange(K) / (K - 1))[:, None] if K > 1 else np.zeros((K, 1))
@@ -1507,7 +1526,6 @@ class MCanvas3D(gl.GLViewWidget):
                     model.has_results and
                     model.results is not None)
 
-        # FIX 1: hoist — was model.results.get("displacements", {}) twice per element inside loop
         displacements = model.results.get("displacements", {}) if can_deflect else {}
 
         for eid, el in model.elements.items():
@@ -1536,7 +1554,7 @@ class MCanvas3D(gl.GLViewWidget):
             drawn_as_curve = False
 
             if can_deflect:
-                # FIX 1: use pre-fetched dict
+                                             
                 res_i = displacements.get(str(n1.id))
                 res_j = displacements.get(str(n2.id))
 
@@ -1598,7 +1616,6 @@ class MCanvas3D(gl.GLViewWidget):
                         curved_pos.extend([p2_flex_anim, p2_def])
                         curved_colors.extend([rigid_black, rigid_black])
 
-                    # FIX 2: vectorized — replaces the 10-iteration Python loop per element
                     K            = len(curve_data_full)
                     pos_full_arr = np.array([cd[0] for cd in curve_data_full], dtype=np.float64)
                     s_arr        = (np.arange(K) / (K - 1))[:, None]
@@ -1722,7 +1739,6 @@ class MCanvas3D(gl.GLViewWidget):
                        model.has_results and 
                        model.results is not None)
 
-        # FIX 1: Hoist displacements dictionary
         displacements = model.results.get("displacements", {}) if can_deflect else {}
 
         fallback_line_pos    = []
@@ -1751,7 +1767,7 @@ class MCanvas3D(gl.GLViewWidget):
                     _lc = np.array([0.6, 0.6, 0.6, 0.4], dtype=np.float32)
 
                 if can_deflect:
-                    # FIX 1: Use hoisted dict
+                                             
                     res_i = displacements.get(str(n1.id))
                     res_j = displacements.get(str(n2.id))
                     if res_i and res_j:
@@ -1794,7 +1810,7 @@ class MCanvas3D(gl.GLViewWidget):
             p2 = np.array([n2.x, n2.y, n2.z])
             
             if can_deflect:
-                # FIX 1: Use hoisted dict
+                                         
                 res_i = displacements.get(str(n1.id))
                 res_j = displacements.get(str(n2.id))
                 
@@ -1859,7 +1875,6 @@ class MCanvas3D(gl.GLViewWidget):
             
             num_pts = len(path_points)
             
-            # FIX 2: Outer loop remains, inner shadowed loop completely removed.
             for i in range(num_pts - 1):
                 pos_a, v2_a, v3_a = path_points[i]
                 pos_b, v2_b, v3_b = path_points[i+1]
@@ -2000,6 +2015,30 @@ class MCanvas3D(gl.GLViewWidget):
                                                                  
                     self.ex_faces.append([root_b, start_idx + n + i, start_idx + n + i + 1])
     
+    def show_reaction_diagram(self, model, reaction_data, sign_convention='ground_on_structure'):
+        self.reaction_data = reaction_data
+        self.reaction_diagram_active = True
+        self.reaction_sign_convention = sign_convention                 
+        
+        self._pre_reaction_was_deflected = self.view_deflected
+        self.view_deflected = False
+        
+        self._force_draw_model(model)
+        self.update()
+        return True
+
+    def clear_reaction_diagram(self, model=None):
+        if not self.reaction_diagram_active:
+            return
+        self.reaction_diagram_active = False
+        self.reaction_data = {}
+        
+        self.view_deflected = self._pre_reaction_was_deflected
+        
+        if model:
+            self._force_draw_model(model)
+        self.update()
+
     def show_force_diagram(self, model, component='M3', scale_factor=None,
                            displacements=None, matrices_path=None, show_labels=False,
                            show_labels_mode='all', text_size=None, selected_ids=None):
@@ -2407,6 +2446,73 @@ class MCanvas3D(gl.GLViewWidget):
             self._pending_load_line_pos.extend(arrow_lines)
             self._pending_load_line_colors.extend(arrow_colors)
 
+    def _draw_reactions(self, model):
+        """Visualizes Joint Reactions (Analysis Mode only)."""
+        if not self.reaction_data:
+            return
+
+        arrow_lines = []
+        arrow_colors = []
+
+        L = 2.0; H = 0.5; W = 0.2
+        c_black = (0, 0, 0, 1)
+
+        def add_arrow(pt, direction, color, is_moment):
+            tip = pt
+            tail = pt - (direction * L)
+            arrow_lines.append(tail); arrow_lines.append(tip)
+            arrow_colors.append(color); arrow_colors.append(color)
+
+            def add_head(base_pt):
+                if abs(direction[2]) > 0.9: perp = np.array([1.0, 0.0, 0.0])
+                elif abs(direction[1]) > 0.9: perp = np.array([1.0, 0.0, 0.0])
+                else: perp = np.array([0.0, 0.0, 1.0])
+                w_vec = perp * W
+                base = base_pt - (direction * H)
+                arrow_lines.append(base_pt); arrow_lines.append(base + w_vec)
+                arrow_lines.append(base_pt); arrow_lines.append(base - w_vec)
+                for _ in range(4): arrow_colors.append(color)
+
+            add_head(tip)
+            if is_moment:
+                add_head(tip - (direction * (H * 0.8)))
+
+        for nid, dofs in self.reaction_data.items():
+            node = model.nodes.get(nid)
+                                                                 
+            if node is None and str(nid).isdigit():
+                node = model.nodes.get(int(nid))
+            if not node:
+                continue
+
+            if self._get_visibility_state(node.x, node.y, node.z) != 2:
+                continue
+
+            origin = np.array([node.x, node.y, node.z])
+
+            def process_component(val, axis_vec, is_moment):
+                
+                if getattr(self, 'reaction_sign_convention', 'ground_on_structure') == 'ground_on_structure':
+                    val = -val
+                
+                if abs(val) > 1e-9:
+                    d = axis_vec * (1 if val > 0 else -1)
+                    add_arrow(origin, d, c_black, is_moment)
+                    l_type = "Moment" if is_moment else "Force"
+                    self._add_load_label(origin, d, val, l_type, c_black, owner_id=node.id, owner_type='node')
+
+            f1, f2, f3, m1, m2, m3 = dofs[:6]
+            process_component(f1, np.array([1.0, 0.0, 0.0]), False)
+            process_component(f2, np.array([0.0, 1.0, 0.0]), False)
+            process_component(f3, np.array([0.0, 0.0, 1.0]), False)
+            process_component(m1, np.array([1.0, 0.0, 0.0]), True)
+            process_component(m2, np.array([0.0, 1.0, 0.0]), True)
+            process_component(m3, np.array([0.0, 0.0, 1.0]), True)
+
+        if arrow_lines:
+            self._pending_load_line_pos.extend(arrow_lines)
+            self._pending_load_line_colors.extend(arrow_colors)
+
     def _add_load_label(self, origin, direction, val, l_type, color, owner_id=None, owner_type=None):
         if l_type == "Moment":
             m_scale = unit_registry.force_scale * unit_registry.length_scale
@@ -2416,7 +2522,7 @@ class MCanvas3D(gl.GLViewWidget):
             display_val = unit_registry.to_display_force(abs(val))
             unit_str = unit_registry.force_unit_name
             
-        label_pos = origin - (direction * 2.2)
+        label_pos = origin - (direction * 1.6)
         
         v_right = direction.copy()
         if v_right[0] < -0.01: v_right = -v_right                                  
@@ -2424,6 +2530,13 @@ class MCanvas3D(gl.GLViewWidget):
         v_up = np.array([0.0, 0.0, 1.0])
         if abs(v_right[2]) > 0.99:                            
             v_up = np.array([1.0, 0.0, 0.0])
+
+        label_offset = 0.05                           
+        moment_extra = 0.30                                                       
+        if l_type == "Moment":
+            label_pos = label_pos - (v_up * (label_offset + moment_extra))
+        else:
+            label_pos = label_pos + (v_up * label_offset)
 
         if not hasattr(self, 'load_labels'): self.load_labels = []
         self.load_labels.append({
@@ -3803,10 +3916,6 @@ class MCanvas3D(gl.GLViewWidget):
 
         model = self.current_model
 
-        # ── 1. BATCH NODE PROJECTION ──────────────────────────────────────────────
-        # OLD: _project_to_screen() called once per node = N individual 4x4 multiplies
-        # NEW: one batched (N,4) @ (4,4) numpy op for all nodes at once
-
         node_items = list(model.nodes.items())
         found_nodes = []
         node_screens = {}
@@ -3815,8 +3924,6 @@ class MCanvas3D(gl.GLViewWidget):
             all_nids   = [nid for nid, _ in node_items]
             all_nodes  = [n   for _, n  in node_items]
 
-            # Visibility filter — logic lives in _get_visibility_state, can't vectorize
-            # without seeing its body, but at least the matrix math is no longer inside
             vis_mask  = [self._get_visibility_state(n.x, n.y, n.z) == 2 for n in all_nodes]
             vis_nids  = [all_nids[i]  for i, v in enumerate(vis_mask) if v]
             vis_nodes = [all_nodes[i] for i, v in enumerate(vis_mask) if v]
@@ -3824,7 +3931,6 @@ class MCanvas3D(gl.GLViewWidget):
             if vis_nids:
                 positions = np.array([[n.x, n.y, n.z] for n in vis_nodes], dtype=np.float64)
 
-                # Vectorized deflection — dict lookups + array write, no matrix math
                 if can_deflect:
                     displacements = model.results.get("displacements", {})
                     disp = np.zeros_like(positions)
@@ -3834,10 +3940,9 @@ class MCanvas3D(gl.GLViewWidget):
                             disp[i] = d[:3]
                     positions += disp * (self.deflection_scale * self.anim_factor)
 
-                # Single batched MVP transform (replaces N calls to _project_to_screen)
                 N     = len(positions)
-                pos_h = np.hstack([positions, np.ones((N, 1))])  # (N, 4)
-                clip  = pos_h @ mvp.T                             # (N, 4)
+                pos_h = np.hstack([positions, np.ones((N, 1))])          
+                clip  = pos_h @ mvp.T                                     
 
                 w_clip       = clip[:, 3]
                 screen_valid = w_clip > 0
@@ -3846,7 +3951,6 @@ class MCanvas3D(gl.GLViewWidget):
                 sx = (clip[:, 0] / safe_w *  0.5 + 0.5) * w
                 sy = (1.0 - (clip[:, 1] / safe_w * 0.5 + 0.5)) * h
 
-                # Vectorized box test
                 in_box = (screen_valid
                         & (sx >= x_min) & (sx <= x_max)
                         & (sy >= y_min) & (sy <= y_max))
@@ -3856,11 +3960,6 @@ class MCanvas3D(gl.GLViewWidget):
                         node_screens[nid] = (float(sx[i]), float(sy[i]))
                         if in_box[i]:
                             found_nodes.append(nid)
-
-        # ── 2. ELEMENT SELECTION ──────────────────────────────────────────────────
-        # OLD: _get_visibility_state called twice per element (redundant —
-        #      if a node is already in node_screens it is already visibility-cleared)
-        # NEW: presence in node_screens IS the visibility check
 
         found_elems = []
         e_ids, p1s, p2s = [], [], []
@@ -3876,7 +3975,7 @@ class MCanvas3D(gl.GLViewWidget):
 
         if e_ids:
             if is_window_select:
-                # Vectorized both-endpoints-in-box test
+                                                       
                 p1_arr = np.array(p1s)
                 p2_arr = np.array(p2s)
                 p1_in  = ((p1_arr[:, 0] >= x_min) & (p1_arr[:, 0] <= x_max) &
@@ -3885,17 +3984,12 @@ class MCanvas3D(gl.GLViewWidget):
                         (p2_arr[:, 1] >= y_min) & (p2_arr[:, 1] <= y_max))
                 found_elems = [e_ids[i] for i in np.where(p1_in & p2_in)[0]]
             else:
-                # Crossing select — _line_intersects_rect is hard to vectorize,
-                # but the list is already pre-filtered to visible elements only
+                                                                               
                 rect = (x_min, y_min, x_max, y_max)
                 found_elems = [
                     e_ids[i] for i in range(len(e_ids))
                     if self._line_intersects_rect(p1s[i], p2s[i], rect)
                 ]
-
-        # ── 3. AREA ELEMENT SELECTION ─────────────────────────────────────────────
-        # Logic identical to original — node_screens lookup avoids re-projecting
-        # corners that were already computed in step 1
 
         found_area_elems = []
         for aeid, ae in model.area_elements.items():
@@ -3928,7 +4022,6 @@ class MCanvas3D(gl.GLViewWidget):
                             found_area_elems.append(aeid)
                             break
 
-        # ── 4. EMIT ───────────────────────────────────────────────────────────────
         modifiers   = QApplication.keyboardModifiers()
         is_additive = (modifiers == Qt.KeyboardModifier.ControlModifier)
         is_deselect = (modifiers == Qt.KeyboardModifier.ShiftModifier)
@@ -5014,11 +5107,8 @@ class MCanvas3D(gl.GLViewWidget):
                 except Exception:
                     pass
 
-        # ---> THE FIX: We calculate the matrices here first! <---
-        # Wrap everything VBO-related in the initialization check
         if hasattr(self, 'vbo_manager') and self.vbo_manager.is_initialized:
             
-            # Fetch and assign m_view and m_proj so they exist for the whole block
             w, h = self.width(), self.height()
             full_area = (0, 0, w, h)
             if not hasattr(self, '_paintgl_m_view'):
@@ -5029,7 +5119,6 @@ class MCanvas3D(gl.GLViewWidget):
             m_view = self._paintgl_m_view
             m_proj = self._paintgl_m_proj
 
-            # Now process the updates safely
             if getattr(self, '_needs_anim_vbo_build', False):
                 self._needs_anim_vbo_build = False
                 if not getattr(self, '_anim_vbo_built', False):
@@ -5041,8 +5130,6 @@ class MCanvas3D(gl.GLViewWidget):
                     self._build_animated_line_vbo()
                 self._clear_static_elements()
                 
-                # ❌ REMOVED REDUNDANT DRAW CALL HERE
-
             if getattr(self, '_needs_ltha_vbo_update', False):
                 self._needs_ltha_vbo_update = False
                 t = getattr(self, '_ltha_pending_t', 0)
@@ -5053,11 +5140,6 @@ class MCanvas3D(gl.GLViewWidget):
                 else:
                     self._build_ltha_line_frame(t)
 
-                # ❌ REMOVED REDUNDANT DRAW CALL HERE
-
-            # ==========================================
-            # Process the MAIN drawing loops (Keep this part!)
-            # ==========================================
             if self.view_extruded:
                 edge_w = float(self.display_config.get("edge_width", 1.5))
                 edge_alpha = float(self.display_config.get("edge_opacity", 0.08))
@@ -5074,7 +5156,6 @@ class MCanvas3D(gl.GLViewWidget):
                 line_w = float(self.display_config.get("line_width", 2.0))
                 self.vbo_manager.draw_lines(m_view, m_proj, line_width=line_w, alpha_mult=1.0, write_depth=True)
 
-            # ✅ THIS IS THE ONLY SLAB DRAW CALL YOU NEED
             if getattr(self, 'show_slabs', True):
                 edge_w = float(self.display_config.get("edge_width", 1.5))
                 
@@ -5105,7 +5186,6 @@ class MCanvas3D(gl.GLViewWidget):
             glDepthMask(GL_TRUE)
             glDepthFunc(GL_LESS)
             
-        # UI overlays and ViewCube drawn at the very end
         glClear(GL_DEPTH_BUFFER_BIT)
         
         for item, was_visible in zip(top_items, vis_states):

@@ -93,18 +93,70 @@ class MemberAnalyzer:
         n1_str = str(el.node_i.id)
         n2_str = str(el.node_j.id)
 
-        if self._displacements is not None:
-            disp_dict = self._displacements
+        res = getattr(self.model, 'results', {}) or {}
+
+        if "rsa_info" in res:
+            rsa = res["rsa_info"]
+            dir_comb = rsa.get("dir_comb", "SRSS")
+            dirs_data = rsa.get("directions", [rsa])
+            
+            final_end_forces = np.zeros(12)
+            
+            for d_info in dirs_data:
+                method = d_info.get("method", "SRSS")
+                zeta = d_info.get("zeta", 0.05)
+                omega = d_info.get("omega_array", [])
+                u_raw = d_info.get("uncombined_u", {})
+                
+                n_modes = len(omega)
+                if n_modes == 0: continue
+                
+                per_mode_forces = np.zeros((n_modes, 12))
+                u1_modes = u_raw.get(n1_str, [np.zeros(6)] * n_modes)
+                u2_modes = u_raw.get(n2_str, [np.zeros(6)] * n_modes)
+                
+                for i in range(n_modes):
+                    u_global_mode = np.concatenate([u1_modes[i], u2_modes[i]])
+                    per_mode_forces[i] = self._k @ (self._t @ u_global_mode)
+                    
+                d_end_forces = np.zeros(12)
+                if method == "CQC" and n_modes > 0:
+                    for d in range(12):
+                        f_total = 0.0
+                        for i in range(n_modes):
+                            for j in range(n_modes):
+                                if omega[i] == 0 or omega[j] == 0: rho = 1.0 if omega[i] == omega[j] else 0.0
+                                else:
+                                    r = omega[i] / omega[j]
+                                    num = 8.0 * zeta**2 * (1.0 + r) * r**1.5
+                                    den = (1.0 - r**2)**2 + 4.0 * zeta**2 * r * (1.0 + r)**2
+                                    rho = num / den if den != 0.0 else 1.0
+                                f_total += per_mode_forces[i, d] * rho * per_mode_forces[j, d]
+                        d_end_forces[d] = np.sqrt(abs(f_total))
+                else:
+                    d_end_forces = np.sqrt(np.sum(per_mode_forces**2, axis=0))
+                    
+                if dir_comb == "SRSS":
+                    final_end_forces += d_end_forces**2
+                else:
+                    final_end_forces += np.abs(d_end_forces)
+                    
+            if dir_comb == "SRSS":
+                self.end_forces = np.sqrt(final_end_forces)
+            else:
+                self.end_forces = final_end_forces
+
         else:
-            res = getattr(self.model, 'results', {}) or {}
-            disp_dict = res.get("_base_displacements",
-                                res.get("displacements", {}))
+            if self._displacements is not None:
+                disp_dict = self._displacements
+            else:
+                disp_dict = res.get("_base_displacements", res.get("displacements", {}))
 
-        u1 = np.array(disp_dict.get(n1_str, [0.0] * 6))
-        u2 = np.array(disp_dict.get(n2_str, [0.0] * 6))
-        u_global = np.concatenate([u1, u2])
+            u1 = np.array(disp_dict.get(n1_str, [0.0] * 6))
+            u2 = np.array(disp_dict.get(n2_str, [0.0] * 6))
+            u_global = np.concatenate([u1, u2])
 
-        self.end_forces = self._k @ (self._t @ u_global) + self._fef
+            self.end_forces = self._k @ (self._t @ u_global) + self._fef
 
         Fx1, Fy1, Fz1 = self.end_forces[0], self.end_forces[1], self.end_forces[2]
         Mx1, My1, Mz1 = self.end_forces[3], self.end_forces[4], self.end_forces[5]
@@ -118,7 +170,6 @@ class MemberAnalyzer:
         w_loc       = np.zeros(3)
         point_loads = []
 
-        res              = getattr(self.model, 'results', {}) or {}
         active_case_name = res.get("info", {}).get("case_name", "")
 
         if active_case_name and hasattr(self.model, 'load_cases'):
@@ -146,18 +197,26 @@ class MemberAnalyzer:
                 w_loc += w_vec
 
             elif hasattr(load, 'force'):                                 
-                a       = load.dist * L if getattr(load, 'is_relative', False) else load.dist
-                dir_map = {'X': 0, 'Y': 1, 'Z': 2, '1': 0, '2': 1, '3': 2}
-                idx     = dir_map.get(str(getattr(load, 'direction', 'Z')).upper(), 2)
-                vec     = np.zeros(3)
+                                                         
+                is_rel = getattr(load, 'is_rel', getattr(load, 'is_relative', False))
+                dist_val = load.dist
+                if is_rel and dist_val > 1.0: dist_val /= 100.0                         
+                a = dist_val * L if is_rel else dist_val
+                
+                dir_str = str(getattr(load, 'dir', getattr(load, 'direction', getattr(load, 'axis', 'Z')))).upper()
+                if "X" in dir_str or "1" in dir_str: idx = 0
+                elif "Y" in dir_str or "2" in dir_str: idx = 1
+                else: idx = 2
+                
+                vec = np.zeros(3)
                 vec[idx] = load.force
-                if not is_local:
-                    vec = R_3x3 @ vec
-                l_type = getattr(load, 'load_type', 'Force').lower()
-                if l_type == 'moment':
+                if not is_local: vec = R_3x3 @ vec
+                    
+                type_str = str(getattr(load, 'type', getattr(load, 'load_type', getattr(load, 'l_type', 'Force')))).upper()
+                if 'MOMENT' in type_str:
                     point_loads.append({'a': a, 'F': np.zeros(3), 'M': vec})
                 else:
-                    point_loads.append({'a': a, 'F': vec,          'M': np.zeros(3)})
+                    point_loads.append({'a': a, 'F': vec, 'M': np.zeros(3)})
 
         for i, x in enumerate(self.stations):
             P_val  = -Fx1 - w_loc[0] * x
@@ -173,8 +232,8 @@ class MemberAnalyzer:
                     P_val  -= pl['F'][0]
                     V2_val += pl['F'][1]
                     V3_val -= pl['F'][2]
-                    M3_val += -pl['F'][1] * dist_x - pl['M'][2]
-                    M2_val += pl['F'][2] * dist_x - pl['M'][1]
+                    M3_val += -pl['F'][1] * dist_x + pl['M'][2]                               
+                    M2_val += pl['F'][2] * dist_x + pl['M'][1]
 
             self.P[i]  = P_val
             self.V2[i] = V2_val
@@ -310,14 +369,64 @@ class FBDViewerDialog(QDialog):
         
         n1, n2 = str(el.node_i.id), str(el.node_j.id)
         
+        if "rsa_info" in self.results:
+            rsa = self.results["rsa_info"]
+            dir_comb = rsa.get("dir_comb", "SRSS")
+            dirs_data = rsa.get("directions", [rsa])
+            
+            final_end_forces = np.zeros(12)
+            
+            for d_info in dirs_data:
+                method = d_info.get("method", "SRSS")
+                zeta = d_info.get("zeta", 0.05)
+                omega = d_info.get("omega_array", [])
+                u_raw = d_info.get("uncombined_u", {})
+                
+                n_modes = len(omega)
+                if n_modes == 0: continue
+                
+                per_mode_forces = np.zeros((n_modes, 12))
+                u1_modes = u_raw.get(n1, [np.zeros(6)] * n_modes)
+                u2_modes = u_raw.get(n2, [np.zeros(6)] * n_modes)
+                
+                for i in range(n_modes):
+                    u_global_mode = np.concatenate([u1_modes[i], u2_modes[i]])
+                    per_mode_forces[i] = k @ (t @ u_global_mode)
+                    
+                d_end_forces = np.zeros(12)
+                if method == "CQC" and n_modes > 0:
+                    for d in range(12):
+                        f_total = 0.0
+                        for i in range(n_modes):
+                            for j in range(n_modes):
+                                if omega[i] == 0 or omega[j] == 0: rho = 1.0 if omega[i] == omega[j] else 0.0
+                                else:
+                                    r = omega[i] / omega[j]
+                                    num = 8.0 * zeta**2 * (1.0 + r) * r**1.5
+                                    den = (1.0 - r**2)**2 + 4.0 * zeta**2 * r * (1.0 + r)**2
+                                    rho = num / den if den != 0.0 else 1.0
+                                f_total += per_mode_forces[i, d] * rho * per_mode_forces[j, d]
+                        d_end_forces[d] = np.sqrt(abs(f_total))
+                else:
+                    d_end_forces = np.sqrt(np.sum(per_mode_forces**2, axis=0))
+                    
+                if dir_comb == "SRSS":
+                    final_end_forces += d_end_forces**2
+                else:
+                    final_end_forces += np.abs(d_end_forces)
+                    
+            if dir_comb == "SRSS":
+                return np.sqrt(final_end_forces)
+            else:
+                return final_end_forces
+
         base_dict = self.results.get("_base_displacements", self.results.get("displacements", {}))
         u1 = base_dict.get(n1, [0]*6)
         u2 = base_dict.get(n2, [0]*6)
-        
         u_global = np.array(u1 + u2)
 
         return k @ (t @ u_global) + fef
-
+    
     def _convert_forces_to_display(self):
         if self.forces_base is None: return None
         
@@ -335,8 +444,101 @@ class FBDViewerDialog(QDialog):
         rj = getattr(self.element, 'end_offset_j', 0.0)
         L_clear = L_full - ri - rj
         
-        Defl_2_Abs = np.zeros(101); Defl_3_Abs = np.zeros(101)
         stations = np.linspace(ri, L_full - rj, 101)
+
+        if "rsa_info" in self.results:
+            rsa = self.results["rsa_info"]
+            dir_comb = rsa.get("dir_comb", "SRSS")
+            dirs_data = rsa.get("directions", [rsa])
+
+            P_final = np.zeros(101); V2_final = np.zeros(101); V3_final = np.zeros(101)
+            M2_final = np.zeros(101); M3_final = np.zeros(101)
+            
+            Defl_2_Rel = np.zeros(101); Defl_3_Rel = np.zeros(101)
+            Defl_2_Abs = np.zeros(101); Defl_3_Abs = np.zeros(101)
+
+            k = np.array(self.matrices[self.element_id]['k'])
+            t = np.array(self.matrices[self.element_id]['t'])
+            n1, n2 = str(self.element.node_i.id), str(self.element.node_j.id)
+
+            for d_info in dirs_data:
+                method = d_info.get("method", "SRSS")
+                zeta = d_info.get("zeta", 0.05)
+                omega = d_info.get("omega_array", [])
+                u_raw = d_info.get("uncombined_u", {})
+                
+                n_modes = len(omega)
+                if n_modes == 0: continue
+
+                u1_modes = u_raw.get(n1, [np.zeros(6)] * n_modes)
+                u2_modes = u_raw.get(n2, [np.zeros(6)] * n_modes)
+
+                P_modes = np.zeros((n_modes, 101)); V2_modes = np.zeros((n_modes, 101))
+                V3_modes = np.zeros((n_modes, 101)); M2_modes = np.zeros((n_modes, 101))
+                M3_modes = np.zeros((n_modes, 101))
+
+                for i in range(n_modes):
+                    u_global_mode = np.concatenate([u1_modes[i], u2_modes[i]])
+                    end_f_mode = k @ (t @ u_global_mode)
+                    Fx1, Fy1, Fz1 = end_f_mode[0:3]
+                    Mx1, My1, Mz1 = end_f_mode[3:6]
+
+                    for j, x_abs in enumerate(stations):
+                        x_c = x_abs - ri
+                        P_modes[i, j] = -Fx1
+                        V2_modes[i, j] = Fy1
+                        V3_modes[i, j] = -Fz1
+                        M3_modes[i, j] = Mz1 - Fy1 * x_c
+                        M2_modes[i, j] = My1 + Fz1 * x_c
+
+                P_dir = np.zeros(101); V2_dir = np.zeros(101); V3_dir = np.zeros(101)
+                M2_dir = np.zeros(101); M3_dir = np.zeros(101)
+
+                if method == "CQC" and n_modes > 0:
+                    for j in range(101):
+                        p_tot=0; v2_tot=0; v3_tot=0; m2_tot=0; m3_tot=0
+                        for m1 in range(n_modes):
+                            for m2 in range(n_modes):
+                                if omega[m1] == 0 or omega[m2] == 0: rho = 1.0 if omega[m1]==omega[m2] else 0.0
+                                else:
+                                    r = omega[m1] / omega[m2]
+                                    den = (1.0 - r**2)**2 + 4.0 * zeta**2 * r * (1.0 + r)**2
+                                    rho = (8.0 * zeta**2 * (1.0 + r) * r**1.5) / den if den != 0.0 else 1.0
+                                p_tot  += P_modes[m1, j] * rho * P_modes[m2, j]
+                                v2_tot += V2_modes[m1, j] * rho * V2_modes[m2, j]
+                                v3_tot += V3_modes[m1, j] * rho * V3_modes[m2, j]
+                                m2_tot += M2_modes[m1, j] * rho * M2_modes[m2, j]
+                                m3_tot += M3_modes[m1, j] * rho * M3_modes[m2, j]
+                        P_dir[j] = np.sqrt(abs(p_tot)); V2_dir[j] = np.sqrt(abs(v2_tot)); V3_dir[j] = np.sqrt(abs(v3_tot))
+                        M2_dir[j] = np.sqrt(abs(m2_tot)); M3_dir[j] = np.sqrt(abs(m3_tot))
+                else:
+                    P_dir = np.sqrt(np.sum(P_modes**2, axis=0))
+                    V2_dir = np.sqrt(np.sum(V2_modes**2, axis=0))
+                    V3_dir = np.sqrt(np.sum(V3_modes**2, axis=0))
+                    M2_dir = np.sqrt(np.sum(M2_modes**2, axis=0))
+                    M3_dir = np.sqrt(np.sum(M3_modes**2, axis=0))
+
+                if dir_comb == "SRSS":
+                    P_final += P_dir**2
+                    V2_final += V2_dir**2
+                    V3_final += V3_dir**2
+                    M2_final += M2_dir**2
+                    M3_final += M3_dir**2
+                else:
+                    P_final += np.abs(P_dir)
+                    V2_final += np.abs(V2_dir)
+                    V3_final += np.abs(V3_dir)
+                    M2_final += np.abs(M2_dir)
+                    M3_final += np.abs(M3_dir)
+
+            if dir_comb == "SRSS":
+                P_final = np.sqrt(P_final)
+                V2_final = np.sqrt(V2_final)
+                V3_final = np.sqrt(V3_final)
+                M2_final = np.sqrt(M2_final)
+                M3_final = np.sqrt(M3_final)
+
+            return stations, P_final, V2_final, V3_final, M2_final, M3_final, Defl_2_Rel, Defl_3_Rel, Defl_2_Abs, Defl_3_Abs
         
         Fx1, Fy1, Fz1, Mx1, My1, Mz1 = self.forces_base[0:6]
         
@@ -364,10 +566,10 @@ class FBDViewerDialog(QDialog):
             active_case = self.model.load_cases[active_case_name]
             
             for pat_name, scale_factor in active_case.loads:
-                if pat_name in self.model.load_patterns:
+                if pat_name in getattr(self.model, 'load_patterns', {}):
                     pat = self.model.load_patterns[pat_name]
                     
-                    if pat.self_weight_multiplier > 0:
+                    if getattr(pat, 'self_weight_multiplier', 0) > 0:
                         area = getattr(self.element.section, 'A', 0)
                         density = getattr(self.element.section.material, 'density', 0)
                         
@@ -388,25 +590,35 @@ class FBDViewerDialog(QDialog):
                     w_loc += w_vec
                     
                 elif hasattr(load, 'force'): 
-                    a = load.dist * L_full if getattr(load, 'is_relative', False) else load.dist
+                                                             
+                    is_rel = getattr(load, 'is_rel', getattr(load, 'is_relative', False))
+                    dist_val = load.dist
+                    if is_rel and dist_val > 1.0: dist_val /= 100.0
+                    a = dist_val * L_full if is_rel else dist_val
                     a_clear = a - ri
                     
                     if 0 <= a_clear <= L_clear:
-                        dir_map = {'X': 0, 'Y': 1, 'Z': 2, '1': 0, '2': 1, '3': 2}
-                        idx = dir_map.get(str(getattr(load, 'direction', 'Z')).upper(), 2)
+                                             
+                        dir_str = str(getattr(load, 'dir', getattr(load, 'direction', getattr(load, 'axis', 'Z')))).upper()
+                        if "X" in dir_str or "1" in dir_str: idx = 0
+                        elif "Y" in dir_str or "2" in dir_str: idx = 1
+                        else: idx = 2
                         
                         vec = np.zeros(3)
                         vec[idx] = load.force
                         if not is_local: vec = R_3x3 @ vec
                         
-                        l_type = getattr(load, 'load_type', 'Force').lower()
-                        if l_type == 'moment': point_loads.append({'a_clear': a_clear, 'F': np.zeros(3), 'M': vec})
-                        else: point_loads.append({'a_clear': a_clear, 'F': vec, 'M': np.zeros(3)})
-        
+                        type_str = str(getattr(load, 'type', getattr(load, 'load_type', getattr(load, 'l_type', 'Force')))).upper()
+                        if 'MOMENT' in type_str: 
+                            point_loads.append({'a_clear': a_clear, 'F': np.zeros(3), 'M': vec})
+                        else: 
+                            point_loads.append({'a_clear': a_clear, 'F': vec, 'M': np.zeros(3)})
         P = np.zeros(101)
         V2 = np.zeros(101); M3 = np.zeros(101)
         V3 = np.zeros(101); M2 = np.zeros(101)
+        
         Defl_2_Rel = np.zeros(101); Defl_3_Rel = np.zeros(101)
+        Defl_2_Abs = np.zeros(101); Defl_3_Abs = np.zeros(101)
         
         for i, x_abs in enumerate(stations):
             x_c = x_abs - ri
@@ -426,8 +638,8 @@ class FBDViewerDialog(QDialog):
                     P[i] -= pl['F'][0]
                     V2[i] += pl['F'][1]                            
                     V3[i] -= pl['F'][2]                              
-                    M3[i] += -pl['F'][1] * dist_x - pl['M'][2]
-                    M2[i] += pl['F'][2] * dist_x - pl['M'][1]
+                    M3[i] += -pl['F'][1] * dist_x + pl['M'][2]                                
+                    M2[i] += pl['F'][2] * dist_x + pl['M'][1]
             
             N1 = 1 - 3*xi**2 + 2*xi**3
             N2 = x_c * (1 - 2*xi + xi**2)
@@ -449,12 +661,10 @@ class FBDViewerDialog(QDialog):
             
             Defl_2_Rel[i] = (defl_2_abs - chord_2) + defl_bubble_2
             Defl_3_Rel[i] = (defl_3_abs - chord_3) + defl_bubble_3
-
             Defl_2_Abs[i] = defl_2_abs + defl_bubble_2
             Defl_3_Abs[i] = defl_3_abs + defl_bubble_3
             
         return stations, P, V2, V3, M2, M3, Defl_2_Rel, Defl_3_Rel, Defl_2_Abs, Defl_3_Abs
-    
     def add_nvm_tab(self):
         tab = QWidget()
         layout = QVBoxLayout(tab)

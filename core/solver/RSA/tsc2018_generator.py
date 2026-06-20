@@ -87,9 +87,19 @@ class TSC2018SpectrumGenerator:
                                             
             key_points = [0.0, ta/3.0, tb/3.0, tl/2.0]
 
-        step = 0.2
-                                                              
-        raw_grid = np.arange(step, t_max + step, step) 
+        raw_grid_list = []
+        
+        t_curr = 0.2
+        while t_curr <= 2.01:              
+            raw_grid_list.append(t_curr)
+            t_curr += 0.2
+            
+        t_curr = 2.5
+        while t_curr <= t_max + 0.01:                   
+            raw_grid_list.append(t_curr)
+            t_curr += 0.5
+            
+        raw_grid = np.array(raw_grid_list)
         
         final_list = list(key_points)
         

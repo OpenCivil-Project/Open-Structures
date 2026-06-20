@@ -1,4 +1,4 @@
-# app/graphic/_vbo_text.py
+                          
 import os
 import numpy as np
 from OpenGL.GL import *

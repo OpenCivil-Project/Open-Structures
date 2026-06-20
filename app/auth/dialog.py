@@ -1,7 +1,7 @@
 """
 auth/dialog.py
 --------------
-Redesigned login dialog for Open / Structure.
+Redesigned login dialog for Open//Structures.
 Quiet-confidence aesthetic: off-white textured surface, zero gradients,
 IBM blue (#0F62FE) as the single accent. All backend logic preserved.
 """
@@ -247,7 +247,7 @@ def _field_label(text: str) -> QLabel:
 
 class LoginDialog(QDialog):
     """
-    Redesigned Open / Structure login dialog.
+    Redesigned Open//Structures login dialog.
     Quiet-confidence aesthetic — all auth logic preserved.
     """
 
@@ -258,7 +258,7 @@ class LoginDialog(QDialog):
         self._auth_thread = None
         self._mode        = "login"
 
-        self.setWindowTitle("Open / Structure")
+        self.setWindowTitle("Open//Structures")
         self.setFixedSize(420, 624)
 
         icon_path = self._find_asset_static("logo.png") or self._find_asset_static("logo.ico")
@@ -283,7 +283,7 @@ class LoginDialog(QDialog):
 
     def _build_ui(self):
         root = QVBoxLayout(self)
-        root.setContentsMargins(40, 36, 40, 36)
+        root.setContentsMargins(40, 40, 40, 36)
         root.setSpacing(0)
 
         logo_row = QHBoxLayout()
@@ -291,10 +291,12 @@ class LoginDialog(QDialog):
         logo_row.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
 
         logo_lbl = QLabel()
+        logo_lbl.setFixedSize(42, 42)
+
         logo_path = self._find_asset("logo.png") or self._find_asset("logo.ico")
         if logo_path:
             px = QPixmap(logo_path).scaled(
-                22, 22,
+                42, 42,
                 Qt.AspectRatioMode.KeepAspectRatio,
                 Qt.TransformationMode.SmoothTransformation,
             )
@@ -303,9 +305,13 @@ class LoginDialog(QDialog):
             logo_lbl.setText("O/S")
             logo_lbl.setStyleSheet(f"color: {ACCENT}; font-size: 18px; font-weight: bold;")
 
-        app_name = QLabel("Open / Structure")
+        app_name = QLabel("Open//Structures")
         app_name.setFont(QFont("Segoe UI Semibold", 12))
-        app_name.setStyleSheet(f"color: {TEXT_PRIMARY};")
+        
+        app_name.setStyleSheet(f"""
+            color: {TEXT_PRIMARY};
+            margin-top: 5px;
+        """)
 
         logo_row.addWidget(logo_lbl)
         logo_row.addWidget(app_name)
@@ -484,7 +490,7 @@ class LoginDialog(QDialog):
         if self._mode == "login":
             self._mode = "register"
             self.lbl_heading.setText("Create account.")
-            self.tagline.setText("Join Open / Structure today")
+            self.tagline.setText("Join Open//Structures today")
             self.btn_primary.setText("Create Account")
             self.lbl_toggle_hint.setText("Already have an account?")
             self.btn_toggle.setText("Sign in")

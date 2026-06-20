@@ -1,4 +1,4 @@
-# app/graphic/_vbo_force_load.py
+                                
 import numpy as np
 from OpenGL.GL import *
 import ctypes

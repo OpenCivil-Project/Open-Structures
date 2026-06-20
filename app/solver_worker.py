@@ -72,6 +72,9 @@ class SolverWorker(QThread):
                     
                     engine = RSAEngine(modal_output_path, temp_model.__dict__)
                     
+                    from progress import make_callback
+                    cb = make_callback(self.signal_progress.emit)
+                    
                     shear_results = [] 
                     disp_results = []
                     rsa_detailed_tables = {} 
@@ -81,9 +84,15 @@ class SolverWorker(QThread):
                     fy_results = []
                     fz_results = []
 
+                    mx_results = []
+                    my_results = []
+                    mz_results = []
+
                     if hasattr(case_obj, 'rsa_loads') and case_obj.rsa_loads:
-                        print(f"Worker: Found {len(case_obj.rsa_loads)} load components.")
+                        cb(f"Worker: Found {len(case_obj.rsa_loads)} load components.", 5)
                         modal_comb = getattr(case_obj, 'modal_comb', 'SRSS')
+                        
+                        all_rsa_directions = []
                         
                         for u_dir, func, scale in case_obj.rsa_loads:
                             direction = "X"
@@ -96,10 +105,17 @@ class SolverWorker(QThread):
                                 function_name=func, 
                                 direction=direction, 
                                 modal_comb=modal_comb, 
-                                damping_ratio=damp_val  
+                                damping_ratio=damp_val,
+                                progress_callback=cb
                             )
 
                             if res_dict:
+                                                                                          
+                                dir_info = res_dict.get("rsa_info", {})
+                                dir_info["direction"] = direction
+                                dir_info["scale"] = scale
+                                all_rsa_directions.append(dir_info)
+
                                 shear_results.append(res_dict["base_shear_coeff"])
                                 disp_results.append(res_dict["displacements"])
                                 
@@ -110,19 +126,23 @@ class SolverWorker(QThread):
                                     fx_results.append(res_dict["base_reaction"]["Fx"])
                                     fy_results.append(res_dict["base_reaction"]["Fy"])
                                     fz_results.append(res_dict["base_reaction"]["Fz"])
+
+                                    mx_results.append(res_dict["base_reaction"]["Mx"])
+                                    my_results.append(res_dict["base_reaction"]["My"])
+                                    mz_results.append(res_dict["base_reaction"]["Mz"])
+
                                 else:
                                     fx_results.append(0.0); fy_results.append(0.0); fz_results.append(0.0)
-
-                                summary_items.append({
-                                    "label": f"Base Shear Coeff ({direction})",
-                                    "value": res_dict["base_shear_coeff"],
-                                    "desc": f"V / W_total ({direction})"
-                                })
+                                    mx_results.append(0.0); my_results.append(0.0); mz_results.append(0.0) 
+                                
+                                if "rsa_summary" in res_dict:
+                                    summary_items.extend(res_dict["rsa_summary"])
 
                         method = getattr(case_obj, 'dir_comb', 'SRSS')
                         final_base_shear = 0.0
                         final_displacements = {}
                         final_Fx, final_Fy, final_Fz = 0.0, 0.0, 0.0
+                        final_Mx, final_My, final_Mz = 0.0, 0.0, 0.0
                         
                         if shear_results:
                             if method == "SRSS":
@@ -130,11 +150,17 @@ class SolverWorker(QThread):
                                 final_Fx = np.sqrt(sum(v**2 for v in fx_results))
                                 final_Fy = np.sqrt(sum(v**2 for v in fy_results))
                                 final_Fz = np.sqrt(sum(v**2 for v in fz_results))
+                                final_Mx = np.sqrt(sum(v**2 for v in mx_results))
+                                final_My = np.sqrt(sum(v**2 for v in my_results))
+                                final_Mz = np.sqrt(sum(v**2 for v in mz_results))
                             else:           
                                 final_base_shear = sum(abs(v) for v in shear_results)
                                 final_Fx = sum(abs(v) for v in fx_results)
                                 final_Fy = sum(abs(v) for v in fy_results)
                                 final_Fz = sum(abs(v) for v in fz_results)
+                                final_Mx = sum(abs(v) for v in mx_results)
+                                final_My = sum(abs(v) for v in my_results)
+                                final_Mz = sum(abs(v) for v in mz_results)
                             
                             if disp_results:
                                 ref_disps = disp_results[0]
@@ -144,9 +170,9 @@ class SolverWorker(QThread):
                                         if nid in d_dict:
                                             vals = np.array(d_dict[nid])
                                             if method == "SRSS":
-                                                combined_dofs += vals**2
+                                                combined_dofs += (vals * case_obj.rsa_loads[run_idx][2])**2
                                             else:
-                                                combined_dofs += np.abs(vals)
+                                                combined_dofs += np.abs(vals * case_obj.rsa_loads[run_idx][2])
                                                 
                                     if method == "SRSS":
                                         combined_dofs = np.sqrt(combined_dofs)
@@ -160,18 +186,46 @@ class SolverWorker(QThread):
                                 full_data = {}
 
                             full_data["status"] = "SUCCESS"
-                            full_data["rsa_info"] = {"type": "Response Spectrum Combined", "method": method}
+                            
+                            full_data["rsa_info"] = {
+                                "type": "Response Spectrum Combined",
+                                "dir_comb": method,
+                                "directions": all_rsa_directions
+                            }
+                            
                             full_data["base_shear_coeff"] = final_base_shear
                             full_data["displacements"] = final_displacements
                             full_data["base_reaction"] = {
                                 "Fx": final_Fx, "Fy": final_Fy, "Fz": final_Fz,
-                                "Mx": 0.0, "My": 0.0, "Mz": 0.0                                                       
+                                "Mx": final_Mx, "My": final_My, "Mz": final_Mz                                                  
                             }
                             full_data["rsa_detailed"] = rsa_detailed_tables
                             full_data["rsa_summary"] = summary_items
                             
                             with open(self.output_path, 'w') as f:
                                 json.dump(full_data, f, indent=4)
+                                
+                            import shutil
+                            import glob
+                            
+                            base_path = self.output_path.replace("_results.json", "") 
+                            
+                            if "_" in os.path.basename(base_path):
+                                prefix_dir = os.path.dirname(base_path)
+                                base_name = os.path.basename(base_path).rsplit("_", 1)[0]
+                                search_pattern = os.path.join(prefix_dir, f"{base_name}_*_matrices.json")
+                            else:
+                                search_pattern = f"{base_path}_*_matrices.json"
+                            
+                            found_matrices = glob.glob(search_pattern)
+                            rsa_matrices_path = self.output_path.replace("_results.json", "_matrices.json")
+                            
+                            if found_matrices:
+                                                                                                       
+                                shutil.copy2(found_matrices[0], rsa_matrices_path)
+                                print(f"Worker: Successfully linked element matrices from {os.path.basename(found_matrices[0])}")
+                            else:
+                                print(f"Worker Warning: Could not find any static matrices matching '{search_pattern}'. Spy Dialogs may be empty.")
                                 
                             success = True
                         else:

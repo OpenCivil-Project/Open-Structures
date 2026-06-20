@@ -59,8 +59,9 @@ from app.ipc import IPCManager
 from app.dialogs.analysis_progress_dialog import AnalysisProgressDialog
 from app.dialogs.area_mesh_dialog import AreaMeshDialog
 from release_notes import RELEASE_NOTES, NOTICES
+from app.dialogs.display_reactions_dialog import DisplayReactionsDialog
 
-class OPENCIVILSplash(QSplashScreen):
+class OpenStructureSplash(QSplashScreen):
     def __init__(self, pixmap):
         super().__init__(pixmap)
         self.setWindowFlag(Qt.WindowType.FramelessWindowHint)
@@ -212,7 +213,7 @@ class MainWindow(QMainWindow):
         }
 
         import json as _json
-        _prefs_path = os.path.join(os.path.expanduser("~"), ".opencivil_prefs.json")
+        _prefs_path = os.path.join(os.path.expanduser("~"), ".Open//Structures_prefs.json")
         if os.path.exists(_prefs_path):
             try:
                 with open(_prefs_path) as _f:
@@ -220,14 +221,14 @@ class MainWindow(QMainWindow):
                     for _k in ("background_color", "node_color", "edge_color"):
                         if _k in _saved and isinstance(_saved[_k], list):
                             _saved[_k] = tuple(_saved[_k])
-                    # If prefs still carry the old yellow default, reset to red
+                                                                               
                     if _saved.get("node_color") == (1.0, 1.0, 0.0, 1.0):
                         _saved["node_color"] = (1.0, 0.0, 0.0, 1.0)
                     self.graphics_settings.update(_saved)
             except Exception:
                 pass
         
-        self.setWindowTitle("OpenCivil v0.7.75")
+        self.setWindowTitle("Open//Structures v0.7.80")
         self.resize(1200, 800)
 
         icon_path = os.path.join(root_dir, "app", "graphic", "logo.png") 
@@ -264,7 +265,6 @@ class MainWindow(QMainWindow):
             self.sound_effect.setSource(QUrl.fromLocalFile(sound_path))
         else:
             print(f"Warning: Sound file not found at {sound_path}")
-
 
         self.draw_area_mode_active = False
         self.draw_area_dialog = None
@@ -335,7 +335,6 @@ class MainWindow(QMainWindow):
 
         self.menu_define = menubar.addMenu("Define")
 
-        
         grid_action = QAction(qta.icon('fa5s.th', color='#6c757d'), "Grid System...", self)
         grid_action.triggered.connect(self.open_grid_editor)
         self.menu_define.addAction(grid_action)
@@ -653,9 +652,6 @@ class MainWindow(QMainWindow):
         self.canvas2 = MCanvas3D()
         self.active_canvas = self.canvas
 
-        # Sync display_config from persisted/default graphics_settings immediately,
-        # so node color, size, etc. are correct even before any file is opened
-        # or update_graphics_settings() is explicitly called.
         self.canvas.display_config  = self.graphics_settings
         self.canvas2.display_config = self.graphics_settings
 
@@ -705,7 +701,7 @@ class MainWindow(QMainWindow):
         self.menu_assign = menubar.addMenu("Assign")
 
         self.menu_assign_area = self.menu_assign.addMenu("Area") 
-        self.menu_assign_area.setIcon(qta.icon('fa5s.vector-square', color='#6c757d')) # Optional: adds icon to the Area submenu too
+        self.menu_assign_area.setIcon(qta.icon('fa5s.vector-square', color='#6c757d'))                                              
         
         self.action_area_mesh = QAction(qta.icon('fa5s.th', color='#6c757d'), "Automatic Area Mesh...", self)
         self.action_area_mesh.triggered.connect(self.on_assign_area_mesh)
@@ -723,7 +719,6 @@ class MainWindow(QMainWindow):
         self.action_area_gravity_load.triggered.connect(self.on_assign_area_gravity_load)
         self.menu_assign_area.addAction(self.action_area_gravity_load)
         
-
         self.menu_select = menubar.addMenu("Select")
 
         all_action = QAction(qta.icon('fa5s.border-all', color='#6c757d'), "All", self)
@@ -839,12 +834,24 @@ class MainWindow(QMainWindow):
             "Display Frame Forces...",
             self
         )
-        self.action_display_forces.setEnabled(False)                                    
+        self.action_display_forces.setEnabled(False)                               
         self.action_display_forces.triggered.connect(self.on_display_frame_forces)
         self.menu_analyze.addAction(self.action_display_forces)
 
         self.menu_analyze.addSeparator()
+
+        self.action_display_reactions = QAction(
+            qta.icon('fa5s.anchor', color='#6c757d'),
+            "Display Joint Reactions...",
+            self
+        )
+        self.action_display_reactions.setEnabled(False)
+        self.action_display_reactions.triggered.connect(self.on_display_joint_reactions)
+        self.menu_analyze.addAction(self.action_display_reactions)
+
+        self.menu_analyze.addSeparator()
         self.res_action = QAction(qta.icon('fa5s.table', color='#6c757d'), "Show Result Tables...", self)
+        self.res_action.setShortcut("Ctrl+T")
         self.res_action.triggered.connect(self.on_show_modal_results)
         self.menu_analyze.addAction(self.res_action)
 
@@ -1012,18 +1019,15 @@ class MainWindow(QMainWindow):
         from PyQt6.QtWidgets import QScrollArea, QVBoxLayout, QWidget, QLabel, QFrame
         from PyQt6.QtCore import Qt
 
-        # Light theme IDE aesthetic: Monospace tags, high-contrast crisp colors.
         TAG_STYLES = {
-            "new":  ("color: #0F7B0F; font-family: Consolas, monospace; font-weight: bold;", "[+] NEW "), # Deep Green
-            "fix":  ("color: #B85C00; font-family: Consolas, monospace; font-weight: bold;", "[~] FIX "), # Burnt Orange
-            "impr": ("color: #5C5C5C; font-family: Consolas, monospace; font-weight: bold;", "[*] IMPR"), # Slate Gray
+            "new":  ("color: #0F7B0F; font-family: Consolas, monospace; font-weight: bold;", "[+] NEW "),             
+            "fix":  ("color: #B85C00; font-family: Consolas, monospace; font-weight: bold;", "[~] FIX "),               
+            "impr": ("color: #5C5C5C; font-family: Consolas, monospace; font-weight: bold;", "[*] IMPR"),             
         }
 
-        # ── Root widget ────────────────────────────────────────────────────────
         self.welcome_overlay = QWidget(self.canvas_splitter)
         self.welcome_overlay.setObjectName("welcome_overlay_root")
         
-        # Locked white background with a sharp, subtle structural border
         self.welcome_overlay.setStyleSheet("""
             #welcome_overlay_root {
                 background-color: #FFFFFF;
@@ -1036,7 +1040,6 @@ class MainWindow(QMainWindow):
         root_layout.setContentsMargins(32, 32, 32, 24)
         root_layout.setSpacing(0)
 
-        # ── Branding ───────────────────────────────────────────────────────────
         branding = QLabel()
         branding.setAlignment(Qt.AlignmentFlag.AlignLeft)
         branding.setTextFormat(Qt.TextFormat.RichText)
@@ -1044,7 +1047,7 @@ class MainWindow(QMainWindow):
         branding.setText(
             "<div style='font-family: \"Segoe UI\", sans-serif;'>"
             "<div style='font-size: 26px; font-weight: 300; color: #111111; letter-spacing: 1px;'>"
-            "Open<span style='font-weight: 700; color: #005A9E;'>Civil</span></div>"
+            "Open<span style='font-weight: 700; color: #005A9E;'>//Structures</span></div>"
             "<div style='font-size: 11px; color: #666666; margin-top: 4px; font-weight: 600; letter-spacing: 1px;'>"
             "STRUCTURAL ANALYSIS &amp; DESIGN PLATFORM</div>"
             "<div style='margin-top: 24px; font-size: 13px; color: #333333;'>Status: Ready. No model loaded.</div>"
@@ -1056,25 +1059,21 @@ class MainWindow(QMainWindow):
         )
         root_layout.addWidget(branding)
 
-        # ── Separator ──────────────────────────────────────────────────────────
         sep = QFrame()
         sep.setFrameShape(QFrame.Shape.HLine)
         sep.setStyleSheet("background-color: #E6E6E6; max-height: 1px; margin-top: 20px; margin-bottom: 16px;")
         root_layout.addWidget(sep)
 
-        # ── "What's New" label ─────────────────────────────────────────────────
         whats_new_lbl = QLabel("SYSTEM LOG // RELEASE NOTES")
         whats_new_lbl.setStyleSheet(
             "font-family: 'Segoe UI'; font-size: 10px; font-weight: 700; color: #767676; letter-spacing: 1.5px; margin-bottom: 8px;"
         )
         root_layout.addWidget(whats_new_lbl)
 
-        # ── Scroll area ────────────────────────────────────────────────────────
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
         scroll.setFrameShape(QFrame.Shape.NoFrame)
         
-        # Clean, flat light-mode scrollbar.
         scroll.setStyleSheet("""
             QScrollArea { background: transparent; border: none; }
             QWidget#notes_container { background: transparent; }
@@ -1096,12 +1095,10 @@ class MainWindow(QMainWindow):
         notes_layout.setContentsMargins(0, 0, 16, 0)
         notes_layout.setSpacing(0)
 
-        # ── Notices (inside scroll) ────────────────────────────────────────────
         if NOTICES:
             notice_box = QWidget()
-            notice_box.setObjectName("notice_box") # Assign a specific ID
+            notice_box.setObjectName("notice_box")                       
             
-            # Target ONLY the #notice_box ID so child QLabels don't inherit the border
             notice_box.setStyleSheet("""
                 #notice_box {
                     background-color: #FFFDF0;
@@ -1131,7 +1128,6 @@ class MainWindow(QMainWindow):
             notes_layout.addWidget(notice_box)
             notes_layout.addSpacing(16)
 
-        # ── Release notes (inside scroll) ─────────────────────────────────────
         for i, release in enumerate(RELEASE_NOTES):
             ver_lbl = QLabel(
                 f"<span style='font-family: Consolas, monospace; font-weight: 700; font-size: 13px; color: #005A9E;'>"
@@ -1165,14 +1161,12 @@ class MainWindow(QMainWindow):
         scroll.setWidget(notes_container)
         root_layout.addWidget(scroll, 1)
 
-        # ── Opacity effect (needed by _show/_hide_welcome_overlay_animated) ────
         from PyQt6.QtWidgets import QGraphicsOpacityEffect
         _opacity_effect = QGraphicsOpacityEffect(self.welcome_overlay)
         _opacity_effect.setOpacity(1.0)
         self.welcome_overlay.setGraphicsEffect(_opacity_effect)
         self._welcome_opacity = _opacity_effect
 
-        # ── Show (Instant Native Feel) ─────────────────────────────────────────
         self.welcome_overlay.raise_()
         self.welcome_overlay.show()
         self._reposition_welcome_overlay()
@@ -1442,6 +1436,7 @@ class MainWindow(QMainWindow):
         self.btn_deform.setEnabled(False)
         self.btn_deform.setChecked(False)
         self.action_display_forces.setEnabled(False)
+        self.action_display_reactions.setEnabled(False)
         
         self.btn_lock.setIcon(qta.icon('fa5s.unlock', color='#6c757d'))
         self.btn_lock.setToolTip("Model is editable.")
@@ -1450,6 +1445,8 @@ class MainWindow(QMainWindow):
             if cvs is not None:
                 if hasattr(cvs, 'clear_force_diagrams'):
                     cvs.clear_force_diagrams()
+                if hasattr(self.active_canvas, 'clear_reaction_diagram'):
+                    self.active_canvas.clear_reaction_diagram()
                 cvs.view_deflected = False
                 cvs.anim_factor = 0.0
                 cvs.invalidate_animation_cache()
@@ -1530,7 +1527,7 @@ class MainWindow(QMainWindow):
                 self.update_window_title()
 
     def on_open_model(self):
-        filename, _ = QFileDialog.getOpenFileName(self, "Open Model", "", "OPENCIVIL Files (*.mf);;All Files (*)")
+        filename, _ = QFileDialog.getOpenFileName(self, "Open Model", "", "Open//Structures Files (*.mf);;All Files (*)")
         if filename:
             try:
                 self._purge_results_and_visuals()                
@@ -1575,7 +1572,7 @@ class MainWindow(QMainWindow):
         if current_path:
             filename = current_path
         else:
-            filename, _ = QFileDialog.getSaveFileName(self, "Save Model", "", "OPENCIVIL Files (*.mf);;All Files (*)")
+            filename, _ = QFileDialog.getSaveFileName(self, "Save Model", "", "Open//Structures Files (*.mf);;All Files (*)")
 
         if filename:
             if not filename.endswith(".mf"): filename += ".mf"
@@ -1847,7 +1844,6 @@ class MainWindow(QMainWindow):
         else:
             self.status.showMessage("Cross Brace placed. Click another cell or Esc to exit.")
 
-
     def on_draw_poly_area(self):
         if not self.model.area_sections:
             from PyQt6.QtWidgets import QMessageBox
@@ -2091,14 +2087,13 @@ class MainWindow(QMainWindow):
     def handle_area_box_selection(self, area_ids, is_additive, is_deselect):
         """Handle selection/deselection of area elements from canvas signals."""
         
-        # --- NEW: Filter out areas not on the active 2D plane ---
         active_plane = self.active_canvas.active_view_plane
         is_2d_view = self.active_canvas._view_mode in ["XY", "XZ", "YZ"]
         
         if is_2d_view and active_plane:
-            axis = active_plane['axis']       # 'x', 'y', or 'z'
+            axis = active_plane['axis']                         
             plane_val = active_plane['value']
-            tol = 1e-5                        # Tolerance for floating-point inaccuracies
+            tol = 1e-5                                                                   
             
             filtered_ids = []
             for aid in area_ids:
@@ -2109,7 +2104,6 @@ class MainWindow(QMainWindow):
                 if not area_obj or not hasattr(area_obj, 'nodes'):
                     continue
                     
-                # Check if all nodes of the area element lie mathematically on the active plane
                 on_plane = True
                 for node in area_obj.nodes:
                     node_val = getattr(node, axis)
@@ -2121,8 +2115,7 @@ class MainWindow(QMainWindow):
                     filtered_ids.append(aid)
                     
             area_ids = filtered_ids
-        # --------------------------------------------------------
-
+                                                                  
         if is_deselect:
             for aid in area_ids:
                 if aid in self.selected_area_ids:
@@ -2243,7 +2236,7 @@ class MainWindow(QMainWindow):
 
             if is_safe_to_delete:
                 for ae in self.model.area_elements.values():
-                    if ae.id not in self.selected_area_ids:  # only protect if area not being deleted too
+                    if ae.id not in self.selected_area_ids:                                              
                         if any(n.id == nid for n in ae.nodes):
                             is_safe_to_delete = False
                             break
@@ -2259,7 +2252,6 @@ class MainWindow(QMainWindow):
             self.status.showMessage("⚠️ Cannot delete selected joints. They are shared with existing elements.")
             return
 
-        # Shell/area elements go through CmdDeleteSelection for full undo support
         deleted_area_count = len(self.selected_area_ids)
         cmd = CmdDeleteSelection(
             self.model, 
@@ -2415,7 +2407,9 @@ class MainWindow(QMainWindow):
         if cvs.view_extruded:
             if hasattr(cvs, 'clear_force_diagrams'):
                 cvs.clear_force_diagrams()
-                                                                                
+            if hasattr(self.active_canvas, 'clear_reaction_diagram'):
+                self.active_canvas.clear_reaction_diagram()
+
             cvs._pre_force_was_extruded = False
 
         cvs.show_slabs = settings.get('areas', True)
@@ -2571,7 +2565,7 @@ class MainWindow(QMainWindow):
 
     def on_edit_merge(self):
         merged = self.model.merge_nodes(tolerance=0.005)
-        orphans = self.model.remove_orphan_nodes()          # <-- add this
+        orphans = self.model.remove_orphan_nodes()                        
         
         total = merged + orphans
         if total > 0:
@@ -2622,7 +2616,7 @@ class MainWindow(QMainWindow):
         """
 
         import json, os
-        prefs_path = os.path.join(os.path.expanduser("~"), ".opencivil_prefs.json")
+        prefs_path = os.path.join(os.path.expanduser("~"), ".Open//Structures_prefs.json")
         try:
             with open(prefs_path, 'w') as f:
                 json.dump(new_settings, f)
@@ -2868,6 +2862,7 @@ class MainWindow(QMainWindow):
 
         self.btn_deform.setEnabled(True)
         self.action_display_forces.setEnabled(True)
+        self.action_display_reactions.setEnabled(True)
         self.btn_deform.setChecked(True)
         self.canvas.view_deflected = True
         self.lock_model()
@@ -2968,6 +2963,7 @@ class MainWindow(QMainWindow):
 
             self.btn_deform.setEnabled(True)
             self.action_display_forces.setEnabled(True)
+            self.action_display_reactions.setEnabled(True)
             self.btn_deform.setChecked(True)                                
             self.canvas.view_deflected = True
             
@@ -3028,6 +3024,88 @@ class MainWindow(QMainWindow):
         )
         self.forces_dialog.apply_forces_signal.connect(self.apply_force_diagrams_from_dialog)
         self.forces_dialog.show()
+
+    def on_display_joint_reactions(self):
+        import glob
+        import os
+        
+        if not self.model or not getattr(self.model, 'file_path', None):
+            self.statusBar().showMessage("No results available. Please run analysis first.")
+            return
+
+        base_name = os.path.splitext(self.model.file_path)[0]
+        result_files = glob.glob(f"{base_name}_*_results.json")
+
+        if not result_files:
+            self.statusBar().showMessage("No result files found. Please run analysis first.")
+            return
+
+        available_cases = []
+        for path in sorted(result_files):
+            fname = os.path.basename(path)
+            prefix = os.path.basename(base_name) + "_"
+            suffix = fname[len(prefix):].replace("_results.json", "")
+            if suffix:
+                available_cases.append(suffix)
+
+        if not available_cases:
+            return
+
+        self.reactions_dialog = DisplayReactionsDialog(available_cases, base_name, self)
+        self.reactions_dialog.apply_reactions_signal.connect(self.apply_reactions_from_dialog)
+        self.reactions_dialog.show()
+
+    def apply_reactions_from_dialog(self, settings):
+        import json
+        import os
+        
+        if not self.model or not self.active_canvas:
+            return
+
+        load_case = settings['load_case']
+        base_path = settings.get('base_path', '')
+        display_type = settings.get('display_type', 'arrows')
+
+        res_path = f"{base_path}_{load_case}_results.json"
+
+        if not os.path.exists(res_path):
+            self.statusBar().showMessage(f"No results on disk for '{load_case}'. Run that case first.")
+            return
+
+        with open(res_path, 'r') as f:
+            case_data = json.load(f)
+
+        if display_type == 'tabulated':
+            from app.dialogs.analysis_results_dialog import AnalysisResultsDialog
+            
+            sel_nodes = [str(n) for n in self.selected_node_ids] if self.selected_node_ids else None
+            
+            dlg = AnalysisResultsDialog(case_data, self, selected_node_ids=sel_nodes)
+            
+            if hasattr(dlg, 'tab_reactions'):
+                idx = dlg.tabs.indexOf(dlg.tab_reactions)
+                if idx >= 0:
+                    dlg.tabs.setCurrentIndex(idx)
+            dlg.exec()
+            return
+
+        restrained = set(case_data.get("restrained_nodes", []))
+        reaction_data = {}
+        for nid, dofs in case_data.get("reactions", {}).items():
+            if restrained and nid not in restrained:
+                continue
+            if not restrained and max(abs(v) for v in dofs) < 1e-6:
+                continue
+            reaction_data[nid] = dofs
+
+        sign_conv = settings.get('sign_convention', 'ground_on_structure')
+
+        success = self.active_canvas.show_reaction_diagram(self.model, reaction_data, sign_convention=sign_conv)
+
+        if success:
+            self.statusBar().showMessage(f"[{load_case}]  Joint Reactions  —  {len(reaction_data)} joint(s)")
+        else:
+            self.statusBar().showMessage("No reaction data found for this case.")
 
     def apply_force_diagrams_from_dialog(self, settings):
         """
@@ -3091,10 +3169,13 @@ class MainWindow(QMainWindow):
 
         self.btn_deform.setEnabled(False)
         self.btn_deform.setChecked(False)     
-        self.action_display_forces.setEnabled(False)                   
+        self.action_display_forces.setEnabled(False)  
+        self.action_display_reactions.setEnabled(False)                 
                                                              
         if hasattr(self.canvas, 'clear_force_diagrams'):
             self.canvas.clear_force_diagrams()
+        if hasattr(self.active_canvas, 'clear_reaction_diagram'):
+            self.active_canvas.clear_reaction_diagram()
         self.canvas.view_deflected = False  
 
         self.view_shadow = True
@@ -3189,7 +3270,7 @@ class MainWindow(QMainWindow):
     def update_window_title(self):
         """Updates window title to show currently active filename and version."""
                                                               
-        base_title = "OpenCivil v0.7.75" 
+        base_title = "Open//Structures v0.7.80" 
         
         if self.model and getattr(self.model, 'file_path', None):
             short_name = os.path.basename(self.model.file_path)
@@ -3409,8 +3490,10 @@ class MainWindow(QMainWindow):
             QMessageBox.warning(self, "No Results", "Please run an Analysis first.")  
             return
 
+        filter_node_ids = [str(nid) for nid in self.selected_node_ids] if self.selected_node_ids else None
+
         from app.dialogs.analysis_results_dialog import AnalysisResultsDialog 
-        dlg = AnalysisResultsDialog(self.model.results, self)
+        dlg = AnalysisResultsDialog(self.model.results, self, selected_node_ids=filter_node_ids)
         dlg.exec()
 
     def switch_modal_view(self, mode_key):
@@ -3689,18 +3772,15 @@ class MainWindow(QMainWindow):
     def on_assign_area_mesh(self):
         """Triggered from Assign > Area > Automatic Area Mesh"""
         
-        # 1. Check if dialog already exists and is open. If not, create it.
         if not hasattr(self, '_area_mesh_dlg') or not self._area_mesh_dlg.isVisible():
             from app.dialogs.area_mesh_dialog import AreaMeshDialog
             self._area_mesh_dlg = AreaMeshDialog(self)
             
-            # Connect the "Apply" signal to the actual meshing logic
             self._area_mesh_dlg.signal_apply_mesh.connect(self._execute_area_mesh)
             
-            # Use .show() instead of .exec() so it runs modelessly (doesn't block the app)
             self._area_mesh_dlg.show()
         else:
-            # If it's already open, just bring it to the front
+                                                              
             self._area_mesh_dlg.raise_()
             self._area_mesh_dlg.activateWindow()
 
@@ -3717,14 +3797,11 @@ class MainWindow(QMainWindow):
         if params["mode"] == "divisions" and params["n"] == 1 and params["m"] == 1:
             return 
 
-        # Import the new command we just made
         from app.commands import CmdMeshAreaElements
         
-        # Push to the undo stack! This executes the meshing AND marks the file as unsaved
         cmd = CmdMeshAreaElements(self.model, self, list(selected_ids), params)
         self.add_command(cmd)
 
-        # Clear the UI selection so we don't hold references to deleted elements
         if hasattr(self.canvas, 'clear_selection'):
             self.canvas.clear_selection()
         else:
@@ -3873,7 +3950,7 @@ class MainWindow(QMainWindow):
             
 def main():
     if sys.platform == 'win32':
-        myappid = 'metu.civil.OPENCIVIL.v03'
+        myappid = 'metu.civil.Open//Structures.v03'
         ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(myappid)
 
     QApplication.setAttribute(Qt.ApplicationAttribute.AA_ShareOpenGLContexts)
@@ -3933,7 +4010,7 @@ def main():
     from PyQt6.QtGui import QSurfaceFormat
     import json
 
-    prefs_path = os.path.join(os.path.expanduser("~"), ".opencivil_prefs.json")
+    prefs_path = os.path.join(os.path.expanduser("~"), ".Open//Structures_prefs.json")
     msaa_map = {0: 0, 1: 4, 2: 8, 3: 16}
     msaa_level = 2  
     if os.path.exists(prefs_path):
@@ -3955,7 +4032,7 @@ def main():
             QMessageBox.warning(
                 None, "Session Expired",
                 "Your session has expired.\n"
-                "Please restart OpenCivil to log in again."
+                "Please restart Open//Structures to log in again."
             )
             sys.exit(0)
 

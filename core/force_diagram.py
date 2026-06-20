@@ -142,7 +142,6 @@ class ForceDiagramBuilder:
                 unit_str = unit_registry.force_unit_name
 
             label_text_height = 0.08 * 1.5 if self.component == 'P' else 0.15 * 1.5
-
             if self.text_size is not None and self.text_size > 0:
                 label_text_height = float(self.text_size)
             else:
@@ -152,30 +151,23 @@ class ForceDiagramBuilder:
                 val = farr[val_idx if val_idx is not None else idx]                       
                 if abs(val) > 1e-4:
                     disp_val = val * disp_scale
-
                     safe_dir = -perp if val >= 0 else perp
-
                     v_right_label = v_x.copy()
                     v_up_label = perp.copy()
                     
                     is_vertical = abs(v_x[2]) > 0.99 
                     if not is_vertical:
-                                                          
                         if v_up_label[2] < -0.01 or (abs(v_up_label[2]) <= 0.01 and v_up_label[1] < -0.01):
                             v_up_label = -v_up_label
-                            
                         if v_right_label[0] < -0.01:
                             v_right_label = -v_right_label
                             if align == 'left': align = 'right'
                             elif align == 'right': align = 'left'
 
                     gap = label_text_height * 0.15 
-                    
                     if np.dot(safe_dir, v_up_label) > 0:
-                                                                         
                         anchor_offset = (safe_dir * gap) - (v_up_label * (label_text_height * 0.4))
                     else:
-                                                                                      
                         anchor_offset = (safe_dir * gap) + (safe_dir * (label_text_height * 1.4))
 
                     self.labels.append({
@@ -189,18 +181,13 @@ class ForceDiagramBuilder:
                     })
 
             if self.show_labels:
-                                                                        
                 show_for_this_element = True
                 if self.show_labels_mode == 'selected' and el_id not in self.selected_ids:
                     show_for_this_element = False
-                    
                 if show_for_this_element:
-                                                                                    
                     offset = max(1, int(n * 0.005))
-
                     add_label(offset,      align='left',  val_idx=0)                                      
                     add_label(-1 - offset, align='right', val_idx=-1)                                      
-                    
                     max_idx = int(np.argmax(np.abs(farr)))
                     if max_idx != 0 and max_idx != (len(farr) - 1):
                         add_label(max_idx, align='center')
@@ -313,6 +300,10 @@ class ForceDiagramBuilder:
         except Exception as exc:
             print(f"[ForceDiagram] Error loading matrices: {exc}")
             return {}
+
+        res = getattr(self.model, 'results', {}) or {}
+        if "rsa_info" in res:
+            return self._batch_compute_rsa_nvm(res["rsa_info"], mat_data)
 
         if self.displacements is not None:
             disp_dict = self.displacements
@@ -437,16 +428,28 @@ class ForceDiagramBuilder:
                 if a_clear < 0 or a_clear > Lc_e:
                     continue
 
-                is_local = getattr(load, 'coord_system', 'Global').lower() == 'local'
-                dir_map = {'X': 0, 'Y': 1, 'Z': 2, '1': 0, '2': 1, '3': 2}
-                idx_d   = dir_map.get(str(getattr(load, 'direction', 'Z')).upper(), 2)
-                vec     = np.zeros(3)
+                is_local = getattr(load, 'coord_system', getattr(load, 'coord', 'Global')).lower() == 'local'
+                
+                is_rel = getattr(load, 'is_rel', getattr(load, 'is_relative', False))
+                dist_val = load.dist
+                if is_rel and dist_val > 1.0: dist_val /= 100.0
+                a = dist_val * L_e if is_rel else dist_val
+                a_clear = a - ri_e
+                
+                if a_clear < 0 or a_clear > Lc_e:
+                    continue
+                
+                dir_str = str(getattr(load, 'dir', getattr(load, 'direction', getattr(load, 'axis', 'Z')))).upper()
+                if "X" in dir_str or "1" in dir_str: idx_d = 0
+                elif "Y" in dir_str or "2" in dir_str: idx_d = 1
+                else: idx_d = 2
+                
+                vec = np.zeros(3)
                 vec[idx_d] = load.force
-                if not is_local:
-                    vec = R_3x3 @ vec
+                if not is_local: vec = R_3x3 @ vec
 
-                l_type = getattr(load, 'load_type', 'Force').lower()
-                if l_type == 'moment':
+                type_str = str(getattr(load, 'type', getattr(load, 'load_type', getattr(load, 'l_type', 'Force')))).upper()
+                if 'MOMENT' in type_str:
                     F_vec = np.zeros(3)
                     M_vec = vec
                 else:
@@ -459,8 +462,8 @@ class ForceDiagramBuilder:
                 P_all[e]  -= F_vec[0] * mask
                 V2_all[e] += F_vec[1] * mask
                 V3_all[e] -= F_vec[2] * mask
-                M3_all[e] += (-F_vec[1] * dist_x - M_vec[2]) * mask
-                M2_all[e] += ( F_vec[2] * dist_x - M_vec[1]) * mask
+                M3_all[e] += (-F_vec[1] * dist_x + M_vec[2]) * mask                         
+                M2_all[e] += ( F_vec[2] * dist_x + M_vec[1]) * mask                         
 
         results = {}
         for e, el_id in enumerate(el_ids):
@@ -472,6 +475,115 @@ class ForceDiagramBuilder:
                 'M2':       M2_all[e],
                 'M3':       M3_all[e],
             }
+        return results
+    
+    def _batch_compute_rsa_nvm(self, rsa, mat_data):
+        """Dedicated NVM computer for Response Spectrum absolute envelopes."""
+        dir_comb = rsa.get("dir_comb", "SRSS")
+        dirs_data = rsa.get("directions", [rsa])
+        
+        S = self.n_stations
+        results = {}
+        
+        for el_id, el in self.model.elements.items():
+            str_id = str(el_id)
+            if str_id not in mat_data: continue
+            
+            el_data = mat_data[str_id]
+            k = np.array(el_data['k'], dtype=np.float64)
+            t = np.array(el_data['t'], dtype=np.float64)
+            
+            n1 = str(el.node_i.id)
+            n2 = str(el.node_j.id)
+            
+            L_e = el.length()
+            ri_e = getattr(el, 'end_offset_i', 0.0)
+            rj_e = getattr(el, 'end_offset_j', 0.0)
+            Lc_e = L_e - ri_e - rj_e
+            
+            x_clear = np.linspace(0.0, 1.0, S) * Lc_e
+            x_node = x_clear + ri_e
+            
+            P_final = np.zeros(S); V2_final = np.zeros(S); V3_final = np.zeros(S)
+            M2_final = np.zeros(S); M3_final = np.zeros(S)
+            
+            for d_info in dirs_data:
+                method = d_info.get("method", "SRSS")
+                zeta = d_info.get("zeta", 0.05)
+                omega = d_info.get("omega_array", [])
+                u_raw = d_info.get("uncombined_u", {})
+                
+                n_modes = len(omega)
+                if n_modes == 0: continue
+                
+                u1_modes = u_raw.get(n1, [np.zeros(6)] * n_modes)
+                u2_modes = u_raw.get(n2, [np.zeros(6)] * n_modes)
+                
+                P_modes = np.zeros((n_modes, S)); V2_modes = np.zeros((n_modes, S))
+                V3_modes = np.zeros((n_modes, S)); M2_modes = np.zeros((n_modes, S))
+                M3_modes = np.zeros((n_modes, S))
+                
+                for i in range(n_modes):
+                    u_global_mode = np.concatenate([u1_modes[i], u2_modes[i]])
+                    end_f = k @ (t @ u_global_mode)
+                    Fx1, Fy1, Fz1 = end_f[0:3]
+                    Mx1, My1, Mz1 = end_f[3:6]
+                    
+                    P_modes[i, :] = -Fx1
+                    V2_modes[i, :] = Fy1
+                    V3_modes[i, :] = -Fz1
+                    M3_modes[i, :] = Mz1 - Fy1 * x_clear
+                    M2_modes[i, :] = My1 + Fz1 * x_clear
+                    
+                P_dir = np.zeros(S); V2_dir = np.zeros(S); V3_dir = np.zeros(S)
+                M2_dir = np.zeros(S); M3_dir = np.zeros(S)
+                
+                if method == "CQC" and n_modes > 0:
+                    for j in range(S):
+                        p_tot=0; v2_tot=0; v3_tot=0; m2_tot=0; m3_tot=0
+                        for m1 in range(n_modes):
+                            for m2 in range(n_modes):
+                                if omega[m1] == 0 or omega[m2] == 0: rho = 1.0 if omega[m1]==omega[m2] else 0.0
+                                else:
+                                    r = omega[m1] / omega[m2]
+                                    den = (1.0 - r**2)**2 + 4.0 * zeta**2 * r * (1.0 + r)**2
+                                    rho = (8.0 * zeta**2 * (1.0 + r) * r**1.5) / den if den != 0.0 else 1.0
+                                p_tot  += P_modes[m1, j] * rho * P_modes[m2, j]
+                                v2_tot += V2_modes[m1, j] * rho * V2_modes[m2, j]
+                                v3_tot += V3_modes[m1, j] * rho * V3_modes[m2, j]
+                                m2_tot += M2_modes[m1, j] * rho * M2_modes[m2, j]
+                                m3_tot += M3_modes[m1, j] * rho * M3_modes[m2, j]
+                        P_dir[j] = np.sqrt(abs(p_tot)); V2_dir[j] = np.sqrt(abs(v2_tot)); V3_dir[j] = np.sqrt(abs(v3_tot))
+                        M2_dir[j] = np.sqrt(abs(m2_tot)); M3_dir[j] = np.sqrt(abs(m3_tot))
+                else:
+                    P_dir = np.sqrt(np.sum(P_modes**2, axis=0))
+                    V2_dir = np.sqrt(np.sum(V2_modes**2, axis=0))
+                    V3_dir = np.sqrt(np.sum(V3_modes**2, axis=0))
+                    M2_dir = np.sqrt(np.sum(M2_modes**2, axis=0))
+                    M3_dir = np.sqrt(np.sum(M3_modes**2, axis=0))
+                
+                if dir_comb == "SRSS":
+                    P_final += P_dir**2
+                    V2_final += V2_dir**2
+                    V3_final += V3_dir**2
+                    M2_final += M2_dir**2
+                    M3_final += M3_dir**2
+                else:
+                    P_final += np.abs(P_dir)
+                    V2_final += np.abs(V2_dir)
+                    V3_final += np.abs(V3_dir)
+                    M2_final += np.abs(M2_dir)
+                    M3_final += np.abs(M3_dir)
+
+            if dir_comb == "SRSS":
+                P_final = np.sqrt(P_final)
+                V2_final = np.sqrt(V2_final)
+                V3_final = np.sqrt(V3_final)
+                M2_final = np.sqrt(M2_final)
+                M3_final = np.sqrt(M3_final)
+                
+            results[el_id] = {'stations': x_node, 'P': P_final, 'V2': V2_final, 'V3': V3_final, 'M2': M2_final, 'M3': M3_final}
+            
         return results
     
     def _get_array(self, data):

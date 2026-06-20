@@ -15,6 +15,19 @@ NOTICES = [
 
 RELEASE_NOTES = [
     {
+        "version": "v0.7.80",
+        "date": "June 17, 2026",
+        "items": [
+            ("new", "RSA Seismic Precision Engine — true participation factor (Γ) reconstruction using mass-normalized eigenvalue data with 1:1 benchmark correlation."),
+            ("new", "Modal Force Extraction Pipeline — vectorized mode-by-mode internal force and moment extraction (P, V, M) preserving RSA equilibrium."),
+            ("new", "CQC & SRSS Modal Combination — automated modal combination for global displacements and element-level internal forces."),
+            ("new", "JSON Handoff Architecture — serialized uncombined mode shapes and modal frequencies for real-time seismic envelope inspection."),
+            ("fix", "Solver data handoff — resolved ndarray serialization crashes with automatic NumPy-to-list conversion."),
+            ("fix", "Modal scaling — corrected Participation Factor mapping for accurate seismic inertial loads."),
+            ("fix", "Dialog stability — synchronized FBDViewerDialog and NodeResultsDialog RSA data handling."),
+        ]
+    },
+    {
         "version": "v0.7.72",
         "date": "June 2026",
         "items": [

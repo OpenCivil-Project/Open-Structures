@@ -1,4 +1,4 @@
-# app/graphic/ltha_renderer.py
+                              
 import numpy as np
 
 class VectorizedLTHAEngine:
