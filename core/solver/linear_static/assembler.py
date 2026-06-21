@@ -4,6 +4,7 @@ from scipy.sparse import lil_matrix
 from element_library import get_local_stiffness_matrix, get_rotation_matrix, get_eccentricity_matrix
 from matrix_spy import MatrixSpy
 from error_definitions import SolverException
+from element_library import get_local_stiffness_matrix, get_rotation_matrix, get_eccentricity_matrix, get_exact_fef_via_stiffness, condense_fef
 
 class GlobalAssembler:
     def __init__(self, data_manager,export_path=None):
@@ -287,89 +288,7 @@ class GlobalAssembler:
 
         self.eliminated_dofs = eliminated
         return T.tocsr(), kept_dofs
-
-    def _get_exact_fef_via_stiffness(self, L, a, P_vec_local, mat, sec, M_vec_local=None):
-        """
-        Calculates EXACT FEF by treating the member as two sub-elements 
-        connected at the load point. This guarantees consistency with 
-        the global stiffness matrix formulation (Timoshenko).
-        """
-        if L == 0: return np.zeros(12)
-        
-        b = L - a
-  
-        k_left = get_local_stiffness_matrix(
-            E=mat['E'], G=mat['G'], A=sec['A'], J=sec['J'],
-            I22=sec['I22'], I33=sec['I33'],
-            As2=sec['As2'], As3=sec['As3'], L=a, L_tor=a
-        )
-        
-        k_right = get_local_stiffness_matrix(
-            E=mat['E'], G=mat['G'], A=sec['A'], J=sec['J'],
-            I22=sec['I22'], I33=sec['I33'],
-            As2=sec['As2'], As3=sec['As3'], L=b, L_tor=b
-        )
-        
-        K_mid = k_left[6:12, 6:12] + k_right[0:6, 0:6]
-        
-        F_mid = np.zeros(6)
-        F_mid[0:3] = P_vec_local
-
-        if M_vec_local is not None:
-            F_mid[3:6] = M_vec_local
-        
-        try:
-            U_mid = np.linalg.solve(K_mid, F_mid)
-        except np.linalg.LinAlgError:
-            return np.zeros(12)
-            
-        R_start = k_left[0:6, 6:12] @ U_mid
-        
-        R_end = k_right[6:12, 0:6] @ U_mid
-        
-        fef_combined = np.zeros(12)
-        fef_combined[0:6] = R_start
-        fef_combined[6:12] = R_end
-        
-        return fef_combined
     
-    def _condense_fef(self, k_local, fef_local, releases):
-        """
-        Adjusts the Fixed End Forces (FEF) to account for member releases.
-        Mathematically moves the moment from the pinned end to the fixed end.
-        """
-                                                        
-        rel_vec = releases[0] + releases[1]                      
-        
-        idx_c = [i for i, r in enumerate(rel_vec) if r]           
-        idx_k = [i for i, r in enumerate(rel_vec) if not r]                  
-        
-        if not idx_c: 
-            return fef_local
-            
-        K_cc = k_local[np.ix_(idx_c, idx_c)]
-        K_kc = k_local[np.ix_(idx_k, idx_c)]
-        
-        F_k = fef_local[idx_k]                      
-        F_c = fef_local[idx_c]                                          
-        
-        try:
-                                                    
-            K_cc_inv = np.linalg.inv(K_cc)
-            correction = K_kc @ (K_cc_inv @ F_c)
-            
-            F_k_new = F_k - correction
-            
-            fef_new = np.zeros(12)
-            fef_new[idx_k] = F_k_new
-            fef_new[idx_c] = 0.0                                        
-            
-            return fef_new
-            
-        except np.linalg.LinAlgError:
-            print("Warning: Unstable release configuration in load condensation.")
-            return fef_local
-
     def _add_member_loads(self):
         """
         Calculates FEF for all member loads, condenses them for releases,
@@ -465,12 +384,12 @@ class GlobalAssembler:
                     
                     l_type = load.get('l_type', 'Force')
                     if l_type == 'Moment':
-                        fef_local = self._get_exact_fef_via_stiffness(L_clear, a_dist, np.zeros(3), mat, sec, M_vec_local=P_local)
+                        fef_local = get_exact_fef_via_stiffness(L_clear, a_dist, np.zeros(3), mat, sec, M_vec_local=P_local)
                     else:
-                        fef_local = self._get_exact_fef_via_stiffness(L_clear, a_dist, P_local, mat, sec)
+                        fef_local = get_exact_fef_via_stiffness(L_clear, a_dist, P_local, mat, sec)
                     
             if any(el['releases'][0]) or any(el['releases'][1]):
-                fef_local = self._condense_fef(k_raw, fef_local, el['releases'])
+                fef_local = condense_fef(k_raw, fef_local, el['releases'])
 
             self.spy.record_fef(el['id'], fef_local)
             

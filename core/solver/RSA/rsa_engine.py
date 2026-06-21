@@ -261,6 +261,9 @@ class RSAEngine:
 
         if modal_comb == "CQC" and n_modes > 0:
             shear_total = 0.0
+            mx_total = 0.0
+            my_total = 0.0
+            mz_total = 0.0
             for i in range(n_modes):
                 for j in range(n_modes):
                     rho = self._cqc_rho(per_mode_omega[i], per_mode_omega[j], zeta)

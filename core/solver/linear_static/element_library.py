@@ -206,3 +206,74 @@ def get_geometric_stiffness_matrix(P_axial, L, phi_y=0.0, phi_z=0.0, A=1.0, I22=
     kg[10, 10] =  kz_22 * cz
 
     return kg
+
+def get_exact_fef_via_stiffness(L, a, P_vec_local, mat, sec, M_vec_local=None):
+    """
+    Calculates EXACT FEF by treating the member as two sub-elements 
+    connected at the load point. This guarantees Timoshenko consistency.
+    """
+    if L <= 1e-9: return np.zeros(12)
+    
+    b = L - a
+    if a <= 1e-9: a = 1e-9
+    if b <= 1e-9: b = 1e-9
+  
+    k_left = get_local_stiffness_matrix(
+        E=mat['E'], G=mat['G'], A=sec['A'], J=sec['J'],
+        I22=sec['I22'], I33=sec['I33'], As2=sec['As2'], As3=sec['As3'], L=a, L_tor=a
+    )
+    
+    k_right = get_local_stiffness_matrix(
+        E=mat['E'], G=mat['G'], A=sec['A'], J=sec['J'],
+        I22=sec['I22'], I33=sec['I33'], As2=sec['As2'], As3=sec['As3'], L=b, L_tor=b
+    )
+    
+    K_mid = k_left[6:12, 6:12] + k_right[0:6, 0:6]
+    
+    F_mid = np.zeros(6)
+    F_mid[0:3] = P_vec_local
+    if M_vec_local is not None:
+        F_mid[3:6] = M_vec_local
+    
+    try:
+        U_mid = np.linalg.solve(K_mid, F_mid)
+    except np.linalg.LinAlgError:
+        return np.zeros(12)
+        
+    R_start = k_left[0:6, 6:12] @ U_mid
+    R_end = k_right[6:12, 0:6] @ U_mid
+    
+    fef_combined = np.zeros(12)
+    fef_combined[0:6] = R_start
+    fef_combined[6:12] = R_end
+    
+    return fef_combined
+
+def condense_fef(k_local, fef_local, releases):
+    """
+    Adjusts the Fixed End Forces (FEF) to account for member releases.
+    """
+    rel_vec = releases[0] + releases[1]                      
+    idx_c = [i for i, r in enumerate(rel_vec) if r]           
+    idx_k = [i for i, r in enumerate(rel_vec) if not r]                  
+    
+    if not idx_c: return fef_local
+        
+    K_cc = k_local[np.ix_(idx_c, idx_c)]
+    K_kc = k_local[np.ix_(idx_k, idx_c)]
+    
+    F_k = fef_local[idx_k]                      
+    F_c = fef_local[idx_c]                                          
+    
+    try:
+        K_cc_inv = np.linalg.inv(K_cc)
+        correction = K_kc @ (K_cc_inv @ F_c)
+        F_k_new = F_k - correction
+        
+        fef_new = np.zeros(12)
+        fef_new[idx_k] = F_k_new
+        fef_new[idx_c] = 0.0                                        
+        return fef_new
+    except np.linalg.LinAlgError:
+        print("Warning: Unstable release configuration in load condensation.")
+        return fef_local
