@@ -129,7 +129,7 @@ def run_linear_static_analysis(input_json_path, output_json_path, target_case_na
         progress_callback("L I N E A R   E Q U A T I O N   S O L U T I O N", 35)
         progress_callback("", 35)
         progress_callback("Forming stiffness at zero initial conditions...", 40)
-        solver = LinearSolver(K, P, dm)
+        solver = LinearSolver(K, P, dm, T=assembler.T, kept_dofs=assembler.kept_dofs)
         U, R = solver.solve()
         
         max_u = max(abs(U)) if len(U) > 0 else 0

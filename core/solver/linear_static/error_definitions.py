@@ -66,6 +66,11 @@ SOLVER_ERRORS = {
         "desc": "An element has releases that make it internally unstable (e.g., released Moment at both ends without support, or torsional instability).",
         "fix": "Check member releases. You cannot release the same rotational DOF at both ends unless the element is a truss/link."
     },
+    "E205": {
+        "title": "Diaphragm DOF Conflict",
+        "desc": "A restraint (support) was applied directly to a node's UX/UY/RZ that is a SLAVE in a rigid diaphragm, or a node belongs to more than one diaphragm group. Slave in-plane DOFs are eliminated and no longer exist independently.",
+        "fix": "Apply the restraint to the diaphragm's MASTER node instead, or remove the node from the diaphragm constraint. Ensure each node belongs to at most one diaphragm."
+    },
 
     "E301": {
         "title": "Structure is Unstable (Singular Matrix)",

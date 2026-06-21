@@ -52,6 +52,19 @@ class UnitConverter:
         """Convert display pressure (force/length²) → SI (N/m²)."""
         return disp_val * (self.length_scale ** 2) / self.force_scale
 
+    def to_display_acceleration(self, base_val):
+        """Convert SI acceleration (m/s²) -> display units (e.g. mm/s²)."""
+        return base_val * self.length_scale
+
+    def from_display_acceleration(self, disp_val):
+        """Convert display acceleration -> SI (m/s²)."""
+        return disp_val / self.length_scale
+
+    @property
+    def acceleration_unit(self):
+        """Returns length/s² unit label (e.g., 'm/s²', 'mm/s²')"""
+        return f"{self.length_unit_name}/s\u00b2"
+
     @property
     def force_unit_name(self):
         """Returns just the force unit (e.g., 'kN', 'N', 'kip')"""

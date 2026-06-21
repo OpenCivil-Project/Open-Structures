@@ -6,7 +6,8 @@ from PyQt6.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, QListWidget,
 from PyQt6.QtCore import Qt
 from core.model import LoadCase
 
-from app.ui.theme import apply_dialog_style                      
+from app.ui.theme import apply_dialog_style      
+from core.units import unit_registry                                                                    
 
 class LoadCaseDetailDialog(QDialog):
     """The 'Modify/Show' window for a single load case."""
@@ -167,7 +168,7 @@ class LoadCaseDetailDialog(QDialog):
 
         self.table_rsa = QTableWidget()
         self.table_rsa.setColumnCount(3)
-        self.table_rsa.setHorizontalHeaderLabels(["Load Name", "Function", "Scale Factor"])
+        self.table_rsa.setHorizontalHeaderLabels(["Load Name", "Function", f"Scale Factor ({unit_registry.acceleration_unit})"])
         self.table_rsa.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
         v_rsa_loads.addWidget(self.table_rsa)
 
@@ -237,7 +238,7 @@ class LoadCaseDetailDialog(QDialog):
 
         self.table_ltha = QTableWidget()
         self.table_ltha.setColumnCount(3)
-        self.table_ltha.setHorizontalHeaderLabels(["Direction", "Function", "Scale Factor"])
+        self.table_ltha.setHorizontalHeaderLabels(["Direction", "Function", f"Scale Factor ({unit_registry.acceleration_unit})"])
         self.table_ltha.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
         self.table_ltha.setMaximumHeight(160)
         v_ltha.addWidget(self.table_ltha)
@@ -394,7 +395,9 @@ class LoadCaseDetailDialog(QDialog):
                 cmb_func.addItem("(No functions defined)")
             cmb_func.setCurrentText(func_name)
             self.table_ltha.setCellWidget(row, 1, cmb_func)
-            self.table_ltha.setItem(row, 2, QTableWidgetItem(str(scale)))
+            
+            display_scale = unit_registry.to_display_acceleration(scale)
+            self.table_ltha.setItem(row, 2, QTableWidgetItem(f"{display_scale:.4f}"))
 
     def on_ok(self):
         new_name = self.input_name.text().strip()
@@ -528,7 +531,9 @@ class LoadCaseDetailDialog(QDialog):
                 cmb_func.addItems(self.model.functions.keys())
             cmb_func.setCurrentText(func_name)
             self.table_rsa.setCellWidget(row, 1, cmb_func)
-            self.table_rsa.setItem(row, 2, QTableWidgetItem(str(scale)))
+            
+            display_scale = unit_registry.to_display_acceleration(scale)
+            self.table_rsa.setItem(row, 2, QTableWidgetItem(f"{display_scale:.4f}"))
 
     def preview_spectrum(self):
         cr = self.table_rsa.currentRow()

@@ -113,55 +113,68 @@ def run_modal_analysis(input_json_path, output_json_path, target_case_name="MODA
     progress_callback(f"NUMBER OF FREE DOFs                  = {num_free_dofs:>10}", 35)
     progress_callback("", 35)
 
-    if num_free_dofs == 0:
-        print("Error: Structure is fully constrained.")
-        return _write_error(output_json_path, "E301", "Structure is fully constrained. No free DOFs.")
+    progress_callback("", 35)
 
-    K_free = K_full.tocsc()[is_free, :][:, is_free]
-    M_free = M_full.tocsc()[is_free, :][:, is_free]
+    has_T = hasattr(assembler, 'T') and assembler.T is not None
+    if has_T:
+        print("      Applying Diaphragm Transformation (T) to K and M...")
+        T = assembler.T
+        kept_dofs = assembler.kept_dofs
+        K_sys = T.T @ K_full @ T
+        M_sys = T.T @ M_full @ T
+        is_free_sys = is_free[kept_dofs]
+    else:
+        K_sys = K_full
+        M_sys = M_full
+        is_free_sys = is_free
 
-    m_diag = M_free.diagonal()
-    min_nonzero_mass = m_diag[m_diag > 1e-10].min() * 1e-6
+    K_sys_free = K_sys.tocsc()[is_free_sys, :][:, is_free_sys]
+    M_sys_free = M_sys.tocsc()[is_free_sys, :][:, is_free_sys]
+
+    m_diag_sys = M_sys_free.diagonal()
+    min_nonzero_mass = m_diag_sys[m_diag_sys > 1e-10].min() * 1e-6 if len(m_diag_sys[m_diag_sys > 1e-10]) > 0 else 1e-6
     from scipy.sparse import diags
-    zero_mask = m_diag < 1e-10
-    reg = diags(zero_mask.astype(float) * min_nonzero_mass)
-    M_free = M_free + reg
-
-    print(f"DEBUG: M_free sum = {M_free.sum():.6f}")
-    print(f"DEBUG: M_free diagonal sum = {M_free.diagonal().sum():.6f}")
+    reg_sys = diags((m_diag_sys < 1e-10).astype(float) * min_nonzero_mass)
+    M_sys_free = M_sys_free + reg_sys
 
     try:
         req_modes = modal_case_def.get("num_modes", 12) if modal_case_def else 12
   
-        n_free_dofs = K_free.shape[0]
-        max_safe_modes = max(1, n_free_dofs - 2)
+        n_free_dofs_sys = K_sys_free.shape[0]
+        max_safe_modes = max(1, n_free_dofs_sys - 2)
         safe_num_modes = min(req_modes, max_safe_modes)
         
         if safe_num_modes <= 0:
-            return _write_error(output_json_path, "E304",
-                f"Structure only has {n_free_dofs} free DOFs. Need at least 2 free DOFs for modal analysis.")
+            return _write_error(output_json_path, "E304", f"Not enough free DOFs ({n_free_dofs_sys}) after diaphragm reduction.")
             
         if safe_num_modes < req_modes:
-            print(f"Warning: Requested {req_modes} modes but model only has {n_free_dofs} free DOFs. Clamped to {safe_num_modes} modes.")
+            print(f"Warning: Requested {req_modes} modes but reduced model only has {n_free_dofs_sys} free DOFs. Clamped to {safe_num_modes} modes.")
             req_modes = safe_num_modes
 
         print(f"[4/6] Solving Eigenvalues (Shift-Invert @ -0.1)...")
         sigma_shift = -0.1
+        
+        vals, vecs_sys = eigsh(K_sys_free, M=M_sys_free, k=req_modes, sigma=sigma_shift)
+        print(f"      Converged. Found {len(vals)} modes.")
 
-        print(f"K_free shape: {K_free.shape}")
-        print(f"M_free shape: {M_free.shape}")
-        print(f"K_free diagonal min: {K_free.diagonal().min():.6f}")
-        print(f"M_free diagonal min: {M_free.diagonal().min():.6f}")
-        print(f"M_free diagonal sum: {M_free.diagonal().sum():.6f}")
+        print("      Expanding mode shapes back to full DOF space...")
+        num_modes_found = len(vals)
+        vecs = np.zeros((np.sum(is_free), num_modes_found))
+        
+        for i in range(num_modes_found):
+            phi_sys = np.zeros(K_sys.shape[0])
+            phi_sys[is_free_sys] = vecs_sys[:, i]
+            
+            phi_full = T @ phi_sys if has_T else phi_sys
+            vecs[:, i] = phi_full[is_free] 
+            
+        M_free = M_full.tocsc()[is_free, :][:, is_free]
+        m_diag_full = M_free.diagonal()
+        reg_full = diags((m_diag_full < 1e-10).astype(float) * min_nonzero_mass)
+        M_free = M_free + reg_full
 
-        k_row_sums = np.abs(K_free).sum(axis=1).A1
-        zero_k_rows = np.where(k_row_sums < 1e-10)[0]
-        print(f"Zero rows in K_free: {len(zero_k_rows)} -> indices: {zero_k_rows[:10]}")
-
-        m_diag = M_free.diagonal()
-        zero_m_rows = np.where(m_diag < 1e-10)[0]
-        print(f"Zero diagonal in M_free: {len(zero_m_rows)} / {len(m_diag)}")
-
+    except Exception as e:
+                                                                   
         progress_callback("Solving eigenvalue problem — this may take a moment...", 42)
                              
         vals, vecs = eigsh(K_free, M=M_free, k=req_modes, sigma=sigma_shift)

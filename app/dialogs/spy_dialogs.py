@@ -184,39 +184,39 @@ class MemberAnalyzer:
                             w_sw_mag    = area * density * pat.self_weight_multiplier * scale_factor
                             w_sw_global = np.array([0.0, 0.0, -w_sw_mag])
                             w_loc      += R_3x3 @ w_sw_global
+        if "rsa_info" not in res:
+            for load in self.model.loads:
+                if getattr(load, 'element_id', None) != int(self.el.id):
+                    continue
+                is_local = getattr(load, 'coord_system', 'Global').lower() == 'local'
 
-        for load in self.model.loads:
-            if getattr(load, 'element_id', None) != int(self.el.id):
-                continue
-            is_local = getattr(load, 'coord_system', 'Global').lower() == 'local'
+                if hasattr(load, 'wx'):                                            
+                    w_vec = np.array([load.wx, load.wy, load.wz])
+                    if not is_local:
+                        w_vec = R_3x3 @ w_vec
+                    w_loc += w_vec
 
-            if hasattr(load, 'wx'):                                            
-                w_vec = np.array([load.wx, load.wy, load.wz])
-                if not is_local:
-                    w_vec = R_3x3 @ w_vec
-                w_loc += w_vec
-
-            elif hasattr(load, 'force'):                                 
-                                                         
-                is_rel = getattr(load, 'is_rel', getattr(load, 'is_relative', False))
-                dist_val = load.dist
-                if is_rel and dist_val > 1.0: dist_val /= 100.0                         
-                a = dist_val * L if is_rel else dist_val
-                
-                dir_str = str(getattr(load, 'dir', getattr(load, 'direction', getattr(load, 'axis', 'Z')))).upper()
-                if "X" in dir_str or "1" in dir_str: idx = 0
-                elif "Y" in dir_str or "2" in dir_str: idx = 1
-                else: idx = 2
-                
-                vec = np.zeros(3)
-                vec[idx] = load.force
-                if not is_local: vec = R_3x3 @ vec
+                elif hasattr(load, 'force'):                                 
+                                                            
+                    is_rel = getattr(load, 'is_rel', getattr(load, 'is_relative', False))
+                    dist_val = load.dist
+                    if is_rel and dist_val > 1.0: dist_val /= 100.0                         
+                    a = dist_val * L if is_rel else dist_val
                     
-                type_str = str(getattr(load, 'type', getattr(load, 'load_type', getattr(load, 'l_type', 'Force')))).upper()
-                if 'MOMENT' in type_str:
-                    point_loads.append({'a': a, 'F': np.zeros(3), 'M': vec})
-                else:
-                    point_loads.append({'a': a, 'F': vec, 'M': np.zeros(3)})
+                    dir_str = str(getattr(load, 'dir', getattr(load, 'direction', getattr(load, 'axis', 'Z')))).upper()
+                    if "X" in dir_str or "1" in dir_str: idx = 0
+                    elif "Y" in dir_str or "2" in dir_str: idx = 1
+                    else: idx = 2
+                    
+                    vec = np.zeros(3)
+                    vec[idx] = load.force
+                    if not is_local: vec = R_3x3 @ vec
+                        
+                    type_str = str(getattr(load, 'type', getattr(load, 'load_type', getattr(load, 'l_type', 'Force')))).upper()
+                    if 'MOMENT' in type_str:
+                        point_loads.append({'a': a, 'F': np.zeros(3), 'M': vec})
+                    else:
+                        point_loads.append({'a': a, 'F': vec, 'M': np.zeros(3)})
 
         for i, x in enumerate(self.stations):
             P_val  = -Fx1 - w_loc[0] * x

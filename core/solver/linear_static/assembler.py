@@ -3,6 +3,7 @@ import numpy as np
 from scipy.sparse import lil_matrix
 from element_library import get_local_stiffness_matrix, get_rotation_matrix, get_eccentricity_matrix
 from matrix_spy import MatrixSpy
+from error_definitions import SolverException
 
 class GlobalAssembler:
     def __init__(self, data_manager,export_path=None):
@@ -15,14 +16,25 @@ class GlobalAssembler:
                                 
         self.P = np.zeros(self.dm.total_dofs)
 
-    def assemble_system(self):
+    def assemble_system(self, exact_diaphragm=True):
         """Master function to build K and P."""
         print("Assembler: Building Stiffness Matrix...")
         self._build_stiffness()
 
-        print("Assembler: Applying Diaphragm Constraints...")            
-        self._apply_diaphragm_constraints() 
-        
+        self.T = None
+        self.kept_dofs = None
+
+        active_dia = {k: v for k, v in getattr(self.dm, 'diaphragm_groups', {}).items() if len(v) >= 2}
+
+        if exact_diaphragm and active_dia:
+            print("Assembler: Building EXACT Diaphragm Constraint (DOF elimination)...")
+            self.T, self.kept_dofs = self.build_diaphragm_transformation()
+            n_elim = self.dm.total_dofs - len(self.kept_dofs)
+            print(f"      Eliminated {n_elim} slave DOFs exactly (no penalty stiffness used).")
+        elif active_dia:
+            print("Assembler: Applying Diaphragm Constraints (penalty, legacy)...")
+            self._apply_diaphragm_constraints()
+
         print("Assembler: Processing Nodal Loads...")
                             
         self.P += self.dm.build_load_vector()
@@ -196,6 +208,85 @@ class GlobalAssembler:
                 self.K[rz_m, rz_m] += alpha
 
             print(f"      Diaphragm '{dia_name}': {len(node_ids)} nodes, master=Node {master_id}, α={alpha:.2e}")
+
+    def build_diaphragm_transformation(self):
+        """
+        Builds an EXACT rigid-diaphragm constraint as a sparse transformation
+        matrix T such that:
+
+            U_full = T @ U_reduced
+
+        Slave UX, UY, RZ DOFs are removed from the system entirely (not
+        penalized) and re-expressed as an exact linear combination of the
+        diaphragm master's UX, UY, RZ:
+
+            UX_s = UX_m - dY * RZ_m   (dY = Ys - Ym)
+            UY_s = UY_m + dX * RZ_m   (dX = Xs - Xm)
+            RZ_s = RZ_m
+
+        UZ, RX, RY remain independent per node (out-of-plane bending is free).
+
+        This has no tunable stiffness ratio and no penalty-induced ill
+        conditioning: the constraint is satisfied to machine precision,
+        and K is never polluted with artificial penalty terms, so base
+        reactions sum exactly with no penalty-method artifacts.
+
+        Returns:
+            T (csr_matrix): shape (total_dofs, n_reduced)
+            kept_dofs (list[int]): full-DOF index corresponding to each
+                                    column of T, in order.
+        """
+        n = self.dm.total_dofs
+        node_by_id = {nd['id']: nd for nd in self.dm.nodes}
+
+        eliminated = {}                                                     
+
+        for dia_name, node_ids in self.dm.diaphragm_groups.items():
+            if len(node_ids) < 2:
+                continue
+
+            master_id = min(node_ids)
+            master = node_by_id[master_id]
+            mi = master['idx'] * 6
+            Xm, Ym = master['coords'][0], master['coords'][1]
+            ux_m, uy_m, rz_m = mi + 0, mi + 1, mi + 5
+
+            for slave_id in node_ids:
+                if slave_id == master_id:
+                    continue
+                slave = node_by_id[slave_id]
+                si = slave['idx'] * 6
+                dX = slave['coords'][0] - Xm
+                dY = slave['coords'][1] - Ym
+
+                ux_s, uy_s, rz_s = si + 0, si + 1, si + 5
+
+                if ux_s in eliminated or uy_s in eliminated or rz_s in eliminated:
+                    raise SolverException(
+                        "E205",
+                        f"Node {slave_id} appears in more than one diaphragm group."
+                    )
+
+                eliminated[ux_s] = {ux_m: 1.0, rz_m: -dY}
+                eliminated[uy_s] = {uy_m: 1.0, rz_m:  dX}
+                eliminated[rz_s] = {rz_m: 1.0}
+
+            print(f"      Diaphragm '{dia_name}': {len(node_ids)} nodes, "
+                  f"master=Node {master_id} (exact elimination)")
+
+        kept_dofs = [i for i in range(n) if i not in eliminated]
+        col_of = {dof: c for c, dof in enumerate(kept_dofs)}
+        n_red = len(kept_dofs)
+
+        T = lil_matrix((n, n_red))
+        for dof in kept_dofs:
+            T[dof, col_of[dof]] = 1.0
+        for dof, terms in eliminated.items():
+            for master_dof, coeff in terms.items():
+                T[dof, col_of[master_dof]] += coeff
+
+        self.eliminated_dofs = eliminated
+        return T.tocsr(), kept_dofs
 
     def _get_exact_fef_via_stiffness(self, L, a, P_vec_local, mat, sec, M_vec_local=None):
         """

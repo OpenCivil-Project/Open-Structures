@@ -75,7 +75,6 @@ class TSC2018SpectrumGenerator:
         else: return D + ((Ra_target - D) * (T / tb))
 
     def generate_spectrum_curve(self, ss, s1, site_class, R, D, I, tl=6.0, direction="Horizontal", t_max=6.0):
-                                              
         fs, f1 = self.get_coeffs(ss, s1, site_class)
         sds = ss * fs
         sd1 = s1 * f1
@@ -84,33 +83,23 @@ class TSC2018SpectrumGenerator:
         if direction == "Horizontal":
             key_points = [0.0, ta, tb, tl]
         else:
-                                            
             key_points = [0.0, ta/3.0, tb/3.0, tl/2.0]
 
-        raw_grid_list = []
+        final_list = list(key_points)
         
         t_curr = 0.2
-        while t_curr <= 2.01:              
-            raw_grid_list.append(t_curr)
+        while t_curr <= 2.01:
+                                                                             
+            if t_curr > key_points[2] + 0.001: 
+                final_list.append(t_curr)
             t_curr += 0.2
             
         t_curr = 2.5
-        while t_curr <= t_max + 0.01:                   
-            raw_grid_list.append(t_curr)
+        while t_curr <= t_max + 0.01:
+            final_list.append(t_curr)
             t_curr += 0.5
             
-        raw_grid = np.array(raw_grid_list)
-        
-        final_list = list(key_points)
-        
-        for t_grid in raw_grid:
-                                                 
-            min_dist = min(abs(t_grid - k) for k in key_points)
-            
-            if min_dist >= 0.1:
-                final_list.append(t_grid)
-        
-        periods = np.unique(np.array(final_list))
+        periods = np.unique(np.round(final_list, 6))
         periods.sort()
         
         sa_values = []

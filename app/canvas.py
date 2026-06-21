@@ -87,7 +87,8 @@ class MCanvas3D(gl.GLViewWidget):
 
         self.show_ghost_structure = True                       
         self._pre_force_was_extruded  = False                                                 
-        self._pre_force_was_deflected = False                                                           
+        self._pre_force_was_deflected = False
+        self._pre_force_was_grid      = False
 
         self._plane_state = 0
         self._view_mode = "3D"
@@ -117,6 +118,7 @@ class MCanvas3D(gl.GLViewWidget):
         self.reaction_data = {}
         self._pre_reaction_was_extruded = False
         self._pre_reaction_was_deflected = False
+        self._pre_reaction_was_grid = False
 
         self._accel_overlay_pixmap    = None                                            
         self._accel_overlay_size      = (0, 0)                                  
@@ -788,7 +790,7 @@ class MCanvas3D(gl.GLViewWidget):
             if item not in _preserve:
                 self.removeItem(item)
 
-        if not self.view_deflected:
+        if not self.view_deflected and self.show_grid:
             self._draw_reference_grids(model)
 
         if self.show_joints or self.show_supports:
@@ -2016,12 +2018,17 @@ class MCanvas3D(gl.GLViewWidget):
                     self.ex_faces.append([root_b, start_idx + n + i, start_idx + n + i + 1])
     
     def show_reaction_diagram(self, model, reaction_data, sign_convention='ground_on_structure'):
+        if self.force_diagram_active:
+            self.clear_force_diagrams()
         self.reaction_data = reaction_data
         self.reaction_diagram_active = True
         self.reaction_sign_convention = sign_convention                 
         
         self._pre_reaction_was_deflected = self.view_deflected
         self.view_deflected = False
+
+        self._pre_reaction_was_grid = self.show_grid
+        self.show_grid = False
         
         self._force_draw_model(model)
         self.update()
@@ -2034,6 +2041,7 @@ class MCanvas3D(gl.GLViewWidget):
         self.reaction_data = {}
         
         self.view_deflected = self._pre_reaction_was_deflected
+        self.show_grid = self._pre_reaction_was_grid
         
         if model:
             self._force_draw_model(model)
@@ -2047,6 +2055,9 @@ class MCanvas3D(gl.GLViewWidget):
         """
         from core.force_diagram import ForceDiagramBuilder
 
+        if self.reaction_diagram_active:
+            self.clear_reaction_diagram(model)
+
         needs_redraw = False
         if self.view_extruded:
             self._pre_force_was_extruded = True
@@ -2056,6 +2067,10 @@ class MCanvas3D(gl.GLViewWidget):
             self._pre_force_was_deflected = True
             self.view_deflected = False
             self.invalidate_deflection_cache()
+            needs_redraw = True
+        if self.show_grid:
+            self._pre_force_was_grid = True
+            self.show_grid = False
             needs_redraw = True
         if needs_redraw:
             self._force_draw_model(model)
@@ -2118,6 +2133,10 @@ class MCanvas3D(gl.GLViewWidget):
         if getattr(self, '_pre_force_was_deflected', False):
             self._pre_force_was_deflected = False
             self.view_deflected = True
+            needs_redraw = True
+        if getattr(self, '_pre_force_was_grid', False):
+            self._pre_force_was_grid = False
+            self.show_grid = True
             needs_redraw = True
         if needs_redraw and self.current_model:
             self._force_draw_model(self.current_model)

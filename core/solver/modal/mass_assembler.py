@@ -130,34 +130,75 @@ class GlobalMassAssembler:
                     F_accum[dof + 2] += F_total[2] / 2.0
 
             elif load["type"] == "member_point":
-                                        
-                l_type = load.get('l_type', 'Force')
-                if l_type.lower() == 'moment':
-                    continue                                         
-                
                 el = next((e for e in self.dm.elements if e['id'] == load['element_id']), None)
                 if not el: continue
 
-                force = load.get('force', 0.0)
+                val = load.get('force', 0.0)
+                l_type = load.get('l_type', 'Force')
                 direction = load.get('dir', 'Gravity')
                 coord = load.get('coord', 'Global')
+
+                if l_type.lower() == 'moment':
+                    idx_i, idx_j = el['node_indices']
+                    L = el['L_total']
+                    dist = load.get('dist', 0.5)
+                    if not load.get('is_rel', True): dist = dist / L
+                    
+                    M_vec_global = np.zeros(3)
+                    idx = 0 if "1" in direction or "X" in direction else (1 if "2" in direction or "Y" in direction else 2)
+                    
+                    if coord == "Local":
+                        p1_adj = self.dm.nodes[idx_i]['coords'] + np.array(el['offsets'][0])
+                        p2_adj = self.dm.nodes[idx_j]['coords'] + np.array(el['offsets'][1])
+                        from element_library import get_rotation_matrix
+                        R = get_rotation_matrix(p1_adj, p2_adj, el['beta'])
+                        local_M = np.zeros(3); local_M[idx] = val
+                        M_vec_global = R.T @ local_M
+                    else:
+                        M_vec_global[idx] = val
+                        
+                    M_vec_global *= multiplier
+                    
+                    p1 = self.dm.nodes[idx_i]['coords']
+                    p2 = self.dm.nodes[idx_j]['coords']
+                    d_vec = p2 - p1
+                    
+                    fef_shear_mag = 6.0 * dist * (1.0 - dist)
+                    
+                    F_couple_dir = np.cross(M_vec_global, d_vec) / (L**2)
+                    
+                    F_j = F_couple_dir * fef_shear_mag
+                    F_i = -F_j
+                    
+                    dof_i = idx_i * 6
+                    dof_j = idx_j * 6
+                    
+                    F_accum[dof_i + 0] += F_i[0]
+                    F_accum[dof_i + 1] += F_i[1]
+                    F_accum[dof_i + 2] += F_i[2]
+                    
+                    F_accum[dof_j + 0] += F_j[0]
+                    F_accum[dof_j + 1] += F_j[1]
+                    F_accum[dof_j + 2] += F_j[2]
+                    
+                    continue
 
                 F_vec_global = np.zeros(3)
                 
                 if direction == "Gravity":
-
-                    F_vec_global[2] = -abs(force) 
+                    F_vec_global[2] = -abs(val) 
                 elif coord == "Global":
                     idx = 0 if "X" in direction else (1 if "Y" in direction else 2)
-                    F_vec_global[idx] = force
+                    F_vec_global[idx] = val
                 elif coord == "Local":
                     local_vec = np.zeros(3)
                     idx = 0 if "1" in direction else (1 if "2" in direction else 2)
-                    local_vec[idx] = force
+                    local_vec[idx] = val
                     
                     idx_i, idx_j = el['node_indices']
                     p1_adj = self.dm.nodes[idx_i]['coords'] + np.array(el['offsets'][0])
                     p2_adj = self.dm.nodes[idx_j]['coords'] + np.array(el['offsets'][1])
+                    from element_library import get_rotation_matrix
                     R = get_rotation_matrix(p1_adj, p2_adj, el['beta'])
                     F_vec_global = R.T @ local_vec
 
@@ -166,7 +207,9 @@ class GlobalMassAssembler:
                 dist = load.get('dist', 0.5)
                 if not load.get('is_rel', True): dist = dist / el['L_total']
                 
-                ratios = [1.0 - dist, dist] 
+                ratio_i = ((1.0 - dist)**2) * (1.0 + 2.0 * dist)
+                ratio_j = (dist**2) * (3.0 - 2.0 * dist)
+                ratios = [ratio_i, ratio_j] 
                 
                 for k, n_idx in enumerate(el['node_indices']):
                     dof = n_idx * 6

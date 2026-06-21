@@ -106,6 +106,7 @@ class SolverWorker(QThread):
                                 direction=direction, 
                                 modal_comb=modal_comb, 
                                 damping_ratio=damp_val,
+                                eq_scale=scale,
                                 progress_callback=cb
                             )
 
@@ -170,9 +171,9 @@ class SolverWorker(QThread):
                                         if nid in d_dict:
                                             vals = np.array(d_dict[nid])
                                             if method == "SRSS":
-                                                combined_dofs += (vals * case_obj.rsa_loads[run_idx][2])**2
+                                                combined_dofs += vals**2
                                             else:
-                                                combined_dofs += np.abs(vals * case_obj.rsa_loads[run_idx][2])
+                                                combined_dofs += np.abs(vals)
                                                 
                                     if method == "SRSS":
                                         combined_dofs = np.sqrt(combined_dofs)

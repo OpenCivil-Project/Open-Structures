@@ -29,7 +29,7 @@ class RSAEngine:
         den = (1.0 - r**2)**2 + 4.0 * zeta**2 * r * (1.0 + r)**2
         return num / den if den != 0.0 else 1.0
     
-    def run(self, function_name="FUNC1", direction="X", modal_comb="SRSS", damping_ratio=None, progress_callback=None):
+    def run(self, function_name="FUNC1", direction="X", modal_comb="SRSS", damping_ratio=None, eq_scale=1.0, progress_callback=None):
                                                                     
         if progress_callback is None:
             def default_cb(msg, pct): print(msg)
@@ -99,8 +99,7 @@ class RSAEngine:
         progress_callback(f"{'Mode':<5} | {'Period (s)':<10} | {'SaR (g)':<9} | {'Mass Ratio':<10} | {'Base Shear Coeff'}", 25)
         progress_callback("-" * 65, 25)
 
-        g = 9.81
-        
+        g_exact = 9.80665
         spec_T, spec_Sa, params = self.generator.generate_spectrum_curve(
             ss=func_params['Ss'], s1=func_params['S1'], site_class=func_params['SiteClass'], 
             R=func_params['R'], D=func_params['D'], I=func_params['I'], 
@@ -157,12 +156,12 @@ class RSAEngine:
                 Uy_i = mass_ratios[i].get("Uy", 0.0)
                 gamma_x = np.sqrt(ratio   * m_total_x) if ratio   > 0 else 0.0
                 gamma_y = np.sqrt(Uy_i    * m_total_y) if Uy_i    > 0 else 0.0
-                cross_force_i = gamma_x * gamma_y * sar_g * g
+                cross_force_i = gamma_x * gamma_y * sar_g * eq_scale                  
             elif direction == "Y" and m_total_x > 0:
                 Ux_i = mass_ratios[i].get("Ux", 0.0)
                 gamma_y = np.sqrt(ratio   * m_total_y) if ratio   > 0 else 0.0
                 gamma_x = np.sqrt(Ux_i    * m_total_x) if Ux_i    > 0 else 0.0
-                cross_force_i = gamma_x * gamma_y * sar_g * g
+                cross_force_i = gamma_x * gamma_y * sar_g * eq_scale                  
             else:
                 cross_force_i = 0.0
             per_mode_cross_force.append(cross_force_i)
@@ -171,7 +170,7 @@ class RSAEngine:
                 print(f"[CROSS] Mode {i+1}: ratio={ratio:.5f}, cross_i={cross_force_i:.4f} kN")
 
             if omega > 0:
-                accel_ms2 = sar_g * g
+                accel_ms2 = sar_g * eq_scale                  
                 sd = accel_ms2 / (omega**2)
             else:
                 accel_ms2 = 0.0
@@ -301,13 +300,14 @@ class RSAEngine:
         print(f"[CROSS] direction={direction} | final_cross_force={final_cross_force:.4f} kN")
 
         total_mass = 0.0
-        if "total_mass" in modal_data:
-            if direction == "X": total_mass = modal_data["total_mass"]["x"]
-            elif direction == "Y": total_mass = modal_data["total_mass"]["y"]
-            elif direction == "Z": total_mass = modal_data["total_mass"]["z"]
-            
-        total_weight = total_mass * g
-        base_shear_force = final_base_shear * total_weight
+                                                                                   
+        if direction == "X": active_mass = m_total_x
+        elif direction == "Y": active_mass = m_total_y
+        else: active_mass = m_total_z
+        
+        total_weight = active_mass * g_exact
+        
+        base_shear_force = final_base_shear * active_mass * eq_scale
 
         static_mass = 0.0
         if "assembled_mass" in modal_data:
@@ -315,7 +315,7 @@ class RSAEngine:
             idx = 0 if direction == "X" else (1 if direction == "Y" else 2)
             static_mass = sum(m_vals[idx] for m_vals in modal_data["assembled_mass"].values())
             
-        static_weight = static_mass * g
+        static_weight = static_mass * g_exact
         
         true_code_coeff = base_shear_force / static_weight if static_weight > 0 else final_base_shear
 
