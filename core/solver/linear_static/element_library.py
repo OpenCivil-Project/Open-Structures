@@ -10,7 +10,6 @@ def get_local_stiffness_matrix(E, G, A, J, I22, I33, As2, As3, L, L_tor=None):
     L      : Clear Length (for Bending/Shear/Axial)
     L_tor  : Torsional Length (usually Center-to-Center to match SAP2000)
     """
-
     if L == 0: return np.eye(12) * 1e12                         
     if L_tor is None:
         L_tor = L
@@ -133,18 +132,12 @@ def get_eccentricity_matrix(off_i, off_j):
     return Te
 
 def get_geometric_stiffness_matrix(P_axial, L, phi_y=0.0, phi_z=0.0, A=1.0, I22=0.0, I33=0.0):
-    """
-    Calculates the 12x12 Geometric Stiffness Matrix (K_g) for a 3D Frame Element.
-    MATCHING SAP2000: Uses Euler-Bernoulli consistent formulation for K_g (phi = 0).
-    """
+    
     kg = np.zeros((12, 12))
     if L <= 1e-9: return kg
 
     P_c = -P_axial                          
     
-    phi_y = 0.0
-    phi_z = 0.0
-
     if A > 1e-12:
         r0_sq = (I22 + I33) / A
         t_term = (P_c * r0_sq) / L
@@ -155,7 +148,7 @@ def get_geometric_stiffness_matrix(P_axial, L, phi_y=0.0, phi_z=0.0, A=1.0, I22=
 
     cy = P_c / (30 * L * (1 + phi_y)**2)
     ky_11 = 36 + 60*phi_y + 30*phi_y**2
-    ky_12 = 3*L + 15*L*phi_y
+    ky_12 = 3*L                                                    
     ky_22 = 4*L**2 + 5*L**2*phi_y + 2.5*L**2*phi_y**2
     ky_24 = -L**2 - 5*L**2*phi_y - 2.5*L**2*phi_y**2
 
@@ -181,7 +174,7 @@ def get_geometric_stiffness_matrix(P_axial, L, phi_y=0.0, phi_z=0.0, A=1.0, I22=
 
     cz = P_c / (30 * L * (1 + phi_z)**2)
     kz_11 = 36 + 60*phi_z + 30*phi_z**2
-    kz_12 = 3*L + 15*L*phi_z
+    kz_12 = 3*L                   
     kz_22 = 4*L**2 + 5*L**2*phi_z + 2.5*L**2*phi_z**2
     kz_24 = -L**2 - 5*L**2*phi_z - 2.5*L**2*phi_z**2
 

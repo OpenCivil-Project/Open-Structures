@@ -1,6 +1,6 @@
 from PyQt6.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, QLabel, 
-                             QComboBox, QRadioButton, QGroupBox, QLineEdit, 
-                             QPushButton, QGridLayout, QWidget, QSpinBox, QButtonGroup)
+                             QRadioButton, QGroupBox, QLineEdit, 
+                             QPushButton, QGridLayout, QWidget, QSpinBox)
 from PyQt6.QtCore import Qt, pyqtSignal
 from PyQt6.QtGui import QFont
 
@@ -23,29 +23,6 @@ class DisplayForcesDialog(QDialog):
     def init_ui(self):
         main_layout = QVBoxLayout(self)
         
-        gb_case = QGroupBox("Case/Combo")
-        grid_case = QGridLayout(gb_case)
-        
-        grid_case.addWidget(QLabel("Case/Combo Name"), 0, 0)
-        self.cb_case = QComboBox()
-        
-        if hasattr(self.model, 'load_cases') and self.model.load_cases:
-            if self.available_cases:
-                                                                                
-                valid_cases = [c for c in self.available_cases if c in self.model.load_cases]
-                self.cb_case.addItems(valid_cases if valid_cases else list(self.model.load_cases.keys()))
-            else:
-                                                                  
-                self.cb_case.addItems(list(self.model.load_cases.keys()))
-        elif self.available_cases:
-            self.cb_case.addItems(self.available_cases)
-        else:
-            self.cb_case.addItems(["DEAD", "LIVE", "MODAL"])
-            
-        grid_case.addWidget(self.cb_case, 0, 1)
-        
-        main_layout.addWidget(gb_case)
-
         gb_multi = QGroupBox("Multivalued Options")
         grid_multi = QGridLayout(gb_multi)
         
@@ -214,7 +191,9 @@ class DisplayForcesDialog(QDialog):
             except ValueError:
                 text_size = None
 
-        load_case = self.cb_case.currentText()
+        load_case = ""
+        if hasattr(self.model, 'results') and self.model.results:
+            load_case = self.model.results.get("info", {}).get("case_name", "")
 
         return {
             'component': component,
@@ -233,8 +212,6 @@ class DisplayForcesDialog(QDialog):
 
         if not s:
             return
-
-        self.cb_case.setCurrentText(s.get("load_case", ""))
 
         if s.get("scale_factor") is not None:
             self.rb_user_scale.setChecked(True)

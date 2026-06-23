@@ -188,6 +188,11 @@ class SolverWorker(QThread):
 
                             full_data["status"] = "SUCCESS"
                             
+                            full_data["info"] = {
+                                "type": "Response Spectrum",
+                                "case_name": self.case_name
+                            }
+                            
                             full_data["rsa_info"] = {
                                 "type": "Response Spectrum Combined",
                                 "dir_comb": method,
@@ -209,14 +214,8 @@ class SolverWorker(QThread):
                             import shutil
                             import glob
                             
-                            base_path = self.output_path.replace("_results.json", "") 
-                            
-                            if "_" in os.path.basename(base_path):
-                                prefix_dir = os.path.dirname(base_path)
-                                base_name = os.path.basename(base_path).rsplit("_", 1)[0]
-                                search_pattern = os.path.join(prefix_dir, f"{base_name}_*_matrices.json")
-                            else:
-                                search_pattern = f"{base_path}_*_matrices.json"
+                            base_model_path = self.input_path.replace(".mf", "")
+                            search_pattern = f"{base_model_path}_*_matrices.json"
                             
                             found_matrices = glob.glob(search_pattern)
                             rsa_matrices_path = self.output_path.replace("_results.json", "_matrices.json")

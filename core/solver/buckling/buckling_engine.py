@@ -21,7 +21,7 @@ from linear_static.data_manager import DataManager
 from linear_static.assembler import GlobalAssembler
 from linear_static.element_forces import ForceExtractor
 from linear_static.error_definitions import SolverException
-from linear_static.element_library import get_geometric_stiffness_matrix, get_rotation_matrix
+from linear_static.element_library import get_geometric_stiffness_matrix, get_rotation_matrix, get_eccentricity_matrix
 
 def _write_error(out_path, error_code, extra=""):
     ex = SolverException(error_code, extra)
@@ -114,8 +114,16 @@ def run_buckling_analysis(input_json_path, output_json_path, results_path, matri
             sec_props = el['section']
             
             L_geom = el['L_total']
-            phi_y = 0.0
-            phi_z = 0.0
+            
+            E = el['material']['E']
+            G = el['material']['G']
+            As2 = sec_props['As2']
+            As3 = sec_props['As3']
+            I22 = sec_props['I22']
+            I33 = sec_props['I33']
+            
+            phi_y = (12 * E * I33) / (G * As2 * L_geom**2) if As2 > 0 else 0.0
+            phi_z = (12 * E * I22) / (G * As3 * L_geom**2) if As3 > 0 else 0.0
 
             kg_local = get_geometric_stiffness_matrix(
                 N_axial, L_geom, 
@@ -127,16 +135,22 @@ def run_buckling_analysis(input_json_path, output_json_path, results_path, matri
             p1 = dm.nodes[idx_i]['coords']
             p2 = dm.nodes[idx_j]['coords']
             
-            p1_adj = p1 + np.array(el['offsets'][0])
-            p2_adj = p2 + np.array(el['offsets'][1])
+            offsets_i = el['offsets'][0]
+            offsets_j = el['offsets'][1]
             
-            R_3x3 = get_rotation_matrix(p1_adj, p2_adj, el['beta'])
+            p1_adj = p1 + np.array(offsets_i)
+            p2_adj = p2 + np.array(offsets_j)
             
+            R_3x3 = get_rotation_matrix(p1_adj, p2_adj, el.get('beta', 0.0))
             T_rot = np.zeros((12, 12))
             for i in range(4): 
                 T_rot[i*3:(i+1)*3, i*3:(i+1)*3] = R_3x3
+                
+            T_ecc = get_eccentricity_matrix(offsets_i, offsets_j)
             
-            kg_global = T_rot.T @ kg_local @ T_rot
+            T_total = T_ecc @ T_rot
+            
+            kg_global = T_total.T @ kg_local @ T_total
             
             start_i = idx_i * 6
             start_j = idx_j * 6

@@ -138,7 +138,6 @@ class GlobalMassAssembler:
                 direction = load.get('dir', 'Gravity')
                 coord = load.get('coord', 'Global')
 
-                # 1. Build Local Load Vectors
                 P_local = np.zeros(3)
                 M_local = np.zeros(3)
 
@@ -167,7 +166,6 @@ class GlobalMassAssembler:
                 if l_type.lower() == 'moment': M_local = vec_local
                 else: P_local = vec_local
 
-                # 2. Distance and Clear Length Adjustments
                 L_clear = el['L_clear']
                 dist = load.get('dist', 0.5)
                 if load.get('is_rel', True): dist *= el['L_total']
@@ -177,11 +175,9 @@ class GlobalMassAssembler:
                 if a_clear < 0: a_clear = 0.0
                 if a_clear > L_clear: a_clear = L_clear
 
-                # 3. Get EXACT Timoshenko Fixed End Forces
                 mat, sec = el['material'], el['section']
                 fef_local = get_exact_fef_via_stiffness(L_clear, a_clear, P_local, mat, sec, M_vec_local=M_local)
 
-                # 4. Condense for Releases
                 if any(el['releases'][0]) or any(el['releases'][1]):
                     k_raw = get_local_stiffness_matrix(
                         E=mat['E'], G=mat['G'], A=sec['A'], J=sec['J'],
@@ -190,7 +186,6 @@ class GlobalMassAssembler:
                     )
                     fef_local = condense_fef(k_raw, fef_local, el['releases'])
 
-                # 5. Transform to Global (Rotation + Eccentricity)
                 T_rot = np.zeros((12, 12))
                 for i in range(4): T_rot[i*3:(i+1)*3, i*3:(i+1)*3] = R_3x3
 
@@ -202,10 +197,8 @@ class GlobalMassAssembler:
                 T_ecc = get_eccentricity_matrix(loc_off_i, loc_off_j)
                 T_total = T_ecc @ T_rot
 
-                # Nodal equivalent load is the negative of the Fixed End Force
                 equiv_nodal_force = -(T_total.T @ fef_local)
 
-                # 6. Accumulate Net Translational Shears into Mass Vector
                 dof_i = idx_i * 6
                 dof_j = idx_j * 6
 
