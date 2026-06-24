@@ -113,7 +113,7 @@ def run_buckling_analysis(input_json_path, output_json_path, results_path, matri
 
             sec_props = el['section']
             
-            L_geom = el['L_total']
+            L_geom = el['L_clear']
             
             E = el['material']['E']
             G = el['material']['G']

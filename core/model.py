@@ -9,7 +9,13 @@ from core.mesh import Slab, AreaElement
 from core.units import unit_registry
 import numpy as np
 from core.loads import LoadPattern, NodalLoad, MemberLoad, MemberPointLoad, AreaGravityLoad, AreaUniformLoad
-                      
+
+class UserSeismicData:
+    def __init__(self):
+        self.eccentricity = 0.05
+                                                               
+        self.diaphragm_loads = {}
+                 
 class MassSource:
     def __init__(self, name):
         self.name = name
@@ -22,6 +28,7 @@ class LoadPattern:
         self.name = name
         self.pattern_type = pattern_type                               
         self.self_weight_multiplier = float(self_weight_multiplier)
+        self.seismic_data = None                                      
 
 class NodalLoad:
     def __init__(self, node_id, pattern_name, fx=0, fy=0, fz=0, mx=0, my=0, mz=0):
@@ -420,8 +427,18 @@ class StructuralModel:
         for name, const in self.constraints.items():
             data["constraints"].append({"name": name, "axis": const.axis})
         for lp in self.load_patterns.values():
-            data["load_patterns"].append({"name": lp.name, "type": lp.pattern_type, "sw_mult": lp.self_weight_multiplier})
-                                                                 
+            lp_dict = {
+                "name": lp.name, 
+                "type": lp.pattern_type, 
+                "sw_mult": lp.self_weight_multiplier
+            }
+            if lp.seismic_data:
+                lp_dict["seismic_data"] = {
+                    "eccentricity": lp.seismic_data.eccentricity,
+                    "diaphragm_loads": lp.seismic_data.diaphragm_loads
+                }
+            data["load_patterns"].append(lp_dict)
+
         for load in self.loads:
             load_data = {"pattern": load.pattern_name}
             
@@ -757,8 +774,15 @@ class StructuralModel:
                 self.mass_sources[new_ms.name] = new_ms
 
         if "load_patterns" in data:
-            for lp_data in data["load_patterns"]: self.add_load_pattern(lp_data["name"], lp_data["type"], lp_data["sw_mult"])
-        else: self.add_load_pattern("DEAD", "DEAD", 1.0)
+            for lp_data in data["load_patterns"]: 
+                self.add_load_pattern(lp_data["name"], lp_data["type"], lp_data["sw_mult"])
+                if "seismic_data" in lp_data:
+                    sd = UserSeismicData()
+                    sd.eccentricity = lp_data["seismic_data"]["eccentricity"]
+                    sd.diaphragm_loads = lp_data["seismic_data"]["diaphragm_loads"]
+                    self.load_patterns[lp_data["name"]].seismic_data = sd
+        else: 
+            self.add_load_pattern("DEAD", "DEAD", 1.0)
              
         if "functions" in data:
             for func_data in data["functions"]:

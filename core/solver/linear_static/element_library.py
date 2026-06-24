@@ -138,14 +138,6 @@ def get_geometric_stiffness_matrix(P_axial, L, phi_y=0.0, phi_z=0.0, A=1.0, I22=
 
     P_c = -P_axial                          
     
-    if A > 1e-12:
-        r0_sq = (I22 + I33) / A
-        t_term = (P_c * r0_sq) / L
-        kg[3, 3] =  t_term
-        kg[3, 9] = -t_term
-        kg[9, 3] = -t_term
-        kg[9, 9] =  t_term
-
     cy = P_c / (30 * L * (1 + phi_y)**2)
     ky_11 = 36 + 60*phi_y + 30*phi_y**2
     ky_12 = 3*L                                                    

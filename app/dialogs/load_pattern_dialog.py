@@ -56,6 +56,12 @@ class LoadPatternDialog(QDialog):
         h_action_btns.addWidget(btn_add)
         h_action_btns.addWidget(self.btn_modify)
         v_btns.addLayout(h_action_btns)
+
+        self.btn_modify_lateral = QPushButton("Modify Lateral Load Pattern...")
+        self.btn_modify_lateral.clicked.connect(self.open_seismic_dialog)
+        self.btn_modify_lateral.setEnabled(False) 
+        v_btns.addWidget(self.btn_modify_lateral)
+        
         input_layout.addLayout(v_btns)
 
         layout.addLayout(input_layout)
@@ -94,11 +100,25 @@ class LoadPatternDialog(QDialog):
     def on_selection_changed(self):
         row = self.table.currentRow()
         if row < 0: return
+        pat_type = self.table.item(row, 1).text()
+
         self.input_name.setText(self.table.item(row, 0).text())
         self.input_type.blockSignals(True)
-        self.input_type.setCurrentText(self.table.item(row, 1).text())
+        self.input_type.setCurrentText(pat_type)
         self.input_type.blockSignals(False)
         self.input_sw.setText(self.table.item(row, 2).text())
+
+        self.btn_modify_lateral.setEnabled(pat_type == "QUAKE")
+
+    def open_seismic_dialog(self):
+        row = self.table.currentRow()
+        if row < 0: return
+        pat_name = self.table.item(row, 0).text()
+        lp = self.model.load_patterns[pat_name]
+
+        from app.dialogs.user_seismic_dialog import UserSeismicDialog
+        dialog = UserSeismicDialog(lp, self.model, self)
+        dialog.exec()
 
     def refresh_table(self):
         self.table.setRowCount(0)

@@ -192,13 +192,13 @@ class DataManager:
             'patterns': case_data['loads'],                               
         }
         
-    def build_load_vector(self):
+    def build_load_vector(self, assembled_mass=None):
         """Constructs the global P vector for the selected Load Case."""
         P = np.zeros(self.total_dofs)
         
         active_patterns = {pat: scale for pat, scale in self.load_case['patterns']}
         
-        for load in self.raw['loads']:
+        for load in self.raw.get('loads', []):
             if load['pattern'] not in active_patterns: continue
             scale = active_patterns[load['pattern']]
             
@@ -207,5 +207,70 @@ class DataManager:
                 start_row = node_idx * 6
                 forces = np.array([load['fx'], load['fy'], load['fz'], load['mx'], load['my'], load['mz']])
                 P[start_row : start_row + 6] += forces * scale
+
+        for pat_data in self.raw.get('load_patterns', []):
+            pat_name = pat_data['name']
+            if pat_name not in active_patterns: continue
+            
+            seismic_data = pat_data.get('seismic_data')
+            if not seismic_data: continue
+
+            scale = active_patterns[pat_name]
+            ecc_ratio = seismic_data.get('eccentricity', 0.05)
+            diaph_loads = seismic_data.get('diaphragm_loads', {})
+
+            for dia_name, loads in diaph_loads.items():
+                if dia_name not in self.diaphragm_groups: continue
                 
+                node_ids = self.diaphragm_groups[dia_name]
+                if len(node_ids) < 2: continue
+
+                master_id = min(node_ids)
+                master_node = next(n for n in self.nodes if n['id'] == master_id)
+                m_idx = master_node['idx'] * 6
+                Xm, Ym = master_node['coords'][0], master_node['coords'][1]
+
+                sum_mass = 0.0
+                sum_mx = 0.0
+                sum_my = 0.0
+                X_min, Y_min = float('inf'), float('inf')
+                X_max, Y_max = float('-inf'), float('-inf')
+
+                for nid in node_ids:
+                    n = next(node for node in self.nodes if node['id'] == nid)
+                    x, y = n['coords'][0], n['coords'][1]
+                    
+                    X_min, X_max = min(X_min, x), max(X_max, x)
+                    Y_min, Y_max = min(Y_min, y), max(Y_max, y)
+
+                    m = 1.0 
+                    if assembled_mass and str(nid) in assembled_mass:
+                        m = assembled_mass[str(nid)][0]          
+
+                    sum_mass += m
+                    sum_mx += m * x
+                    sum_my += m * y
+
+                if sum_mass == 0: sum_mass = 1.0           
+                X_com = sum_mx / sum_mass
+                Y_com = sum_my / sum_mass
+
+                Lx = X_max - X_min
+                Ly = Y_max - Y_min
+
+                Fx = loads.get('Fx', 0.0) * scale
+                Fy = loads.get('Fy', 0.0) * scale
+                Mz_user = loads.get('Mz', 0.0) * scale
+
+                Mz_accidental = Fx * (ecc_ratio * Ly) - Fy * (ecc_ratio * Lx)
+                Mz_offset = Fy * (X_com - Xm) - Fx * (Y_com - Ym)
+
+                Mz_total = Mz_user + Mz_accidental + Mz_offset
+
+                P[m_idx + 0] += Fx
+                P[m_idx + 1] += Fy
+                P[m_idx + 5] += Mz_total
+
+                print(f"      Quake '{pat_name}' -> Diaphragm '{dia_name}': Fx={Fx:.2f}, Fy={Fy:.2f}, Mz={Mz_total:.2f} (Applied at Master Node {master_id})")
+
         return P

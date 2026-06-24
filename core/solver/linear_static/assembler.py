@@ -5,6 +5,7 @@ from element_library import get_local_stiffness_matrix, get_rotation_matrix, get
 from matrix_spy import MatrixSpy
 from error_definitions import SolverException
 from element_library import get_local_stiffness_matrix, get_rotation_matrix, get_eccentricity_matrix, get_exact_fef_via_stiffness, condense_fef
+from core.solver.modal.mass_assembler import GlobalMassAssembler
 
 class GlobalAssembler:
     def __init__(self, data_manager,export_path=None):
@@ -36,12 +37,37 @@ class GlobalAssembler:
             print("Assembler: Applying Diaphragm Constraints (penalty, legacy)...")
             self._apply_diaphragm_constraints()
 
-        print("Assembler: Processing Nodal Loads...")
-                            
-        self.P += self.dm.build_load_vector()
+        needs_mass = False
+        active_patterns = [p[0] for p in self.dm.load_case['patterns']]
+        for pat in self.dm.raw.get('load_patterns', []):
+            if pat['name'] in active_patterns and pat.get('seismic_data'):
+                needs_mass = True
+                break
+
+        assembled_mass = None
+        
+        if needs_mass:
+            print("Assembler: Extracting True Mass Centroids for Seismic Loads...")
+            mass_asm = GlobalMassAssembler(self.dm)
+            
+            ms_name = "Default"
+            if self.dm.raw.get("mass_sources"):
+                ms_name = self.dm.raw["mass_sources"][0]["name"]
+                
+            M_full = mass_asm.build_mass_matrix(ms_name)
+            M_diag = M_full.diagonal()
+            
+            assembled_mass = {}
+            for node in self.dm.nodes:
+                nid = str(node['id'])
+                idx = node['idx'] * 6
+                assembled_mass[nid] = M_diag[idx : idx+6].tolist()
+                                                                    
+        print("Assembler: Processing Nodal & Seismic Loads...")
+        
+        self.P += self.dm.build_load_vector(assembled_mass=assembled_mass)
         
         print("Assembler: Processing Member Loads (FEF)...")
-                                                   
         self._add_member_loads()
         self.spy.save_to_json()
         return self.K, self.P
