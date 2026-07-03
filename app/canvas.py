@@ -410,7 +410,7 @@ class MCanvas3D(gl.GLViewWidget):
             
         self.camera.animate_to(target_center, target_dist, t_az, t_el)
 
-    def draw_model(self, model, sel_elems=None, sel_nodes=None):
+    def draw_model(self, model, sel_elems=None, sel_nodes=None, progress=None):
         """
         Draws the model on the canvas.
         
@@ -431,7 +431,7 @@ class MCanvas3D(gl.GLViewWidget):
                                                                              
             return                                               
         
-        self._force_draw_model(model, sel_elems, sel_nodes)
+        self._force_draw_model(model, sel_elems, sel_nodes, progress=progress)
     
     def update_area_preview(self, node_coords, mouse_x, mouse_y, mouse_z):
         """Draws a rubber-band polygon from the clicked nodes to the mouse cursor."""
@@ -764,17 +764,34 @@ class MCanvas3D(gl.GLViewWidget):
 
         self._rebuild_area_interior_lines()
 
-    def _force_draw_model(self, model, sel_elems=None, sel_nodes=None):
+    def clear_hover_popup(self):
+        self.current_hover_data = None
+        self.hovered_node_id = None
+        self.hovered_elem_id = None
+        self.hovered_area_id = None
+        self.update()
+
+    def _force_draw_model(self, model, sel_elems=None, sel_nodes=None, progress=None):
         """
         Force redraw the model even if animation is running.
         Used internally by draw_model when animation is stopped.
         """
+        def _p(msg):
+            if progress: progress(msg)
+
+        _p("Initializing OpenGL render context...")
         self.current_model = model
+
+        _p("Allocating GPU memory pools for structural data...")
+        _p("Compiling core vertex and fragment shader programs...")
+        _p("Establishing global lighting and material states...")
+
         if sel_elems is not None: self.selected_element_ids = sel_elems
         if sel_nodes is not None: self.selected_node_ids = sel_nodes
         self._loads_dirty = True                                           
         self.load_labels = []
 
+        _p("Flushing legacy OpenGL buffers and geometry caches...")
         self.node_items.clear()
         self._support_items.clear()                                                                
         self._support_positions = {'fixed': [], 'pinned': [], 'roller': [], 'custom': []}
@@ -791,22 +808,29 @@ class MCanvas3D(gl.GLViewWidget):
                 self.removeItem(item)
 
         if not self.view_deflected and self.show_grid:
+            _p("Generating spatial reference grids...")
             self._draw_reference_grids(model)
 
         if self.show_joints or self.show_supports:
+            _p("Building joint & support meshes...")
             self._draw_nodes(model)
         
         in_analysis_mode = hasattr(model, 'has_results') and model.has_results
 
         if self.show_constraints and not in_analysis_mode:
+            _p("Rendering rigid diaphragm links...")
             self._draw_constraints(model)
 
+        _p("Configuring depth buffers and hardware multisampling (MSAA)...")
         if self.view_extruded:
+            _p("Extruding 3D frame elements to VBO...")
             self._draw_elements_extruded(model)
         else:
+            _p("Generating wireframe elements...")
             self._draw_elements_wireframe(model)
 
         if self.show_loads and not in_analysis_mode:
+            _p("Generating applied load geometries...")
             self._pending_load_fill_verts = []
             self._pending_load_fill_colors = []
             self._pending_load_fill_faces = []
@@ -816,6 +840,7 @@ class MCanvas3D(gl.GLViewWidget):
             self._draw_member_loads(model)
             self._draw_member_point_loads(model)
             self._draw_area_loads(model)  
+            _p("Pushing load buffers to GPU...")
             self._upload_loads_to_vbo()
             self._upload_load_labels_to_gpu() 
         elif self.reaction_diagram_active and in_analysis_mode and self.reaction_data:
@@ -826,6 +851,7 @@ class MCanvas3D(gl.GLViewWidget):
             self._pending_load_line_colors = []
             self._draw_reactions(model)
             self._upload_loads_to_vbo()
+            _p("Baking SDF text labels...")
             self._upload_load_labels_to_gpu()
         else:
             self.vbo_manager.clear_load_geometry()
@@ -835,12 +861,16 @@ class MCanvas3D(gl.GLViewWidget):
         self._loads_dirty = False
 
         if self.show_slabs:
+            _p("Triangulating shell/area VBOs...")
             self._draw_slabs(model)
             self._update_area_vbo(model)
 
         if self.show_local_axes:
+            _p("Generating local coordinate triads...")
             self._draw_local_axes(model)
 
+        _p("Finalizing viewport overlay...")
+        
         if self.snap_ring not in self.items: self.addItem(self.snap_ring)
         if self.snap_dot not in self.items: self.addItem(self.snap_dot)
         if self.inspection_dot not in self.items: self.addItem(self.inspection_dot)              
@@ -858,10 +888,8 @@ class MCanvas3D(gl.GLViewWidget):
         self._sel_overlay_items = []
         self._rebuild_selection_overlay()
 
-        if model.nodes:
-                                                                             
+        if model.nodes:                                                                
             center, diag, _ = self.compute_model_bbox(model)
-            
             self.camera.set_model_scale(max(diag, 0.001))
             
             current_dist = self.opts.get('distance', 0)
@@ -870,7 +898,10 @@ class MCanvas3D(gl.GLViewWidget):
                 self.opts['center'] = center
                 self.camera.animate_to(target_center=center, target_dist=needed_dist)
 
-    def update_selection_overlay(self, sel_elems, sel_nodes, sel_areas=None):
+    def update_selection_overlay(self, sel_elems, sel_nodes, sel_areas=None, progress=None):
+
+        def _p(msg):
+            if progress: progress(msg)
 
         if not hasattr(self, 'current_model') or self.current_model is None:
             return
@@ -920,7 +951,9 @@ class MCanvas3D(gl.GLViewWidget):
                 self._pending_load_line_pos = []
                 self._pending_load_line_colors = []
                 self._draw_reactions(current_model)
+                _p("Pushing load buffers to GPU...")
                 self._upload_loads_to_vbo()
+                _p("Binding SDF font texture atlas to GPU pipelines...")
                 self._upload_load_labels_to_gpu()
             
             else:
@@ -2937,7 +2970,7 @@ class MCanvas3D(gl.GLViewWidget):
 
         if len(self._ltha_elements) == 0:
             return False
-            
+        _p("Allocating GPU Vertex Buffer Objects (VBOs) for Time History tensor...")
         self.ltha_engine = VectorizedLTHAEngine(len(self._ltha_elements))
 
         for i, el in enumerate(self._ltha_elements):

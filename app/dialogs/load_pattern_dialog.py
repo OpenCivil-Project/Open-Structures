@@ -41,6 +41,14 @@ class LoadPatternDialog(QDialog):
         v_mult.addWidget(self.input_sw)
         input_layout.addLayout(v_mult)
 
+        v_auto = QVBoxLayout()
+        v_auto.addWidget(QLabel("Auto Lateral Load:"))
+        self.input_auto = QComboBox()
+        self.input_auto.addItems(["None", "User Loads", "TSC-2018"])
+        self.input_auto.setEnabled(False) # Disabled by default (unless QUAKE is selected)
+        v_auto.addWidget(self.input_auto)
+        input_layout.addLayout(v_auto)
+
         v_btns = QVBoxLayout()
         v_btns.addSpacing(18)
 
@@ -68,8 +76,8 @@ class LoadPatternDialog(QDialog):
         layout.addSpacing(10)
 
         self.table = QTableWidget()
-        self.table.setColumnCount(3)
-        self.table.setHorizontalHeaderLabels(["Load Pattern Name", "Type", "Self Wt. Multiplier"])
+        self.table.setColumnCount(4)
+        self.table.setHorizontalHeaderLabels(["Load Pattern Name", "Type", "Self Wt. Multiplier", "Auto Lateral Load"])
         self.table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
         self.table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
         self.table.setAlternatingRowColors(True)
@@ -85,7 +93,7 @@ class LoadPatternDialog(QDialog):
         btn_ok = QPushButton("OK")
         btn_ok.setObjectName("primary")                                                        
         btn_ok.setFixedWidth(100)
-        btn_ok.clicked.connect(self.accept)
+        btn_ok.clicked.connect(self.save_and_accept)
 
         btn_layout.addWidget(btn_delete)
         btn_layout.addStretch()
@@ -94,31 +102,44 @@ class LoadPatternDialog(QDialog):
 
         self.refresh_table()
 
+    def save_and_accept(self):
+        """Auto-commits any pending UI changes before closing."""
+        name = self.input_name.text().strip().upper()
+        # If the currently typed name exists in the model, force a modification
+        if name in self.model.load_patterns:
+            self.modify_pattern()
+        self.accept()
+
     def auto_set_multiplier(self, type_text):
         self.input_sw.setText("1.0" if type_text == "DEAD" else "0.0")
+        
+        # Only enable Auto Lateral Load for Seismic (QUAKE)
+        if type_text == "QUAKE":
+            self.input_auto.setEnabled(True)
+        else:
+            self.input_auto.setEnabled(False)
+            self.input_auto.setCurrentText("None")
 
     def on_selection_changed(self):
         row = self.table.currentRow()
         if row < 0: return
         pat_type = self.table.item(row, 1).text()
-
+        
         self.input_name.setText(self.table.item(row, 0).text())
         self.input_type.blockSignals(True)
         self.input_type.setCurrentText(pat_type)
         self.input_type.blockSignals(False)
         self.input_sw.setText(self.table.item(row, 2).text())
+        
+        # Strictly enable the dropdown ONLY for QUAKE
+        self.input_auto.setEnabled(pat_type == "QUAKE")
 
-        self.btn_modify_lateral.setEnabled(pat_type == "QUAKE")
+        auto_text = self.table.item(row, 3).text()
+        self.input_auto.setCurrentText(auto_text)
 
-    def open_seismic_dialog(self):
-        row = self.table.currentRow()
-        if row < 0: return
-        pat_name = self.table.item(row, 0).text()
-        lp = self.model.load_patterns[pat_name]
-
-        from app.dialogs.user_seismic_dialog import UserSeismicDialog
-        dialog = UserSeismicDialog(lp, self.model, self)
-        dialog.exec()
+        # Toggle lateral button (Only enable if it's NOT 'None' AND it's QUAKE)
+        if hasattr(self, 'btn_modify_lateral'):
+            self.btn_modify_lateral.setEnabled(pat_type == "QUAKE" and auto_text != "None")
 
     def refresh_table(self):
         self.table.setRowCount(0)
@@ -128,43 +149,61 @@ class LoadPatternDialog(QDialog):
             self.table.setItem(row, 0, QTableWidgetItem(lp.name))
             self.table.setItem(row, 1, QTableWidgetItem(lp.pattern_type))
             self.table.setItem(row, 2, QTableWidgetItem(str(lp.self_weight_multiplier)))
+            
+            # Fetch auto lateral property (default to None if it doesn't exist yet)
+            auto_type = getattr(lp, 'auto_lateral', "None")
+            self.table.setItem(row, 3, QTableWidgetItem(auto_type))
 
     def add_pattern(self):
         name = self.input_name.text().strip().upper()
-        if not name:
-            QMessageBox.warning(self, "Error", "Name cannot be empty.")
-            return
-        if name in self.model.load_patterns:
-            QMessageBox.warning(self, "Error",
-                                f"Pattern '{name}' already exists.\nUse 'Modify' to update it.")
-            return
-        try:
-            mult = float(self.input_sw.text())
-        except ValueError:
-            QMessageBox.warning(self, "Error", "Self Weight Multiplier must be a number.")
-            return
+        if not name: return QMessageBox.warning(self, "Error", "Name cannot be empty.")
+        if name in self.model.load_patterns: return QMessageBox.warning(self, "Error", f"Pattern '{name}' already exists.")
+        
+        try: mult = float(self.input_sw.text())
+        except ValueError: return QMessageBox.warning(self, "Error", "Multiplier must be a number.")
+        
         self.model.add_load_pattern(name, self.input_type.currentText(), mult)
+        
+        # Save the Auto Lateral Selection
+        lp = self.model.load_patterns[name]
+        lp.auto_lateral = self.input_auto.currentText()
+        
         self.refresh_table()
 
     def modify_pattern(self):
         name = self.input_name.text().strip().upper()
-        if not name: return
-        if name not in self.model.load_patterns:
-            QMessageBox.warning(self, "Error",
-                                f"Pattern '{name}' does not exist.\nUse 'Add New' to create it.")
-            return
-        try:
-            mult = float(self.input_sw.text())
-        except ValueError:
-            QMessageBox.warning(self, "Error", "Self Weight Multiplier must be a number.")
-            return
+        if not name or name not in self.model.load_patterns: return
+        
+        try: mult = float(self.input_sw.text())
+        except ValueError: return QMessageBox.warning(self, "Error", "Multiplier must be a number.")
+        
         lp = self.model.load_patterns[name]
         lp.pattern_type = self.input_type.currentText()
         lp.self_weight_multiplier = mult
+        lp.auto_lateral = self.input_auto.currentText()
+        
         self.refresh_table()
         items = self.table.findItems(name, Qt.MatchFlag.MatchExactly)
-        if items:
-            self.table.setCurrentItem(items[0])
+        if items: self.table.setCurrentItem(items[0])
+
+    def open_seismic_dialog(self):
+        row = self.table.currentRow()
+        if row < 0: return
+        pat_name = self.table.item(row, 0).text()
+        lp = self.model.load_patterns[pat_name]
+        
+        auto_type = getattr(lp, 'auto_lateral', "None")
+        
+        if auto_type == "User Loads":
+            from app.dialogs.user_seismic_dialog import UserSeismicDialog
+            dialog = UserSeismicDialog(lp, self.model, self)
+            dialog.exec()
+            
+        elif auto_type == "TSC-2018":
+            from app.dialogs.tsc2018_dialog import TSC2018Dialog
+            dialog = TSC2018Dialog(lp, self)
+            dialog.exec()
+
 
     def delete_pattern(self):
         current_row = self.table.currentRow()

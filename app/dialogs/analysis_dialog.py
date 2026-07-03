@@ -101,16 +101,19 @@ class AnalysisDialog(QDialog):
     def populate_table(self):
         self.table.setRowCount(0)
 
+        # 1. Grab all Load Cases
+        case_list = []
         if hasattr(self.model, 'load_cases') and self.model.load_cases:
-            cases = self.model.load_cases
-        else:
-            cases = [{"name": "DEAD", "type": "Linear Static"}]
+            case_list.extend(list(self.model.load_cases.values()))
+            
+        # 2. Grab all Load Combinations
+        if hasattr(self.model, 'load_combos') and self.model.load_combos:
+            case_list.extend(list(self.model.load_combos.values()))
 
-        if isinstance(cases, dict):
-            case_list = list(cases.values())
-        else:
-            case_list = cases
+        if not case_list:
+            case_list = [{"name": "DEAD", "type": "Linear Static"}]
 
+        # Set default case/combo
         first_name = None
         for c in case_list:
             first_name = c.get('name', 'Unknown') if isinstance(c, dict) else getattr(c, 'name', 'Unknown')
@@ -123,11 +126,16 @@ class AnalysisDialog(QDialog):
                 c_type = case.get('type', 'Linear Static')
             else:
                 name = getattr(case, 'name', 'Unknown')
-                c_type = getattr(case, 'case_type', getattr(case, 'type', 'Linear Static'))
+                # Check if it's a combo or a case
+                if hasattr(case, 'combo_type'):
+                    c_type = f"Combo ({case.combo_type})"
+                else:
+                    c_type = getattr(case, 'case_type', getattr(case, 'type', 'Linear Static'))
 
             status = "Not Run"
             action = "Run" if name == default_case else "Do Not Run"
 
+            # ... (the rest of your table insertion code stays exactly the same)
             self.table.insertRow(row)
             self.table.setItem(row, 0, QTableWidgetItem(str(name)))
             self.table.setItem(row, 1, QTableWidgetItem(str(c_type)))

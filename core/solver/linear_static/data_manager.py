@@ -83,6 +83,8 @@ class DataManager:
         self._parse_elements()
         self._prepare_load_case(case_name)
         self._generate_self_weight()
+        from auto_seismic import AutoSeismicGenerator
+        AutoSeismicGenerator(self).generate_loads()
 
     def _map_nodes(self):
                                          

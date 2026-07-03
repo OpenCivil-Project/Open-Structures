@@ -10,6 +10,28 @@ from core.units import unit_registry
 import numpy as np
 from core.loads import LoadPattern, NodalLoad, MemberLoad, MemberPointLoad, AreaGravityLoad, AreaUniformLoad
 
+class TSC2018Data:
+    def __init__(self):
+        # Direction and Eccentricity
+        self.direction = "X" # "X" or "Y"
+        self.eccentricity = 0.05
+        
+        # Time Period
+        self.period_method = "Program Calc" # "Approx", "Program Calc", "User"
+        self.ct = 0.075 # Default for concrete
+        self.user_t = 0.0
+        
+        # Seismic Coefficients
+        self.ss = 0.0
+        self.s1 = 0.0
+        self.tl = 6.0
+        self.site_class = "ZB"
+        
+        # Factors
+        self.r = 8.0
+        self.d = 3.0
+        self.importance = 1.0
+
 class UserSeismicData:
     def __init__(self):
         self.eccentricity = 0.05
@@ -26,6 +48,9 @@ class MassSource:
 class LoadPattern:
     def __init__(self, name, pattern_type="DEAD", self_weight_multiplier=0.0):
         self.name = name
+        self.seismic_data = None 
+        self.auto_lateral = "None" 
+        self.tsc_data = None
         self.pattern_type = pattern_type                               
         self.self_weight_multiplier = float(self_weight_multiplier)
         self.seismic_data = None                                      
@@ -77,6 +102,7 @@ class StructuralModel:
         self.sections = {}                          
         self.load_patterns = {}                           
         self.load_cases = {}   
+        self.load_combos = {}
         self.functions = {}                                      
         self.mass_sources = {}
         self.loads = []                                         
@@ -298,8 +324,13 @@ class StructuralModel:
                                       projected=projected, coord_system=coord_system)
                 self.loads.append(new_load)
 
-    def save_to_file(self, filepath):
+    def save_to_file(self, filepath, progress=None):
         """Serializes the model data to a JSON file"""
+        print(">>> RUNNING THE NEW SAVE METHOD <<<") # ADD THIS
+        def _p(msg):
+            if progress: progress(msg)
+            
+        _p("Saving project info & graphics...")
         data = {
             "info": {
                 "name": self.name,
@@ -327,6 +358,7 @@ class StructuralModel:
             "th_functions": []
         }
 
+        _p(f"Saving {len(self.load_cases)} load case(s)...")
         for lc in self.load_cases.values():
             data["load_cases"].append({
                 "name": lc.name,
@@ -342,7 +374,17 @@ class StructuralModel:
                 "ltha_damping": getattr(lc, 'damping', 0.05),
                 "ltha_loads": getattr(lc, 'ltha_loads', [])
             })
+        
+        _p(f"Saving {len(self.load_combos)} load combination(s)...")
+        data["load_combos"] = []
+        for combo in self.load_combos.values():
+            data["load_combos"].append({
+                "name": combo.name,
+                "combo_type": combo.combo_type,
+                "cases": combo.cases
+            })
 
+        _p(f"Saving {len(self.materials)} material(s)...")
         for mat in self.materials.values():
             data["materials"].append({
                 "name": mat.name,
@@ -350,6 +392,7 @@ class StructuralModel:
                 "type": mat.mat_type, "fy": mat.fy, "fu": mat.fu
             })
 
+        _p(f"Saving {len(self.sections)} frame section(s)...")
         for sec in self.sections.values():
             sec_data = {
                 "name": sec.name,
@@ -389,6 +432,7 @@ class StructuralModel:
             
             data["sections"].append(sec_data)
 
+        _p(f"Saving {len(self.nodes)} nodes & boundary conditions...")
         for n_id in sorted(self.nodes.keys()):
             n = self.nodes[n_id]
             data["nodes"].append({
@@ -396,6 +440,7 @@ class StructuralModel:
                 "restraints": n.restraints, "diaphragm": n.diaphragm_name  
             })
 
+        _p(f"Saving {len(self.elements)} frame element(s) & releases...")
         for el_id in sorted(self.elements.keys()):
             el = self.elements[el_id]
             data["elements"].append({
@@ -414,9 +459,11 @@ class StructuralModel:
                 "rz_factor": el.rigid_zone_factor
             })
 
+        _p(f"Saving {len(self.slabs)} slab(s)...")
         for slab in self.slabs.values():
             data["slabs"].append({"id": slab.id, "node_ids": [n.id for n in slab.nodes], "thick": slab.thickness})
 
+        _p(f"Saving {len(self.area_elements)} area element(s)...")
         for ae in self.area_elements.values():
             data["area_elements"].append({
                 "id": ae.id, 
@@ -424,21 +471,42 @@ class StructuralModel:
                 "sec_name": ae.section.name
             })
 
+        _p(f"Saving {len(self.constraints)} diaphragm constraint(s)...")
         for name, const in self.constraints.items():
             data["constraints"].append({"name": name, "axis": const.axis})
+
+        _p(f"Saving {len(self.load_patterns)} load pattern(s)...")
         for lp in self.load_patterns.values():
             lp_dict = {
                 "name": lp.name, 
                 "type": lp.pattern_type, 
-                "sw_mult": lp.self_weight_multiplier
+                "sw_mult": lp.self_weight_multiplier,
+                "auto_lateral": getattr(lp, "auto_lateral", "None")
+
             }
             if lp.seismic_data:
                 lp_dict["seismic_data"] = {
                     "eccentricity": lp.seismic_data.eccentricity,
                     "diaphragm_loads": lp.seismic_data.diaphragm_loads
                 }
+            if getattr(lp, 'tsc_data', None):
+                lp_dict["tsc_data"] = {
+                    "direction": lp.tsc_data.direction,
+                    "eccentricity": lp.tsc_data.eccentricity,
+                    "period_method": lp.tsc_data.period_method,
+                    "ct": lp.tsc_data.ct,
+                    "user_t": lp.tsc_data.user_t,
+                    "ss": lp.tsc_data.ss,
+                    "s1": lp.tsc_data.s1,
+                    "tl": lp.tsc_data.tl,
+                    "site_class": lp.tsc_data.site_class,
+                    "r": lp.tsc_data.r,
+                    "d": lp.tsc_data.d,
+                    "importance": lp.tsc_data.importance
+                }
             data["load_patterns"].append(lp_dict)
 
+        _p(f"Saving {len(self.loads)} load assignment(s)...")
         for load in self.loads:
             load_data = {"pattern": load.pattern_name}
             
@@ -459,7 +527,7 @@ class StructuralModel:
                     "gz":      load.gz,
                     "coord":   load.coord_system
                 })
-                                                                              
+                                                                          
             elif hasattr(load, 'force'): 
                 load_data.update({
                     "type": "member_point",
@@ -491,6 +559,7 @@ class StructuralModel:
             
             data["loads"].append(load_data)
 
+        _p("Saving mass sources...")
         if hasattr(self, 'mass_sources'):
             for ms in self.mass_sources.values():
                 ms_data = {
@@ -501,14 +570,17 @@ class StructuralModel:
                 }
                 data["mass_sources"].append(ms_data)
 
+        _p("Saving response spectrum functions...")
         if hasattr(self, 'functions'):
             for func_name, func_data in self.functions.items():
                 data["functions"].append(func_data)
 
+        _p("Saving time history functions...")
         if hasattr(self, 'th_functions'):
             for func_name, func_data in self.th_functions.items():
                 data["th_functions"].append(func_data)
 
+        _p(f"Saving {len(self.area_sections)} area section(s)...")
         data["area_sections"] = [
             {
                 "type":              s.__class__.__name__,                               
@@ -536,22 +608,30 @@ class StructuralModel:
             for s in self.area_sections.values()
         ]
 
+        _p("Writing file to disk...")
         with open(filepath, 'w') as f:
             json.dump(data, f, indent=4)
         print(f"Model saved to {filepath}")
 
-    def load_from_file(self, filepath):
+    def load_from_file(self, filepath, progress=None):
         """Clears current model and loads data from JSON"""
+        def _p(msg):
+            if progress: progress(msg)
+
+        _p("Reading file from disk...")
         with open(filepath, 'r') as f:
             data = json.load(f)
             
+        _p("Clearing current model data...")
         self.nodes.clear(); self.elements.clear(); self.materials.clear()
         self.sections.clear(); self.area_sections.clear(); self.load_patterns.clear(); self.loads.clear()                                  
         self.slabs.clear(); self.area_elements.clear(); self.constraints.clear()
+        self.load_combos.clear()
         self.functions = {}
         self.th_functions = {}
         self._node_counter = 1; self._elem_counter = 1; self._slab_counter = 1; self._area_elem_counter = 1
         
+        _p("Loading project info & grid...")
         self.name = data["info"]["name"]
         self.saved_unit_system = data["info"].get("units", "kN, m, C")
         
@@ -561,10 +641,12 @@ class StructuralModel:
         else:
             self.grid.x_grids = grid_data["x"]; self.grid.y_grids = grid_data["y"]; self.grid.z_grids = grid_data["z"]
 
+        _p(f"Loading {len(data.get('materials', []))} material(s)...")
         for m_data in data["materials"]:
             mat = Material(m_data["name"], m_data["E"], m_data["nu"], m_data["rho"], m_data["type"], m_data.get("fy", 0), m_data.get("fu", 0))
             self.add_material(mat)
 
+        _p(f"Loading {len(data.get('sections', []))} frame section(s)...")
         for s_data in data["sections"]:
             mat = self.materials.get(s_data["mat_name"])
             if not mat: continue 
@@ -575,7 +657,7 @@ class StructuralModel:
                 saved_props = s_data.get("properties", None) 
                 sec = ISection(
                     s_data["name"], mat, s_data["h"], s_data["w_top"], s_data["t_top"], 
-                    s_data["w_bot"], s_data["t_bot"], s_data["t_web"], props=saved_props                   
+                    s_data["w_bot"], s_data["t_bot"], s_data["t_web"], props=saved_props                  
                 )
             elif s_data["type"] == "circular":
                 sec = CircularSection(s_data["name"], mat, s_data["d"])
@@ -589,7 +671,7 @@ class StructuralModel:
                 p = s_data["properties"]
                 props_dict = {
                     'A': p["A"], 'J': p["J"], 'I33': p["I33"], 'I22': p["I22"],
-                                                                 
+                                                                     
                     'As2': p.get("Asy", p.get("As2", 0.0)), 
                     'As3': p.get("Asz", p.get("As3", 0.0)),
                     'y_c': s_data.get("y_c", 0.0),
@@ -614,6 +696,7 @@ class StructuralModel:
                      "PlaneSection": PlaneSection,
                      "AsolidSection": AsolidSection}
         
+        _p("Loading area sections...")
         for d in data.get("area_sections", []):
             cls  = _AREA_CLS.get(d["type"])
             mat  = self.materials.get(d["material"])
@@ -638,6 +721,7 @@ class StructuralModel:
                 
             self.area_sections[sec.name] = sec
 
+        _p(f"Loading {len(data.get('nodes', []))} nodes & boundary conditions...")
         for n_data in data["nodes"]:
             n_id = n_data["id"]
             node = self.add_node(n_data["x"], n_data["y"], n_data["z"])
@@ -646,6 +730,7 @@ class StructuralModel:
             if "diaphragm" in n_data: node.diaphragm_name = n_data["diaphragm"]
             self._node_counter = max(self._node_counter, n_id + 1)
 
+        _p("Loading diaphragm constraints...")
         if "constraints" in data:
             for c_data in data["constraints"]: self.add_constraint(c_data["name"], c_data["axis"])
 
@@ -653,6 +738,7 @@ class StructuralModel:
         self.graphics_settings = data.get("graphics", {})
         self.name = data["info"]["name"]
 
+        _p("Finalizing area section instances...")
         for s_data in data.get("area_sections", []):
             mat = self.materials.get(s_data["material"])
             if not mat: continue
@@ -687,6 +773,7 @@ class StructuralModel:
             if sec:
                 self.add_area_section(sec)
 
+        _p(f"Loading {len(data.get('elements', []))} frame element(s) & releases...")
         for el_data in data["elements"]:
             n1 = self.nodes.get(el_data["n1_id"])
             n2 = self.nodes.get(el_data["n2_id"])
@@ -712,6 +799,7 @@ class StructuralModel:
                 el.end_offset_j = el_data.get("end_off_j", 0.0)
                 el.rigid_zone_factor = el_data.get("rz_factor", 0.0)
 
+        _p("Loading area elements...")
         if "area_elements" in data:
             for ae_data in data["area_elements"]:
                 ae_nodes = [self.nodes[nid] for nid in ae_data["node_ids"] if nid in self.nodes]
@@ -724,6 +812,7 @@ class StructuralModel:
                     self.area_elements[new_ae.id] = new_ae
                     self._area_elem_counter = max(self._area_elem_counter, new_ae.id + 1)
 
+        _p("Loading slabs...")
         if "slabs" in data:
             for sl_data in data["slabs"]:
                 slab_nodes = []
@@ -734,6 +823,7 @@ class StructuralModel:
                     del self.slabs[new_slab.id]; new_slab.id = sl_data["id"]; self.slabs[new_slab.id] = new_slab
                     self._slab_counter = max(self._slab_counter, new_slab.id + 1)
 
+        _p("Loading load cases...")
         if "load_cases" in data:
             for lc_data in data["load_cases"]:
                 name = lc_data["name"]
@@ -756,11 +846,20 @@ class StructuralModel:
                 
                 self.load_cases[name] = new_lc
         else:
-                                    
+                                            
             self.create_default_cases()
 
+        _p("Loading load combinations...")
+        if "load_combos" in data:
+            for combo_data in data["load_combos"]:
+                new_combo = LoadCombination(combo_data["name"], combo_data.get("combo_type", "Linear Add"))
+                raw_cases = combo_data.get("cases", [])
+                new_combo.cases = [tuple(item) for item in raw_cases]
+                self.load_combos[new_combo.name] = new_combo
+
+        _p("Loading mass sources...")
         if "mass_sources" in data:
-                                             
+                                                     
             if not hasattr(self, 'mass_sources'):
                 self.mass_sources = {}
 
@@ -768,32 +867,59 @@ class StructuralModel:
                 new_ms = MassSource(ms_data["name"])
                 new_ms.include_self_mass = ms_data["include_self_mass"]
                 new_ms.include_patterns = ms_data["include_patterns"]
-                                                             
+                                                                             
                 new_ms.load_patterns = [tuple(x) for x in ms_data["load_patterns"]]
 
                 self.mass_sources[new_ms.name] = new_ms
 
+        _p("Loading load patterns & seismic data...")
         if "load_patterns" in data:
             for lp_data in data["load_patterns"]: 
                 self.add_load_pattern(lp_data["name"], lp_data["type"], lp_data["sw_mult"])
+                
+                # <--- ADDED AUTO_LATERAL LOAD --->
+                lp = self.load_patterns[lp_data["name"]]
+                lp.auto_lateral = lp_data.get("auto_lateral", "None")
+
                 if "seismic_data" in lp_data:
                     sd = UserSeismicData()
                     sd.eccentricity = lp_data["seismic_data"]["eccentricity"]
                     sd.diaphragm_loads = lp_data["seismic_data"]["diaphragm_loads"]
-                    self.load_patterns[lp_data["name"]].seismic_data = sd
+                    lp.seismic_data = sd
+                    
+                # <--- ADDED TSC-2018 REBUILD BLOCK --->
+                if "tsc_data" in lp_data:
+                    tsc = TSC2018Data()
+                    t_data = lp_data["tsc_data"]
+                    tsc.direction = t_data.get("direction", "X")
+                    tsc.eccentricity = t_data.get("eccentricity", 0.05)
+                    tsc.period_method = t_data.get("period_method", "Approx")
+                    tsc.ct = t_data.get("ct", 0.075)
+                    tsc.user_t = t_data.get("user_t", 0.0)
+                    tsc.ss = t_data.get("ss", 0.0)
+                    tsc.s1 = t_data.get("s1", 0.0)
+                    tsc.tl = t_data.get("tl", 6.0)
+                    tsc.site_class = t_data.get("site_class", "ZB")
+                    tsc.r = t_data.get("r", 8.0)
+                    tsc.d = t_data.get("d", 3.0)
+                    tsc.importance = t_data.get("importance", 1.0)
+                    lp.tsc_data = tsc
         else: 
             self.add_load_pattern("DEAD", "DEAD", 1.0)
              
+        _p("Loading response spectrum functions...")
         if "functions" in data:
             for func_data in data["functions"]:
                 f_name = func_data["name"]
                 self.functions[f_name] = func_data
 
+        _p("Loading time history functions...")
         if "th_functions" in data:
             for func_data in data["th_functions"]:
                 f_name = func_data.get("name", "THFUNC")
                 self.th_functions[f_name] = func_data
 
+        _p(f"Loading {len(data.get('loads', []))} load assignment(s)...")
         if "loads" in data:
             for load_data in data["loads"]:
                 pattern_name = load_data["pattern"]
@@ -808,7 +934,7 @@ class StructuralModel:
                     self.loads.append(new_load)
 
                 elif l_type == "member_dist":
-                                                                       
+                                                                                       
                     coord = load_data.get("coord", "Global")
                     proj = load_data.get("projected", False)
                     new_load = MemberLoad(load_data["element_id"], pattern_name, 
@@ -849,6 +975,7 @@ class StructuralModel:
                         )
                         self.loads.append(new_load)
         
+        _p("Load complete.")
         print(f"Model loaded from {filepath}")
 
     def add_constraint(self, name, axis="Z"):
@@ -1427,7 +1554,8 @@ class StructuralModel:
 
         print(f"Orphan cleanup: removed {len(orphan_ids)} nodes.")
         return len(orphan_ids)
-            
+
+        
 class LoadCase:
     def __init__(self, name, case_type="Linear Static"):
         self.name = name
@@ -1440,3 +1568,9 @@ class LoadCase:
         self.modal_case = None                                                     
         self.num_modes = 12
         self.ltha_loads = []
+
+class LoadCombination:
+    def __init__(self, name, combo_type="Linear Add"):
+        self.name = name
+        self.combo_type = combo_type  # "Linear Add", "Envelope", "Absolute Add", "SRSS"
+        self.cases = []               # List of tuples: [("LoadCaseName", scale_factor)]

@@ -5,6 +5,7 @@ from core.properties import Section
 class Node:
     def __init__(self, id: int, x: float, y: float, z: float):
         self.id = int(id)
+        self.label = f"N{self.id}"
         self.x = float(x)
         self.y = float(y)
         self.z = float(z)
@@ -21,6 +22,7 @@ class Node:
 class FrameElement:
     def __init__(self, id: int, node_i: Node, node_j: Node, section: Section, beta_angle: float = 0.0):
         self.id = int(id)
+        self.label = f"F{self.id}"
         self.node_i = node_i
         self.node_j = node_j
         self.section = section
@@ -186,6 +188,21 @@ class FrameElement:
         T = self.get_insertion_matrix()
         return T.T @ k_pure @ T
     
+    @property
+    def element_type(self):
+        """Geometrically classifies the frame element."""
+        tol = 1e-4
+        dx = abs(self.node_j.x - self.node_i.x)
+        dy = abs(self.node_j.y - self.node_i.y)
+        dz = abs(self.node_j.z - self.node_i.z)
+
+        if dx < tol and dy < tol and dz > tol:
+            return "Column"
+        elif dz < tol and (dx > tol or dy > tol):
+            return "Beam"
+        else:
+            return "Brace"
+    
 class Slab:
     """
     Represents a visual area element (Floor/Wall).
@@ -196,6 +213,7 @@ class Slab:
     """
     def __init__(self, id, nodes, thickness, material=None):
         self.id = int(id)
+        self.label = f"S{self.id}"
         self.nodes = nodes                                         
         self.thickness = float(thickness)
         self.material = material
@@ -218,8 +236,29 @@ class AreaElement:
     """
     def __init__(self, element_id, nodes, section):
         self.id = int(element_id)
+        self.label = f"A{self.id}"
         self.nodes = nodes                                                      
         self.section = section                                          
 
     def __repr__(self):
         return f"AreaElement({self.id}, sec={self.section.name})"
+    
+    @property
+    def element_type(self):
+        """Geometrically classifies the area element."""
+        if len(self.nodes) < 3:
+            return "Undefined"
+        
+        z_vals = [n.z for n in self.nodes]
+        z_min, z_max = min(z_vals), max(z_vals)
+        
+        tol = 1e-4
+        if (z_max - z_min) < tol:
+            return "Horizontal Shell"
+        
+        x_vals = [n.x for n in self.nodes]
+        y_vals = [n.y for n in self.nodes]
+        if (max(x_vals) - min(x_vals)) < tol or (max(y_vals) - min(y_vals)) < tol:
+            return "Vertical Wall"
+            
+        return "Sloped Shell"

@@ -30,8 +30,152 @@ class SolverWorker(QThread):
         try:
             print(f"Worker: Starting {self.case_type} Engine on {self.input_path} (Case: {self.case_name})...")
             success = False
-            
-            if self.case_type == "Modal":
+
+            if self.case_type.startswith("Combo"):
+                from progress import make_callback
+                cb = make_callback(self.signal_progress.emit)
+                cb(f"Worker: Unpacking Load Combination '{self.case_name}'...", 5)
+                
+                temp_model = StructuralModel("Temp")
+                try:
+                    temp_model.load_from_file(self.input_path)
+                except Exception as e:
+                    raise Exception(f"Failed to load model data: {e}")
+
+                combo_obj = temp_model.load_combos.get(self.case_name)
+                if not combo_obj:
+                    raise Exception(f"Combination '{self.case_name}' not found in model.")
+
+                base_path = self.input_path.replace(".mf", "")
+                
+                # 1. RUN ALL REQUIRED BASE CASES
+                for idx, (base_case_name, scale) in enumerate(combo_obj.cases):
+                    base_case_obj = temp_model.load_cases.get(base_case_name)
+                    if not base_case_obj:
+                        raise Exception(f"Base case '{base_case_name}' is missing.")
+                        
+                    c_type = base_case_obj.case_type
+                    cb(f"Combo Runner: Executing base case '{base_case_name}' ({c_type})...", 10 + (idx * 20))
+                    
+                    case_output_path = f"{base_path}_{base_case_name}_results.json"
+                    
+                    # Call the appropriate engine dynamically!
+                    if c_type == "Linear Static":
+                        run_linear_static_analysis(self.input_path, case_output_path, base_case_name, progress_callback=cb)
+                    elif c_type == "Response Spectrum":
+                        # Note: User must have run Modal beforehand for RSA to work
+                        pass # You can hook RSA up here exactly how you did below!
+                        
+                # 2. COMBINE THE RESULTS
+                cb(f"Combo Runner: Merging results into {self.case_name}...", 80)
+                
+                import copy
+                has_rsa = False
+                static_accum = {}
+                env_accum = {}
+                constant_data = {}
+                
+                # ONLY these keys get scaled and superimposed. 
+                # Everything else (assembled_mass, restraints, info) is safely bypassed.
+                math_keys = ["displacements", "reactions", "base_reaction", "element_forces"]
+
+                def add_math(d1, d2, scale, is_abs):
+                    if d1 is None: d1 = {}
+                    for k, v in d2.items():
+                        if isinstance(v, dict):
+                            d1[k] = add_math(d1.get(k, {}), v, scale, is_abs)
+                        elif isinstance(v, list):
+                            arr = np.array(v, dtype=float) * scale
+                            if is_abs: arr = np.abs(arr)
+                            if k in d1:
+                                d1[k] = (np.array(d1[k], dtype=float) + arr).tolist()
+                            else:
+                                d1[k] = arr.tolist()
+                        elif isinstance(v, (int, float)) and not isinstance(v, bool):
+                            val = float(v) * scale
+                            if is_abs: val = abs(val)
+                            d1[k] = d1.get(k, 0.0) + val
+                    return d1
+
+                def combine_envs(d_stat, d_env, sign):
+                    res = {}
+                    all_keys = set(d_stat.keys()) | set(d_env.keys())
+                    for k in all_keys:
+                        vs = d_stat.get(k)
+                        ve = d_env.get(k)
+                        if isinstance(vs, dict) or isinstance(ve, dict):
+                            res[k] = combine_envs(vs or {}, ve or {}, sign)
+                        elif isinstance(vs, list) or isinstance(ve, list):
+                            arr_s = np.array(vs, dtype=float) if vs else 0.0
+                            arr_e = np.array(ve, dtype=float) if ve else 0.0
+                            res[k] = (arr_s + sign * arr_e).tolist()
+                        else:
+                            val_s = vs if vs is not None else 0.0
+                            val_e = ve if ve is not None else 0.0
+                            res[k] = val_s + sign * val_e
+                    return res
+
+                for base_case_name, scale in combo_obj.cases:
+                    case_file = f"{base_path}_{base_case_name}_results.json"
+                    if not os.path.exists(case_file):
+                        raise Exception(f"Missing results for {base_case_name}. Please run it first.")
+
+                    with open(case_file, 'r') as f:
+                        res = json.load(f)
+                    
+                    is_rsa = res.get("info", {}).get("type") in ["Response Spectrum", "Response Spectrum Combined"]
+                    if is_rsa: has_rsa = True
+                    
+                    # Cleanly separate math values from constant properties
+                    for key, value in res.items():
+                        if key in math_keys:
+                            if is_rsa:
+                                env_accum[key] = add_math(env_accum.get(key, {}), value, scale, is_abs=True)
+                            else:
+                                static_accum[key] = add_math(static_accum.get(key, {}), value, scale, is_abs=False)
+                        else:
+                            if key not in constant_data:
+                                constant_data[key] = copy.deepcopy(value)
+
+                # 3. SAVE THE COMBINED JSON(S)
+                def save_combo_file(suffix, sign=1):
+                    out_file = self.output_path.replace(f"_{self.case_name}_results.json", f"_{self.case_name}{suffix}_results.json")
+                    
+                    final_res = copy.deepcopy(constant_data)
+                    final_res["status"] = "SUCCESS"
+                    if "info" not in final_res: final_res["info"] = {}
+                    final_res["info"]["type"] = "Linear Static"
+                    final_res["info"]["case_name"] = f"{self.case_name}{suffix}"
+
+                    # Attach the completed math matrices
+                    for mk in math_keys:
+                        d_stat = static_accum.get(mk, {})
+                        d_env = env_accum.get(mk, {})
+                        if d_stat or d_env:
+                            final_res[mk] = combine_envs(d_stat, d_env, sign)
+
+                    with open(out_file, 'w') as f:
+                        json.dump(final_res, f, indent=4)
+
+                if has_rsa:
+                    save_combo_file(" (Max)", sign=1)
+                    save_combo_file(" (Min)", sign=-1)
+                else:
+                    save_combo_file("", sign=1)
+
+                import shutil
+                import glob
+                search_pattern = f"{base_path}_*_matrices.json"
+                found_matrices = glob.glob(search_pattern)
+                combo_matrices_path = self.output_path.replace("_results.json", "_matrices.json")
+                if found_matrices:
+                    shutil.copy2(found_matrices[0], combo_matrices_path)
+                    
+                cb("Worker: Load Combination completed successfully.", 100)
+                success = True
+
+            elif self.case_type == "Modal":
+
                 from progress import make_callback
                 cb = make_callback(self.signal_progress.emit)
                 success = run_modal_analysis(self.input_path, self.output_path, progress_callback=cb)

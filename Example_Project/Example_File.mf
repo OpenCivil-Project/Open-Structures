@@ -39,7 +39,10 @@
         "show_constraints": true,
         "show_releases": true,
         "load_type_filter": "both",
-        "visible_load_patterns": [],
+        "visible_load_patterns": [
+            "DEAD",
+            "EQX"
+        ],
         "deflection_scale": 3902.3,
         "anim_speed": 1.0,
         "shadow_active": true,
@@ -145,6 +148,82 @@
             ],
             "p_delta": false,
             "mass_source": "MSSSRC1",
+            "num_modes": 12,
+            "rsa_loads": [],
+            "modal_comb": "SRSS",
+            "dir_comb": "SRSS",
+            "modal_damping": 0.05,
+            "ltha_damping": 0.05,
+            "ltha_loads": []
+        },
+        {
+            "name": "LIVE",
+            "type": "Linear Static",
+            "loads": [
+                [
+                    "LIVE",
+                    1.0
+                ]
+            ],
+            "p_delta": false,
+            "mass_source": "Default",
+            "num_modes": 12,
+            "rsa_loads": [],
+            "modal_comb": "SRSS",
+            "dir_comb": "SRSS",
+            "modal_damping": 0.05,
+            "ltha_damping": 0.05,
+            "ltha_loads": []
+        },
+        {
+            "name": "LIVE2",
+            "type": "Linear Static",
+            "loads": [
+                [
+                    "LIVE2",
+                    1.0
+                ]
+            ],
+            "p_delta": false,
+            "mass_source": "Default",
+            "num_modes": 12,
+            "rsa_loads": [],
+            "modal_comb": "SRSS",
+            "dir_comb": "SRSS",
+            "modal_damping": 0.05,
+            "ltha_damping": 0.05,
+            "ltha_loads": []
+        },
+        {
+            "name": "EQX",
+            "type": "Linear Static",
+            "loads": [
+                [
+                    "EQX",
+                    1.0
+                ]
+            ],
+            "p_delta": false,
+            "mass_source": "Default",
+            "num_modes": 12,
+            "rsa_loads": [],
+            "modal_comb": "SRSS",
+            "dir_comb": "SRSS",
+            "modal_damping": 0.05,
+            "ltha_damping": 0.05,
+            "ltha_loads": []
+        },
+        {
+            "name": "EQY",
+            "type": "Linear Static",
+            "loads": [
+                [
+                    "EQY",
+                    1.0
+                ]
+            ],
+            "p_delta": false,
+            "mass_source": "Default",
             "num_modes": 12,
             "rsa_loads": [],
             "modal_comb": "SRSS",
@@ -936,7 +1015,7 @@
                 false,
                 false
             ],
-            "diaphragm": null
+            "diaphragm": "L2"
         },
         {
             "id": 42,
@@ -951,7 +1030,7 @@
                 false,
                 false
             ],
-            "diaphragm": null
+            "diaphragm": "L2"
         },
         {
             "id": 43,
@@ -966,7 +1045,7 @@
                 false,
                 false
             ],
-            "diaphragm": null
+            "diaphragm": "L2"
         },
         {
             "id": 44,
@@ -981,7 +1060,7 @@
                 false,
                 false
             ],
-            "diaphragm": null
+            "diaphragm": "L2"
         },
         {
             "id": 45,
@@ -996,7 +1075,7 @@
                 false,
                 false
             ],
-            "diaphragm": null
+            "diaphragm": "L2"
         },
         {
             "id": 46,
@@ -1011,7 +1090,7 @@
                 false,
                 false
             ],
-            "diaphragm": null
+            "diaphragm": "L2"
         },
         {
             "id": 47,
@@ -1026,7 +1105,7 @@
                 false,
                 false
             ],
-            "diaphragm": null
+            "diaphragm": "L2"
         },
         {
             "id": 48,
@@ -1041,7 +1120,7 @@
                 false,
                 false
             ],
-            "diaphragm": null
+            "diaphragm": "L2"
         },
         {
             "id": 49,
@@ -1056,7 +1135,7 @@
                 false,
                 false
             ],
-            "diaphragm": null
+            "diaphragm": "L2"
         },
         {
             "id": 50,
@@ -1071,7 +1150,7 @@
                 false,
                 false
             ],
-            "diaphragm": null
+            "diaphragm": "L2"
         },
         {
             "id": 51,
@@ -1086,7 +1165,7 @@
                 false,
                 false
             ],
-            "diaphragm": null
+            "diaphragm": "L2"
         },
         {
             "id": 52,
@@ -1101,7 +1180,7 @@
                 false,
                 false
             ],
-            "diaphragm": null
+            "diaphragm": "L2"
         },
         {
             "id": 53,
@@ -1116,7 +1195,7 @@
                 false,
                 false
             ],
-            "diaphragm": null
+            "diaphragm": "L2"
         },
         {
             "id": 54,
@@ -1131,7 +1210,7 @@
                 false,
                 false
             ],
-            "diaphragm": null
+            "diaphragm": "L2"
         },
         {
             "id": 55,
@@ -1146,7 +1225,7 @@
                 false,
                 false
             ],
-            "diaphragm": null
+            "diaphragm": "L2"
         },
         {
             "id": 56,
@@ -1161,7 +1240,7 @@
                 false,
                 false
             ],
-            "diaphragm": null
+            "diaphragm": "L2"
         },
         {
             "id": 57,
@@ -1176,7 +1255,7 @@
                 false,
                 false
             ],
-            "diaphragm": null
+            "diaphragm": "L2"
         },
         {
             "id": 58,
@@ -1191,7 +1270,7 @@
                 false,
                 false
             ],
-            "diaphragm": null
+            "diaphragm": "L2"
         },
         {
             "id": 59,
@@ -1206,7 +1285,7 @@
                 false,
                 false
             ],
-            "diaphragm": null
+            "diaphragm": "L2"
         },
         {
             "id": 60,
@@ -1221,7 +1300,7 @@
                 false,
                 false
             ],
-            "diaphragm": null
+            "diaphragm": "L2"
         },
         {
             "id": 61,
@@ -9377,12 +9456,54 @@
     "slabs": [],
     "area_elements": [],
     "area_sections": [],
-    "constraints": [],
+    "constraints": [
+        {
+            "name": "L2",
+            "axis": "Z"
+        }
+    ],
     "load_patterns": [
         {
             "name": "DEAD",
             "type": "DEAD",
-            "sw_mult": 1.0
+            "sw_mult": 1.0,
+            "auto_lateral": "None"
+        },
+        {
+            "name": "EQX",
+            "type": "QUAKE",
+            "sw_mult": 0.0,
+            "auto_lateral": "TSC-2018",
+            "tsc_data": {
+                "direction": "X",
+                "eccentricity": 0.05,
+                "period_method": "Program Calc",
+                "ct": 0.07,
+                "user_t": 0.0,
+                "ss": 0.5,
+                "s1": 0.33,
+                "tl": 6.0,
+                "site_class": "ZB",
+                "r": 8.0,
+                "d": 3.0,
+                "importance": 1.0
+            }
+        },
+        {
+            "name": "EQY",
+            "type": "QUAKE",
+            "sw_mult": 0.0,
+            "auto_lateral": "User Loads",
+            "seismic_data": {
+                "eccentricity": 0.05,
+                "diaphragm_loads": {
+                    "L2": {
+                        "Fx": 5000000.0,
+                        "Fy": 0.0,
+                        "Mz": 0.0
+                    }
+                }
+            }
         }
     ],
     "loads": [],

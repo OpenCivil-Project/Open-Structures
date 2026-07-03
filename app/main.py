@@ -60,6 +60,7 @@ from app.dialogs.analysis_progress_dialog import AnalysisProgressDialog
 from app.dialogs.area_mesh_dialog import AreaMeshDialog
 from release_notes import RELEASE_NOTES, NOTICES
 from app.dialogs.display_reactions_dialog import DisplayReactionsDialog
+from app.dialogs.model_io_dialog import ModelIODialog, LAUNCH_ON_ANALYSIS
 
 class OpenStructureSplash(QSplashScreen):
     def __init__(self, pixmap):
@@ -324,6 +325,46 @@ class MainWindow(QMainWindow):
         
         self.menu_edit.addSeparator()
 
+        # --- NEW RELABEL TOOL ---
+        relabel_action = QAction(qta.icon('fa5s.tags', color='#6c757d'), "Auto-Relabel Members...", self)
+        def show_relabel_ui():
+            from app.dialogs.relabel_dialog import RelabelDialog
+            dlg = RelabelDialog(self)
+            dlg.exec()
+        relabel_action.triggered.connect(show_relabel_ui)
+        self.menu_edit.addAction(relabel_action)
+        # ------------------------
+
+        # --- RESET LABELS TOOL ---
+        reset_labels_action = QAction(qta.icon('fa5s.undo-alt', color='#6c757d'), "Reset Labels to Default", self)
+        def reset_all_labels():
+            if not self.model: return
+            
+            # Reset Joints
+            for n in self.model.nodes.values():
+                n.label = f"N{n.id}"
+                
+            # Reset Frames
+            for el in self.model.elements.values():
+                el.label = f"F{el.id}"
+                
+            # Reset Areas / Shells
+            if hasattr(self.model, 'area_elements'):
+                for ae in self.model.area_elements.values():
+                    ae.label = f"A{ae.id}"
+                    
+            # Reset Slabs (if any are left over)
+            if hasattr(self.model, 'slabs'):
+                for sl in self.model.slabs.values():
+                    sl.label = f"S{sl.id}"
+                    
+            self.status.showMessage("All labels successfully reverted to default.")
+            self.refresh_canvas()
+            
+        reset_labels_action.triggered.connect(reset_all_labels)
+        self.menu_edit.addAction(reset_labels_action)
+        # ------------------------
+
         rep_action = QAction(qta.icon('fa5s.copy', color='#6c757d'), "Replicate...", self)
         rep_action.setShortcut("Ctrl+R") 
         rep_action.triggered.connect(self.on_edit_replicate)
@@ -363,6 +404,10 @@ class MainWindow(QMainWindow):
         load_case_action = QAction(qta.icon('fa5s.tasks', color='#6c757d'), "Load Cases...", self)
         load_case_action.triggered.connect(self.on_define_load_cases)
         self.menu_define.addAction(load_case_action)
+
+        load_combo_action = QAction(qta.icon('fa5s.layer-group', color='#6c757d'), "Load Combinations...", self)
+        load_combo_action.triggered.connect(self.on_define_load_combos)
+        self.menu_define.addAction(load_combo_action)
 
         self.menu_functions = self.menu_define.addMenu("Functions")
                                                               
@@ -933,6 +978,12 @@ class MainWindow(QMainWindow):
         self.selected_ids = []
         self.selected_node_ids = []
         self.selected_area_ids = []
+        
+        # --- Clear the hover popup on the canvas ---
+        if hasattr(self, 'canvas'):  # Note: if your canvas is named something else like 'gl_canvas' or 'canvas3d', update this name
+            self.canvas.clear_hover_popup()
+        # -------------------------------------------
+        
         self._refresh_selection_overlay()
         self.status.showMessage("Selection Cleared")
 
@@ -1020,9 +1071,18 @@ class MainWindow(QMainWindow):
         from PyQt6.QtCore import Qt
 
         TAG_STYLES = {
-            "new":  ("color: #0F7B0F; font-family: Consolas, monospace; font-weight: bold;", "[+] NEW "),             
-            "fix":  ("color: #B85C00; font-family: Consolas, monospace; font-weight: bold;", "[~] FIX "),               
-            "impr": ("color: #5C5C5C; font-family: Consolas, monospace; font-weight: bold;", "[*] IMPR"),             
+            "new": (
+                "color: #005A9E; font-family: Consolas, monospace; font-weight: bold;",
+                "[+] NEW "
+            ),
+            "fix": (
+                "color: #6F7681; font-family: Consolas, monospace; font-weight: bold;",
+                "[~] FIX "
+            ),
+            "impr": (
+                "color: #6F7681; font-family: Consolas, monospace; font-weight: bold;",
+                "[•] IMPR"
+            ),
         }
 
         self.welcome_overlay = QWidget(self.canvas_splitter)
@@ -1061,7 +1121,7 @@ class MainWindow(QMainWindow):
 
         sep = QFrame()
         sep.setFrameShape(QFrame.Shape.HLine)
-        sep.setStyleSheet("background-color: #E6E6E6; max-height: 1px; margin-top: 20px; margin-bottom: 16px;")
+        sep.setStyleSheet("background-color: #DDE1E6; max-height: 1px; margin-top: 20px; margin-bottom: 16px;")
         root_layout.addWidget(sep)
 
         whats_new_lbl = QLabel("SYSTEM LOG // RELEASE NOTES")
@@ -1101,9 +1161,10 @@ class MainWindow(QMainWindow):
             
             notice_box.setStyleSheet("""
                 #notice_box {
-                    background-color: #FFFDF0;
-                    border-left: 3px solid #D4B106;
-                }
+                background-color: #F7F8FA;
+                border-left: 3px solid #005A9E;
+                border-radius: 3px;
+            }
             """)
             
             notice_layout = QVBoxLayout(notice_box)
@@ -1112,7 +1173,7 @@ class MainWindow(QMainWindow):
 
             for title, detail in NOTICES:
                 title_lbl = QLabel(
-                    f"<span style='font-family: \"Segoe UI\"; font-size: 12px; font-weight: 700; color: #8A6D00;'>"
+                    f"<span style='font-family: \"Segoe UI\"; font-size: 12px; font-weight: 700; color: #005A9E;'>"
                     f"NOTICE: {title}</span>"
                 )
                 title_lbl.setTextFormat(Qt.TextFormat.RichText)
@@ -1154,7 +1215,7 @@ class MainWindow(QMainWindow):
             if i < len(RELEASE_NOTES) - 1:
                 div = QFrame()
                 div.setFrameShape(QFrame.Shape.HLine)
-                div.setStyleSheet("background-color: #E6E6E6; max-height: 1px; margin-top: 12px; margin-bottom: 8px;")
+                div.setStyleSheet("background-color: #DDE1E6; max-height: 1px; margin-top: 12px; margin-bottom: 8px;")
                 notes_layout.addWidget(div)
 
         notes_layout.addStretch()
@@ -1526,88 +1587,159 @@ class MainWindow(QMainWindow):
                 self.status.showMessage(f"New Model Created. Units: {dialog.selected_units}")
                 self.update_window_title()
 
-    def on_open_model(self):
-        filename, _ = QFileDialog.getOpenFileName(self, "Open Model", "", "Open//Structures Files (*.mf);;All Files (*)")
-        if filename:
-            try:
-                self._purge_results_and_visuals()                
-                self.model = StructuralModel("Loaded Project")
-                self.terminal_panel.set_model(self.model)
-                self.model.load_from_file(filename)
-                self.undo_stack.clear()
-                self.model.file_path = filename
-
-                if self.model.graphics_settings:
-                                                                                  
-                    current_msaa = self.graphics_settings.get("msaa_level", 2)
-                    
-                    self.graphics_settings.update(self.model.graphics_settings)
-                    
-                    self.graphics_settings["msaa_level"] = current_msaa
-                    
-                    self._apply_canvas_view_settings(self.graphics_settings)
-                    self.update_graphics_settings(self.graphics_settings)
-
-                if hasattr(self.model, 'saved_unit_system'):
-                    self.combo_units.blockSignals(True)
-                    self.combo_units.setCurrentText(self.model.saved_unit_system)
-                    self.combo_units.blockSignals(False)
-                    self.on_units_changed(0) 
-                
-                self.draw_both_canvases()
-                self.status.showMessage(f"Loaded: {filename}")
-                self.canvas.set_standard_view("3D")
-                self.set_interface_state(True) 
-                self.update_window_title()
-                
-            except Exception as e:
-                QMessageBox.critical(self, "Load Error", f"Corrupt file or version mismatch.\n{e}")
-                
     def on_save_model(self):
-        if not self.model: 
-            return False                               
-
+        if not self.model:
+            return False
+    
         current_path = getattr(self.model, 'file_path', None)
-        
+    
         if current_path:
             filename = current_path
         else:
-            filename, _ = QFileDialog.getSaveFileName(self, "Save Model", "", "Open//Structures Files (*.mf);;All Files (*)")
+            filename, _ = QFileDialog.getSaveFileName(
+                self, "Save Model", "",
+                "Open//Structures Files (*.mf);;All Files (*)"
+            )
+    
+        if not filename:
+            return False
+    
+        if not filename.endswith(".mf"):
+            filename += ".mf"
+    
+        dlg = ModelIODialog("Saving the Project...", filename, parent=self)
+        dlg.show()
+        QApplication.processEvents()
+    
+        try:
+            dlg.stage("Collecting viewport settings...")
+            self.graphics_settings['view_extruded']        = self.canvas.view_extruded
+            self.graphics_settings['show_slabs']           = self.canvas.show_slabs
+            self.graphics_settings['show_joints']          = self.canvas.show_joints
+            self.graphics_settings['show_supports']        = self.canvas.show_supports
+            self.graphics_settings['show_loads']           = self.canvas.show_loads
+            self.graphics_settings['show_local_axes']      = self.canvas.show_local_axes
+            self.graphics_settings['show_constraints']     = self.canvas.show_constraints
+            self.graphics_settings['show_releases']        = self.canvas.show_releases
+            self.graphics_settings['load_type_filter']     = self.canvas.load_type_filter
+            self.graphics_settings['visible_load_patterns']= self.canvas.visible_load_patterns
+            QApplication.processEvents()
+    
+            dlg.stage("Preparing model data...")
+            model_graphics = self.graphics_settings.copy()
+            model_graphics.pop("msaa_level", None)
+            self.model.graphics_settings = model_graphics
+            QApplication.processEvents()
+    
+            # --- THE FIX IS HERE ---
+            # This little function passes the microphone down to structural_model.py
+            def _report(msg):
+                dlg.stage(msg)
+                QApplication.processEvents()
 
-        if filename:
-            if not filename.endswith(".mf"): filename += ".mf"
-            try:
-                                                                             
-                self.graphics_settings['view_extruded'] = self.canvas.view_extruded
-                self.graphics_settings['show_slabs'] = self.canvas.show_slabs
-                self.graphics_settings['show_joints'] = self.canvas.show_joints
-                self.graphics_settings['show_supports'] = self.canvas.show_supports
-                self.graphics_settings['show_loads'] = self.canvas.show_loads
-                self.graphics_settings['show_local_axes'] = self.canvas.show_local_axes
-                self.graphics_settings['show_constraints'] = self.canvas.show_constraints
-                self.graphics_settings['show_releases'] = self.canvas.show_releases
-                self.graphics_settings['load_type_filter'] = self.canvas.load_type_filter
-                self.graphics_settings['visible_load_patterns'] = self.canvas.visible_load_patterns
+            # Pass the bridge into the method
+            self.model.save_to_file(filename, progress=_report)
+            # -----------------------
+    
+            dlg.stage("Finalizing...")
+            self.model.file_path        = filename
+            self.model.active_model_path = filename
+            self.undo_stack.setClean()
+            self.status.showMessage(f"Saved: {filename}")
+            self.update_window_title()
+            QApplication.processEvents()
+    
+            dlg.finish(success=True)
+            return True
+    
+        except Exception as e:
+            dlg.keep_open()                                      # stay behind the error box
+            dlg.stage(f"Error: {str(e)[:80]}")
+            dlg.finish(success=False)
+            QMessageBox.critical(self, "Save Error", str(e))
+            return False
 
-                model_graphics = self.graphics_settings.copy()
-                if "msaa_level" in model_graphics:
-                    del model_graphics["msaa_level"]
-                
-                self.model.graphics_settings = model_graphics
-                self.model.save_to_file(filename)
-                self.model.file_path = filename
-                self.model.active_model_path = filename
-                
-                self.undo_stack.setClean() 
-                                            
-                self.status.showMessage(f"Saved: {filename}")
-                self.update_window_title()
-                return True          
-            except Exception as e:
-                QMessageBox.critical(self, "Save Error", str(e))
-                return False
-        
-        return False                 
+
+    def on_open_model(self):
+        filename, _ = QFileDialog.getOpenFileName(
+            self, "Open Model", "",
+            "Open//Structures Files (*.mf);;All Files (*)"
+        )
+        if not filename:
+            return
+    
+        dlg = ModelIODialog("Opening the Project...", filename, parent=self)
+        dlg.show()
+        QApplication.processEvents()
+
+        if hasattr(self, 'canvas'): self.canvas.setUpdatesEnabled(False)
+        if hasattr(self, 'canvas_2d'): self.canvas_2d.setUpdatesEnabled(False)
+    
+        try:
+            dlg.stage("Clearing current session...")
+            self._purge_results_and_visuals()
+            dlg.stage("Connecting terminal interface...")
+            self.model = StructuralModel("Loaded Project")
+            self.terminal_panel.set_model(self.model)
+            QApplication.processEvents()
+
+            file_size_kb = os.path.getsize(filename) / 1024.0
+            dlg.stage(f"Disk write complete ({file_size_kb:.1f} KB)")
+    
+            # --- THE FIX IS HERE ---
+            def _report(msg):
+                dlg.stage(msg)
+                QApplication.processEvents()
+
+            # Pass the bridge into the method
+            self.model.load_from_file(filename, progress=_report)
+            # -----------------------
+
+            self.undo_stack.clear()
+            self.model.file_path = filename
+            QApplication.processEvents()
+    
+            dlg.stage("Restoring viewport settings...")
+            if self.model.graphics_settings:
+                current_msaa = self.graphics_settings.get("msaa_level", 2)
+                self.graphics_settings.update(self.model.graphics_settings)
+                self.graphics_settings["msaa_level"] = current_msaa
+                self._apply_canvas_view_settings(self.graphics_settings)
+                self.update_graphics_settings(self.graphics_settings)
+            QApplication.processEvents()
+    
+            dlg.stage("Applying unit system...")
+            if hasattr(self.model, 'saved_unit_system'):
+                self.combo_units.blockSignals(True)
+                self.combo_units.setCurrentText(self.model.saved_unit_system)
+                self.combo_units.blockSignals(False)
+                self.on_units_changed(0)
+            QApplication.processEvents()
+    
+            self.draw_both_canvases(progress=_report)
+            self.canvas.set_standard_view("3D")
+            self.set_interface_state(True)
+            self.update_window_title()
+            self.status.showMessage(f"Loaded: {filename}")
+            QApplication.processEvents()
+    
+            dlg.finish(success=True)
+    
+        except Exception as e:
+            dlg.keep_open()                                      # stay behind the error box
+            dlg.stage(f"Error: {str(e)[:80]}")
+            dlg.finish(success=False)
+            QMessageBox.critical(self, "Load Error", f"Corrupt file or version mismatch.\n{e}")
+
+        finally:
+                # ---> 2. UNFREEZE THE DISPLAY AT THE VERY END <---
+                # The 'finally' block ensures it unfreezes even if the load crashes
+                if hasattr(self, 'canvas'): 
+                    self.canvas.setUpdatesEnabled(True)
+                    self.canvas.update()
+                if hasattr(self, 'canvas_2d'): 
+                    self.canvas_2d.setUpdatesEnabled(True)
+                    self.canvas_2d.update()
 
     def on_define_materials(self):
         if not self.model: return
@@ -1976,6 +2108,10 @@ class MainWindow(QMainWindow):
         menu = QMenu(self)
         hit_something = False 
 
+        target_area_id = getattr(self.canvas, 'hovered_area_id', None)
+        if target_area_id is None and len(getattr(self, 'selected_area_ids', [])) == 1:
+            target_area_id = self.selected_area_ids[0]
+
         target_node_id = getattr(self.canvas, 'hovered_node_id', None)
         if target_node_id is None and len(self.selected_node_ids) == 1:
             target_node_id = self.selected_node_ids[0]
@@ -2005,49 +2141,62 @@ class MainWindow(QMainWindow):
             menu.addSeparator()
             hit_something = True
 
-        if target_elem_id is not None:
-            eid = target_elem_id
-            menu.addAction(f"Frame {eid} Actions:").setEnabled(False)
+        # --- NEW UNIVERSAL INFO ACTION ---
+        if target_elem_id is not None or target_node_id is not None or target_area_id is not None:
             menu.addSeparator()
+            
+            # Determine priority (Frame > Area > Node if multiple are hovered)
+            if target_elem_id is not None:
+                obj = self.model.elements.get(target_elem_id)
+                menu_text = f"Frame Information..."
+            elif target_area_id is not None:
+                obj = getattr(self.model, 'area_elements', {}).get(target_area_id)
+                menu_text = f"Area Information..."
+            else:
+                obj = self.model.nodes.get(target_node_id)
+                menu_text = f"Joint Information..."
 
-            info_action = menu.addAction(f"Frame Information...")
-            def show_info():
-                if eid in self.model.elements:
-                    from app.dialogs.element_info_dialog import ElementInfoDialog
-                    dlg = ElementInfoDialog(self.model.elements[eid], self.model, self)
-                    dlg.exec()
-            info_action.triggered.connect(show_info)
-
-            if hasattr(self.model, 'has_results') and self.model.has_results:
-                spy_action = menu.addAction("Show Matrices (K, T, FEE)")
-                def show_spy():
-                    if hasattr(self, 'solver_output_path') and self.solver_output_path:
-                        base = self.solver_output_path.replace("_results.json", "_matrices.json")
-                        from app.dialogs.spy_dialogs import MatrixSpyDialog
-                        dlg = MatrixSpyDialog(eid, base, self)
-                        dlg.exec()
-                spy_action.triggered.connect(show_spy)
-
-                fbd_action = menu.addAction("Show Free Body Diagram")
-                def show_fbd():
-                    if hasattr(self, 'solver_output_path') and self.solver_output_path:
-                        base = self.solver_output_path.replace("_results.json", "_matrices.json")
-                        from app.dialogs.spy_dialogs import FBDViewerDialog
-                        
-                        dlg = FBDViewerDialog(eid, self.model, self.solver_output_path, base, self)
-                        
-                        dlg.inspection_location_changed.connect(self.canvas.update_inspection_dot)
-                        dlg.inspection_closed.connect(self.canvas.hide_inspection_dot)
-                        
-                        if getattr(self, 'canvas2_visible', False):
-                            dlg.inspection_location_changed.connect(self.canvas2.update_inspection_dot)
-                            dlg.inspection_closed.connect(self.canvas2.hide_inspection_dot)
-                                                           
-                        dlg.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
-                        dlg.show()
-                fbd_action.triggered.connect(show_fbd)
+            if obj:
+                info_action = menu.addAction(menu_text)
                 
-            hit_something = True
+                def show_info():
+                    from app.dialogs.element_info_dialog import ObjectInfoDialog
+                    dlg = ObjectInfoDialog(obj, self.model, self)
+                    dlg.exec()
+                    
+                info_action.triggered.connect(show_info)
+                hit_something = True
+
+        # --- EXISTING FRAME RESULTS (FBD/Spy) ---
+        if target_elem_id is not None and hasattr(self.model, 'has_results') and self.model.has_results:
+            eid = target_elem_id
+            spy_action = menu.addAction("Show Matrices (K, T, FEE)")
+            def show_spy():
+                if hasattr(self, 'solver_output_path') and self.solver_output_path:
+                    base = self.solver_output_path.replace("_results.json", "_matrices.json")
+                    from app.dialogs.spy_dialogs import MatrixSpyDialog
+                    dlg = MatrixSpyDialog(eid, base, self)
+                    dlg.exec()
+            spy_action.triggered.connect(show_spy)
+
+            fbd_action = menu.addAction("Show Free Body Diagram")
+            def show_fbd():
+                if hasattr(self, 'solver_output_path') and self.solver_output_path:
+                    base = self.solver_output_path.replace("_results.json", "_matrices.json")
+                    from app.dialogs.spy_dialogs import FBDViewerDialog
+                    
+                    dlg = FBDViewerDialog(eid, self.model, self.solver_output_path, base, self)
+                    
+                    dlg.inspection_location_changed.connect(self.canvas.update_inspection_dot)
+                    dlg.inspection_closed.connect(self.canvas.hide_inspection_dot)
+                    
+                    if getattr(self, 'canvas2_visible', False):
+                        dlg.inspection_location_changed.connect(self.canvas2.update_inspection_dot)
+                        dlg.inspection_closed.connect(self.canvas2.hide_inspection_dot)
+                                                       
+                    dlg.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
+                    dlg.show()
+            fbd_action.triggered.connect(show_fbd)
 
         if self.selected_ids or self.selected_node_ids:
             menu.addSeparator()
@@ -2654,6 +2803,12 @@ class MainWindow(QMainWindow):
         dialog = LoadCaseManagerDialog(self.model, self)
         dialog.exec()
 
+    def on_define_load_combos(self):
+        if not self.model: return
+        from app.dialogs.load_combo_dialog import LoadComboManagerDialog
+        dialog = LoadComboManagerDialog(self.model, self)
+        dialog.exec()
+
     def on_run_analysis_dialog(self):
         """Opens the setup dialog."""
         if not self.model: return
@@ -2680,8 +2835,13 @@ class MainWindow(QMainWindow):
         
         self.solver_input_path = self.model.file_path
         
-        case_obj = self.model.load_cases.get(case_name)
-        c_type = case_obj.case_type if case_obj else "Linear Static"
+        # --- FIX: Check if target is a Load Case or a Load Combo ---
+        c_type = "Linear Static"
+        if case_name in self.model.load_cases:
+            c_type = self.model.load_cases[case_name].case_type
+        elif hasattr(self.model, 'load_combos') and case_name in self.model.load_combos:
+            c_type = "Combo"
+        # -----------------------------------------------------------
 
         base_name = os.path.splitext(self.solver_input_path)[0]
 
@@ -2729,10 +2889,16 @@ class MainWindow(QMainWindow):
             self._progress_dialog.finish(success)
         
         if success:
+            # <--- ADD THIS BLOCK TO GENERATE COMBOS SILENTLY --->
+            try:
+                from core.solver.combo_engine import compute_load_combinations
+                compute_load_combinations(self.model, self.solver_input_path)
+            except Exception as e:
+                print(f"Warning: Could not build load combinations: {e}")
+
             self.status.showMessage("Analysis Complete.")
             self.load_analysis_results()                                                 
         else:
-                                                        
             self.set_interface_state(True) 
             QMessageBox.critical(self, "Analysis Failed", message)
 
@@ -2886,6 +3052,10 @@ class MainWindow(QMainWindow):
             return
 
         res_path = self.solver_output_path
+
+        if not os.path.exists(res_path) and os.path.exists(res_path.replace("_results.json", " (Max)_results.json")):
+            self.solver_output_path = res_path.replace("_results.json", " (Max)_results.json")
+            res_path = self.solver_output_path
         
         if not os.path.exists(res_path):
             QMessageBox.warning(self, "Error", f"Result file not found at:\n{res_path}")
@@ -3652,7 +3822,7 @@ class MainWindow(QMainWindow):
                                     list(self.selected_ids),
                                     list(self.selected_node_ids))
 
-    def draw_both_canvases(self, sel_elems=None, sel_nodes=None):
+    def draw_both_canvases(self, sel_elems=None, sel_nodes=None, progress=None):
         """Draw the model on both canvases with consistent selection state."""
         if not self.model:
             return
@@ -3661,6 +3831,11 @@ class MainWindow(QMainWindow):
         self.canvas.draw_model(self.model, e, n)
         if getattr(self, 'canvas2_visible', False):
             self.canvas2.draw_model(self.model, e, n)
+
+        if hasattr(self, 'canvas') and self.canvas: 
+            self.canvas.draw_model(self.model, progress=progress)
+        if hasattr(self, 'canvas_2d') and self.canvas_2d: 
+            self.canvas_2d.draw_model(self.model, progress=progress)
 
     def refresh_canvas(self):
         self.draw_both_canvases()
