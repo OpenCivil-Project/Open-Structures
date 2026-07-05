@@ -15,7 +15,7 @@ C:/Users/Ahmed/AppData/Local/Programs/Python/Python310/python.exe -m pip install
 
 Working...
 
-pyinstaller --noconsole --onedir --name="OpenCivil" `
+pyinstaller --noconsole --onedir --name="OpenStructures" `
   --paths=".." --paths="." `
   --paths="..\core\solver" `
   --paths="..\core\solver\linear_static" `

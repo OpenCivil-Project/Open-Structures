@@ -98,7 +98,7 @@ class DeformedShapeDialog(QDialog):
         self.update_anim_button_style()
 
         self.chk_sound = QCheckBox("Sound")
-        self.chk_sound.setChecked(True)
+        self.chk_sound.setChecked(False)
         self.chk_sound.setVisible(not self.ltha_mode)                                
 
         h_anim.addWidget(self.btn_animate)
@@ -414,3 +414,19 @@ class DeformedShapeDialog(QDialog):
                     self.shadow_rgba = tuple(saved_color)
             except Exception as e:
                 print(f"Failed to load animation prefs: {e}")
+
+
+    def accept(self):
+        if self.is_animating:
+            self.btn_animate.setChecked(False)
+            self.on_toggle_anim()
+            
+        self._save_prefs()
+        super().accept()
+
+    def closeEvent(self, event):
+        if self.is_animating:
+            self.btn_animate.setChecked(False)
+            self.on_toggle_anim()
+            
+        super().closeEvent(event)

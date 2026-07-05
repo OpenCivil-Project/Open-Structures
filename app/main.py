@@ -883,6 +883,8 @@ class MainWindow(QMainWindow):
             self
         )
         self.action_display_reactions.setEnabled(False)
+        if hasattr(self, 'sound_effect') and self.sound_effect.isPlaying():
+            self.sound_effect.stop()
         self.action_display_reactions.triggered.connect(self.on_display_joint_reactions)
         self.menu_analyze.addAction(self.action_display_reactions)
 
@@ -3375,6 +3377,9 @@ class MainWindow(QMainWindow):
             self.canvas.animation_manager.stop_animation()
         if hasattr(self.canvas, 'clear_ltha_history'):
             self.canvas.clear_ltha_history()
+        
+        if hasattr(self, 'sound_effect') and self.sound_effect.isPlaying():
+            self.sound_effect.stop()
 
         self.canvas2.view_deflected = False
         self.canvas2.anim_factor = 0.0

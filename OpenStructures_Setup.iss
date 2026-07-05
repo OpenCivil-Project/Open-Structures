@@ -31,13 +31,13 @@ DisableProgramGroupPage=yes
 OutputBaseFilename=OpenStructures_Setup_v{#MyAppVersion}
 
 UninstallDisplayIcon={app}\{#MyAppExeName}
-SetupIconFile=E:\MetuFire\Open//Structures\app\graphic\logo.ico
+SetupIconFile=E:\MetuFire\OpenCivil\app\graphic\logo.ico
 
 ; --------------------------------------------------------------------
 ; FILES
 ; --------------------------------------------------------------------
 [Files]
-Source: "E:\MetuFire\Open//Structures\app\dist\Open//Structures\*"; \
+Source: "E:\MetuFire\OpenCivil\app\dist\OpenStructures\*"; \
 DestDir: "{app}"; \
 Flags: ignoreversion recursesubdirs createallsubdirs overwritereadonly
 
