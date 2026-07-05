@@ -229,7 +229,7 @@ class MainWindow(QMainWindow):
             except Exception:
                 pass
         
-        self.setWindowTitle("Open//Structures v0.7.80")
+        self.setWindowTitle("Open//Structures v0.7.81")
         self.resize(1200, 800)
 
         icon_path = os.path.join(root_dir, "app", "graphic", "logo.png") 
@@ -1363,17 +1363,19 @@ class MainWindow(QMainWindow):
         self.status.showMessage(f"Units changed to: {unit_text}")
         
         if self.model:
-            self.draw_both_canvases()
+                                                                              
+            self.canvas._force_draw_model(self.model)
+            if getattr(self, 'canvas2_visible', False):
+                self.canvas2._force_draw_model(self.model)
 
             last = getattr(self, '_last_force_diagram_settings', {})
             for cvs in [self.canvas, getattr(self, 'canvas2', None)]:
-
                 if cvs and last.get(cvs) and getattr(cvs, 'force_diagram_active', False):
                     prev = self.active_canvas
                     self.active_canvas = cvs
                     self.apply_force_diagrams_from_dialog(last[cvs])
                     self.active_canvas = prev
-
+                    
     def set_view_3d(self):
         self._reset_plane_buttons()
         self.active_canvas._view_mode = "3D"
@@ -2202,6 +2204,8 @@ class MainWindow(QMainWindow):
             self.model.grid.x_lines = new_grids["x"]
             self.model.grid.y_lines = new_grids["y"]
             self.model.grid.z_lines = new_grids["z"]
+
+            self.model.grid.bubble_size = new_grids.get("bubble_size", 1.25)
             
             self.canvas.draw_model(self.model)
             if getattr(self, 'canvas2_visible', False):

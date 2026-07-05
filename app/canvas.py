@@ -798,6 +798,9 @@ class MCanvas3D(gl.GLViewWidget):
         self.element_items.clear()     
         self.element_items.clear()
 
+        self.grid_labels = [] 
+        if hasattr(self, 'static_items'): self.static_items.clear()
+
         if hasattr(self, 'load_items'): self.load_items.clear()
 
         self.invalidate_deflection_cache()
@@ -2676,35 +2679,40 @@ class MCanvas3D(gl.GLViewWidget):
             painter.drawText(int(ex) + LABEL_PAD, int(ey) + LABEL_PAD, label)
 
     def _draw_reference_grids(self, model):
+        grid = model.grid
+        if not grid: return
 
-        def get_visible(lines_attr):
-            if not lines_attr: return [0.0]
-                                                                      
-            if isinstance(lines_attr[0], dict):
-                return [item['ord'] for item in lines_attr if item.get('visible', True)]
-                                                                 
+        def get_vis(lines_attr, fallback):
+            if not lines_attr: return fallback
+            if isinstance(lines_attr[0], dict): return [i['ord'] for i in lines_attr if i.get('visible', True)]
             return lines_attr
 
-        vis_x = get_visible(getattr(model.grid, 'x_lines', model.grid.x_grids))
-        vis_y = get_visible(getattr(model.grid, 'y_lines', model.grid.y_grids))
-        vis_z = get_visible(getattr(model.grid, 'z_lines', model.grid.z_grids))
-        
+        def get_full_data(lines_attr, fallback):
+            if not lines_attr: return [{'id': str(i+1), 'ord': v, 'bubble': 'End'} for i, v in enumerate(fallback)]
+            if isinstance(lines_attr[0], dict): return [i for i in lines_attr if i.get('visible', True)]
+            return [{'id': str(i+1), 'ord': v, 'bubble': 'End'} for i, v in enumerate(lines_attr)]
+
+        vis_x = get_vis(getattr(grid, 'x_lines', []), getattr(grid, 'x_grids', []))
+        vis_y = get_vis(getattr(grid, 'y_lines', []), getattr(grid, 'y_grids', []))
+        vis_z = get_vis(getattr(grid, 'z_lines', []), getattr(grid, 'z_grids', []))
+
         if not vis_x or not vis_y or not vis_z: return
 
         z_min, z_max = min(vis_z), max(vis_z)
         x_min, x_max = min(vis_x), max(vis_x)
         y_min, y_max = min(vis_y), max(vis_y)
 
-        bright_pos = []                       
-        dim_pos = []                        
+        bright_pos, dim_pos = [], []
+        
+        is_3d = self.active_view_plane is None
+        active_axis = self.active_view_plane['axis'] if not is_3d else 'z'
+        active_val = self.active_view_plane['value'] if not is_3d else z_min
 
         def is_on_active_plane(p1, p2):
-            if not self.active_view_plane: return False                                    
-            
+            if is_3d: return False 
             axis = self.active_view_plane['axis']
             val = self.active_view_plane['value']
             tol = 0.001
-            
             if axis == 'x': return abs(p1[0] - val) < tol and abs(p2[0] - val) < tol
             if axis == 'y': return abs(p1[1] - val) < tol and abs(p2[1] - val) < tol
             if axis == 'z': return abs(p1[2] - val) < tol and abs(p2[2] - val) < tol
@@ -2715,31 +2723,528 @@ class MCanvas3D(gl.GLViewWidget):
                 p1 = [x, y, z_min]; p2 = [x, y, z_max]
                 if is_on_active_plane(p1, p2): bright_pos.extend([p1, p2])
                 else: dim_pos.extend([p1, p2])
-
         for z in vis_z:
             for y in vis_y:
                 p1 = [x_min, y, z]; p2 = [x_max, y, z]
                 if is_on_active_plane(p1, p2): bright_pos.extend([p1, p2])
                 else: dim_pos.extend([p1, p2])
-
         for z in vis_z:
             for x in vis_x:
                 p1 = [x, y_min, z]; p2 = [x, y_max, z]
                 if is_on_active_plane(p1, p2): bright_pos.extend([p1, p2])
                 else: dim_pos.extend([p1, p2])
 
+        graph_paper_pos = []
+        if active_axis == 'z':
+            span_x = max(30.0, (x_max - x_min) * 1.5)
+            span_y = max(30.0, (y_max - y_min) * 1.5)
+            cx, cy = (x_max + x_min)/2.0, (y_max + y_min)/2.0
+            
+            u_name = unit_registry.length_unit_name
+            if u_name in ['mm']: step = unit_registry.from_display_length(1000.0)
+            elif u_name in ['cm', 'in']: step = unit_registry.from_display_length(100.0)
+            else: step = unit_registry.from_display_length(1.0)
+            if step < 0.1: step = 1.0                
+            
+            gx_start, gx_end = math.floor((cx - span_x)/step)*step, math.ceil((cx + span_x)/step)*step
+            gy_start, gy_end = math.floor((cy - span_y)/step)*step, math.ceil((cy + span_y)/step)*step
+
+            for gx in np.arange(gx_start, gx_end + step, step):
+                graph_paper_pos.extend([[gx, gy_start, active_val], [gx, gy_end, active_val]])
+            for gy in np.arange(gy_start, gy_end + step, step):
+                graph_paper_pos.extend([[gx_start, gy, active_val], [gx_end, gy, active_val]])
+
+        bubble_circ_pos, bubble_lines, dim_lines = [], [], []
+        self.grid_labels = []
+        
+        x_data = get_full_data(getattr(grid, 'x_lines', []), getattr(grid, 'x_grids', []))
+        y_data = get_full_data(getattr(grid, 'y_lines', []), getattr(grid, 'y_grids', []))
+        
+        b_scale = getattr(grid, 'bubble_size', 1.25)
+        bubble_radius = b_scale * 0.45
+        ext = b_scale * 2.5
+        tick = bubble_radius * 0.25
+        
+        def format_dist(d):
+                                                                        
+            disp_d = unit_registry.to_display_length(d)
+            
+            u_str = unit_registry.length_unit_name
+            if not u_str: u_str = "m"                
+            
+            if abs(disp_d - round(disp_d)) < 1e-4:
+                return f"{int(round(disp_d))} {u_str}"
+            else:
+                return f"{disp_d:.2f} {u_str}"
+            
+        if active_axis == 'z':
+            for i, d in enumerate(x_data):
+                x = d['ord']
+                bub_loc = d.get('bubble', 'End')
+                
+                if bub_loc in ['End', 'Both']:
+                    bubble_lines.extend([[x, y_max, active_val], [x, y_max + ext, active_val]])
+                    center = np.array([x, y_max + ext + bubble_radius, active_val])
+                    bubble_circ_pos.extend(self._generate_circle_pts(center, bubble_radius, 'z'))
+                    self._add_grid_bubble(center, bubble_radius, d['id'], 'z')
+                    
+                    if i < len(x_data) - 1:
+                        next_x = x_data[i+1]['ord']
+                        dist = abs(next_x - x)
+                        dim_y = y_max + ext * 0.6
+                        dim_lines.extend([[x, dim_y, active_val], [next_x, dim_y, active_val]])
+                        dim_lines.extend([[x, dim_y-tick, active_val], [x, dim_y+tick, active_val]])
+                        dim_lines.extend([[next_x, dim_y-tick, active_val], [next_x, dim_y+tick, active_val]])
+                        
+                        dim_center = np.array([(x + next_x)/2.0, dim_y + bubble_radius*0.6, active_val])
+                        self._add_grid_dimension(dim_center, format_dist(dist), 'z', bubble_radius * 0.9, [1.0, 0.0, 0.0], [0.0, 1.0, 0.0])
+
+                if bub_loc in ['Start', 'Both']:
+                    bubble_lines.extend([[x, y_min, active_val], [x, y_min - ext, active_val]])
+                    center = np.array([x, y_min - ext - bubble_radius, active_val])
+                    bubble_circ_pos.extend(self._generate_circle_pts(center, bubble_radius, 'z'))
+                    self._add_grid_bubble(center, bubble_radius, d['id'], 'z')
+                    
+                    if i < len(x_data) - 1:
+                        next_x = x_data[i+1]['ord']
+                        dist = abs(next_x - x)
+                        dim_y = y_min - ext * 0.6
+                        dim_lines.extend([[x, dim_y, active_val], [next_x, dim_y, active_val]])
+                        dim_lines.extend([[x, dim_y-tick, active_val], [x, dim_y+tick, active_val]])
+                        dim_lines.extend([[next_x, dim_y-tick, active_val], [next_x, dim_y+tick, active_val]])
+                        
+                        dim_center = np.array([(x + next_x)/2.0, dim_y - bubble_radius*0.6, active_val])
+                        self._add_grid_dimension(dim_center, format_dist(dist), 'z', bubble_radius * 0.9, [1.0, 0.0, 0.0], [0.0, 1.0, 0.0])
+
+            for i, d in enumerate(y_data):
+                y = d['ord']
+                bub_loc = d.get('bubble', 'End')
+                
+                if bub_loc in ['End', 'Both']:
+                    bubble_lines.extend([[x_max, y, active_val], [x_max + ext, y, active_val]])
+                    center = np.array([x_max + ext + bubble_radius, y, active_val])
+                    bubble_circ_pos.extend(self._generate_circle_pts(center, bubble_radius, 'z'))
+                    self._add_grid_bubble(center, bubble_radius, d['id'], 'z')
+                    
+                    if i < len(y_data) - 1:
+                        next_y = y_data[i+1]['ord']
+                        dist = abs(next_y - y)
+                        dim_x = x_max + ext * 0.6
+                        dim_lines.extend([[dim_x, y, active_val], [dim_x, next_y, active_val]])
+                        dim_lines.extend([[dim_x-tick, y, active_val], [dim_x+tick, y, active_val]])
+                        dim_lines.extend([[dim_x-tick, next_y, active_val], [dim_x+tick, next_y, active_val]])
+                        
+                        dim_center = np.array([dim_x + bubble_radius*0.6, (y + next_y)/2.0, active_val])
+                        self._add_grid_dimension(dim_center, format_dist(dist), 'z', bubble_radius * 0.9, [0.0, 1.0, 0.0], [-1.0, 0.0, 0.0])
+
+                if bub_loc in ['Start', 'Both']:
+                    bubble_lines.extend([[x_min, y, active_val], [x_min - ext, y, active_val]])
+                    center = np.array([x_min - ext - bubble_radius, y, active_val])
+                    bubble_circ_pos.extend(self._generate_circle_pts(center, bubble_radius, 'z'))
+                    self._add_grid_bubble(center, bubble_radius, d['id'], 'z')
+                    
+                    if i < len(y_data) - 1:
+                        next_y = y_data[i+1]['ord']
+                        dist = abs(next_y - y)
+                        dim_x = x_min - ext * 0.6
+                        dim_lines.extend([[dim_x, y, active_val], [dim_x, next_y, active_val]])
+                        dim_lines.extend([[dim_x-tick, y, active_val], [dim_x+tick, y, active_val]])
+                        dim_lines.extend([[dim_x-tick, next_y, active_val], [dim_x+tick, next_y, active_val]])
+                        
+                        dim_center = np.array([dim_x - bubble_radius*0.6, (y + next_y)/2.0, active_val])
+                        self._add_grid_dimension(dim_center, format_dist(dist), 'z', bubble_radius * 0.9, [0.0, 1.0, 0.0], [-1.0, 0.0, 0.0])
+
+        if active_axis == 'z':
+            for i, d in enumerate(x_data):
+                x = d['ord']
+                bub_loc = d.get('bubble', 'End')
+                
+                if bub_loc in ['End', 'Both']:
+                    bubble_lines.extend([[x, y_max, active_val], [x, y_max + ext, active_val]])
+                    center = np.array([x, y_max + ext + bubble_radius, active_val])
+                    bubble_circ_pos.extend(self._generate_circle_pts(center, bubble_radius, 'z'))
+                    self._add_grid_bubble(center, bubble_radius, d['id'], 'z')
+                    
+                    if i < len(x_data) - 1:
+                        next_x = x_data[i+1]['ord']
+                        dist = abs(next_x - x)
+                        dim_y = y_max + ext * 0.6
+                        dim_lines.extend([[x, dim_y, active_val], [next_x, dim_y, active_val]])
+                        dim_lines.extend([[x, dim_y-tick, active_val], [x, dim_y+tick, active_val]])
+                        dim_lines.extend([[next_x, dim_y-tick, active_val], [next_x, dim_y+tick, active_val]])
+                        dim_center = np.array([(x + next_x)/2.0, dim_y + bubble_radius*0.3, active_val])
+                        self._add_grid_dimension(dim_center, format_dist(dist), 'z', bubble_radius * 0.8, [1.0, 0.0, 0.0], [0.0, 1.0, 0.0])
+
+                if bub_loc in ['Start', 'Both']:
+                    bubble_lines.extend([[x, y_min, active_val], [x, y_min - ext, active_val]])
+                    center = np.array([x, y_min - ext - bubble_radius, active_val])
+                    bubble_circ_pos.extend(self._generate_circle_pts(center, bubble_radius, 'z'))
+                    self._add_grid_bubble(center, bubble_radius, d['id'], 'z')
+                    
+                    if i < len(x_data) - 1:
+                        next_x = x_data[i+1]['ord']
+                        dist = abs(next_x - x)
+                        dim_y = y_min - ext * 0.6
+                        dim_lines.extend([[x, dim_y, active_val], [next_x, dim_y, active_val]])
+                        dim_lines.extend([[x, dim_y-tick, active_val], [x, dim_y+tick, active_val]])
+                        dim_lines.extend([[next_x, dim_y-tick, active_val], [next_x, dim_y+tick, active_val]])
+                        dim_center = np.array([(x + next_x)/2.0, dim_y + bubble_radius*0.3, active_val])
+                        self._add_grid_dimension(dim_center, format_dist(dist), 'z', bubble_radius * 0.8, [1.0, 0.0, 0.0], [0.0, 1.0, 0.0])
+
+            for i, d in enumerate(y_data):
+                y = d['ord']
+                bub_loc = d.get('bubble', 'End')
+                
+                if bub_loc in ['End', 'Both']:
+                    bubble_lines.extend([[x_max, y, active_val], [x_max + ext, y, active_val]])
+                    center = np.array([x_max + ext + bubble_radius, y, active_val])
+                    bubble_circ_pos.extend(self._generate_circle_pts(center, bubble_radius, 'z'))
+                    self._add_grid_bubble(center, bubble_radius, d['id'], 'z')
+                    
+                    if i < len(y_data) - 1:
+                        next_y = y_data[i+1]['ord']
+                        dist = abs(next_y - y)
+                        dim_x = x_max + ext * 0.6
+                        dim_lines.extend([[dim_x, y, active_val], [dim_x, next_y, active_val]])
+                        dim_lines.extend([[dim_x-tick, y, active_val], [dim_x+tick, y, active_val]])
+                        dim_lines.extend([[dim_x-tick, next_y, active_val], [dim_x+tick, next_y, active_val]])
+                        dim_center = np.array([dim_x - bubble_radius*0.2, (y + next_y)/2.0, active_val])
+                        self._add_grid_dimension(dim_center, format_dist(dist), 'z', bubble_radius * 0.8, [0.0, 1.0, 0.0], [-1.0, 0.0, 0.0])
+
+                if bub_loc in ['Start', 'Both']:
+                    bubble_lines.extend([[x_min, y, active_val], [x_min - ext, y, active_val]])
+                    center = np.array([x_min - ext - bubble_radius, y, active_val])
+                    bubble_circ_pos.extend(self._generate_circle_pts(center, bubble_radius, 'z'))
+                    self._add_grid_bubble(center, bubble_radius, d['id'], 'z')
+                    
+                    if i < len(y_data) - 1:
+                        next_y = y_data[i+1]['ord']
+                        dist = abs(next_y - y)
+                        dim_x = x_min - ext * 0.6
+                        dim_lines.extend([[dim_x, y, active_val], [dim_x, next_y, active_val]])
+                        dim_lines.extend([[dim_x-tick, y, active_val], [dim_x+tick, y, active_val]])
+                        dim_lines.extend([[dim_x-tick, next_y, active_val], [dim_x+tick, next_y, active_val]])
+                        dim_center = np.array([dim_x - bubble_radius*0.2, (y + next_y)/2.0, active_val])
+                        self._add_grid_dimension(dim_center, format_dist(dist), 'z', bubble_radius * 0.8, [0.0, 1.0, 0.0], [-1.0, 0.0, 0.0])
+
+        if graph_paper_pos:
+            item = gl.GLLinePlotItem(pos=np.array(graph_paper_pos), mode='lines', color=(0.7, 0.7, 0.7, 0.25), width=1.0, antialias=True)
+            self.addItem(item)
+            self.static_items.append(item)
+
         if bright_pos:
-            self.addItem(gl.GLLinePlotItem(pos=np.array(bright_pos), mode='lines', 
-                                           color=(0, 1, 1, 0.8), width=2, antialias=True))
+            item = gl.GLLinePlotItem(pos=np.array(bright_pos), mode='lines', color=(0.4, 0.4, 0.4, 0.8), width=2, antialias=True)
+            self.addItem(item)
+            self.static_items.append(item)
             
         if dim_pos:
-            alpha = 0.6 if self.active_view_plane is None else 0.1
-            c = (0.6, 0.6, 0.6, alpha)
-            self.addItem(gl.GLLinePlotItem(pos=np.array(dim_pos), mode='lines', 
-                                           color=c, width=2, antialias=True))
-        
-        self._rebuild_axis_items()                                      
+            alpha = 0.5 if is_3d else 0.15
+            item = gl.GLLinePlotItem(pos=np.array(dim_pos), mode='lines', color=(0.6, 0.6, 0.6, alpha), width=1.5, antialias=True)
+            self.addItem(item)
+            self.static_items.append(item)
 
+        if bubble_lines:
+            item = gl.GLLinePlotItem(pos=np.array(bubble_lines), mode='lines', color=(0.3, 0.6, 0.9, 0.9), width=2, antialias=True)
+            self.addItem(item)
+            self.static_items.append(item)
+            
+        if dim_lines:
+            item = gl.GLLinePlotItem(pos=np.array(dim_lines), mode='lines', color=(0.3, 0.5, 0.7, 0.8), width=1.0, antialias=True)
+            self.addItem(item)
+            self.static_items.append(item)
+
+        if bubble_circ_pos:
+            bub_item = gl.GLLinePlotItem(pos=np.array(bubble_circ_pos), mode='lines', color=(0.3, 0.6, 0.9, 1.0), width=2.0, antialias=True)
+            self.addItem(bub_item)
+            self.static_items.append(bub_item)
+
+        self._rebuild_axis_items()
+
+    def _generate_circle_pts(self, center, radius, axis='z', segments=32):
+        """Generates paired points for a perfect circle using GL_LINES."""
+        pts = []
+        for i in range(segments):
+            t1 = 2.0 * math.pi * i / segments
+            t2 = 2.0 * math.pi * (i + 1) / segments
+            
+            if axis == 'z':
+                p1 = [center[0] + radius * math.cos(t1), center[1] + radius * math.sin(t1), center[2]]
+                p2 = [center[0] + radius * math.cos(t2), center[1] + radius * math.sin(t2), center[2]]
+            elif axis == 'y':
+                p1 = [center[0] + radius * math.cos(t1), center[1], center[2] + radius * math.sin(t1)]
+                p2 = [center[0] + radius * math.cos(t2), center[1], center[2] + radius * math.sin(t2)]
+            elif axis == 'x':
+                p1 = [center[0], center[1] + radius * math.cos(t1), center[2] + radius * math.sin(t1)]
+                p2 = [center[0], center[1] + radius * math.cos(t2), center[2] + radius * math.sin(t2)]
+            
+            pts.extend([p1, p2])
+        return pts
+    
+    def _add_grid_bubble(self, center, radius, text, plane_axis):
+        """Prepares the grid ID text for the SDF GPU pipeline (Perfect Center)."""
+        if not hasattr(self, 'grid_labels'):
+            self.grid_labels = []
+            
+        v_right = np.array([1.0, 0.0, 0.0])
+        v_up = np.array([0.0, 1.0, 0.0])
+        
+        if plane_axis == 'y': 
+            v_up = np.array([0.0, 0.0, 1.0])
+        elif plane_axis == 'x': 
+            v_right = np.array([0.0, 1.0, 0.0])
+            v_up = np.array([0.0, 0.0, 1.0])
+
+        t_height = radius * 1.15
+        text_str = str(text)
+        n_chars = len(text_str)
+
+        h_offset = t_height * (0.725 + 0.275 * n_chars)
+        v_offset = t_height * 0.9
+        adj_center = center - (v_right * h_offset) - (v_up * v_offset)
+
+        self.grid_labels.append({
+            'owner_id': text, 'owner_type': 'grid',
+            'pos_3d': adj_center.tolist(),
+            'text': text_str,
+            'val': 0,
+            'color': [0.15, 0.45, 0.85, 1.0], 
+            'v_right': v_right.tolist(),
+            'v_up': v_up.tolist(),
+            'align': 'left',                                                     
+            'text_height': t_height
+        })
+
+    def _add_grid_dimension(self, center, text, plane_axis, t_height, v_right, v_up):
+        """Adds the spacing dimension text between grid lines."""
+        if not hasattr(self, 'grid_labels'):
+            self.grid_labels = []
+
+        vr = np.array(v_right)
+        vu = np.array(v_up)
+        text_str = str(text)
+        n_chars = len(text_str)
+
+        h_offset = t_height * (0.725 + 0.275 * n_chars)
+        v_offset = t_height * 0.9
+        adj_center = center - (vr * h_offset) - (vu * v_offset)
+
+        self.grid_labels.append({
+            'owner_id': text, 'owner_type': 'grid_dim',
+            'pos_3d': adj_center.tolist(),
+            'text': text_str,
+            'val': 0,
+            'color': [0.2, 0.5, 0.8, 1.0], 
+            'v_right': v_right,
+            'v_up': v_up,
+            'align': 'left',
+            'text_height': t_height
+        })
+
+    def _draw_reference_grids(self, model):
+        grid = model.grid
+        if not grid: return
+
+        def get_vis(lines_attr, fallback):
+            if not lines_attr: return fallback
+            if isinstance(lines_attr[0], dict): return [i['ord'] for i in lines_attr if i.get('visible', True)]
+            return lines_attr
+
+        def get_full_data(lines_attr, fallback):
+            if not lines_attr: return [{'id': str(i+1), 'ord': v, 'bubble': 'End'} for i, v in enumerate(fallback)]
+            if isinstance(lines_attr[0], dict): return [i for i in lines_attr if i.get('visible', True)]
+            return [{'id': str(i+1), 'ord': v, 'bubble': 'End'} for i, v in enumerate(lines_attr)]
+
+        vis_x = get_vis(getattr(grid, 'x_lines', []), getattr(grid, 'x_grids', []))
+        vis_y = get_vis(getattr(grid, 'y_lines', []), getattr(grid, 'y_grids', []))
+        vis_z = get_vis(getattr(grid, 'z_lines', []), getattr(grid, 'z_grids', []))
+
+        if not vis_x or not vis_y or not vis_z: return
+
+        z_min, z_max = min(vis_z), max(vis_z)
+        x_min, x_max = min(vis_x), max(vis_x)
+        y_min, y_max = min(vis_y), max(vis_y)
+
+        bright_pos, dim_pos = [], []
+        
+        is_3d = self.active_view_plane is None
+        active_axis = self.active_view_plane['axis'] if not is_3d else 'z'
+        active_val = self.active_view_plane['value'] if not is_3d else z_min
+
+        def is_on_active_plane(p1, p2):
+            if is_3d: return False 
+            axis = self.active_view_plane['axis']
+            val = self.active_view_plane['value']
+            tol = 0.001
+            if axis == 'x': return abs(p1[0] - val) < tol and abs(p2[0] - val) < tol
+            if axis == 'y': return abs(p1[1] - val) < tol and abs(p2[1] - val) < tol
+            if axis == 'z': return abs(p1[2] - val) < tol and abs(p2[2] - val) < tol
+            return False
+
+        for x in vis_x:
+            for y in vis_y:
+                p1 = [x, y, z_min]; p2 = [x, y, z_max]
+                if is_on_active_plane(p1, p2): bright_pos.extend([p1, p2])
+                else: dim_pos.extend([p1, p2])
+        for z in vis_z:
+            for y in vis_y:
+                p1 = [x_min, y, z]; p2 = [x_max, y, z]
+                if is_on_active_plane(p1, p2): bright_pos.extend([p1, p2])
+                else: dim_pos.extend([p1, p2])
+        for z in vis_z:
+            for x in vis_x:
+                p1 = [x, y_min, z]; p2 = [x, y_max, z]
+                if is_on_active_plane(p1, p2): bright_pos.extend([p1, p2])
+                else: dim_pos.extend([p1, p2])
+
+        graph_paper_pos = []
+        if active_axis == 'z':
+            span_x = max(30.0, (x_max - x_min) * 1.5)
+            span_y = max(30.0, (y_max - y_min) * 1.5)
+            cx, cy = (x_max + x_min)/2.0, (y_max + y_min)/2.0
+            
+            u_name = unit_registry.length_unit_name
+            if u_name in ['mm']: step = unit_registry.from_display_length(1000.0)
+            elif u_name in ['cm', 'in']: step = unit_registry.from_display_length(100.0)
+            else: step = unit_registry.from_display_length(1.0)
+            if step < 0.1: step = 1.0 
+            
+            gx_start, gx_end = math.floor((cx - span_x)/step)*step, math.ceil((cx + span_x)/step)*step
+            gy_start, gy_end = math.floor((cy - span_y)/step)*step, math.ceil((cy + span_y)/step)*step
+
+            for gx in np.arange(gx_start, gx_end + step, step):
+                graph_paper_pos.extend([[gx, gy_start, active_val], [gx, gy_end, active_val]])
+            for gy in np.arange(gy_start, gy_end + step, step):
+                graph_paper_pos.extend([[gx_start, gy, active_val], [gx_end, gy, active_val]])
+
+        bubble_circ_pos, bubble_lines, dim_lines = [], [], []
+        self.grid_labels = []
+        
+        x_data = get_full_data(getattr(grid, 'x_lines', []), getattr(grid, 'x_grids', []))
+        y_data = get_full_data(getattr(grid, 'y_lines', []), getattr(grid, 'y_grids', []))
+        
+        b_scale = getattr(grid, 'bubble_size', 1.25)
+        bubble_radius = b_scale * 0.45
+        ext = b_scale * 2.5
+        tick = bubble_radius * 0.25
+        
+        def format_dist(d):
+            disp_d = unit_registry.to_display_length(d)
+            u_str = unit_registry.length_unit_name
+            if not u_str: u_str = "m" 
+            if abs(disp_d - round(disp_d)) < 1e-3:
+                return f"{int(round(disp_d))} {u_str}"
+            return f"{disp_d:.2f} {u_str}"
+            
+        if active_axis == 'z':
+            for i, d in enumerate(x_data):
+                x = d['ord']
+                bub_loc = d.get('bubble', 'End')
+                
+                if bub_loc in ['End', 'Both']:
+                    bubble_lines.extend([[x, y_max, active_val], [x, y_max + ext, active_val]])
+                    center = np.array([x, y_max + ext + bubble_radius, active_val])
+                    bubble_circ_pos.extend(self._generate_circle_pts(center, bubble_radius, 'z'))
+                    self._add_grid_bubble(center, bubble_radius, d['id'], 'z')
+                    
+                    if i < len(x_data) - 1:
+                        next_x = x_data[i+1]['ord']
+                        dist = abs(next_x - x)
+                        dim_y = y_max + ext * 0.6
+                        dim_lines.extend([[x, dim_y, active_val], [next_x, dim_y, active_val]])
+                        dim_lines.extend([[x, dim_y-tick, active_val], [x, dim_y+tick, active_val]])
+                        dim_lines.extend([[next_x, dim_y-tick, active_val], [next_x, dim_y+tick, active_val]])
+                        
+                        dim_center = np.array([(x + next_x)/2.0, dim_y + bubble_radius*1.1, active_val])
+                        self._add_grid_dimension(dim_center, format_dist(dist), 'z', bubble_radius * 0.8, [1.0, 0.0, 0.0], [0.0, 1.0, 0.0])
+
+                if bub_loc in ['Start', 'Both']:
+                    bubble_lines.extend([[x, y_min, active_val], [x, y_min - ext, active_val]])
+                    center = np.array([x, y_min - ext - bubble_radius, active_val])
+                    bubble_circ_pos.extend(self._generate_circle_pts(center, bubble_radius, 'z'))
+                    self._add_grid_bubble(center, bubble_radius, d['id'], 'z')
+                    
+                    if i < len(x_data) - 1:
+                        next_x = x_data[i+1]['ord']
+                        dist = abs(next_x - x)
+                        dim_y = y_min - ext * 0.6
+                        dim_lines.extend([[x, dim_y, active_val], [next_x, dim_y, active_val]])
+                        dim_lines.extend([[x, dim_y-tick, active_val], [x, dim_y+tick, active_val]])
+                        dim_lines.extend([[next_x, dim_y-tick, active_val], [next_x, dim_y+tick, active_val]])
+                        
+                        dim_center = np.array([(x + next_x)/2.0, dim_y - bubble_radius*1.1, active_val])
+                        self._add_grid_dimension(dim_center, format_dist(dist), 'z', bubble_radius * 0.8, [1.0, 0.0, 0.0], [0.0, 1.0, 0.0])
+
+            for i, d in enumerate(y_data):
+                y = d['ord']
+                bub_loc = d.get('bubble', 'End')
+                
+                if bub_loc in ['End', 'Both']:
+                    bubble_lines.extend([[x_max, y, active_val], [x_max + ext, y, active_val]])
+                    center = np.array([x_max + ext + bubble_radius, y, active_val])
+                    bubble_circ_pos.extend(self._generate_circle_pts(center, bubble_radius, 'z'))
+                    self._add_grid_bubble(center, bubble_radius, d['id'], 'z')
+                    
+                    if i < len(y_data) - 1:
+                        next_y = y_data[i+1]['ord']
+                        dist = abs(next_y - y)
+                        dim_x = x_max + ext * 0.6
+                        dim_lines.extend([[dim_x, y, active_val], [dim_x, next_y, active_val]])
+                        dim_lines.extend([[dim_x-tick, y, active_val], [dim_x+tick, y, active_val]])
+                        dim_lines.extend([[dim_x-tick, next_y, active_val], [dim_x+tick, next_y, active_val]])
+                        
+                        dim_center = np.array([dim_x + bubble_radius*1.1, (y + next_y)/2.0, active_val])
+                        self._add_grid_dimension(dim_center, format_dist(dist), 'z', bubble_radius * 0.8, [0.0, 1.0, 0.0], [-1.0, 0.0, 0.0])
+
+                if bub_loc in ['Start', 'Both']:
+                    bubble_lines.extend([[x_min, y, active_val], [x_min - ext, y, active_val]])
+                    center = np.array([x_min - ext - bubble_radius, y, active_val])
+                    bubble_circ_pos.extend(self._generate_circle_pts(center, bubble_radius, 'z'))
+                    self._add_grid_bubble(center, bubble_radius, d['id'], 'z')
+                    
+                    if i < len(y_data) - 1:
+                        next_y = y_data[i+1]['ord']
+                        dist = abs(next_y - y)
+                        dim_x = x_min - ext * 0.6
+                        dim_lines.extend([[dim_x, y, active_val], [dim_x, next_y, active_val]])
+                        dim_lines.extend([[dim_x-tick, y, active_val], [dim_x+tick, y, active_val]])
+                        dim_lines.extend([[dim_x-tick, next_y, active_val], [dim_x+tick, next_y, active_val]])
+                        
+                        dim_center = np.array([dim_x - bubble_radius*1.1, (y + next_y)/2.0, active_val])
+                        self._add_grid_dimension(dim_center, format_dist(dist), 'z', bubble_radius * 0.8, [0.0, 1.0, 0.0], [-1.0, 0.0, 0.0])
+
+        if graph_paper_pos:
+            item = gl.GLLinePlotItem(pos=np.array(graph_paper_pos), mode='lines', color=(0.7, 0.7, 0.7, 0.25), width=1.0, antialias=True)
+            self.addItem(item)
+            self.static_items.append(item)
+
+        if bright_pos:
+            item = gl.GLLinePlotItem(pos=np.array(bright_pos), mode='lines', color=(0.4, 0.4, 0.4, 0.8), width=2, antialias=True)
+            self.addItem(item)
+            self.static_items.append(item)
+            
+        if dim_pos:
+            alpha = 0.5 if is_3d else 0.15
+            item = gl.GLLinePlotItem(pos=np.array(dim_pos), mode='lines', color=(0.6, 0.6, 0.6, alpha), width=1.5, antialias=True)
+            self.addItem(item)
+            self.static_items.append(item)
+
+        if bubble_lines:
+            item = gl.GLLinePlotItem(pos=np.array(bubble_lines), mode='lines', color=(0.3, 0.6, 0.9, 0.9), width=2, antialias=True)
+            self.addItem(item)
+            self.static_items.append(item)
+            
+        if dim_lines:
+            item = gl.GLLinePlotItem(pos=np.array(dim_lines), mode='lines', color=(0.3, 0.5, 0.7, 0.8), width=1.0, antialias=True)
+            self.addItem(item)
+            self.static_items.append(item)
+
+        if bubble_circ_pos:
+            bub_item = gl.GLLinePlotItem(pos=np.array(bubble_circ_pos), mode='lines', color=(0.3, 0.6, 0.9, 1.0), width=2.0, antialias=True)
+            self.addItem(bub_item)
+            self.static_items.append(bub_item)
+
+        self._rebuild_axis_items()
+        
     def get_snap_point(self, mouse_x, mouse_y):
         if not self.snapping_enabled:
             self.snap_ring.setVisible(False)
@@ -4658,6 +5163,7 @@ class MCanvas3D(gl.GLViewWidget):
         """
         Draws the Calculated Center of Mass (Master Node) for Diaphragms.
         Visualizes them as a Green Square with lines to connected nodes.
+        Filters out diaphragms that do not belong to the active 2D view plane.
         """
         if not model.nodes: return
 
@@ -4681,10 +5187,14 @@ class MCanvas3D(gl.GLViewWidget):
             cz = sum(n.z for n in nodes) / len(nodes)
             
             c_pt = [cx, cy, cz]
+            
+            if not self._is_visible(cx, cy, cz):
+                continue
+                                                                                                       
             master_pos.append(c_pt)
             
             for n in nodes:
-                                  
+                                                                                        
                 if self._is_visible(n.x, n.y, n.z):
                     conn_lines.append(c_pt)
                     conn_lines.append([n.x, n.y, n.z])
@@ -5753,17 +6263,18 @@ class MCanvas3D(gl.GLViewWidget):
         self.vbo_manager.upload_load_geometry(fv, fc, ff, lp, lc)
 
     def _upload_load_labels_to_gpu(self):
-        """Pushes current load_labels AND force_labels to the SDF VBO pipeline without wiping each other."""
+        """Pushes current load_labels AND force_labels AND grid_labels to the SDF VBO pipeline."""
         if not hasattr(self, 'text_builder') or not hasattr(self, 'vbo_manager'):
             return
             
         self.makeCurrent()
         
-        all_labels = getattr(self, 'load_labels', []) + getattr(self, 'force_labels', [])
+        all_labels = getattr(self, 'load_labels', []) +\
+                     getattr(self, 'force_labels', []) +\
+                     getattr(self, 'grid_labels', [])
         
         if all_labels:
             verts, uvs, colors, indices = self.text_builder.build_text_geometry(all_labels, default_text_height=0.25)
             self.vbo_manager.upload_text_geometry(verts, uvs, colors, indices)
         else:
-                                                             
             self.vbo_manager.upload_text_geometry(np.array([]), np.array([]), np.array([]), np.array([]))

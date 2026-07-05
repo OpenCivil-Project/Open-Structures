@@ -338,7 +338,8 @@ class StructuralModel:
             "grid": {
                 "x_lines": self.grid.x_lines,
                 "y_lines": self.grid.y_lines,
-                "z_lines": self.grid.z_lines
+                "z_lines": self.grid.z_lines,
+                "bubble_size": getattr(self.grid, 'bubble_size', 1.25)
             },
             "materials": [],
             "sections": [],
@@ -633,6 +634,9 @@ class StructuralModel:
         self.saved_unit_system = data["info"].get("units", "kN, m, C")
         
         grid_data = data["grid"]
+
+        self.grid.bubble_size = grid_data.get("bubble_size", 1.25)
+        
         if "x_lines" in grid_data:
             self.grid.x_lines = grid_data["x_lines"]; self.grid.y_lines = grid_data["y_lines"]; self.grid.z_lines = grid_data["z_lines"]
         else:

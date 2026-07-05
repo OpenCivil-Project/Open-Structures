@@ -43,8 +43,8 @@ class GridPreviewWidget(QFrame):
             painter.drawText(w//2 - 30, h//2, "No Grid Data")
             return
 
-        hs = [val for _, val in self.h_grids]
-        vs = [val for _, val in self.v_grids]
+        hs = [val for _, val, _ in self.h_grids]
+        vs = [val for _, val, _ in self.v_grids]
         
         min_h, max_h = min(hs), max(hs)
         min_v, max_v = min(vs), max(vs)
@@ -61,21 +61,19 @@ class GridPreviewWidget(QFrame):
         view_max_v = max_v + margin_v
         
         def to_screen(gh, gv):
-                            
             sh = (gh - view_min_h) / (view_max_h - view_min_h) * w
-                                                            
             sv = h - (gv - view_min_v) / (view_max_v - view_min_v) * h
             return sh, sv
 
         grid_pen = QPen(QColor(180, 180, 180), 1, Qt.PenStyle.SolidLine)             
         painter.setPen(grid_pen)
         
-        for _, h_val in self.h_grids:
+        for _, h_val, _ in self.h_grids:
             x1, y1 = to_screen(h_val, view_min_v)
             x2, y2 = to_screen(h_val, view_max_v)
             painter.drawLine(int(x1), int(y1), int(x2), int(y2))
             
-        for _, v_val in self.v_grids:
+        for _, v_val, _ in self.v_grids:
             x1, y1 = to_screen(view_min_h, v_val)
             x2, y2 = to_screen(view_max_h, v_val)
             painter.drawLine(int(x1), int(y1), int(x2), int(y2))
@@ -86,25 +84,41 @@ class GridPreviewWidget(QFrame):
         painter.setBrush(QBrush(QColor(240, 240, 240)))
         painter.setPen(Qt.GlobalColor.black)
 
-        for gid, h_val in self.h_grids:
-            sx, sy = to_screen(h_val, max_v)
-            center = QPointF(sx, sy - b_radius * 2) 
-            painter.drawEllipse(center, b_radius, b_radius)
-            painter.drawText(QRectF(sx - b_radius, sy - b_radius*3, b_radius*2, b_radius*2), 
-                             Qt.AlignmentFlag.AlignCenter, str(gid))
+        for gid, h_val, bub_loc in self.h_grids:
+            if bub_loc in ["End", "Both"]:           
+                sx, sy = to_screen(h_val, max_v)
+                center = QPointF(sx, sy - b_radius * 2) 
+                painter.drawEllipse(center, b_radius, b_radius)
+                painter.drawText(QRectF(sx - b_radius, sy - b_radius*3, b_radius*2, b_radius*2), 
+                                 Qt.AlignmentFlag.AlignCenter, str(gid))
+                                 
+            if bub_loc in ["Start", "Both"]:              
+                sx, sy = to_screen(h_val, min_v)
+                center = QPointF(sx, sy + b_radius * 2) 
+                painter.drawEllipse(center, b_radius, b_radius)
+                painter.drawText(QRectF(sx - b_radius, sy + b_radius, b_radius*2, b_radius*2), 
+                                 Qt.AlignmentFlag.AlignCenter, str(gid))
 
-        for gid, v_val in self.v_grids:
-            sx, sy = to_screen(min_h, v_val)
-            center = QPointF(sx - b_radius * 2, sy)
-            painter.drawEllipse(center, b_radius, b_radius)
-            painter.drawText(QRectF(sx - b_radius*3, sy - b_radius, b_radius*2, b_radius*2), 
-                             Qt.AlignmentFlag.AlignCenter, str(gid))
+        for gid, v_val, bub_loc in self.v_grids:
+            if bub_loc in ["Start", "Both"]:            
+                sx, sy = to_screen(min_h, v_val)
+                center = QPointF(sx - b_radius * 2, sy)
+                painter.drawEllipse(center, b_radius, b_radius)
+                painter.drawText(QRectF(sx - b_radius*3, sy - b_radius, b_radius*2, b_radius*2), 
+                                 Qt.AlignmentFlag.AlignCenter, str(gid))
+                                 
+            if bub_loc in ["End", "Both"]:             
+                sx, sy = to_screen(max_h, v_val)
+                center = QPointF(sx + b_radius * 2, sy)
+                painter.drawEllipse(center, b_radius, b_radius)
+                painter.drawText(QRectF(sx + b_radius, sy - b_radius, b_radius*2, b_radius*2), 
+                                 Qt.AlignmentFlag.AlignCenter, str(gid))
 
 class GridEditorDialog(QDialog):
     def __init__(self, current_grid, parent=None):
         super().__init__(parent)
         self.setWindowTitle("Define Grid System Data")
-        self.resize(1000, 750)                         
+        self.resize(1200, 700)                         
         
         self.x_data = [] 
         self.y_data = []
@@ -118,21 +132,23 @@ class GridEditorDialog(QDialog):
         self.update_preview()
 
     def parse_grid_obj(self, grid_obj):
-        """Loads data from the Smart Grid object."""
-                                                                                   
+        """Loads data from the Smart Grid object and converts to Display Units."""
         def to_list(lines_dict, prefix):
             rows = []
             if not lines_dict: return rows
             
             if isinstance(lines_dict[0], float):
                 for i, val in enumerate(lines_dict):
-                    rows.append([f"{prefix}{i+1}", val, "Primary", True, "End"])
+                                              
+                    disp_val = unit_registry.to_display_length(val)
+                    rows.append([f"{prefix}{i+1}", disp_val, "Primary", True, "End"])
             else:
-                                         
                 for item in lines_dict:
+                                              
+                    disp_val = unit_registry.to_display_length(item['ord'])
                     rows.append([
                         item['id'], 
-                        item['ord'], 
+                        disp_val, 
                         "Primary",                         
                         item['visible'], 
                         item['bubble']
@@ -238,12 +254,17 @@ class GridEditorDialog(QDialog):
         btn_viz = QPushButton("Show/Hide All")
         btn_viz.clicked.connect(lambda: self.toggle_all_visibility(axis_key))
 
+        btn_bub = QPushButton("Cycle All Bubbles")
+        btn_bub.setToolTip("Cycles all gridlines in this axis through End, Start, Both, and None")
+        btn_bub.clicked.connect(lambda: self.toggle_all_bubbles(axis_key))
+
         btn_add.clicked.connect(lambda: self.add_grid_line(axis_key))
         btn_del.clicked.connect(lambda: self.delete_grid_line(axis_key))
         
         btn_layout.addWidget(btn_add)
         btn_layout.addWidget(btn_del)
         btn_layout.addWidget(btn_viz)
+        btn_layout.addWidget(btn_bub)                                 
         btn_layout.addStretch()
         
         layout.addWidget(table)
@@ -253,7 +274,8 @@ class GridEditorDialog(QDialog):
 
     def update_table_header(self, table, val_title):
         """Updates the 2nd column header dynamically."""
-        unit = unit_registry.current_unit_label.split(',')[1]           
+                                                              
+        unit = unit_registry.length_unit_name           
         labels = ["Grid ID", f"{val_title} ({unit})", "Line Type", "Visible", "Bubble Loc"]
         table.setHorizontalHeaderLabels(labels)
                       
@@ -302,7 +324,15 @@ class GridEditorDialog(QDialog):
             table.setItem(i, 1, QTableWidgetItem(f"{display_vals[i]:.4f}"))
             table.setItem(i, 2, QTableWidgetItem(row[2]))
             table.setItem(i, 3, QTableWidgetItem("Yes" if row[3] else "No"))
-            table.setItem(i, 4, QTableWidgetItem(row[4]))
+            
+            combo = QComboBox()
+            combo.addItems(["End", "Start", "Both", "None"])
+            combo.setCurrentText(row[4])
+            combo.setStyleSheet("QComboBox { border: none; padding-left: 4px; background: transparent; } QComboBox::drop-down { border: none; }")
+            
+            combo.currentTextChanged.connect(lambda text: self.save_tables_to_data())
+            
+            table.setCellWidget(i, 4, combo)
             
         table.blockSignals(False)
 
@@ -347,8 +377,8 @@ class GridEditorDialog(QDialog):
                                                      
             is_visible = (it_vis.text() == "Yes") if it_vis else True
             
-            it_bub = table.item(r, 4)
-            bub_loc = it_bub.text() if it_bub else "End"
+            combo_bub = table.cellWidget(r, 4)
+            bub_loc = combo_bub.currentText() if combo_bub else "End"
             
             new_data.append([ids[r], final_ordinates[r], l_type, is_visible, bub_loc])
             
@@ -358,20 +388,19 @@ class GridEditorDialog(QDialog):
         self.save_tables_to_data()
 
     def update_preview(self):
-                                                                  
         idx = self.combo_plane.currentIndex()
         
         if idx == 0:           
-            h_data = [(row[0], row[1]) for row in self.x_data]                  
-            v_data = [(row[0], row[1]) for row in self.y_data]                
+            h_data = [(row[0], row[1], row[4]) for row in self.x_data]                  
+            v_data = [(row[0], row[1], row[4]) for row in self.y_data]                
             plane_name = "XY"
         elif idx == 1:           
-            h_data = [(row[0], row[1]) for row in self.x_data]                  
-            v_data = [(row[0], row[1]) for row in self.z_data]                
+            h_data = [(row[0], row[1], row[4]) for row in self.x_data]                  
+            v_data = [(row[0], row[1], row[4]) for row in self.z_data]                
             plane_name = "XZ"
         else:           
-            h_data = [(row[0], row[1]) for row in self.y_data]                  
-            v_data = [(row[0], row[1]) for row in self.z_data]                
+            h_data = [(row[0], row[1], row[4]) for row in self.y_data]                  
+            v_data = [(row[0], row[1], row[4]) for row in self.z_data]                
             plane_name = "YZ"
 
         self.preview.update_data(h_data, v_data, plane_name, self.spin_bubble.value())
@@ -382,17 +411,16 @@ class GridEditorDialog(QDialog):
         else: data = self.z_data; tbl = self.table_z['table']
         
         if len(data) >= 2:
-                                                       
             last_ord = data[-1][1]
             prev_ord = data[-2][1]
             spacing = last_ord - prev_ord
             
-            if abs(spacing) < 0.001: spacing = 3.0
+            if abs(spacing) < 0.001: spacing = unit_registry.to_display_length(3.0)
         else:
-                                                     
             last_ord = data[-1][1] if data else 0.0
-                                                      
-            spacing = 3.0 if axis == 'z' else 5.0 
+            base_spacing = 3.0 if axis == 'z' else 5.0 
+                                              
+            spacing = unit_registry.to_display_length(base_spacing)
 
         new_ord = last_ord + spacing
 
@@ -402,7 +430,6 @@ class GridEditorDialog(QDialog):
             prefix, num = match.groups()
             new_id = f"{prefix}{int(num)+1}"
         else:
-                                                     
             new_id = f"{len(data)+1}"
                              
         data.append([new_id, new_ord, "Primary", True, "End"])
@@ -422,15 +449,16 @@ class GridEditorDialog(QDialog):
         self.save_tables_to_data()
 
     def get_final_grids(self):
-        """Returns list of dicts for the new GridLines class."""
+        """Returns list of dicts for the new GridLines class (converted back to base SI units)."""
         def pack(data_list):
-                                                        
             sorted_data = sorted(data_list, key=lambda x: x[1])
             packed = []
             for row in sorted_data:
+                                                        
+                base_val = unit_registry.from_display_length(row[1])
                 packed.append({
                     'id': row[0],
-                    'ord': row[1],
+                    'ord': base_val,
                     'visible': row[3],
                     'bubble': row[4]
                 })
@@ -440,6 +468,7 @@ class GridEditorDialog(QDialog):
             "x": pack(self.x_data),
             "y": pack(self.y_data),
             "z": pack(self.z_data),
+            "bubble_size": self.spin_bubble.value()
         }
     
     def toggle_all_axes_visibility(self):
@@ -473,5 +502,38 @@ class GridEditorDialog(QDialog):
         for r in range(rows):
             tbl.setItem(r, 3, QTableWidgetItem(target_text))
         tbl.blockSignals(False)
+        
+        self.save_tables_to_data()
+
+    def toggle_all_bubbles(self, axis):
+        """Cycles all bubble dropdowns in a specific table to the next state."""
+                                                          
+        if axis == 'x': tbl = self.table_x['table']
+        elif axis == 'y': tbl = self.table_y['table']
+        else: tbl = self.table_z['table']
+
+        rows = tbl.rowCount()
+        if rows == 0: return
+
+        first_combo = tbl.cellWidget(0, 4)
+        if not first_combo: return
+        
+        current_state = first_combo.currentText()
+        sequence = ["End", "Start", "Both", "None"]
+        
+        try:
+            next_index = (sequence.index(current_state) + 1) % len(sequence)
+        except ValueError:
+            next_index = 0
+            
+        target_state = sequence[next_index]
+
+        for r in range(rows):
+            combo = tbl.cellWidget(r, 4)
+            if combo:
+                                                                                   
+                combo.blockSignals(True) 
+                combo.setCurrentText(target_state)
+                combo.blockSignals(False)
         
         self.save_tables_to_data()

@@ -5,6 +5,7 @@ class GridLines:
         self.x_lines = []
         self.y_lines = []
         self.z_lines = []
+        self.bubble_size = 1.25
 
     @property
     def x_grids(self):

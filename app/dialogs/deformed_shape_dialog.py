@@ -415,7 +415,6 @@ class DeformedShapeDialog(QDialog):
             except Exception as e:
                 print(f"Failed to load animation prefs: {e}")
 
-
     def accept(self):
         if self.is_animating:
             self.btn_animate.setChecked(False)
