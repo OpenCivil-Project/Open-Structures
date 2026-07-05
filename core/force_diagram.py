@@ -270,319 +270,57 @@ class ForceDiagramBuilder:
             return self.matrices_path
         if active_mat_path and os.path.exists(active_mat_path):
             return active_mat_path
+            
         if hasattr(self.model, "file_path") and self.model.file_path:
-            fallback = self.model.file_path.replace(".mf", "_matrices.json")
-            if os.path.exists(fallback):
-                return fallback
+            base_path = self.model.file_path.replace(".mf", "")
+            
+            active_case = active_results.get("info", {}).get("case_name", "")
+            if active_case:
+                exact = f"{base_path}_{active_case}_matrices.json"
+                if os.path.exists(exact): return exact
+                
+                combo_base = active_case.rsplit(" (Max)", 1)[0].rsplit(" (Min)", 1)[0]
+                base_exact = f"{base_path}_{combo_base}_matrices.json"
+                if os.path.exists(base_exact): return base_exact
+
+            fallback = f"{base_path}_matrices.json"
+            if os.path.exists(fallback): return fallback
+            
+            import glob
+            search = glob.glob(f"{base_path}_*_matrices.json")
+            if search: return search[0]
+            
         return None
-
+    
     def _batch_compute_nvm(self):
-        """
-        Computes P, V2, V3, M2, M3 arrays for every element in a single
-        vectorized pass. Mirrors MemberAnalyzer._calculate() exactly —
-        same DOF convention, same sign convention, same load handling —
-        but eliminates all per-element Python overhead.
-
-        Returns
-        -------
-        dict  {el_id: {'stations': (S,), 'P': (S,), 'V2': (S,),
-                        'V3': (S,), 'M2': (S,), 'M3': (S,)}}
-        """
+        from app.dialogs.spy_dialogs import MemberAnalyzer
 
         mat_path = self._resolve_matrices_path()
         if not mat_path:
             print("[ForceDiagram] matrices file not found.")
             return {}
 
-        try:
-            with open(mat_path, 'r') as f:
-                mat_data = json.load(f)
-        except Exception as exc:
-            print(f"[ForceDiagram] Error loading matrices: {exc}")
-            return {}
-
-        res = getattr(self.model, 'results', {}) or {}
-        if "rsa_info" in res:
-            return self._batch_compute_rsa_nvm(res["rsa_info"], mat_data)
-
-        if self.displacements is not None:
-            disp_dict = self.displacements
-        else:
-            res       = getattr(self.model, 'results', {}) or {}
-            disp_dict = res.get("_base_displacements", res.get("displacements", {}))
-
-        res              = getattr(self.model, 'results', {}) or {}
-        active_case_name = res.get("info", {}).get("case_name", "")
-
-        el_ids       = []
-        K_list       = []
-        T_list       = []
-        FEF_list     = []
-        U_list       = []                               
-        L_list       = []
-        ri_list      = []
-        rj_list      = []
-
+        results = {}
         for el_id, el in self.model.elements.items():
-            str_id = str(el_id)
-            if str_id not in mat_data:
-                print(f"[ForceDiagram] Skipping element {el_id}: not in matrices file.")
+            analyzer = MemberAnalyzer(
+                element=el,
+                model=self.model,
+                num_stations=self.n_stations,
+                displacements=self.displacements,
+                matrices_path=mat_path
+            )
+            
+            if not analyzer._matrices_loaded:
                 continue
-
-            el_data = mat_data[str_id]
-            K_list.append(el_data['k'])
-            T_list.append(el_data['t'])
-            FEF_list.append(el_data['fef'])
-
-            n1_str = str(el.node_i.id)
-            n2_str = str(el.node_j.id)
-            u1 = disp_dict.get(n1_str, [0.0] * 6)
-            u2 = disp_dict.get(n2_str, [0.0] * 6)
-            U_list.append(list(u1) + list(u2))                   
-
-            L_list.append(el.length())
-            el_ids.append(el_id)
-            ri_list.append(getattr(el, 'end_offset_i', 0.0))
-            rj_list.append(getattr(el, 'end_offset_j', 0.0))
-
-        if not el_ids:
-            return {}
-
-        E = len(el_ids)
-        S = self.n_stations
-
-        K_all   = np.array(K_list,   dtype=np.float64)                
-        T_all   = np.array(T_list,   dtype=np.float64)                
-        FEF_all = np.array(FEF_list, dtype=np.float64)            
-        U_all   = np.array(U_list,   dtype=np.float64)            
-        L_all   = np.array(L_list,   dtype=np.float64)         
-        ri_all  = np.array(ri_list,  dtype=np.float64)
-        rj_all  = np.array(rj_list,  dtype=np.float64)
-        Lc_all  = L_all - ri_all - rj_all
-
-        TU         = np.einsum('eij,ej->ei', T_all, U_all)                 
-        end_forces = np.einsum('eij,ej->ei', K_all, TU) + FEF_all           
-
-        Fx1 = end_forces[:, 0]         
-        Fy1 = end_forces[:, 1]
-        Fz1 = end_forces[:, 2]
-        My1 = end_forces[:, 4]
-        Mz1 = end_forces[:, 5]
-
-        w_loc = np.zeros((E, 3), dtype=np.float64)                           
-
-        for e, el_id in enumerate(el_ids):
-            el    = self.model.elements[el_id]
-            R_3x3 = T_all[e, 0:3, 0:3]                            
-
-            if active_case_name and hasattr(self.model, 'load_cases'):
-                if active_case_name in self.model.load_cases:
-                    active_case = self.model.load_cases[active_case_name]
-                    for pat_name, sf in active_case.loads:
-                        if pat_name in getattr(self.model, 'load_patterns', {}):
-                            pat = self.model.load_patterns[pat_name]
-                            if getattr(pat, 'self_weight_multiplier', 0) > 0:
-                                area    = getattr(el.section, 'A', 0)
-                                density = getattr(el.section.material, 'density', 0)
-                                w_sw_mag    = area * density * pat.self_weight_multiplier * sf
-                                w_sw_global = np.array([0.0, 0.0, -w_sw_mag])
-                                w_loc[e]   += R_3x3 @ w_sw_global
-
-            for load in self.model.loads:
-                if getattr(load, 'element_id', None) != int(el_id):
-                    continue
-                if not hasattr(load, 'wx'):
-                    continue
-                is_local = getattr(load, 'coord_system', 'Global').lower() == 'local'
-                w_vec = np.array([load.wx, load.wy, load.wz])
-                if not is_local:
-                    w_vec = R_3x3 @ w_vec
-                w_loc[e] += w_vec
-
-        x_clear = np.linspace(0.0, 1.0, S)[None, :] * Lc_all[:, None]           
-        x_node  = x_clear + ri_all[:, None]
-
-        P_all  = -Fx1[:, None] - w_loc[:, 0:1] * x_clear
-        V2_all = Fy1[:, None] + w_loc[:, 1:2] * x_clear
-        V3_all = -(Fz1[:, None] + w_loc[:, 2:3] * x_clear)
-        M3_all =  Mz1[:, None] - Fy1[:, None] * x_clear - w_loc[:, 1:2] * x_clear**2 / 2.0
-        M2_all =  My1[:, None] + Fz1[:, None] * x_clear + w_loc[:, 2:3] * x_clear**2 / 2.0
-
-        for e, el_id in enumerate(el_ids):
-            el    = self.model.elements[el_id]
-            L_e   = L_all[e]
-            Lc_e  = Lc_all[e]
-            ri_e  = ri_all[e]
-            R_3x3 = T_all[e, 0:3, 0:3]
-            x_c_e = x_clear[e]                                              
-
-            for load in self.model.loads:
-                if getattr(load, 'element_id', None) != int(el_id):
-                    continue
-                if not hasattr(load, 'force'):
-                    continue                                                
-
-                a = load.dist * L_e if getattr(load, 'is_relative', False) else load.dist
-                a_clear = a - ri_e
-                
-                if a_clear < 0 or a_clear > Lc_e:
-                    continue
-
-                is_local = getattr(load, 'coord_system', getattr(load, 'coord', 'Global')).lower() == 'local'
-                
-                is_rel = getattr(load, 'is_rel', getattr(load, 'is_relative', False))
-                dist_val = load.dist
-                if is_rel and dist_val > 1.0: dist_val /= 100.0
-                a = dist_val * L_e if is_rel else dist_val
-                a_clear = a - ri_e
-                
-                if a_clear < 0 or a_clear > Lc_e:
-                    continue
-                
-                dir_str = str(getattr(load, 'dir', getattr(load, 'direction', getattr(load, 'axis', 'Z')))).upper()
-                if "X" in dir_str or "1" in dir_str: idx_d = 0
-                elif "Y" in dir_str or "2" in dir_str: idx_d = 1
-                else: idx_d = 2
-                
-                vec = np.zeros(3)
-                vec[idx_d] = load.force
-                if not is_local: vec = R_3x3 @ vec
-
-                type_str = str(getattr(load, 'type', getattr(load, 'load_type', getattr(load, 'l_type', 'Force')))).upper()
-                if 'MOMENT' in type_str:
-                    F_vec = np.zeros(3)
-                    M_vec = vec
-                else:
-                    F_vec = vec
-                    M_vec = np.zeros(3)
-
-                mask   = x_c_e > a_clear                     
-                dist_x = x_c_e - a_clear                      
-
-                P_all[e]  -= F_vec[0] * mask
-                V2_all[e] += F_vec[1] * mask
-                V3_all[e] -= F_vec[2] * mask
-                M3_all[e] += (-F_vec[1] * dist_x + M_vec[2]) * mask                         
-                M2_all[e] += ( F_vec[2] * dist_x + M_vec[1]) * mask                         
-
-        results = {}
-        for e, el_id in enumerate(el_ids):
+            
             results[el_id] = {
-                'stations': x_node[e],
-                'P':        P_all[e],
-                'V2':       V2_all[e],
-                'V3':       V3_all[e],
-                'M2':       M2_all[e],
-                'M3':       M3_all[e],
+                'stations': analyzer.stations,
+                'P': analyzer.P,
+                'V2': analyzer.V2,
+                'V3': analyzer.V3,
+                'M2': analyzer.M2,
+                'M3': analyzer.M3,
             }
-        return results
-    
-    def _batch_compute_rsa_nvm(self, rsa, mat_data):
-        """Dedicated NVM computer for Response Spectrum absolute envelopes."""
-        dir_comb = rsa.get("dir_comb", "SRSS")
-        dirs_data = rsa.get("directions", [rsa])
-        
-        S = self.n_stations
-        results = {}
-        
-        for el_id, el in self.model.elements.items():
-            str_id = str(el_id)
-            if str_id not in mat_data: continue
-            
-            el_data = mat_data[str_id]
-            k = np.array(el_data['k'], dtype=np.float64)
-            t = np.array(el_data['t'], dtype=np.float64)
-            
-            n1 = str(el.node_i.id)
-            n2 = str(el.node_j.id)
-            
-            L_e = el.length()
-            ri_e = getattr(el, 'end_offset_i', 0.0)
-            rj_e = getattr(el, 'end_offset_j', 0.0)
-            Lc_e = L_e - ri_e - rj_e
-            
-            x_clear = np.linspace(0.0, 1.0, S) * Lc_e
-            x_node = x_clear + ri_e
-            
-            P_final = np.zeros(S); V2_final = np.zeros(S); V3_final = np.zeros(S)
-            M2_final = np.zeros(S); M3_final = np.zeros(S)
-            
-            for d_info in dirs_data:
-                method = d_info.get("method", "SRSS")
-                zeta = d_info.get("zeta", 0.05)
-                omega = d_info.get("omega_array", [])
-                u_raw = d_info.get("uncombined_u", {})
-                
-                n_modes = len(omega)
-                if n_modes == 0: continue
-                
-                u1_modes = u_raw.get(n1, [np.zeros(6)] * n_modes)
-                u2_modes = u_raw.get(n2, [np.zeros(6)] * n_modes)
-                
-                P_modes = np.zeros((n_modes, S)); V2_modes = np.zeros((n_modes, S))
-                V3_modes = np.zeros((n_modes, S)); M2_modes = np.zeros((n_modes, S))
-                M3_modes = np.zeros((n_modes, S))
-                
-                for i in range(n_modes):
-                    u_global_mode = np.concatenate([u1_modes[i], u2_modes[i]])
-                    end_f = k @ (t @ u_global_mode)
-                    Fx1, Fy1, Fz1 = end_f[0:3]
-                    Mx1, My1, Mz1 = end_f[3:6]
-                    
-                    P_modes[i, :] = -Fx1
-                    V2_modes[i, :] = Fy1
-                    V3_modes[i, :] = -Fz1
-                    M3_modes[i, :] = Mz1 - Fy1 * x_clear
-                    M2_modes[i, :] = My1 + Fz1 * x_clear
-                    
-                P_dir = np.zeros(S); V2_dir = np.zeros(S); V3_dir = np.zeros(S)
-                M2_dir = np.zeros(S); M3_dir = np.zeros(S)
-                
-                if method == "CQC" and n_modes > 0:
-                    for j in range(S):
-                        p_tot=0; v2_tot=0; v3_tot=0; m2_tot=0; m3_tot=0
-                        for m1 in range(n_modes):
-                            for m2 in range(n_modes):
-                                if omega[m1] == 0 or omega[m2] == 0: rho = 1.0 if omega[m1]==omega[m2] else 0.0
-                                else:
-                                    r = omega[m1] / omega[m2]
-                                    den = (1.0 - r**2)**2 + 4.0 * zeta**2 * r * (1.0 + r)**2
-                                    rho = (8.0 * zeta**2 * (1.0 + r) * r**1.5) / den if den != 0.0 else 1.0
-                                p_tot  += P_modes[m1, j] * rho * P_modes[m2, j]
-                                v2_tot += V2_modes[m1, j] * rho * V2_modes[m2, j]
-                                v3_tot += V3_modes[m1, j] * rho * V3_modes[m2, j]
-                                m2_tot += M2_modes[m1, j] * rho * M2_modes[m2, j]
-                                m3_tot += M3_modes[m1, j] * rho * M3_modes[m2, j]
-                        P_dir[j] = np.sqrt(abs(p_tot)); V2_dir[j] = np.sqrt(abs(v2_tot)); V3_dir[j] = np.sqrt(abs(v3_tot))
-                        M2_dir[j] = np.sqrt(abs(m2_tot)); M3_dir[j] = np.sqrt(abs(m3_tot))
-                else:
-                    P_dir = np.sqrt(np.sum(P_modes**2, axis=0))
-                    V2_dir = np.sqrt(np.sum(V2_modes**2, axis=0))
-                    V3_dir = np.sqrt(np.sum(V3_modes**2, axis=0))
-                    M2_dir = np.sqrt(np.sum(M2_modes**2, axis=0))
-                    M3_dir = np.sqrt(np.sum(M3_modes**2, axis=0))
-                
-                if dir_comb == "SRSS":
-                    P_final += P_dir**2
-                    V2_final += V2_dir**2
-                    V3_final += V3_dir**2
-                    M2_final += M2_dir**2
-                    M3_final += M3_dir**2
-                else:
-                    P_final += np.abs(P_dir)
-                    V2_final += np.abs(V2_dir)
-                    V3_final += np.abs(V3_dir)
-                    M2_final += np.abs(M2_dir)
-                    M3_final += np.abs(M3_dir)
-
-            if dir_comb == "SRSS":
-                P_final = np.sqrt(P_final)
-                V2_final = np.sqrt(V2_final)
-                V3_final = np.sqrt(V3_final)
-                M2_final = np.sqrt(M2_final)
-                M3_final = np.sqrt(M3_final)
-                
-            results[el_id] = {'stations': x_node, 'P': P_final, 'V2': V2_final, 'V3': V3_final, 'M2': M2_final, 'M3': M3_final}
             
         return results
     

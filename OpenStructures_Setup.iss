@@ -1,11 +1,11 @@
 ; ====================================================================
-; OpenCivil Installer (Safe Clean Reinstall - Works Without Admin)
+; Open//Structures Installer (Safe Clean Reinstall - Works Without Admin)
 ; ====================================================================
 
-#define MyAppName "OpenCivil"
-#define MyAppVersion "0.7.80"
-#define MyAppPublisher "OpenCivil"
-#define MyAppExeName "OpenCivil.exe"
+#define MyAppName "Open//Structures"
+#define MyAppVersion "0.7.81"
+#define MyAppPublisher "Open//Structures"
+#define MyAppExeName "OpenStructures.exe"
 #define MyAppId "{{CFB760FC-A702-4F1E-864E-79088FEF3B6F}}"
 
 ; --------------------------------------------------------------------
@@ -18,26 +18,26 @@ AppVersion={#MyAppVersion}
 AppPublisher={#MyAppPublisher}
 
 PrivilegesRequired=lowest
-DefaultDirName={localappdata}\Programs\{#MyAppName}
+DefaultDirName={localappdata}\Programs\OpenStructures
 
 UsePreviousAppDir=yes
 CloseApplications=yes
-AppMutex=OpenCivilAppMutex
+AppMutex=Open//StructuresAppMutex
 
 WizardStyle=modern
 SolidCompression=yes
 DisableProgramGroupPage=yes
 
-OutputBaseFilename=OpenCivil_Setup_v{#MyAppVersion}
+OutputBaseFilename=OpenStructures_Setup_v{#MyAppVersion}
 
 UninstallDisplayIcon={app}\{#MyAppExeName}
-SetupIconFile=E:\MetuFire\OpenCivil\app\graphic\logo.ico
+SetupIconFile=E:\MetuFire\Open//Structures\app\graphic\logo.ico
 
 ; --------------------------------------------------------------------
 ; FILES
 ; --------------------------------------------------------------------
 [Files]
-Source: "E:\MetuFire\OpenCivil\app\dist\OpenCivil\*"; \
+Source: "E:\MetuFire\Open//Structures\app\dist\Open//Structures\*"; \
 DestDir: "{app}"; \
 Flags: ignoreversion recursesubdirs createallsubdirs overwritereadonly
 
@@ -47,7 +47,7 @@ Flags: ignoreversion recursesubdirs createallsubdirs overwritereadonly
 [Icons]
 Name: "{autoprograms}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"
 Name: "{autodesktop}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"
-Name: "{autoprograms}\Uninstall OpenCivil"; Filename: "{uninstallexe}"
+Name: "{autoprograms}\Uninstall Open//Structures"; Filename: "{uninstallexe}"
 
 ; --------------------------------------------------------------------
 ; RUN

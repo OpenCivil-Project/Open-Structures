@@ -32,6 +32,8 @@ class UserSeismicDialog(QDialog):
         if not hasattr(self.load_pattern, 'seismic_data') or not self.load_pattern.seismic_data:
             from core.model import UserSeismicData                                            
             self.load_pattern.seismic_data = UserSeismicData()
+                                                                                    
+            self.load_pattern.seismic_data.eccentricity = 0.0
             
         self.seismic_data = self.load_pattern.seismic_data
 

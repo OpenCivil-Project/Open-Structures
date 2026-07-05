@@ -93,6 +93,7 @@ class GlobalMassAssembler:
                 self._add_element_self_mass(scale_factor=total_sw_factor)
                 
         for load in self.dm.raw.get("loads", []):
+            if load.get('_is_sw', False): continue
             pat = load["pattern"]
             if pat not in active_patterns: continue
             

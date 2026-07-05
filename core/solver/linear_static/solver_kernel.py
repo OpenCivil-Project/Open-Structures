@@ -135,17 +135,18 @@ class LinearSolver:
             results["displacements"][n_id] = disp
             results["reactions"][n_id] = reac
             
-            fx, fy, fz, mx, my, mz = reac
-            
-            sum_fx += fx
-            sum_fy += fy
-            sum_fz += fz
-            
-            x, y, z = coords
-            
-            sum_mx += mx + (y * fz - z * fy)
-            sum_my += my + (z * fx - x * fz)
-            sum_mz += mz + (x * fy - y * fx)
+            if any(node['restraints']):
+                fx, fy, fz, mx, my, mz = reac
+                
+                sum_fx += fx
+                sum_fy += fy
+                sum_fz += fz
+                
+                x, y, z = coords
+                
+                sum_mx += mx + (y * fz - z * fy)
+                sum_my += my + (z * fx - x * fz)
+                sum_mz += mz + (x * fy - y * fx)
 
         results["base_reaction"] = {
             "Fx": sum_fx, "Fy": sum_fy, "Fz": sum_fz,

@@ -84,57 +84,84 @@ class NodeResultsDialog(QDialog):
         layout.addStretch()
 
     def load_initial_data(self):
+        import os, glob, json
         self.combo_cases.blockSignals(True)
         self.combo_cases.clear()
         
-        info_type = self.results.get("info", {}).get("type", "")
-        is_eigenvalue_run = info_type in ["Modal Analysis", "Buckling Analysis"]
-        
-        if "displacements" in self.results and self.results["displacements"] and not is_eigenvalue_run:
-            display_name = "Analysis Result"
-            if "rsa_info" in self.results:
-                method = self.results["rsa_info"].get("method", "SRSS")
-                display_name = f"RSA Final Envelope ({method})"
-            elif info_type == "Linear Static":
-                display_name = "Linear Static Displacements"
-            elif info_type == "Linear Time History Analysis":
-                display_name = "LTHA Peak Envelope"
+        if not getattr(self.model, 'file_path', None):
+            return 
             
-            self.combo_cases.addItem(display_name, "MAIN_RESULT")
+        base_name = os.path.splitext(self.model.file_path)[0]
+        result_files = getattr(self.model, 'valid_result_paths', [])
+        if not result_files:
+            result_files = glob.glob(f"{base_name}_*_results.json")
+        
+        current_case_name = self.results.get("info", {}).get("case_name", "")
+        target_idx = 0
 
-            if info_type == "Linear Time History Analysis":
-                self.combo_cases.addItem("LTHA Live Playback", "LTHA_LIVE")
+        for path in sorted(result_files):
+            fname = os.path.basename(path)
+            prefix = os.path.basename(base_name) + "_"
+            case_name = fname[len(prefix):].replace("_results.json", "")
+            
+            try:
+                with open(path, 'r') as f:
+                    data = json.load(f)
+            except:
+                continue
 
-        if "mode_shapes" in self.results:
-            if info_type == "Buckling Analysis":
-                factors = self.results.get("tables", {}).get("buckling_factors", [])
-                for row in factors:
-                    mode_num = row['mode']
-                    lam = row['lambda']
-                    self.combo_cases.addItem(f"Mode {mode_num} (λ = {lam:.4f})", f"Mode {mode_num}")
+            info_type = data.get("info", {}).get("type", "")
+            
+            if info_type in ["Modal Analysis", "Buckling Analysis"]:
+                shapes = data.get("mode_shapes", {})
+                for mode_key in shapes.keys():
+                    display_name = f"{case_name} - {mode_key}"
+                    self.combo_cases.addItem(display_name, {"path": path, "mode": mode_key})
+                    if case_name == current_case_name:
+                        target_idx = self.combo_cases.count() - 1
             else:
-                periods = self.results.get("tables", {}).get("periods", [])
-                for row in periods:
-                    mode_num = row['mode']
-                    T = row['T']
-                    self.combo_cases.addItem(f"Mode {mode_num} (T={T:.4f}s)", f"Mode {mode_num}")
+                display_name = f"{case_name}"
+                if "rsa_info" in data:
+                    display_name += f" (RSA Envelope)"
+                elif info_type == "Linear Time History Analysis":
+                    display_name += f" (LTHA Envelope)"
+                    
+                self.combo_cases.addItem(display_name, {"path": path, "mode": "MAIN"})
+                if case_name == current_case_name:
+                    target_idx = self.combo_cases.count() - 1
+
+                if info_type == "Linear Time History Analysis":
+                    self.combo_cases.addItem(f"{case_name} - LTHA Live", {"path": path, "mode": "LTHA_LIVE"})
 
         self.combo_cases.blockSignals(False)
         
         if self.combo_cases.count() > 0:
-            self.on_case_changed(0)
+            self.combo_cases.setCurrentIndex(target_idx)
+            self.on_case_changed(target_idx)
         else:
             self.lbl_info.setText("No results found for this node.")
 
     def on_case_changed(self, index):
+        import json
         if index < 0: return
-        key = self.combo_cases.currentData()
-        vector = [0.0] * 6
+        data_info = self.combo_cases.currentData()
+        if not isinstance(data_info, dict): return
         
-        if key == "MAIN_RESULT":
+        try:
+            with open(data_info["path"], 'r') as f:
+                new_res = json.load(f)
+                self.results = new_res
+                                           
+                self.model.results = new_res
+        except:
+            return
+            
+        key = data_info["mode"]
+        vector = [0.0] * 6
+        self.btn_graph.setVisible(False)
+        
+        if key == "MAIN":
             self.signal_mode_changed.emit("MAIN_RESULT") 
-            self.btn_graph.setVisible(False)
-                                                                                          
             base_dict = self.results.get("_base_displacements", self.results.get("displacements", {}))
             vector = base_dict.get(self.node_id, [0.0]*6)
             self.lbl_info.setText("Displaying Peak Static Envelope.")
@@ -159,7 +186,7 @@ class NodeResultsDialog(QDialog):
             self.signal_mode_changed.emit(key)
             
         self._update_labels(vector)
-
+        
     def _update_labels(self, vector):
         ux_m, uy_m, uz_m = vector[0], vector[1], vector[2]
         rx, ry, rz = vector[3], vector[4], vector[5]

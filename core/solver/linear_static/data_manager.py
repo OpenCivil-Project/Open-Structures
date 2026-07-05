@@ -66,7 +66,8 @@ class DataManager:
                     'wy': 0.0, 
                     'wz': w_z,
                     'coord': 'Global',
-                    'projected': False
+                    'projected': False,
+                    '_is_sw': True
                 }
                 
                 if 'loads' not in self.raw: self.raw['loads'] = []
@@ -264,7 +265,8 @@ class DataManager:
                 Fy = loads.get('Fy', 0.0) * scale
                 Mz_user = loads.get('Mz', 0.0) * scale
 
-                Mz_accidental = Fx * (ecc_ratio * Ly) - Fy * (ecc_ratio * Lx)
+                Mz_accidental = Fy * (ecc_ratio * Lx) - Fx * (ecc_ratio * Ly)
+                
                 Mz_offset = Fy * (X_com - Xm) - Fx * (Y_com - Ym)
 
                 Mz_total = Mz_user + Mz_accidental + Mz_offset

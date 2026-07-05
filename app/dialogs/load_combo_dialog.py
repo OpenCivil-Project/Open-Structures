@@ -21,7 +21,6 @@ class LoadComboDetailDialog(QDialog):
 
         layout = QVBoxLayout(self)
 
-        # --- General Data ---
         grp_top = QGroupBox("General")
         v_top = QVBoxLayout(grp_top)
         
@@ -35,14 +34,13 @@ class LoadComboDetailDialog(QDialog):
         h_type = QHBoxLayout()
         h_type.addWidget(QLabel("Combination Type:"))
         self.combo_type = QComboBox()
-        self.combo_type.addItems(["Linear Add", "Envelope", "Absolute Add", "SRSS"])
+        self.combo_type.addItems(["Linear Add", "Envelope"])
         self.combo_type.setCurrentText(self.combo.combo_type)
         h_type.addWidget(self.combo_type)
         v_top.addLayout(h_type)
 
         layout.addWidget(grp_top)
 
-        # --- Definition Table ---
         self.group_def = QGroupBox("Define Combination")
         v_def = QVBoxLayout(self.group_def)
 
@@ -66,7 +64,6 @@ class LoadComboDetailDialog(QDialog):
 
         layout.addWidget(self.group_def)
 
-        # --- Dialog Buttons ---
         h_btns = QHBoxLayout()
         h_btns.addStretch()
         btn_ok = QPushButton("OK")
@@ -95,27 +92,30 @@ class LoadComboDetailDialog(QDialog):
         
         cmb = QComboBox()
         
-        # --- NEW CODE: Filter out Modal, Buckling, and LTHA ---
-        valid_cases = []
+        valid_items = []
+        
         if self.model.load_cases:
             for name, lc in self.model.load_cases.items():
-                # Check the case type and skip the invalid ones
                 if lc.case_type not in ["Modal", "Buckling", "LTHA"]:
-                    valid_cases.append(name)
+                    valid_items.append(name)
+                    
+        if hasattr(self.model, 'load_combos') and self.model.load_combos:
+            for name in self.model.load_combos.keys():
+                                                       
+                if name != self.original_name: 
+                    valid_items.append(name)
         
-        # Populate the combo box with only the valid cases
-        if valid_cases:
-            cmb.addItems(valid_cases)
+        if valid_items:
+            cmb.addItems(valid_items)
         else:
             cmb.addItem("None")
             
-        # Set the current text if we are loading an existing combination
-        if case_name and case_name in valid_cases:
+        if case_name and case_name in valid_items:
             cmb.setCurrentText(case_name)
             
         self.table.setCellWidget(row, 0, cmb)
         self.table.setItem(row, 1, QTableWidgetItem(str(scale)))
-
+        
     def delete_row(self):
         cr = self.table.currentRow()
         if cr >= 0:
@@ -142,7 +142,6 @@ class LoadComboDetailDialog(QDialog):
                 scale = 1.0
             c.cases.append((cmb.currentText(), scale))
         return c
-
 
 class LoadComboManagerDialog(QDialog):
     """The Main List Window (Define Load Combinations)"""

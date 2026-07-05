@@ -1,6 +1,6 @@
 from PyQt6.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, QLabel, 
                              QRadioButton, QGroupBox, QLineEdit, 
-                             QPushButton, QGridLayout, QWidget, QSpinBox)
+                             QPushButton, QGridLayout, QWidget, QSpinBox, QComboBox)
 from PyQt6.QtCore import Qt, pyqtSignal
 from PyQt6.QtGui import QFont
 
@@ -22,6 +22,52 @@ class DisplayForcesDialog(QDialog):
 
     def init_ui(self):
         main_layout = QVBoxLayout(self)
+
+        gb_case = QGroupBox("Load Case / Combination")
+        layout_case = QHBoxLayout(gb_case)
+        self.cb_case = QComboBox()
+        
+        valid_cases = []
+        
+        import os, glob
+        if hasattr(self.model, 'file_path') and self.model.file_path:
+            base_path = self.model.file_path.replace(".mf", "")
+            search_pattern = f"{base_path}_*_results.json"
+            
+            for file_path in glob.glob(search_pattern):
+                filename = os.path.basename(file_path)
+                prefix = os.path.basename(base_path) + "_"
+                case_name = filename[len(prefix):].replace("_results.json", "")
+                
+                base_case = case_name.rsplit(" (Max)", 1)[0].rsplit(" (Min)", 1)[0]
+                if hasattr(self.model, 'load_cases') and base_case in self.model.load_cases:
+                    c_type = getattr(self.model.load_cases[base_case], 'case_type', 'Linear Static')
+                    if c_type in ["Modal", "Buckling", "LTHA"]:
+                        continue
+                        
+                if case_name not in valid_cases:
+                    valid_cases.append(case_name)
+                    
+            valid_cases.sort()
+        else:
+                      
+            for c_name in self.available_cases:
+                if hasattr(self.model, 'load_cases') and c_name in self.model.load_cases:
+                    c_type = getattr(self.model.load_cases[c_name], 'case_type', 'Linear Static')
+                    if c_type in ["Modal", "Buckling", "LTHA"]:
+                        continue
+                valid_cases.append(c_name)
+                                                                                           
+        self.cb_case.addItems(valid_cases)
+        
+        current_case = ""
+        if hasattr(self.model, 'results') and self.model.results:
+            current_case = self.model.results.get("info", {}).get("case_name", "")
+        if current_case in valid_cases:
+            self.cb_case.setCurrentText(current_case)
+            
+        layout_case.addWidget(self.cb_case)
+        main_layout.addWidget(gb_case)
         
         gb_multi = QGroupBox("Multivalued Options")
         grid_multi = QGridLayout(gb_multi)
@@ -191,9 +237,7 @@ class DisplayForcesDialog(QDialog):
             except ValueError:
                 text_size = None
 
-        load_case = ""
-        if hasattr(self.model, 'results') and self.model.results:
-            load_case = self.model.results.get("info", {}).get("case_name", "")
+        load_case = self.cb_case.currentText()
 
         return {
             'component': component,
@@ -212,6 +256,11 @@ class DisplayForcesDialog(QDialog):
 
         if not s:
             return
+        
+        if s.get("load_case"):
+            idx = self.cb_case.findText(s["load_case"])
+            if idx >= 0:
+                self.cb_case.setCurrentIndex(idx)
 
         if s.get("scale_factor") is not None:
             self.rb_user_scale.setChecked(True)

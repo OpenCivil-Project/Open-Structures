@@ -8,7 +8,7 @@ from PyQt6.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, QLabel,
                              QPushButton, QProgressBar, QMessageBox, QApplication)
 from PyQt6.QtCore import Qt, QThread, pyqtSignal
 
-CURRENT_VERSION = (0, 7, 80)
+CURRENT_VERSION = (0, 7, 81)
 
 class GitHubCheckWorker(QThread):
     """Background thread to ping GitHub without freezing the UI."""

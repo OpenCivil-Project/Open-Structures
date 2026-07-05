@@ -101,19 +101,13 @@ class AnalysisDialog(QDialog):
     def populate_table(self):
         self.table.setRowCount(0)
 
-        # 1. Grab all Load Cases
         case_list = []
         if hasattr(self.model, 'load_cases') and self.model.load_cases:
             case_list.extend(list(self.model.load_cases.values()))
-            
-        # 2. Grab all Load Combinations
-        if hasattr(self.model, 'load_combos') and self.model.load_combos:
-            case_list.extend(list(self.model.load_combos.values()))
 
         if not case_list:
             case_list = [{"name": "DEAD", "type": "Linear Static"}]
 
-        # Set default case/combo
         first_name = None
         for c in case_list:
             first_name = c.get('name', 'Unknown') if isinstance(c, dict) else getattr(c, 'name', 'Unknown')
@@ -126,30 +120,48 @@ class AnalysisDialog(QDialog):
                 c_type = case.get('type', 'Linear Static')
             else:
                 name = getattr(case, 'name', 'Unknown')
-                # Check if it's a combo or a case
-                if hasattr(case, 'combo_type'):
-                    c_type = f"Combo ({case.combo_type})"
-                else:
-                    c_type = getattr(case, 'case_type', getattr(case, 'type', 'Linear Static'))
+                c_type = getattr(case, 'case_type', getattr(case, 'type', 'Linear Static'))
 
             status = "Not Run"
             action = "Run" if name == default_case else "Do Not Run"
 
-            # ... (the rest of your table insertion code stays exactly the same)
             self.table.insertRow(row)
             self.table.setItem(row, 0, QTableWidgetItem(str(name)))
             self.table.setItem(row, 1, QTableWidgetItem(str(c_type)))
             self.table.setItem(row, 2, QTableWidgetItem(status))
 
             act_item = QTableWidgetItem(action)
-                                                            
             act_item.setForeground(QColor(COLORS["accent"] if action == "Run" else COLORS["text_primary"]))
             font = act_item.font()
             font.setBold(action == "Run")
             act_item.setFont(font)
             self.table.setItem(row, 3, act_item)
-
             self.table.item(row, 2).setForeground(QColor(COLORS["text_secondary"]))
+
+        if hasattr(self.model, 'load_cases') and self.model.load_cases:
+            row = self.table.rowCount()
+            self.table.insertRow(row)
+            
+            has_combos = hasattr(self.model, 'load_combos') and self.model.load_combos
+            name = "Run All Cases & Combinations" if has_combos else "Run All Load Cases"
+            c_type = "Batch Run"
+            status = "Ready"
+            action = "Run" if name == default_case else "Do Not Run"
+
+            for col, text in enumerate([name, c_type, status]):
+                item = QTableWidgetItem(text)
+                if col == 0:
+                    font = item.font()
+                    font.setBold(True)
+                    item.setFont(font)
+                self.table.setItem(row, col, item)
+
+            act_item = QTableWidgetItem(action)
+            act_item.setForeground(QColor(COLORS["accent"] if action == "Run" else COLORS["text_primary"]))
+            font = act_item.font()
+            font.setBold(action == "Run")
+            act_item.setFont(font)
+            self.table.setItem(row, 3, act_item)
 
         if self.table.rowCount() > 0:
             self.table.selectRow(0)
@@ -187,6 +199,9 @@ class AnalysisDialog(QDialog):
             return
 
         target_case = cases_to_run[0]
+        if target_case == "Run All Load Cases":
+            target_case = "Run All Cases & Combinations"
+            
         AnalysisDialog._last_run_case = target_case
         self.signal_run_analysis.emit(target_case, self.chk_messages.isChecked())
         self.accept()

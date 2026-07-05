@@ -36,7 +36,6 @@ def compute_load_combinations(model, model_file_path):
             if is_rsa:
                 has_rsa = True
                 
-            # Process Displacements
             for nid, dofs in res.get("displacements", {}).items():
                 dofs_arr = np.array(dofs)
                 if is_rsa:
@@ -46,7 +45,6 @@ def compute_load_combinations(model, model_file_path):
                     if nid not in base_disp: base_disp[nid] = np.zeros(6)
                     base_disp[nid] += dofs_arr * scale
                     
-            # Process Reactions
             reac = res.get("base_reaction", {})
             if reac:
                 if is_rsa:
@@ -64,7 +62,7 @@ def compute_load_combinations(model, model_file_path):
             combo_res = {
                 "status": "SUCCESS",
                 "info": {
-                    "type": "Linear Static", # Tag as static so existing UI reads it normally
+                    "type": "Linear Static",                                                 
                     "case_name": f"{combo_name}{suffix}"
                 },
                 "displacements": disp_out,
@@ -74,12 +72,11 @@ def compute_load_combinations(model, model_file_path):
                 json.dump(combo_res, f, indent=4)
                 
         if has_rsa:
-            # Envelope Max
+                          
             max_disp = {k: base_disp.get(k, np.zeros(6)) + env_disp.get(k, np.zeros(6)) for k in set(base_disp) | set(env_disp)}
             max_reac = {k: base_reac[k] + env_reac[k] for k in base_reac}
             save_combo_file(" (Max)", max_disp, max_reac)
             
-            # Envelope Min
             min_disp = {k: base_disp.get(k, np.zeros(6)) - env_disp.get(k, np.zeros(6)) for k in set(base_disp) | set(env_disp)}
             min_reac = {k: base_reac[k] - env_reac[k] for k in base_reac}
             save_combo_file(" (Min)", min_disp, min_reac)

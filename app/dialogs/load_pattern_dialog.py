@@ -45,7 +45,7 @@ class LoadPatternDialog(QDialog):
         v_auto.addWidget(QLabel("Auto Lateral Load:"))
         self.input_auto = QComboBox()
         self.input_auto.addItems(["None", "User Loads", "TSC-2018"])
-        self.input_auto.setEnabled(False) # Disabled by default (unless QUAKE is selected)
+        self.input_auto.setEnabled(False)                                                 
         v_auto.addWidget(self.input_auto)
         input_layout.addLayout(v_auto)
 
@@ -105,7 +105,7 @@ class LoadPatternDialog(QDialog):
     def save_and_accept(self):
         """Auto-commits any pending UI changes before closing."""
         name = self.input_name.text().strip().upper()
-        # If the currently typed name exists in the model, force a modification
+                                                                               
         if name in self.model.load_patterns:
             self.modify_pattern()
         self.accept()
@@ -113,7 +113,6 @@ class LoadPatternDialog(QDialog):
     def auto_set_multiplier(self, type_text):
         self.input_sw.setText("1.0" if type_text == "DEAD" else "0.0")
         
-        # Only enable Auto Lateral Load for Seismic (QUAKE)
         if type_text == "QUAKE":
             self.input_auto.setEnabled(True)
         else:
@@ -131,13 +130,11 @@ class LoadPatternDialog(QDialog):
         self.input_type.blockSignals(False)
         self.input_sw.setText(self.table.item(row, 2).text())
         
-        # Strictly enable the dropdown ONLY for QUAKE
         self.input_auto.setEnabled(pat_type == "QUAKE")
 
         auto_text = self.table.item(row, 3).text()
         self.input_auto.setCurrentText(auto_text)
 
-        # Toggle lateral button (Only enable if it's NOT 'None' AND it's QUAKE)
         if hasattr(self, 'btn_modify_lateral'):
             self.btn_modify_lateral.setEnabled(pat_type == "QUAKE" and auto_text != "None")
 
@@ -150,7 +147,6 @@ class LoadPatternDialog(QDialog):
             self.table.setItem(row, 1, QTableWidgetItem(lp.pattern_type))
             self.table.setItem(row, 2, QTableWidgetItem(str(lp.self_weight_multiplier)))
             
-            # Fetch auto lateral property (default to None if it doesn't exist yet)
             auto_type = getattr(lp, 'auto_lateral', "None")
             self.table.setItem(row, 3, QTableWidgetItem(auto_type))
 
@@ -164,7 +160,6 @@ class LoadPatternDialog(QDialog):
         
         self.model.add_load_pattern(name, self.input_type.currentText(), mult)
         
-        # Save the Auto Lateral Selection
         lp = self.model.load_patterns[name]
         lp.auto_lateral = self.input_auto.currentText()
         
@@ -203,7 +198,6 @@ class LoadPatternDialog(QDialog):
             from app.dialogs.tsc2018_dialog import TSC2018Dialog
             dialog = TSC2018Dialog(lp, self)
             dialog.exec()
-
 
     def delete_pattern(self):
         current_row = self.table.currentRow()

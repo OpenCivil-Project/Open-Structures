@@ -7,14 +7,8 @@ from PyQt6.QtWidgets import (
 from PyQt6.QtCore import Qt, QTimer, QDateTime
 from PyQt6.QtGui import QFont, QTextCursor
 
-# ─── Analysis guard ───────────────────────────────────────────────────────────
-# False → ModelIODialog is suppressed when analysis triggers a save/load.
-#         AnalysisProgressDialog already covers that path.
-# True  → also show during analysis-triggered I/O cycles.
 LAUNCH_ON_ANALYSIS: bool = False
-# ─────────────────────────────────────────────────────────────────────────────
-
-
+                                                                               
 class ModelIODialog(QDialog):
     """
     Lightweight save / open progress dialog for OpenCivil.
@@ -61,7 +55,7 @@ class ModelIODialog(QDialog):
             dlg = ModelIODialog("Preparing Analysis Files...", ...)
     """
 
-    AUTO_CLOSE_MS: int = 1200   # ms before auto-dismiss after finish()
+    AUTO_CLOSE_MS: int = 1200                                          
 
     def __init__(self, title: str, filename: str = "", parent=None):
         super().__init__(parent)
@@ -76,7 +70,6 @@ class ModelIODialog(QDialog):
         self._build_ui()
         self._start_timer()
 
-        # header block
         self._append(f"Operation : {self._title.rstrip('.')}")
         if self._filename:
             self._append(f"File      : {self._filename}")
@@ -84,8 +77,6 @@ class ModelIODialog(QDialog):
         self._append("-" * 56)
 
         self.setWindowModality(Qt.WindowModality.ApplicationModal)
-
-    # ─── UI ──────────────────────────────────────────────────────────────────
 
     def _build_ui(self):
         self.setWindowTitle(self._title)
@@ -116,7 +107,6 @@ class ModelIODialog(QDialog):
         outer.setContentsMargins(8, 8, 8, 8)
         outer.setSpacing(8)
 
-        # ── left: log view ───────────────────────────────────────────────────
         self.log_view = QTextEdit()
         self.log_view.setReadOnly(True)
         self.log_view.setFont(QFont("Courier New", 8))
@@ -133,7 +123,6 @@ class ModelIODialog(QDialog):
         )
         outer.addWidget(self.log_view, stretch=1)
 
-        # ── right: status panel ──────────────────────────────────────────────
         right = QVBoxLayout()
         right.setSpacing(6)
         right.setContentsMargins(0, 0, 0, 0)
@@ -193,7 +182,6 @@ class ModelIODialog(QDialog):
         self.log_view.viewport().installEventFilter(self)
         self.installEventFilter(self)
 
-
     def _section_label(self, text: str) -> QLabel:
         lbl = QLabel(text)
         lbl.setStyleSheet("color: #888; font-size: 8pt;")
@@ -206,8 +194,6 @@ class ModelIODialog(QDialog):
         line.setFixedHeight(1)
         return line
 
-    # ─── timer ───────────────────────────────────────────────────────────────
-
     def _start_timer(self):
         self._timer = QTimer(self)
         self._timer.setInterval(1000)
@@ -218,14 +204,10 @@ class ModelIODialog(QDialog):
         self._elapsed += 1
         self.lbl_elapsed.setText(f"Elapsed: {self._elapsed}s")
 
-    # ─── internal log ────────────────────────────────────────────────────────
-
     def _append(self, text: str):
         self._log_lines.append(text)
         self.log_view.append(text)
         self.log_view.moveCursor(QTextCursor.MoveOperation.End)
-
-    # ─── public API ──────────────────────────────────────────────────────────
 
     def stage(self, text: str):
         """
@@ -279,8 +261,6 @@ class ModelIODialog(QDialog):
             self._close_tmr.timeout.connect(self.close)
             self._close_tmr.start(self.AUTO_CLOSE_MS)
 
-    # ─── click-to-stay ───────────────────────────────────────────────────────
-
     def mousePressEvent(self, event):
         """User clicked → cancel pending auto-close."""
         if not self._clicked:
@@ -289,8 +269,6 @@ class ModelIODialog(QDialog):
                 self._close_tmr.stop()
         super().mousePressEvent(event)
 
-    # ─── guards ──────────────────────────────────────────────────────────────
-
     def keyPressEvent(self, event):
         if not self._done and event.key() == Qt.Key.Key_Escape:
             return
@@ -298,7 +276,7 @@ class ModelIODialog(QDialog):
 
     def eventFilter(self, obj, event):
         from PyQt6.QtCore import QEvent
-        # Intercept any mouse click before the UI components swallow it
+                                                                       
         if event.type() == QEvent.Type.MouseButtonPress:
             if not self._clicked:
                 self._clicked = True
@@ -311,8 +289,6 @@ class ModelIODialog(QDialog):
             event.ignore()
         else:
             super().closeEvent(event)
-
-    # ─── export ──────────────────────────────────────────────────────────────
 
     def _export_log(self):
         stem = os.path.splitext(self._filename)[0] if self._filename else "opencivil"

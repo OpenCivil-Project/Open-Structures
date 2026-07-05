@@ -3,7 +3,6 @@ from PyQt6.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, QLabel,
                              QComboBox, QGridLayout, QMessageBox, QFrame)
 from PyQt6.QtCore import Qt
 
-# Import your existing generator! (Adjust path if needed)
 from core.solver.RSA.tsc2018_generator import TSC2018SpectrumGenerator
 
 class TSC2018Dialog(QDialog):
@@ -15,7 +14,6 @@ class TSC2018Dialog(QDialog):
         
         self.generator = TSC2018SpectrumGenerator()
 
-        # Initialize data structure if it doesn't exist
         if not hasattr(self.load_pattern, 'tsc_data') or not self.load_pattern.tsc_data:
             from core.model import TSC2018Data
             self.load_pattern.tsc_data = TSC2018Data()
@@ -24,10 +22,8 @@ class TSC2018Dialog(QDialog):
 
         main_layout = QHBoxLayout(self)
 
-        # ================= LEFT COLUMN =================
         left_layout = QVBoxLayout()
 
-        # 1. Direction and Eccentricity
         grp_dir = QGroupBox("Load Direction and Diaphragm Eccentricity")
         v_dir = QVBoxLayout()
         self.rb_x = QRadioButton("Global X Direction")
@@ -48,7 +44,6 @@ class TSC2018Dialog(QDialog):
         grp_dir.setLayout(v_dir)
         left_layout.addWidget(grp_dir)
 
-        # 2. Time Period
         grp_time = QGroupBox("Time Period")
         grid_time = QGridLayout()
         
@@ -56,7 +51,6 @@ class TSC2018Dialog(QDialog):
         self.rb_prog = QRadioButton("Program Calc")
         self.rb_user = QRadioButton("User Defined")
         
-        # Tooltip explaining the mandate cap
         cap_explanation = "The computed modal period cannot exceed the code-mandated empirical upper limit (Ta_max) based on Ct."
         self.rb_prog.setToolTip(cap_explanation)
         
@@ -67,14 +61,12 @@ class TSC2018Dialog(QDialog):
         grid_time.addWidget(self.rb_approx, 0, 0)
         grid_time.addWidget(self.rb_prog, 1, 0)
         
-        # Add a clear, visible note under Program Calc so the user knows about the cap
         lbl_cap_note = QLabel("<i>(Subject to empirical upper limit cap)</i>")
         lbl_cap_note.setStyleSheet("color: #666666; font-size: 11px;")
         grid_time.addWidget(lbl_cap_note, 2, 0)
 
         grid_time.addWidget(self.rb_user, 3, 0)
 
-        # Put the Ct dropdown on the right side, spanning the top two radio buttons
         grid_time.addWidget(QLabel("Ct (m), x ="), 0, 1, 2, 1, Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
         self.combo_ct = QComboBox()
         self.combo_ct.addItems(["0.10; 0.75", "0.08; 0.75", "0.07; 0.75"])
@@ -82,28 +74,24 @@ class TSC2018Dialog(QDialog):
         self.combo_ct.setCurrentText(ct_str)
         grid_time.addWidget(self.combo_ct, 0, 2, 2, 1, Qt.AlignmentFlag.AlignVCenter)
 
-        # User defined T at the bottom right
         grid_time.addWidget(QLabel("T (sec) ="), 3, 1, 1, 1, Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
         self.inp_t = QLineEdit(str(self.data.user_t))
         grid_time.addWidget(self.inp_t, 3, 2)
         
-        # Optional: Wire up radio buttons to enable/disable the inputs dynamically
         self.rb_user.toggled.connect(lambda: self.inp_t.setEnabled(self.rb_user.isChecked()))
         self.rb_user.toggled.connect(lambda: self.combo_ct.setDisabled(self.rb_user.isChecked()))
         
-        # Trigger initial state
         self.inp_t.setEnabled(self.rb_user.isChecked())
         self.combo_ct.setDisabled(self.rb_user.isChecked())
 
         grp_time.setLayout(grid_time)
         left_layout.addWidget(grp_time)
 
-        # 3. Lateral Load Elevation Range
         grp_elev = QGroupBox("Lateral Load Elevation Range")
         v_elev = QVBoxLayout()
         self.rb_elev_prog = QRadioButton("Program Calculated")
         self.rb_elev_user = QRadioButton("User Specified")
-        self.rb_elev_prog.setChecked(True) # Default for now
+        self.rb_elev_prog.setChecked(True)                  
         
         h_elev_inputs = QGridLayout()
         h_elev_inputs.addWidget(QLabel("Max Z"), 0, 0)
@@ -125,10 +113,8 @@ class TSC2018Dialog(QDialog):
         left_layout.addStretch()
         main_layout.addLayout(left_layout)
 
-        # ================= RIGHT COLUMN =================
         right_layout = QVBoxLayout()
 
-        # 4. Seismic Coefficients & Calculated values
         grp_coeff = QGroupBox("Seismic Coefficients")
         grid_coeff = QGridLayout()
         
@@ -146,7 +132,6 @@ class TSC2018Dialog(QDialog):
         self.inp_tl = QLineEdit(str(self.data.tl))
         grid_coeff.addWidget(self.inp_tl, 2, 1)
         
-        # Spacer Line
         line1 = QFrame(); line1.setFrameShape(QFrame.Shape.HLine)
         grid_coeff.addWidget(line1, 3, 0, 1, 2)
 
@@ -168,7 +153,6 @@ class TSC2018Dialog(QDialog):
         grp_coeff.setLayout(grid_coeff)
         right_layout.addWidget(grp_coeff)
 
-        # 5. Calculated Coefficients Group
         grp_calc = QGroupBox("Calculated Coefficients")
         grid_calc = QGridLayout()
         
@@ -185,7 +169,6 @@ class TSC2018Dialog(QDialog):
         grp_calc.setLayout(grid_calc)
         right_layout.addWidget(grp_calc)
 
-        # 6. Factors
         grp_factors = QGroupBox("Factors")
         grid_factors = QGridLayout()
         
@@ -204,7 +187,6 @@ class TSC2018Dialog(QDialog):
         grp_factors.setLayout(grid_factors)
         right_layout.addWidget(grp_factors)
 
-        # --- OK / CANCEL ---
         btn_layout = QHBoxLayout()
         btn_layout.addStretch()
         btn_ok = QPushButton("OK")
@@ -219,7 +201,6 @@ class TSC2018Dialog(QDialog):
         right_layout.addLayout(btn_layout)
         main_layout.addLayout(right_layout)
 
-        # Trigger initial calculation
         self.update_calculations()
 
     def get_float(self, line_edit):
@@ -232,7 +213,6 @@ class TSC2018Dialog(QDialog):
         s1 = self.get_float(self.inp_s1)
         site_class = self.combo_site.currentText()
 
-        # Get Fs and F1 from your exact generator logic
         fs, f1 = self.generator.get_coeffs(ss, s1, site_class)
         
         sds = ss * fs
@@ -252,7 +232,6 @@ class TSC2018Dialog(QDialog):
             elif self.rb_user.isChecked(): self.data.period_method = "User"
             else: self.data.period_method = "Program Calc"
             
-            # Extract Ct (e.g., from "0.10; 0.75" get 0.10)
             ct_str = self.combo_ct.currentText().split(";")[0]
             self.data.ct = float(ct_str)
             self.data.user_t = float(self.inp_t.text())

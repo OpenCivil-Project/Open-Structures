@@ -12,22 +12,19 @@ from core.loads import LoadPattern, NodalLoad, MemberLoad, MemberPointLoad, Area
 
 class TSC2018Data:
     def __init__(self):
-        # Direction and Eccentricity
-        self.direction = "X" # "X" or "Y"
+                                    
+        self.direction = "X"             
         self.eccentricity = 0.05
         
-        # Time Period
-        self.period_method = "Program Calc" # "Approx", "Program Calc", "User"
-        self.ct = 0.075 # Default for concrete
+        self.period_method = "Program Calc"                                   
+        self.ct = 0.075                       
         self.user_t = 0.0
         
-        # Seismic Coefficients
         self.ss = 0.0
         self.s1 = 0.0
         self.tl = 6.0
         self.site_class = "ZB"
         
-        # Factors
         self.r = 8.0
         self.d = 3.0
         self.importance = 1.0
@@ -326,7 +323,7 @@ class StructuralModel:
 
     def save_to_file(self, filepath, progress=None):
         """Serializes the model data to a JSON file"""
-        print(">>> RUNNING THE NEW SAVE METHOD <<<") # ADD THIS
+        print(">>> RUNNING THE NEW SAVE METHOD <<<")           
         def _p(msg):
             if progress: progress(msg)
             
@@ -877,7 +874,6 @@ class StructuralModel:
             for lp_data in data["load_patterns"]: 
                 self.add_load_pattern(lp_data["name"], lp_data["type"], lp_data["sw_mult"])
                 
-                # <--- ADDED AUTO_LATERAL LOAD --->
                 lp = self.load_patterns[lp_data["name"]]
                 lp.auto_lateral = lp_data.get("auto_lateral", "None")
 
@@ -887,7 +883,6 @@ class StructuralModel:
                     sd.diaphragm_loads = lp_data["seismic_data"]["diaphragm_loads"]
                     lp.seismic_data = sd
                     
-                # <--- ADDED TSC-2018 REBUILD BLOCK --->
                 if "tsc_data" in lp_data:
                     tsc = TSC2018Data()
                     t_data = lp_data["tsc_data"]
@@ -1555,7 +1550,6 @@ class StructuralModel:
         print(f"Orphan cleanup: removed {len(orphan_ids)} nodes.")
         return len(orphan_ids)
 
-        
 class LoadCase:
     def __init__(self, name, case_type="Linear Static"):
         self.name = name
@@ -1572,5 +1566,5 @@ class LoadCase:
 class LoadCombination:
     def __init__(self, name, combo_type="Linear Add"):
         self.name = name
-        self.combo_type = combo_type  # "Linear Add", "Envelope", "Absolute Add", "SRSS"
-        self.cases = []               # List of tuples: [("LoadCaseName", scale_factor)]
+        self.combo_type = combo_type                                                    
+        self.cases = []                                                                 

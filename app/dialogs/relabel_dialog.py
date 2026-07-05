@@ -12,10 +12,8 @@ class RelabelDialog(QDialog):
         
         main_layout = QVBoxLayout(self)
         
-        # --- TOP SECTION: Members & Sorting ---
         top_layout = QHBoxLayout()
         
-        # 1. Members to Relabel
         members_group = QGroupBox("Target Members")
         members_layout = QVBoxLayout()
         self.chk_columns = QCheckBox("Columns")
@@ -24,7 +22,6 @@ class RelabelDialog(QDialog):
         self.chk_areas = QCheckBox("Areas / Shells")
         self.chk_joints = QCheckBox("Joints (Nodes)")
         
-        # Default selections
         self.chk_columns.setChecked(True)
         self.chk_beams.setChecked(True)
         
@@ -36,7 +33,6 @@ class RelabelDialog(QDialog):
         members_layout.addStretch()
         members_group.setLayout(members_layout)
         
-        # 2. Sorting Reference
         sort_group = QGroupBox("Plan View Sort Reference (X-Y)")
         sort_layout = QGridLayout()
         
@@ -44,14 +40,13 @@ class RelabelDialog(QDialog):
         self.rad_rt_lb = QRadioButton("Right-Top --> Left-Bot")
         self.rad_lb_rt = QRadioButton("Left-Bot --> Right-Top")
         self.rad_rb_lt = QRadioButton("Right-Bot --> Left-Top")
-        self.rad_lt_rb.setChecked(True) # Default
+        self.rad_lt_rb.setChecked(True)          
         
         sort_layout.addWidget(self.rad_lt_rb, 0, 0)
         sort_layout.addWidget(self.rad_rt_lb, 0, 1)
         sort_layout.addWidget(self.rad_lb_rt, 1, 0)
         sort_layout.addWidget(self.rad_rb_lt, 1, 1)
         
-        # Storey Grouping
         self.chk_group_storeys = QCheckBox("Group and sort by Storeys (Z-Elevation)")
         self.chk_group_storeys.setChecked(True)
         sort_layout.addWidget(self.chk_group_storeys, 2, 0, 1, 2)
@@ -62,7 +57,6 @@ class RelabelDialog(QDialog):
         top_layout.addWidget(sort_group, 2)
         main_layout.addLayout(top_layout)
         
-        # --- BOTTOM SECTION: Naming Rules ---
         naming_group = QGroupBox("Naming Rules")
         naming_layout = QFormLayout()
         
@@ -79,14 +73,12 @@ class RelabelDialog(QDialog):
         
         main_layout.addWidget(naming_group)
         
-        # --- BUTTON BOX ---
         btn_layout = QHBoxLayout()
         btn_layout.addStretch()
         
         self.btn_ok = QPushButton("Apply Labels")
         self.btn_cancel = QPushButton("Cancel")
         
-        # Connect to our custom sorting logic
         self.btn_ok.clicked.connect(self.apply_labels) 
         self.btn_cancel.clicked.connect(self.reject)
         
@@ -110,7 +102,6 @@ class RelabelDialog(QDialog):
         start_num = self.spin_start_num.value()
         group_storeys = self.chk_group_storeys.isChecked()
 
-        # 1. Determine spatial sorting direction
         tol = 1e-3
         def rounded(val): return round(val / tol) * tol
 
@@ -120,10 +111,9 @@ class RelabelDialog(QDialog):
             sort_func = lambda item: (-rounded(item['pt'][1]), -rounded(item['pt'][0]))
         elif self.rad_lb_rt.isChecked(): 
             sort_func = lambda item: (rounded(item['pt'][1]), rounded(item['pt'][0]))
-        else: # rb_lt
+        else:        
             sort_func = lambda item: (rounded(item['pt'][1]), -rounded(item['pt'][0]))
 
-        # Helper to get the top-center point of any element for accurate sorting
         def get_pt(obj):
             if hasattr(obj, 'x'): return (obj.x, obj.y, obj.z)
             if hasattr(obj, 'node_i'): 
@@ -133,7 +123,6 @@ class RelabelDialog(QDialog):
                 return (sum(xs)/len(xs), sum(ys)/len(ys), max(zs))
             return (0.0, 0.0, 0.0)
 
-        # 2. Gather requested elements
         items = []
         if do_nodes:
             for n in model.nodes.values():
@@ -156,18 +145,16 @@ class RelabelDialog(QDialog):
             self.reject()
             return
 
-        # 3. Cluster elements by their Z-elevation (Storey Level)
         if group_storeys:
             z_vals = sorted(list(set(rounded(item['pt'][2]) for item in items)))
             clusters = {z: [] for z in z_vals}
             for item in items:
                 clusters[rounded(item['pt'][2])].append(item)
         else:
-            clusters = {0.0: items} # Throw them all in one bucket if storeys are disabled
+            clusters = {0.0: items}                                                       
 
-        # 4. Sort and Apply Labels
         for z_idx, (z_val, cluster_items) in enumerate(sorted(clusters.items())):
-            # CHANGED: Now generates "S1 ", "S2 ", etc. instead of just "1"
+                                                                           
             storey_prefix = f"S{z_idx + 1} " if group_storeys else ""
             
             cluster_items.sort(key=sort_func)
@@ -178,7 +165,6 @@ class RelabelDialog(QDialog):
                 if prefix not in counters:
                     counters[prefix] = start_num
                 
-                # Formula: [Storey][Prefix][Number] -> e.g., "S1 C101"
                 item['obj'].label = f"{storey_prefix}{prefix}{counters[prefix]}"
                 counters[prefix] += 1
 

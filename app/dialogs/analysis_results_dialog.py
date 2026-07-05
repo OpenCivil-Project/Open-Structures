@@ -59,8 +59,9 @@ class AnalysisResultsDialog(QDialog):
     AVAILABLE_UNITS = ["kN, m, C", "N, m, C", "N, mm, C", "kN, mm, C",
                        "Tonf, m, C", "kgf, m, C", "kip, ft, F"]
 
-    def __init__(self, results_data, parent=None, selected_node_ids=None):
+    def __init__(self, model, results_data, parent=None, selected_node_ids=None):                 
         super().__init__(parent)
+        self.model = model                              
         self.results = results_data
         self.setWindowTitle("Analysis Results")
         self.resize(1100, 600)
@@ -147,6 +148,16 @@ class AnalysisResultsDialog(QDialog):
         self.lbl_title = QLabel()
         self.lbl_title.setStyleSheet("font-size: 14pt; font-weight: bold; color: #333;")
         h_title.addWidget(self.lbl_title)
+
+        lbl_case = QLabel(" Load Case:")
+        lbl_case.setStyleSheet("font-size: 10pt; font-weight: bold; color: #495057; margin-left: 20px;")
+        h_title.addWidget(lbl_case)
+        
+        self.case_combo = QComboBox()
+        self.populate_case_combo()
+        self.case_combo.currentIndexChanged.connect(self.on_case_dropdown_changed)
+        h_title.addWidget(self.case_combo)
+
         h_title.addStretch()
 
         lbl_units = QLabel("Units:")
@@ -188,6 +199,48 @@ class AnalysisResultsDialog(QDialog):
         h_btns.addWidget(btn_close)
 
         layout.addLayout(h_btns)
+
+    def populate_case_combo(self):
+        import os, glob
+        self.case_combo.blockSignals(True)
+        if getattr(self.model, 'file_path', None):
+            base_name = os.path.splitext(self.model.file_path)[0]
+            
+            files = getattr(self.model, 'valid_result_paths', [])
+            if not files:
+                files = glob.glob(f"{base_name}_*_results.json")
+                                                            
+            target_idx = 0
+            current_case = self.results.get("info", {}).get("case_name", "")
+            
+            for path in sorted(files):
+                fname = os.path.basename(path)
+                prefix = os.path.basename(base_name) + "_"
+                case_name = fname[len(prefix):].replace("_results.json", "")
+                self.case_combo.addItem(case_name, path)
+                
+                if case_name == current_case:
+                    target_idx = self.case_combo.count() - 1
+                    
+            if self.case_combo.count() > 0:
+                self.case_combo.setCurrentIndex(target_idx)
+        self.case_combo.blockSignals(False)
+
+    def on_case_dropdown_changed(self, index):
+        import json
+        if index < 0: return
+        path = self.case_combo.itemData(index)
+        try:
+            with open(path, 'r') as f:
+                self.results = json.load(f)
+        except Exception as e:
+            QMessageBox.warning(self, "Error", f"Could not load results: {e}")
+            return
+            
+        current_idx = self.tabs.currentIndex()
+        self.rebuild_tabs()
+        if 0 <= current_idx < self.tabs.count():
+            self.tabs.setCurrentIndex(current_idx)
 
     def on_unit_changed(self, new_label):
         self.local_units.set_unit_system(new_label)

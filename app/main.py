@@ -325,7 +325,6 @@ class MainWindow(QMainWindow):
         
         self.menu_edit.addSeparator()
 
-        # --- NEW RELABEL TOOL ---
         relabel_action = QAction(qta.icon('fa5s.tags', color='#6c757d'), "Auto-Relabel Members...", self)
         def show_relabel_ui():
             from app.dialogs.relabel_dialog import RelabelDialog
@@ -333,27 +332,21 @@ class MainWindow(QMainWindow):
             dlg.exec()
         relabel_action.triggered.connect(show_relabel_ui)
         self.menu_edit.addAction(relabel_action)
-        # ------------------------
-
-        # --- RESET LABELS TOOL ---
+                                  
         reset_labels_action = QAction(qta.icon('fa5s.undo-alt', color='#6c757d'), "Reset Labels to Default", self)
         def reset_all_labels():
             if not self.model: return
             
-            # Reset Joints
             for n in self.model.nodes.values():
                 n.label = f"N{n.id}"
                 
-            # Reset Frames
             for el in self.model.elements.values():
                 el.label = f"F{el.id}"
                 
-            # Reset Areas / Shells
             if hasattr(self.model, 'area_elements'):
                 for ae in self.model.area_elements.values():
                     ae.label = f"A{ae.id}"
                     
-            # Reset Slabs (if any are left over)
             if hasattr(self.model, 'slabs'):
                 for sl in self.model.slabs.values():
                     sl.label = f"S{sl.id}"
@@ -363,8 +356,7 @@ class MainWindow(QMainWindow):
             
         reset_labels_action.triggered.connect(reset_all_labels)
         self.menu_edit.addAction(reset_labels_action)
-        # ------------------------
-
+                                  
         rep_action = QAction(qta.icon('fa5s.copy', color='#6c757d'), "Replicate...", self)
         rep_action.setShortcut("Ctrl+R") 
         rep_action.triggered.connect(self.on_edit_replicate)
@@ -979,11 +971,9 @@ class MainWindow(QMainWindow):
         self.selected_node_ids = []
         self.selected_area_ids = []
         
-        # --- Clear the hover popup on the canvas ---
-        if hasattr(self, 'canvas'):  # Note: if your canvas is named something else like 'gl_canvas' or 'canvas3d', update this name
+        if hasattr(self, 'canvas'):                                                                                                 
             self.canvas.clear_hover_popup()
-        # -------------------------------------------
-        
+                                                     
         self._refresh_selection_overlay()
         self.status.showMessage("Selection Cleared")
 
@@ -1631,16 +1621,12 @@ class MainWindow(QMainWindow):
             self.model.graphics_settings = model_graphics
             QApplication.processEvents()
     
-            # --- THE FIX IS HERE ---
-            # This little function passes the microphone down to structural_model.py
             def _report(msg):
                 dlg.stage(msg)
                 QApplication.processEvents()
 
-            # Pass the bridge into the method
             self.model.save_to_file(filename, progress=_report)
-            # -----------------------
-    
+                                     
             dlg.stage("Finalizing...")
             self.model.file_path        = filename
             self.model.active_model_path = filename
@@ -1653,12 +1639,11 @@ class MainWindow(QMainWindow):
             return True
     
         except Exception as e:
-            dlg.keep_open()                                      # stay behind the error box
+            dlg.keep_open()                                                                 
             dlg.stage(f"Error: {str(e)[:80]}")
             dlg.finish(success=False)
             QMessageBox.critical(self, "Save Error", str(e))
             return False
-
 
     def on_open_model(self):
         filename, _ = QFileDialog.getOpenFileName(
@@ -1686,15 +1671,12 @@ class MainWindow(QMainWindow):
             file_size_kb = os.path.getsize(filename) / 1024.0
             dlg.stage(f"Disk write complete ({file_size_kb:.1f} KB)")
     
-            # --- THE FIX IS HERE ---
             def _report(msg):
                 dlg.stage(msg)
                 QApplication.processEvents()
 
-            # Pass the bridge into the method
             self.model.load_from_file(filename, progress=_report)
-            # -----------------------
-
+                                     
             self.undo_stack.clear()
             self.model.file_path = filename
             QApplication.processEvents()
@@ -1726,14 +1708,13 @@ class MainWindow(QMainWindow):
             dlg.finish(success=True)
     
         except Exception as e:
-            dlg.keep_open()                                      # stay behind the error box
+            dlg.keep_open()                                                                 
             dlg.stage(f"Error: {str(e)[:80]}")
             dlg.finish(success=False)
             QMessageBox.critical(self, "Load Error", f"Corrupt file or version mismatch.\n{e}")
 
         finally:
-                # ---> 2. UNFREEZE THE DISPLAY AT THE VERY END <---
-                # The 'finally' block ensures it unfreezes even if the load crashes
+                                                                   
                 if hasattr(self, 'canvas'): 
                     self.canvas.setUpdatesEnabled(True)
                     self.canvas.update()
@@ -2141,11 +2122,9 @@ class MainWindow(QMainWindow):
             menu.addSeparator()
             hit_something = True
 
-        # --- NEW UNIVERSAL INFO ACTION ---
         if target_elem_id is not None or target_node_id is not None or target_area_id is not None:
             menu.addSeparator()
             
-            # Determine priority (Frame > Area > Node if multiple are hovered)
             if target_elem_id is not None:
                 obj = self.model.elements.get(target_elem_id)
                 menu_text = f"Frame Information..."
@@ -2167,7 +2146,6 @@ class MainWindow(QMainWindow):
                 info_action.triggered.connect(show_info)
                 hit_something = True
 
-        # --- EXISTING FRAME RESULTS (FBD/Spy) ---
         if target_elem_id is not None and hasattr(self.model, 'has_results') and self.model.has_results:
             eid = target_elem_id
             spy_action = menu.addAction("Show Matrices (K, T, FEE)")
@@ -2835,18 +2813,29 @@ class MainWindow(QMainWindow):
         
         self.solver_input_path = self.model.file_path
         
-        # --- FIX: Check if target is a Load Case or a Load Combo ---
         c_type = "Linear Static"
-        if case_name in self.model.load_cases:
+        if case_name == "Run All Cases & Combinations":
+            c_type = "Batch Run"
+        elif case_name in self.model.load_cases:
             c_type = self.model.load_cases[case_name].case_type
-        elif hasattr(self.model, 'load_combos') and case_name in self.model.load_combos:
-            c_type = "Combo"
-        # -----------------------------------------------------------
+
+        self.last_run_mode = c_type
 
         base_name = os.path.splitext(self.solver_input_path)[0]
 
         if c_type == "Modal":
             self.solver_output_path = f"{base_name}_MODAL_results.json"
+        elif c_type == "Batch Run":
+                                                                                                       
+            if hasattr(self.model, 'load_combos') and self.model.load_combos:
+                first_combo = list(self.model.load_combos.keys())[0]
+                if os.path.exists(f"{base_name}_{first_combo} (Max)_results.json"):
+                    self.solver_output_path = f"{base_name}_{first_combo} (Max)_results.json"
+                else:
+                    self.solver_output_path = f"{base_name}_{first_combo}_results.json"
+            else:
+                first_case = list(self.model.load_cases.keys())[0] if self.model.load_cases else "DEAD"
+                self.solver_output_path = f"{base_name}_{first_case}_results.json"
         else:
             self.solver_output_path = f"{base_name}_{case_name}_results.json"
         
@@ -2855,12 +2844,6 @@ class MainWindow(QMainWindow):
             print(f"Model saved to {self.solver_input_path}")
         except Exception as e:
             self.finish_analysis_sequence(False, f"Could not save input file: {e}")
-            return
-
-        if c_type == "Buckling":
-            QApplication.restoreOverrideCursor()
-            self.set_interface_state(True)                                           
-            self._run_buckling_analysis(case_name, case_obj)
             return
 
         self.worker = SolverWorker(
@@ -2889,15 +2872,16 @@ class MainWindow(QMainWindow):
             self._progress_dialog.finish(success)
         
         if success:
-            # <--- ADD THIS BLOCK TO GENERATE COMBOS SILENTLY --->
-            try:
-                from core.solver.combo_engine import compute_load_combinations
-                compute_load_combinations(self.model, self.solver_input_path)
-            except Exception as e:
-                print(f"Warning: Could not build load combinations: {e}")
-
             self.status.showMessage("Analysis Complete.")
-            self.load_analysis_results()                                                 
+            self.load_analysis_results()   
+
+            import glob, os
+            base_name = os.path.splitext(self.solver_input_path)[0]
+            if getattr(self, 'last_run_mode', '') == "Batch Run":
+                self.model.valid_result_paths = glob.glob(f"{base_name}_*_results.json")
+            else:
+                self.model.valid_result_paths = [self.solver_output_path]
+
         else:
             self.set_interface_state(True) 
             QMessageBox.critical(self, "Analysis Failed", message)
@@ -3018,6 +3002,7 @@ class MainWindow(QMainWindow):
 
         self.model.results = results
         self.model.has_results = True
+        self.model.valid_result_paths = [buckling_out]
 
         self.canvas.view_deflected = False
         self.canvas.invalidate_deflection_cache()
@@ -3178,7 +3163,9 @@ class MainWindow(QMainWindow):
 
         base_name = os.path.splitext(self.model.file_path)[0]
 
-        result_files = glob.glob(f"{base_name}_*_results.json")
+        result_files = getattr(self.model, 'valid_result_paths', [])
+        if not result_files:
+            result_files = glob.glob(f"{base_name}_*_results.json")
         available_cases = []
         for path in sorted(result_files):
             fname = os.path.basename(path)
@@ -3204,7 +3191,10 @@ class MainWindow(QMainWindow):
             return
 
         base_name = os.path.splitext(self.model.file_path)[0]
-        result_files = glob.glob(f"{base_name}_*_results.json")
+        
+        result_files = getattr(self.model, 'valid_result_paths', [])
+        if not result_files:
+            result_files = glob.glob(f"{base_name}_*_results.json")
 
         if not result_files:
             self.statusBar().showMessage("No result files found. Please run analysis first.")
@@ -3216,6 +3206,11 @@ class MainWindow(QMainWindow):
             prefix = os.path.basename(base_name) + "_"
             suffix = fname[len(prefix):].replace("_results.json", "")
             if suffix:
+                                                                                            
+                if suffix in self.model.load_cases:
+                    c_type = getattr(self.model.load_cases[suffix], 'case_type', 'Linear Static')
+                    if c_type in ["Modal", "Buckling", "LTHA"]:
+                        continue
                 available_cases.append(suffix)
 
         if not available_cases:
@@ -3245,13 +3240,30 @@ class MainWindow(QMainWindow):
         with open(res_path, 'r') as f:
             case_data = json.load(f)
 
+        self.model.results = case_data
+        self.model.has_results = True
+
+        if hasattr(self.model, 'load_combos') and load_case in self.model.load_combos:
+            combo_reactions = {}
+            for base_case, scale in self.model.load_combos[load_case].cases:
+                bc_path = f"{base_path}_{base_case}_results.json"
+                if os.path.exists(bc_path):
+                    with open(bc_path, 'r') as bcf:
+                        bc_data = json.load(bcf)
+                        for nid, dofs in bc_data.get("reactions", {}).items():
+                            if nid not in combo_reactions:
+                                combo_reactions[nid] = [0.0] * 6
+                            for i in range(6):
+                                combo_reactions[nid][i] += dofs[i] * scale
+            case_data["reactions"] = combo_reactions
+
         if display_type == 'tabulated':
             from app.dialogs.analysis_results_dialog import AnalysisResultsDialog
             
-            sel_nodes = [str(n) for n in self.selected_node_ids] if self.selected_node_ids else None
+            sel_nodes = [str(nid) for nid in self.selected_node_ids] if self.selected_node_ids else None
             
-            dlg = AnalysisResultsDialog(case_data, self, selected_node_ids=sel_nodes)
-            
+            dlg = AnalysisResultsDialog(self.model, case_data, self, selected_node_ids=sel_nodes)
+        
             if hasattr(dlg, 'tab_reactions'):
                 idx = dlg.tabs.indexOf(dlg.tab_reactions)
                 if idx >= 0:
@@ -3276,7 +3288,7 @@ class MainWindow(QMainWindow):
             self.statusBar().showMessage(f"[{load_case}]  Joint Reactions  —  {len(reaction_data)} joint(s)")
         else:
             self.statusBar().showMessage("No reaction data found for this case.")
-
+            
     def apply_force_diagrams_from_dialog(self, settings):
         """
         Receives the signal from DisplayForcesDialog.
@@ -3301,6 +3313,9 @@ class MainWindow(QMainWindow):
         with open(res_path, 'r') as f:
             case_data = json.load(f)
 
+        self.model.results = case_data
+        self.model.has_results = True
+
         displacements = case_data.get("displacements", {})
         matrices_path = mat_path if os.path.exists(mat_path) else None
 
@@ -3320,9 +3335,7 @@ class MainWindow(QMainWindow):
             if not hasattr(self, '_last_force_diagram_settings'):
                 self._last_force_diagram_settings = {}
             self._last_force_diagram_settings[self.active_canvas] = settings
-            self.statusBar().showMessage(
-                f"[{load_case}]  {settings['component']}  —  Scale: {settings['scale_factor'] or 'Auto'}"
-            )
+                                          
         else:
             self.statusBar().showMessage("No diagram generated. Check that analysis results exist.")
 
@@ -3440,7 +3453,7 @@ class MainWindow(QMainWindow):
     def update_window_title(self):
         """Updates window title to show currently active filename and version."""
                                                               
-        base_title = "Open//Structures v0.7.80" 
+        base_title = "Open//Structures v0.7.81" 
         
         if self.model and getattr(self.model, 'file_path', None):
             short_name = os.path.basename(self.model.file_path)
@@ -3663,7 +3676,7 @@ class MainWindow(QMainWindow):
         filter_node_ids = [str(nid) for nid in self.selected_node_ids] if self.selected_node_ids else None
 
         from app.dialogs.analysis_results_dialog import AnalysisResultsDialog 
-        dlg = AnalysisResultsDialog(self.model.results, self, selected_node_ids=filter_node_ids)
+        dlg = AnalysisResultsDialog(self.model, self.model.results, self, selected_node_ids=filter_node_ids)
         dlg.exec()
 
     def switch_modal_view(self, mode_key):

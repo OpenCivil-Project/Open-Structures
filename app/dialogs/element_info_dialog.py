@@ -97,7 +97,6 @@ class ObjectInfoDialog(QDialog):
         L_unit = unit_registry.length_unit_name
         def to_L(val): return unit_registry.to_display_length(val)
 
-        # --- JOINT (NODE) LOGIC ---
         if isinstance(self.obj, Node):
             self.add_row(table, "Joint Label", self.obj_label, bold=True)
             self.add_row(table, "Internal ID", self.obj.id)
@@ -106,7 +105,6 @@ class ObjectInfoDialog(QDialog):
             self.add_row(table, "Y", f"{to_L(self.obj.y):.4f} {L_unit}")
             self.add_row(table, "Z", f"{to_L(self.obj.z):.4f} {L_unit}")
 
-        # --- FRAME LOGIC ---
         elif isinstance(self.obj, FrameElement):
             n1, n2 = self.obj.node_i, self.obj.node_j
             
@@ -131,7 +129,6 @@ class ObjectInfoDialog(QDialog):
             self.add_row(table, "End Offset J", f"{to_L(e_off_j):.4f} {L_unit}")
             self.add_row(table, "Rigid Zone Factor", f"{rz:.2f}")
 
-        # --- AREA (SHELL) LOGIC ---
         elif isinstance(self.obj, AreaElement):
             self.add_row(table, "Area Label", self.obj_label, bold=True)
             self.add_row(table, "Internal ID", self.obj.id)
@@ -152,7 +149,6 @@ class ObjectInfoDialog(QDialog):
         L_unit = unit_registry.length_unit_name
         def to_L(val): return unit_registry.to_display_length(val)
 
-        # --- JOINT (NODE) LOGIC ---
         if isinstance(self.obj, Node):
             self.add_row(table, "Restraints & Constraints", "", sub_header=True)
             restr = self.obj.restraints
@@ -161,7 +157,6 @@ class ObjectInfoDialog(QDialog):
             self.add_row(table, "Restraints", ", ".join(active_restr) if active_restr else "None")
             self.add_row(table, "Rigid Diaphragm", self.obj.diaphragm_name or "None")
 
-        # --- FRAME LOGIC ---
         elif isinstance(self.obj, FrameElement):
             sec = self.obj.section
             self.add_row(table, "Section Property", sec.name, bold=True)
@@ -201,7 +196,6 @@ class ObjectInfoDialog(QDialog):
             self.add_row(table, "Start (I)", fmt_rel(getattr(self.obj, 'releases_i', [])))
             self.add_row(table, "End (J)", fmt_rel(getattr(self.obj, 'releases_j', [])))
 
-        # --- AREA (SHELL) LOGIC ---
         elif isinstance(self.obj, AreaElement):
             sec = self.obj.section
             self.add_row(table, "Area Section Property", sec.name, bold=True)
@@ -231,13 +225,12 @@ class ObjectInfoDialog(QDialog):
         found_loads = False
         
         for load in self.model.loads:
-            # Match Node
+                        
             if isinstance(self.obj, Node):
                 if hasattr(load, 'node_id') and load.node_id == self.obj.id:
                     found_loads = True
                     self._add_load_row(table, load, "Joint")
                     
-            # Match Frame (or Loads on its nodes)
             elif isinstance(self.obj, FrameElement):
                 if hasattr(load, 'element_id') and load.element_id == self.obj.id:
                     found_loads = True
@@ -252,7 +245,6 @@ class ObjectInfoDialog(QDialog):
                         found_loads = True
                         self._add_load_row(table, load, target)
                         
-            # Match Area
             elif isinstance(self.obj, AreaElement):
                 if hasattr(load, 'area_id') and load.area_id == self.obj.id:
                     found_loads = True
@@ -281,7 +273,6 @@ class ObjectInfoDialog(QDialog):
         
         pattern = getattr(load, 'pattern_name', 'Unknown')
         
-        # 1. Member Point Loads
         if hasattr(load, 'force') and hasattr(load, 'dist'):
             l_type = getattr(load, 'load_type', "Force")                      
             disp_type = f"Point {l_type}"
@@ -299,7 +290,6 @@ class ObjectInfoDialog(QDialog):
             else:
                 disp_loc = f"{to_L(dist):.3f} {L_unit} (Abs)"
 
-        # 2. Member Distributed Loads
         elif hasattr(load, 'wx') and hasattr(load, 'wy') and hasattr(load, 'wz'):
             disp_type = "Distributed"
             comps = []
@@ -312,7 +302,6 @@ class ObjectInfoDialog(QDialog):
             disp_dir = f"{coord}{proj}"
             disp_loc = "Full Span"
 
-        # 3. Nodal Loads
         elif hasattr(load, 'fx'):                        
             disp_type = "Joint Force"
             disp_dir = "Global"
@@ -326,14 +315,12 @@ class ObjectInfoDialog(QDialog):
             if load.mz != 0: val_strs.append(f"Mz={to_F(load.mz)*unit_registry.length_scale:.2f}")
             disp_val = f"{', '.join(val_strs)} [{F_unit}, {M_unit}]"
 
-        # 4. Area Uniform Loads
         elif hasattr(load, 'uniform_load'):
             disp_type = "Area Uniform"
             disp_dir = getattr(load, 'load_direction', 'Gravity')
             disp_val = f"{to_F(load.uniform_load) / (unit_registry.length_scale**2):.2f} {F_unit}/{L_unit}²"
             disp_loc = "Full Area"
 
-        # 5. Area Gravity Loads (Multipliers)
         elif hasattr(load, 'gx'):
             disp_type = "Area Gravity"
             disp_dir = getattr(load, 'coord_system', 'GLOBAL')

@@ -176,25 +176,40 @@ def run_buckling_analysis(input_json_path, output_json_path, results_path, matri
         print(f"FATAL: K_G Assembly Error: {e}")
         return _write_error(output_json_path, "E000", f"K_G Assembly Error: {e}")
 
-    print("[4/6] Applying Boundary Conditions...")
-    progress_callback("Applying boundary conditions...", 48)
+    print("[4/6] Applying Boundary Conditions & Diaphragm Constraints...")
+    progress_callback("Applying boundary conditions & diaphragms...", 48)
 
-    is_free = np.ones(dm.total_dofs, dtype=bool)
+    is_free_full = np.ones(dm.total_dofs, dtype=bool)
     for node in dm.nodes:
         start_idx = node['idx'] * 6
         restraints = node['restraints']                           
         for i in range(6):
             if restraints[i]:           
-                is_free[start_idx + i] = False
+                is_free_full[start_idx + i] = False
+
+    has_T = hasattr(assembler, 'T') and assembler.T is not None
+    if has_T:
+        print("      Applying Exact Diaphragm Transformation (T) to K_E and K_G...")
+        T = assembler.T
+        kept_dofs = assembler.kept_dofs
+        
+        K_sys = T.T @ K_full @ T
+        KG_sys = T.T @ KG_full @ T
+        
+        is_free_sys = is_free_full[kept_dofs]
+    else:
+        K_sys = K_full
+        KG_sys = KG_full
+        is_free_sys = is_free_full
     
-    num_free_dofs = int(np.sum(is_free))
-    num_constrained = dm.total_dofs - num_free_dofs
+    num_free_dofs = int(np.sum(is_free_sys))
+    num_constrained = dm.total_dofs - num_free_dofs                                    
 
     if num_free_dofs == 0:
         return _write_error(output_json_path, "E301", "Structure is fully constrained. No free DOFs.")
 
-    K_free  = K_full.tocsc()[is_free, :][:, is_free]
-    KG_free = KG_full.tocsc()[is_free, :][:, is_free]
+    K_free  = K_sys.tocsc()[is_free_sys, :][:, is_free_sys]
+    KG_free = KG_sys.tocsc()[is_free_sys, :][:, is_free_sys]
 
     try:
         print(f"[5/6] Solving Buckling Eigenvalues...")
@@ -270,17 +285,22 @@ def run_buckling_analysis(input_json_path, output_json_path, results_path, matri
 
     for i, (lam, phi_free) in enumerate(valid_modes):
         
-        max_val = np.max(np.abs(phi_free))
+        phi_sys = np.zeros(K_sys.shape[0])
+        phi_sys[is_free_sys] = phi_free
+        
+        if has_T:
+            phi_full = T @ phi_sys
+        else:
+            phi_full = phi_sys
+            
+        max_val = np.max(np.abs(phi_full))
         if max_val > 0:
-            phi_free = phi_free / max_val
+            phi_full = phi_full / max_val
             
         results["tables"]["buckling_factors"].append({
             "mode": i + 1,
             "lambda": float(lam)
         })
-        
-        phi_full = np.zeros(dm.total_dofs)
-        phi_full[is_free] = phi_free
         
         shape_data = {}
         for node in dm.nodes:
