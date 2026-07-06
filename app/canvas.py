@@ -3475,7 +3475,7 @@ class MCanvas3D(gl.GLViewWidget):
 
         if len(self._ltha_elements) == 0:
             return False
-        _p("Allocating GPU Vertex Buffer Objects (VBOs) for Time History tensor...")
+        ("Allocating GPU Vertex Buffer Objects (VBOs) for Time History tensor...")
         self.ltha_engine = VectorizedLTHAEngine(len(self._ltha_elements))
 
         for i, el in enumerate(self._ltha_elements):
