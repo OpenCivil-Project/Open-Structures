@@ -110,106 +110,193 @@ class GlobalMassAssembler:
             elif load["type"] == "member_dist":
                 el = next((e for e in self.dm.elements if e['id'] == load['element_id']), None)
                 if not el: continue
-                
-                w_vec = np.array([load.get('wx', 0.0), load.get('wy', 0.0), load.get('wz', 0.0)])
-                
-                if load.get('coord', 'Global') == 'Local':
-                    idx_i, idx_j = el['node_indices']
-                    p1_adj = self.dm.nodes[idx_i]['coords'] + np.array(el['offsets'][0])
-                    p2_adj = self.dm.nodes[idx_j]['coords'] + np.array(el['offsets'][1])
-                    R = get_rotation_matrix(p1_adj, p2_adj, el['beta'])
-                    w_global = R.T @ w_vec
-                else:
-                    w_global = w_vec
-                
-                F_total = w_global * el['L_total'] * multiplier
-                
-                for n_idx in el['node_indices']:
-                    dof = n_idx * 6
-                    F_accum[dof + 0] += F_total[0] / 2.0
-                    F_accum[dof + 1] += F_total[1] / 2.0
-                    F_accum[dof + 2] += F_total[2] / 2.0
-
-            elif load["type"] == "member_point":
-                el = next((e for e in self.dm.elements if e['id'] == load['element_id']), None)
-                if not el: continue
-
-                val = load.get('force', 0.0)
-                l_type = load.get('l_type', 'Force')
-                direction = load.get('dir', 'Gravity')
-                coord = load.get('coord', 'Global')
-
-                P_local = np.zeros(3)
-                M_local = np.zeros(3)
 
                 idx_i, idx_j = el['node_indices']
-                p1_adj = self.dm.nodes[idx_i]['coords'] + np.array(el['offsets'][0])
-                p2_adj = self.dm.nodes[idx_j]['coords'] + np.array(el['offsets'][1])
-                
-                from element_library import get_rotation_matrix, get_exact_fef_via_stiffness, condense_fef, get_eccentricity_matrix, get_local_stiffness_matrix
-                R_3x3 = get_rotation_matrix(p1_adj, p2_adj, el['beta'])
-
-                idx = 2; sign = 1.0
-                d_str = str(direction).upper()
-                if "GRAVITY" in d_str: idx = 2; sign = -1.0; coord = "Global"
-                elif "X" in d_str or "1" in d_str: idx = 0
-                elif "Y" in d_str or "2" in d_str: idx = 1
-                elif "Z" in d_str or "3" in d_str: idx = 2
-
-                vec_defined = np.zeros(3)
-                vec_defined[idx] = val * sign * multiplier
-
-                if coord == "Global":
-                    vec_local = R_3x3 @ vec_defined
-                else:
-                    vec_local = vec_defined
-
-                if l_type.lower() == 'moment': M_local = vec_local
-                else: P_local = vec_local
+                p1 = self.dm.nodes[idx_i]['coords']
+                p2 = self.dm.nodes[idx_j]['coords']
 
                 L_clear = el['L_clear']
-                dist = load.get('dist', 0.5)
-                if load.get('is_rel', True): dist *= el['L_total']
-                
+                L_total = el['L_total']
                 ri = el.get('end_off_i', 0.0)
-                a_clear = dist - ri
-                if a_clear < 0: a_clear = 0.0
-                if a_clear > L_clear: a_clear = L_clear
+                rj = el.get('end_off_j', 0.0)
 
                 mat, sec = el['material'], el['section']
-                fef_local = get_exact_fef_via_stiffness(L_clear, a_clear, P_local, mat, sec, M_vec_local=M_local)
 
-                if any(el['releases'][0]) or any(el['releases'][1]):
-                    k_raw = get_local_stiffness_matrix(
-                        E=mat['E'], G=mat['G'], A=sec['A'], J=sec['J'],
-                        I22=sec['I22'], I33=sec['I33'],
-                        As2=sec['As2'], As3=sec['As3'], L=L_clear, L_tor=el['L_total']
+                from element_library import get_rotation_matrix, get_varying_fef_via_integration, get_eccentricity_matrix, condense_fef, get_local_stiffness_matrix
+                R_3x3 = get_rotation_matrix(p1, p2, el['beta'])
+
+                proj_factor = 1.0
+                coord_sys = str(load.get('coord', 'Global')).upper()
+                if load.get('projected', False) and coord_sys == 'GLOBAL':
+                    dx = p2[0] - p1[0]
+                    dy = p2[1] - p1[1]
+                    L_horiz = np.sqrt(dx**2 + dy**2)
+                    if L_total > 1e-9: proj_factor = L_horiz / L_total
+
+                mags = np.array(load.get('magnitudes', [0,0,0,0])) * multiplier
+                
+                if any(abs(m) > 1e-9 for m in mags):
+                                                                               
+                    dists = np.array(load.get('distances', [0, 0.25, 0.75, 1.0]))
+                    if load.get('is_relative', True): dists = dists * L_total
+                    dir_str = str(load.get('load_direction', 'Gravity')).upper()
+                    
+                    w_vectors_local = []
+                    for m in mags:
+                        vec = np.zeros(3)
+                        if "GRAVITY" in dir_str: vec[2] = m 
+                        elif "X" in dir_str or "1" in dir_str: vec[0] = m
+                        elif "Y" in dir_str or "2" in dir_str: vec[1] = m
+                        elif "Z" in dir_str or "3" in dir_str: vec[2] = m
+                        
+                        if coord_sys == 'GLOBAL': vec_local = R_3x3 @ vec
+                        else: vec_local = vec
+                        
+                        vec_local *= proj_factor
+                        w_vectors_local.append(vec_local)
+                    
+                    fef_local, F_ri, M_ri_cent, F_rj, M_rj_cent = get_varying_fef_via_integration(
+                        L_clear, L_total, ri, rj, dists, w_vectors_local, mat, sec
                     )
-                    fef_local = condense_fef(k_raw, fef_local, el['releases'])
+                    
+                    if any(el['releases'][0]) or any(el['releases'][1]):
+                        k_raw = get_local_stiffness_matrix(E=mat['E'], G=mat['G'], A=sec['A'], J=sec['J'], I22=sec['I22'], I33=sec['I33'], As2=sec['As2'], As3=sec['As3'], L=L_clear, L_tor=L_total)
+                        fef_local = condense_fef(k_raw, fef_local, el['releases'])
 
-                T_rot = np.zeros((12, 12))
-                for i in range(4): T_rot[i*3:(i+1)*3, i*3:(i+1)*3] = R_3x3
+                    T_rot = np.zeros((12, 12))
+                    for i in range(4): T_rot[i*3:(i+1)*3, i*3:(i+1)*3] = R_3x3
+                    
+                    loc_off_insertion_i = R_3x3 @ np.array(el['offsets'][0])
+                    loc_off_insertion_j = R_3x3 @ np.array(el['offsets'][1])
+                    
+                    loc_off_total_i = loc_off_insertion_i.copy()
+                    loc_off_total_j = loc_off_insertion_j.copy()
+                    loc_off_total_i[0] += ri
+                    loc_off_total_j[0] -= rj
 
-                loc_off_i = R_3x3 @ np.array(el['offsets'][0])
-                loc_off_j = R_3x3 @ np.array(el['offsets'][1])
-                loc_off_i[0] += ri
-                loc_off_j[0] -= el.get('end_off_j', 0.0)
+                    T_ecc = get_eccentricity_matrix(loc_off_total_i, loc_off_total_j)
+                    T_total = T_ecc @ T_rot
 
-                T_ecc = get_eccentricity_matrix(loc_off_i, loc_off_j)
-                T_total = T_ecc @ T_rot
+                    fef_global = T_total.T @ fef_local
 
-                equiv_nodal_force = -(T_total.T @ fef_local)
+                    if ri > 0:
+                        M_rigid_i = M_ri_cent + np.cross(loc_off_insertion_i, F_ri)
+                        fef_global[0:3] -= R_3x3.T @ F_ri
+                        fef_global[3:6] -= R_3x3.T @ M_rigid_i
+                    if rj > 0:
+                        M_rigid_j = M_rj_cent + np.cross(loc_off_insertion_j, F_rj)
+                        fef_global[6:9] -= R_3x3.T @ F_rj
+                        fef_global[9:12] -= R_3x3.T @ M_rigid_j
 
+                    equiv_nodal_force = -fef_global
+
+                else:
+                                                                                      
+                    w_defined = np.array([load.get('wx', 0.0), load.get('wy', 0.0), load.get('wz', 0.0)]) * multiplier
+                    if coord_sys == 'GLOBAL': w_local = R_3x3 @ w_defined
+                    else: w_local = w_defined
+                    w_local *= proj_factor
+                    
+                    wx, wy, wz = w_local
+                    fef_local = np.zeros(12)
+                    fef_local[0] = -wx * L_clear / 2;    fef_local[6] = -wx * L_clear / 2
+                    fef_local[1] = -wy * L_clear / 2;    fef_local[7] = -wy * L_clear / 2
+                    fef_local[5] = -wy * L_clear**2/12;  fef_local[11]=  wy * L_clear**2/12
+                    fef_local[2] = -wz * L_clear / 2;    fef_local[8] = -wz * L_clear / 2
+                    fef_local[4] =  wz * L_clear**2/12;  fef_local[10]= -wz * L_clear**2/12
+
+                    if any(el['releases'][0]) or any(el['releases'][1]):
+                        k_raw = get_local_stiffness_matrix(E=mat['E'], G=mat['G'], A=sec['A'], J=sec['J'], I22=sec['I22'], I33=sec['I33'], As2=sec['As2'], As3=sec['As3'], L=L_clear, L_tor=L_total)
+                        fef_local = condense_fef(k_raw, fef_local, el['releases'])
+
+                    T_rot = np.zeros((12, 12))
+                    for i in range(4): T_rot[i*3:(i+1)*3, i*3:(i+1)*3] = R_3x3
+                    
+                    loc_off_total_i = R_3x3 @ np.array(el['offsets'][0])
+                    loc_off_total_j = R_3x3 @ np.array(el['offsets'][1])
+                    loc_off_insertion_i = loc_off_total_i.copy()
+                    loc_off_insertion_j = loc_off_total_j.copy()
+                    loc_off_total_i[0] += ri
+                    loc_off_total_j[0] -= rj
+
+                    T_ecc = get_eccentricity_matrix(loc_off_total_i, loc_off_total_j)
+                    T_total = T_ecc @ T_rot
+
+                    fef_global = T_total.T @ fef_local
+
+                    if ri > 0:
+                        F_rigid_i = np.array([wx, wy, wz]) * ri
+                        centroid_i = np.array([ri/2.0, 0, 0]) + loc_off_insertion_i
+                        M_rigid_i = np.cross(centroid_i, F_rigid_i)
+                        fef_global[0:3] -= R_3x3.T @ F_rigid_i
+                        fef_global[3:6] -= R_3x3.T @ M_rigid_i
+                    if rj > 0:
+                        F_rigid_j = np.array([wx, wy, wz]) * rj
+                        centroid_j = np.array([-rj/2.0, 0, 0]) + loc_off_insertion_j
+                        M_rigid_j = np.cross(centroid_j, F_rigid_j)
+                        fef_global[6:9] -= R_3x3.T @ F_rigid_j
+                        fef_global[9:12] -= R_3x3.T @ M_rigid_j
+
+                    equiv_nodal_force = -fef_global
+                
                 dof_i = idx_i * 6
                 dof_j = idx_j * 6
-
                 F_accum[dof_i + 0] += equiv_nodal_force[0]
                 F_accum[dof_i + 1] += equiv_nodal_force[1]
                 F_accum[dof_i + 2] += equiv_nodal_force[2]
-
                 F_accum[dof_j + 0] += equiv_nodal_force[6]
                 F_accum[dof_j + 1] += equiv_nodal_force[7]
                 F_accum[dof_j + 2] += equiv_nodal_force[8]
+
+            elif load["type"] == "member_point":
+                                                              
+                if load.get("l_type", "Force") == "Moment":
+                    continue 
+                
+                el = next((e for e in self.dm.elements if e['id'] == load['element_id']), None)
+                if not el: continue
+                
+                dir_str = str(load.get('dir', 'Gravity')).upper()
+                P_val = load['force'] * multiplier
+                
+                vec_defined = np.zeros(3)
+                if "GRAVITY" in dir_str: vec_defined[2] = -P_val
+                elif "X" in dir_str or "1" in dir_str: vec_defined[0] = P_val
+                elif "Y" in dir_str or "2" in dir_str: vec_defined[1] = P_val
+                elif "Z" in dir_str or "3" in dir_str: vec_defined[2] = P_val
+                
+                coord_sys = load.get('coord', 'Global')
+                if "GRAVITY" in dir_str: coord_sys = 'Global'
+                
+                if coord_sys == 'Global':
+                    vec_global = vec_defined
+                else:
+                    idx_i, idx_j = el['node_indices']
+                    p1 = self.dm.nodes[idx_i]['coords']
+                    p2 = self.dm.nodes[idx_j]['coords']
+                    from element_library import get_rotation_matrix
+                    R_3x3 = get_rotation_matrix(p1, p2, el['beta'])
+                    vec_global = R_3x3.T @ vec_defined 
+                    
+                L_total = el['L_total']
+                dist = load['dist']
+                if load.get('is_rel', False): 
+                    dist *= L_total
+                
+                frac_j = dist / L_total
+                frac_i = 1.0 - frac_j
+                
+                idx_i, idx_j = el['node_indices']
+                dof_i = idx_i * 6
+                dof_j = idx_j * 6
+                
+                F_accum[dof_i + 0] += vec_global[0] * frac_i
+                F_accum[dof_i + 1] += vec_global[1] * frac_i
+                F_accum[dof_i + 2] += vec_global[2] * frac_i
+                
+                F_accum[dof_j + 0] += vec_global[0] * frac_j
+                F_accum[dof_j + 1] += vec_global[1] * frac_j
+                F_accum[dof_j + 2] += vec_global[2] * frac_j
 
         print("   -> Converting NET Gravity Forces to Mass...")
         mass_added_count = 0

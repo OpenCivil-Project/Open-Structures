@@ -490,8 +490,7 @@ class AreaSection:
 class ShellSection(AreaSection):
     """
     Shell / Plate / Membrane area section.
-    Covers all six SAP2000 shell types.
-    No stiffness computation yet — full solver integration later.
+    Covers all six SAP2000 shell types, plus TS 500 Code-Based "Ghost" slabs.
     """
     TYPES = [
         "Shell - Thin",
@@ -512,7 +511,9 @@ class ShellSection(AreaSection):
         self.shell_type         = shell_type
         self.membrane_thickness = float(membrane_thickness)
         self.bending_thickness  = float(bending_thickness)
-
+        
+        self.modeling_type      = "True FEM (Shell)"
+        
 class PlaneSection(AreaSection):
     """
     2-D Plane-Stress or Plane-Strain section.

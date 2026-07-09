@@ -65,6 +65,10 @@ class DisplayForcesDialog(QDialog):
             current_case = self.model.results.get("info", {}).get("case_name", "")
         if current_case in valid_cases:
             self.cb_case.setCurrentText(current_case)
+
+        is_single_case = current_case in getattr(self.model, 'load_cases', {})
+        if is_single_case:
+            self.cb_case.setEnabled(False)
             
         layout_case.addWidget(self.cb_case)
         main_layout.addWidget(gb_case)

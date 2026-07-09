@@ -64,17 +64,27 @@ class NodalLoad:
 
 class MemberLoad:
     def __init__(self, element_id, pattern_name, wx=0, wy=0, wz=0, 
-                 projected=False, coord_system="Global"):
+                 projected=False, coord_system="Global",
+                 distances=None, magnitudes=None, is_relative=True, 
+                 load_direction="Gravity", load_type="Force"):
         self.element_id = element_id
         self.pattern_name = pattern_name
+        
         self.wx = float(wx)
         self.wy = float(wy)
         self.wz = float(wz)
+        
         self.projected = bool(projected)
-        self.coord_system = coord_system                      
+        self.coord_system = coord_system 
+        
+        self.distances = distances if distances is not None else [0.0, 0.25, 0.75, 1.0]
+        self.magnitudes = magnitudes if magnitudes is not None else [0.0, 0.0, 0.0, 0.0]
+        self.is_relative = is_relative
+        self.load_direction = load_direction
+        self.load_type = load_type
 
     def __repr__(self):
-        return f"MemberLoad(elem={self.element_id}, {self.coord_system}, wz={self.wz})"
+        return f"MemberLoad(elem={self.element_id}, {self.coord_system}, dir={self.load_direction})"
 
 class RigidDiaphragm:
     """
@@ -276,18 +286,24 @@ class StructuralModel:
         return False
     
     def assign_member_load(self, element_id, pattern_name, wx=0, wy=0, wz=0, 
-                           projected=False, coord_system="Global", mode="replace"):
+                           projected=False, coord_system="Global", mode="replace",
+                           distances=None, magnitudes=None, is_relative=True, 
+                           load_direction="Gravity", load_type="Force"):
         """
-        Assigns distributed load to a frame element.
-        wx, wy, wz: Load magnitude in the specified coordinate system axes.
-        coord_system: "Global" or "Local".
+        Assigns distributed load to a frame element, supporting full trapezoidal definition.
         """
         if element_id not in self.elements:
             raise KeyError(f"Element {element_id} does not exist.")
         
+        if distances is None: distances = [0.0, 0.25, 0.75, 1.0]
+        if magnitudes is None: magnitudes = [0.0, 0.0, 0.0, 0.0]
+
         existing_indices = []
         for i, load in enumerate(self.loads):
-            if hasattr(load, 'element_id') and load.element_id == element_id and load.pattern_name == pattern_name:
+            if (hasattr(load, 'element_id') and load.element_id == element_id 
+                and getattr(load, 'pattern_name', None) == pattern_name
+                and getattr(load, 'coord_system', "Global") == coord_system
+                and getattr(load, 'load_direction', "Gravity") == load_direction):
                 existing_indices.append(i)
 
         if mode == "delete":
@@ -299,27 +315,17 @@ class StructuralModel:
             for i in reversed(existing_indices):
                 del self.loads[i]
             
-            if any([wx, wy, wz]):
-                new_load = MemberLoad(element_id, pattern_name, wx, wy, wz, 
-                                      projected=projected, coord_system=coord_system)
-                self.loads.append(new_load)
+            new_load = MemberLoad(element_id, pattern_name, wx, wy, wz, 
+                                  projected, coord_system, 
+                                  distances, magnitudes, is_relative, load_direction, load_type)
+            self.loads.append(new_load)
 
         elif mode == "add":
-                                                                   
-            added = False
-            for idx in existing_indices:
-                existing = self.loads[idx]
-                if existing.coord_system == coord_system and existing.projected == projected:
-                    existing.wx += wx
-                    existing.wy += wy
-                    existing.wz += wz
-                    added = True
-                    break
-            
-            if not added and any([wx, wy, wz]):
-                new_load = MemberLoad(element_id, pattern_name, wx, wy, wz, 
-                                      projected=projected, coord_system=coord_system)
-                self.loads.append(new_load)
+                                                                                    
+            new_load = MemberLoad(element_id, pattern_name, wx, wy, wz, 
+                                  projected, coord_system, 
+                                  distances, magnitudes, is_relative, load_direction, load_type)
+            self.loads.append(new_load)
 
     def save_to_file(self, filepath, progress=None):
         """Serializes the model data to a JSON file"""
@@ -544,7 +550,13 @@ class StructuralModel:
                     "element_id": load.element_id,
                     "wx": load.wx, "wy": load.wy, "wz": load.wz,
                     "projected": getattr(load, 'projected', False),
-                    "coord": getattr(load, 'coord_system', "Global")
+                    "coord": getattr(load, 'coord_system', "Global"),
+                    "is_tributary": getattr(load, 'is_tributary_generated', False),              
+                    "distances": getattr(load, 'distances', [0, 0.25, 0.75, 1.0]),
+                    "magnitudes": getattr(load, 'magnitudes', [0, 0, 0, 0]),
+                    "is_relative": getattr(load, 'is_relative', True),
+                    "load_direction": getattr(load, 'load_direction', "Gravity"),
+                    "load_type": getattr(load, 'load_type', "Force")
                 })
                 
             elif hasattr(load, 'node_id'):
@@ -590,7 +602,8 @@ class StructuralModel:
                                      
                 **( {"shell_type": s.shell_type,
                      "membrane_thickness": s.membrane_thickness,
-                     "bending_thickness":  s.bending_thickness}
+                     "bending_thickness":  s.bending_thickness,
+                     "modeling_type": getattr(s, 'modeling_type', "True FEM (Shell)")}      
                     if isinstance(s, ShellSection) else {} ),
                                      
                 **( {"plane_type": s.plane_type,
@@ -753,6 +766,7 @@ class StructuralModel:
                     material_angle=s_data.get("material_angle", 0.0),
                     display_color=s_data.get("display_color", "#FF00FF")
                 )
+                sec.modeling_type = s_data.get("modeling_type", "True FEM (Shell)")      
             elif s_data["type"] == "PlaneSection":
                 sec = PlaneSection(
                     s_data["name"], mat,
@@ -762,6 +776,7 @@ class StructuralModel:
                     material_angle=s_data.get("material_angle", 0.0),
                     display_color=s_data.get("display_color", "#FF00FF")
                 )
+                sec.modeling_type = s_data.get("modeling_type", "True FEM (Plane)")      
             elif s_data["type"] == "AsolidSection":
                 sec = AsolidSection(
                     s_data["name"], mat,
@@ -933,12 +948,19 @@ class StructuralModel:
                     self.loads.append(new_load)
 
                 elif l_type == "member_dist":
-                                                                                       
                     coord = load_data.get("coord", "Global")
                     proj = load_data.get("projected", False)
-                    new_load = MemberLoad(load_data["element_id"], pattern_name, 
-                                          load_data["wx"], load_data["wy"], load_data["wz"],
-                                          projected=proj, coord_system=coord)
+                    new_load = MemberLoad(
+                        load_data["element_id"], pattern_name, 
+                        load_data.get("wx", 0), load_data.get("wy", 0), load_data.get("wz", 0),
+                        projected=proj, coord_system=coord,
+                        distances=load_data.get("distances", [0, 0.25, 0.75, 1]),
+                        magnitudes=load_data.get("magnitudes", [0, 0, 0, 0]),
+                        is_relative=load_data.get("is_relative", True),
+                        load_direction=load_data.get("load_direction", "Gravity"),
+                        load_type=load_data.get("load_type", "Force")
+                    )
+                    new_load.is_tributary_generated = load_data.get("is_tributary", False)              
                     self.loads.append(new_load)
 
                 elif l_type == "member_point":
@@ -1403,6 +1425,10 @@ class StructuralModel:
 
             old_elem = self.area_elements[eid]
             nodes = old_elem.nodes
+
+            if hasattr(old_elem.section, 'modeling_type') and old_elem.section.modeling_type == "Tributary Area":
+                print(f"Skipping Tributary Area slab {eid} from meshing.")
+                continue
             
             if len(nodes) != 4:
                 print(f"Skipping AreaElement {eid}: Mesher currently supports 4-node quads only.")

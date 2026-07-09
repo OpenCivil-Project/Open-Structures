@@ -1,36 +1,6 @@
 """
 dlg_area_gravity_load.py
 ------------------------
-SAP2000-style "Assign Area Gravity Loads" dialog.
-
-Gravity multipliers (gx, gy, gz) scale the element's self-weight in each
-global direction.  Typical dead-load usage:  gz = -1.0.
-
-Unit handling
--------------
-Gravity multipliers are **dimensionless** — they are pure scale factors
-applied to the element's self-weight, not force values.  gz = -1.0 means
-"full self-weight downward" regardless of the active unit system.
-
-No unit conversion is applied here.  The model stores and uses these
-multipliers as-is.  For loads with physical units (pressure, forces) see
-dlg_area_uniform_load.py and assign_load_dialog.py respectively.
-
-ONLY valid on AreaElements (shells/planes/asolids).  Frames don't have area
-loads — they use MemberLoad / MemberPointLoad instead.
-
-Connection from main.py
------------------------
-    def on_assign_area_gravity_load(self):
-        selected_ids = getattr(self.canvas, 'selected_area_ids', [])
-        if not selected_ids:
-            QMessageBox.information(self, "No Selection",
-                                    "Select one or more area elements first.")
-            return
-        from app.dialogs.dlg_area_gravity_load import AreaGravityLoadDialog
-        dlg = AreaGravityLoadDialog(self.model, selected_ids, parent=self)
-        dlg.exec()
-        self.draw_both_canvases()
 """
 
 from PyQt6.QtWidgets import (
@@ -40,32 +10,17 @@ from PyQt6.QtWidgets import (
 )
 from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QDoubleValidator
-from core.units import unit_registry                                                           
 
 class AreaGravityLoadDialog(QDialog):
-    """
-    Assign Area Gravity Loads dialog — mirrors the SAP2000 UI.
-
-    Parameters
-    ----------
-    model : StructuralModel
-        The live model instance.
-    selected_area_ids : list[int]
-        IDs of the area elements currently selected on the canvas.
-    parent : QWidget, optional
-    """
-
-    def __init__(self, model, selected_area_ids, parent=None):
+    def __init__(self, model, parent=None):
         super().__init__(parent)
         self.model = model
-        self.selected_area_ids = list(selected_area_ids)
+        
+        self.setWindowFlag(Qt.WindowType.Tool)
 
         self.setWindowTitle("Assign Area Gravity Loads")
         self.setFixedWidth(370)
         self.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Preferred)
-        self.setWindowFlags(
-            self.windowFlags() & ~Qt.WindowType.WindowContextHelpButtonHint
-        )
 
         self._build_ui()
         self._populate_patterns()
@@ -77,12 +32,7 @@ class AreaGravityLoadDialog(QDialog):
 
         grp_gen = QGroupBox("General")
         form_gen = QFormLayout(grp_gen)
-        form_gen.setLabelAlignment(
-            Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter
-        )
-        form_gen.setFieldGrowthPolicy(
-            QFormLayout.FieldGrowthPolicy.AllNonFixedFieldsGrow
-        )
+        form_gen.setLabelAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
         form_gen.setHorizontalSpacing(12)
 
         self.combo_pattern = QComboBox()
@@ -96,12 +46,7 @@ class AreaGravityLoadDialog(QDialog):
 
         grp_grav = QGroupBox("Gravity Multipliers  (dimensionless)")
         form_grav = QFormLayout(grp_grav)
-        form_grav.setLabelAlignment(
-            Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter
-        )
-        form_grav.setFieldGrowthPolicy(
-            QFormLayout.FieldGrowthPolicy.AllNonFixedFieldsGrow
-        )
+        form_grav.setLabelAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
         form_grav.setHorizontalSpacing(12)
 
         validator = QDoubleValidator()
@@ -122,9 +67,10 @@ class AreaGravityLoadDialog(QDialog):
 
         note = QLabel(
             "Tip: gz = \u22121.0 applies full self-weight downward.\n"
-            "These multipliers are unit-independent."
+            "These multipliers are unit-independent.\n\n"
+            "⚠️ Note: In-plane multipliers (gx, gy) cannot be applied to Tributary Area slabs."
         )
-        note.setStyleSheet("color: gray; font-size: 10px;")
+        note.setStyleSheet("color: gray; font-size: 11px;")
         note.setWordWrap(True)
         form_grav.addRow("", note)
 
@@ -164,7 +110,7 @@ class AreaGravityLoadDialog(QDialog):
             b.setFixedWidth(75)
 
         btn_ok.clicked.connect(self._ok)
-        btn_close.clicked.connect(self.reject)
+        btn_close.clicked.connect(self.close)
         btn_apply.clicked.connect(self._apply)
 
         btn_row.addWidget(btn_ok)
@@ -173,7 +119,6 @@ class AreaGravityLoadDialog(QDialog):
         root.addLayout(btn_row)
 
     def _populate_patterns(self):
-        """Fill Load Pattern combo from model."""
         self.combo_pattern.clear()
         for name in self.model.load_patterns:
             self.combo_pattern.addItem(name)
@@ -190,7 +135,6 @@ class AreaGravityLoadDialog(QDialog):
             return fallback
 
     def _reset(self):
-        """Restore dialog to SAP2000 default values."""
         self.combo_coord.setCurrentText("GLOBAL")
         self.edit_gx.setText("0")
         self.edit_gy.setText("0")
@@ -198,16 +142,17 @@ class AreaGravityLoadDialog(QDialog):
         self.rb_replace.setChecked(True)
 
     def _apply(self):
-        """
-        Apply gravity loads to all selected area elements.
+                                                                      
+        main_window = self.parent()
+        selected_ids = list(main_window.selected_area_ids)
 
-        gx / gy / gz are dimensionless multipliers on the element's
-        self-weight — no unit conversion is required or applied.
-        """
+        if not selected_ids:
+            QMessageBox.information(self, "No Selection", "Please select one or more area elements first.")
+            return
+
         pattern = self.combo_pattern.currentText()
         if not pattern:
-            QMessageBox.warning(self, "No Pattern",
-                                "Please select a load pattern.")
+            QMessageBox.warning(self, "No Pattern", "Please select a load pattern.")
             return
 
         coord = self.combo_coord.currentText()
@@ -217,18 +162,33 @@ class AreaGravityLoadDialog(QDialog):
         mode  = self._get_mode()
 
         errors = []
-        for aid in self.selected_area_ids:
+        trib_error_flag = False
+
+        for aid in selected_ids:
+            area = self.model.area_elements.get(aid)
+            if not area: continue
+            
+            if hasattr(area.section, 'modeling_type') and area.section.modeling_type == "Tributary Area":
+                if abs(gx) > 1e-9 or abs(gy) > 1e-9:
+                    trib_error_flag = True
+                    continue                                                         
+
             try:
-                self.model.assign_area_gravity_load(
-                    aid, pattern, gx, gy, gz, coord, mode)
+                self.model.assign_area_gravity_load(aid, pattern, gx, gy, gz, coord, mode)
             except KeyError as e:
                 errors.append(str(e))
 
+        if trib_error_flag:
+            QMessageBox.warning(self, "Invalid Multiplier", "In-plane gravity multipliers (gx, gy) cannot be applied to Tributary Area slabs. They only transfer vertical (gz) self-weight.\n\nThose slabs were skipped.")
+
         if errors:
-            QMessageBox.warning(self, "Assignment Error",
-                                "Some elements could not be updated:\n" +
-                                "\n".join(errors))
+            QMessageBox.warning(self, "Assignment Error", "Some elements could not be updated:\n" + "\n".join(errors))
+
+        main_window.selected_area_ids.clear()
+        main_window._refresh_selection_overlay()
+        main_window.update_yield_lines()
+        main_window.draw_both_canvases()
 
     def _ok(self):
         self._apply()
-        self.accept()
+        self.close()

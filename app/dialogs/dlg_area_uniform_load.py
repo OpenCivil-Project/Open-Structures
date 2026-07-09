@@ -1,35 +1,6 @@
 """
 dlg_area_uniform_load.py
 ------------------------
-SAP2000-style "Assign Area Uniform Loads" dialog.
-
-Applies a uniform pressure (force / area) to selected AreaElements.
-
-Unit handling
--------------
-Values are **entered and displayed** in the active unit system (e.g. kN/m²).
-They are **stored in SI** (N/m²) via unit_registry.from_display_pressure().
-
-The pressure unit label next to the input field updates automatically from
-unit_registry.pressure_unit so it always reflects the current unit system.
-
-ONLY valid on AreaElements (shells/planes/asolids).  Frames don't have
-uniform pressure loads — they use MemberLoad / MemberPointLoad instead.
-
-Connection from main.py
------------------------
-    from app.dialogs.dlg_area_uniform_load import AreaUniformLoadDialog
-
-    def on_assign_area_uniform_load(self):
-        selected_ids = getattr(self.canvas, 'selected_area_ids', [])
-        if not selected_ids:
-            QMessageBox.information(self, "No Selection",
-                                    "Select one or more area elements first.")
-            return
-        from app.dialogs.dlg_area_uniform_load import AreaUniformLoadDialog
-        dlg = AreaUniformLoadDialog(self.model, selected_ids, parent=self)
-        dlg.exec()
-        self.draw_both_canvases()
 """
 
 from PyQt6.QtWidgets import (
@@ -42,18 +13,6 @@ from PyQt6.QtGui import QDoubleValidator
 from core.units import unit_registry
 
 class AreaUniformLoadDialog(QDialog):
-    """
-    Assign Area Uniform Loads dialog — mirrors the SAP2000 UI.
-
-    Parameters
-    ----------
-    model : StructuralModel
-        The live model instance.
-    selected_area_ids : list[int]
-        IDs of the area elements currently selected on the canvas.
-    parent : QWidget, optional
-    """
-
     DIRECTIONS = [
         "Gravity",                             
         "Local 1",                             
@@ -64,17 +23,15 @@ class AreaUniformLoadDialog(QDialog):
         "Global Z",
     ]
 
-    def __init__(self, model, selected_area_ids, parent=None):
+    def __init__(self, model, parent=None):
         super().__init__(parent)
         self.model = model
-        self.selected_area_ids = list(selected_area_ids)
-
+        
+        self.setWindowFlag(Qt.WindowType.Tool)
+        
         self.setWindowTitle("Assign Area Uniform Loads")
         self.setFixedWidth(390)
         self.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Preferred)
-        self.setWindowFlags(
-            self.windowFlags() & ~Qt.WindowType.WindowContextHelpButtonHint
-        )
 
         self._build_ui()
         self._populate_patterns()
@@ -86,12 +43,7 @@ class AreaUniformLoadDialog(QDialog):
 
         grp_gen = QGroupBox("General")
         form_gen = QFormLayout(grp_gen)
-        form_gen.setLabelAlignment(
-            Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter
-        )
-        form_gen.setFieldGrowthPolicy(
-            QFormLayout.FieldGrowthPolicy.AllNonFixedFieldsGrow
-        )
+        form_gen.setLabelAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
         form_gen.setHorizontalSpacing(12)
 
         self.combo_pattern = QComboBox()
@@ -104,19 +56,15 @@ class AreaUniformLoadDialog(QDialog):
         self.combo_direction = QComboBox()
         self.combo_direction.addItems(self.DIRECTIONS)
         form_gen.addRow("Load Direction:", self.combo_direction)
-
         root.addWidget(grp_gen)
 
         grp_load = QGroupBox("Uniform Load")
         form_load = QFormLayout(grp_load)
-        form_load.setLabelAlignment(
-            Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter
-        )
+        form_load.setLabelAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
         form_load.setHorizontalSpacing(12)
 
         load_row = QHBoxLayout()
         load_row.setSpacing(6)
-
         self.edit_load = QLineEdit("0")
         self.edit_load.setValidator(QDoubleValidator(-1e18, 1e18, 6, self))
         self.edit_load.setAlignment(Qt.AlignmentFlag.AlignRight)
@@ -142,9 +90,9 @@ class AreaUniformLoadDialog(QDialog):
         self.rb_delete  = QRadioButton("Delete Existing Loads")
         self.rb_replace.setChecked(True)
 
-        self._mode_grp.addButton(self.rb_add,     0)
+        self._mode_grp.addButton(self.rb_add, 0)
         self._mode_grp.addButton(self.rb_replace, 1)
-        self._mode_grp.addButton(self.rb_delete,  2)
+        self._mode_grp.addButton(self.rb_delete, 2)
 
         vlay.addWidget(self.rb_add)
         vlay.addWidget(self.rb_replace)
@@ -166,7 +114,7 @@ class AreaUniformLoadDialog(QDialog):
             b.setFixedWidth(75)
 
         btn_ok.clicked.connect(self._ok)
-        btn_close.clicked.connect(self.reject)
+        btn_close.clicked.connect(self.close)
         btn_apply.clicked.connect(self._apply)
 
         btn_row.addWidget(btn_ok)
@@ -175,7 +123,6 @@ class AreaUniformLoadDialog(QDialog):
         root.addLayout(btn_row)
 
     def _populate_patterns(self):
-        """Fill Load Pattern combo from model."""
         self.combo_pattern.clear()
         for name in self.model.load_patterns:
             self.combo_pattern.addItem(name)
@@ -192,26 +139,24 @@ class AreaUniformLoadDialog(QDialog):
             return fallback
 
     def _reset(self):
-        """Restore dialog to SAP2000 default values."""
         self.combo_coord.setCurrentIndex(0)
         self.combo_direction.setCurrentText("Gravity")
         self.edit_load.setText("0")
         self.rb_replace.setChecked(True)
-                                                                             
         self.lbl_unit.setText(unit_registry.pressure_unit)
 
     def _apply(self):
-        """
-        Apply uniform load to all selected area elements.
+                                                                       
+        main_window = self.parent()
+        selected_ids = list(main_window.selected_area_ids)
 
-        The user enters the value in the active display unit system
-        (e.g. kN/m²).  We convert to SI (N/m²) before passing to the
-        model so all stored values are always in base SI units.
-        """
+        if not selected_ids:
+            QMessageBox.information(self, "No Selection", "Please select one or more area elements on the canvas first.")
+            return
+
         pattern = self.combo_pattern.currentText()
         if not pattern:
-            QMessageBox.warning(self, "No Pattern",
-                                "Please select a load pattern.")
+            QMessageBox.warning(self, "No Pattern", "Please select a load pattern.")
             return
 
         coord     = self.combo_coord.currentText()
@@ -222,18 +167,34 @@ class AreaUniformLoadDialog(QDialog):
         load_si      = unit_registry.from_display_pressure(display_load)
 
         errors = []
-        for aid in self.selected_area_ids:
+        trib_error_flag = False
+        valid_trib_dirs = ["Gravity", "Global Z", "Local 3"]
+
+        for aid in selected_ids:
+            area = self.model.area_elements.get(aid)
+            if not area: continue
+            
+            if hasattr(area.section, 'modeling_type') and area.section.modeling_type == "Tributary Area":
+                if direction not in valid_trib_dirs:
+                    trib_error_flag = True
+                    continue                                
+
             try:
-                self.model.assign_area_uniform_load(
-                    aid, pattern, load_si, direction, coord, mode)
+                self.model.assign_area_uniform_load(aid, pattern, load_si, direction, coord, mode)
             except KeyError as e:
                 errors.append(str(e))
 
+        if trib_error_flag:
+            QMessageBox.warning(self, "Invalid Direction", "In-plane loads (X, Y, Local 1, Local 2) cannot be applied to Tributary Area slabs. They only transfer Gravity/Z loads.\n\nThose slabs were skipped.")
+
         if errors:
-            QMessageBox.warning(self, "Assignment Error",
-                                "Some elements could not be updated:\n" +
-                                "\n".join(errors))
+            QMessageBox.warning(self, "Assignment Error", "Some elements could not be updated:\n" + "\n".join(errors))
+
+        main_window.selected_area_ids.clear()
+        main_window._refresh_selection_overlay()
+        main_window.update_yield_lines()
+        main_window.draw_both_canvases()
 
     def _ok(self):
         self._apply()
-        self.accept()
+        self.close()

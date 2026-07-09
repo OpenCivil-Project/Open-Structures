@@ -424,10 +424,6 @@ class MainWindow(QMainWindow):
         draw_area_action = QAction(qta.icon('fa5s.vector-square', color='#6c757d'), "Draw Poly Area...", self)
         draw_area_action.triggered.connect(self.on_draw_poly_area)
         self.menu_draw.addAction(draw_area_action)
-        
-        draw_slab_action = QAction(qta.icon('fa5s.draw-polygon', color='#6c757d'), "Create Slab from Selection", self)
-        draw_slab_action.triggered.connect(self.on_create_slab_from_selection)
-        self.menu_draw.addAction(draw_slab_action)
 
         cross_brace_action = QAction(qta.icon('fa5s.times', color='#6c757d'), "Quick Cross Brace...", self)
         cross_brace_action.triggered.connect(self.on_draw_cross_brace)
@@ -672,12 +668,6 @@ class MainWindow(QMainWindow):
         self.act_quick_brace.triggered.connect(self.on_draw_cross_brace)
         self.draw_action_group.addAction(self.act_quick_brace)
         self.sidebar.addAction(self.act_quick_brace)
-
-        self.act_draw_slab = QAction(qta.icon('fa5s.draw-polygon', color='#6c757d'), "Create Slab", self)
-        self.act_draw_slab.setToolTip("Create Slab from Selected Joints")
-                                                                                      
-        self.act_draw_slab.triggered.connect(self.on_create_slab_from_selection)
-        self.sidebar.addAction(self.act_draw_slab)
 
         self.central_widget = QWidget()
         self.setCentralWidget(self.central_widget)
@@ -2504,24 +2494,6 @@ class MainWindow(QMainWindow):
             self._desel_by_sec_dlg._populate()
             self._desel_by_sec_dlg.raise_() 
 
-    def on_create_slab_from_selection(self):
-        if len(self.selected_node_ids) < 3:
-            QMessageBox.warning(self, "Selection Error", "Select at least 3 Joints.")
-            return
-        selected_nodes = []
-        for nid in self.selected_node_ids:
-            if nid in self.model.nodes: selected_nodes.append(self.model.nodes[nid])
-        
-        cx = sum(n.x for n in selected_nodes) / len(selected_nodes)
-        cy = sum(n.y for n in selected_nodes) / len(selected_nodes)
-        import math
-        selected_nodes.sort(key=lambda n: math.atan2(n.y - cy, n.x - cx))
-
-        self.model.add_slab(selected_nodes, thickness=0.2)
-        self.draw_both_canvases()
-        self.status.showMessage(f"Slab Created with {len(selected_nodes)} nodes.")
-        print(f"> GUI: Slab created using {len(selected_nodes)} selected nodes.")
-
     def on_view_options(self):
         if not hasattr(self, '_view_options_dialog') or self._view_options_dialog is None:
             self._view_options_dialog = ViewOptionsDialog(self)
@@ -2553,9 +2525,15 @@ class MainWindow(QMainWindow):
         cvs.show_constraints     = settings.get('constraints', True)
         cvs.show_releases        = settings.get('releases', True)
         cvs.show_loads           = settings.get('loads', True)
+        cvs.show_tributary_loads = settings.get('tributary_loads', False)
+        cvs.show_tributary_heatmap = settings.get('tributary_heatmap', False)
+        cvs.show_tributary_mesh    = settings.get('tributary_mesh', False)
         cvs.show_local_axes      = settings.get('axes', False)
         cvs.load_type_filter     = settings.get('load_type', 'both')
         cvs.visible_load_patterns = settings.get('visible_patterns', [])
+
+        if hasattr(cvs, '_update_tributary_visuals'):
+            cvs._update_tributary_visuals()
 
         self.draw_both_canvases()
         self.status.showMessage(f"Display Options Updated")
@@ -2666,6 +2644,28 @@ class MainWindow(QMainWindow):
         self.beam_col_dialog.refresh_sections()
         self._on_beam_col_type_changed(self.beam_col_dialog.get_member_type())
         self.beam_col_dialog.show()
+
+    def update_yield_lines(self):
+        """
+        Triggers the async Tributary Area load generator.
+        """
+        if not hasattr(self, '_tributary_generator') or self._tributary_generator.model is not self.model:
+            from core.tributary_loads import TributaryLoadGenerator
+            self._tributary_generator = TributaryLoadGenerator(self.model)
+            
+            self._tributary_generator.signal_redraw_requested.connect(self._on_tributary_update_received)
+        
+        self._tributary_generator.distribute_loads_to_frames()
+
+    def _on_tributary_update_received(self):
+        """Forces the canvas to dump its cached slab mesh and redraw the new heatmap."""
+                                                                             
+        self.canvas.invalidate_area_vbo()
+        
+        if hasattr(self, 'canvas2'):
+            self.canvas2.invalidate_area_vbo()
+            
+        self.draw_both_canvases()
 
     def _on_beam_col_type_changed(self, member_type):
         for cvs in [self.canvas, self.canvas2]:
@@ -2810,6 +2810,23 @@ class MainWindow(QMainWindow):
                                                    
             if not self.model.file_path:
                 return
+        for ae in getattr(self.model, 'area_elements', {}).values():
+            if hasattr(ae.section, 'modeling_type') and ae.section.modeling_type == "Tributary Area":              
+                for node in ae.nodes:
+                    is_restrained = any(node.restraints) if hasattr(node, 'restraints') else False
+                    is_framed = self.is_node_connected(node.id)
+                    
+                    if not is_restrained and not is_framed:
+                        QApplication.restoreOverrideCursor()
+                        QMessageBox.critical(
+                            self, 
+                            "Unstable Geometry Detected", 
+                            f"Analysis Aborted: Tributary Area slab has a free, unsupported corner at Node {node.id}.\n\n"
+                            f"Tributary load transfer requires all slab corners to be supported by a frame element or a boundary restraint. "
+                            f"Please attach a beam/column to Node {node.id} or delete the slab."
+                        )
+                        self.set_interface_state(True)
+                        return
 
         print(f"Main: Starting analysis for case '{case_name}'...")
         
@@ -2844,7 +2861,14 @@ class MainWindow(QMainWindow):
                 self.solver_output_path = f"{base_name}_{first_case}_results.json"
         else:
             self.solver_output_path = f"{base_name}_{case_name}_results.json"
+
+        from core.tributary_loads import TributaryLoadGenerator
         
+        self.model.loads = [ld for ld in self.model.loads if not getattr(ld, 'is_tributary_generated', False)]
+        
+        yield_generator = TributaryLoadGenerator(self.model)
+        yield_generator.distribute_loads_to_frames()
+
         try:
             self.model.save_to_file(self.solver_input_path)
             print(f"Model saved to {self.solver_input_path}")
@@ -3838,11 +3862,10 @@ class MainWindow(QMainWindow):
         dlg.show()  
 
     def _on_model_changed(self, idx):
-        """Called on every undo stack push/undo/redo — keeps canvas2 in sync."""
-        if self.model and getattr(self, 'canvas2_visible', False):
-            self.canvas2.draw_model(self.model,
-                                    list(self.selected_ids),
-                                    list(self.selected_node_ids))
+        """Called on every undo stack push/undo/redo — syncs loads and canvases."""
+        if self.model:
+            self.update_yield_lines()
+            self.draw_both_canvases()
 
     def draw_both_canvases(self, sel_elems=None, sel_nodes=None, progress=None):
         """Draw the model on both canvases with consistent selection state."""
@@ -3875,6 +3898,7 @@ class MainWindow(QMainWindow):
         self._purge_results_and_visuals()                
         self.model = new_model
         self.undo_stack.clear()
+        self.update_yield_lines()
 
         if new_model.graphics_settings:
             self.graphics_settings.update(new_model.graphics_settings)
@@ -3942,29 +3966,30 @@ class MainWindow(QMainWindow):
         """Assign > Area > Uniform Load..."""
         if not self.model:
             return
-        selected_ids = getattr(self.canvas, 'selected_area_ids', [])
-        if not selected_ids:
-            QMessageBox.information(self, "No Selection",
-                                    "Select one or more area elements first.")
-            return
-        from app.dialogs.dlg_area_uniform_load import AreaUniformLoadDialog
-        dlg = AreaUniformLoadDialog(self.model, selected_ids, parent=self)
-        dlg.exec()
-        self.draw_both_canvases()
+            
+        if not hasattr(self, '_area_uniform_load_dlg') or self._area_uniform_load_dlg is None:
+            from app.dialogs.dlg_area_uniform_load import AreaUniformLoadDialog
+            self._area_uniform_load_dlg = AreaUniformLoadDialog(self.model, parent=self)
+                                                             
+            self._area_uniform_load_dlg.finished.connect(lambda: setattr(self, '_area_uniform_load_dlg', None))
+            
+        self._area_uniform_load_dlg.show()
+        self._area_uniform_load_dlg.raise_()
+        self._area_uniform_load_dlg.activateWindow()
  
     def on_assign_area_gravity_load(self):
         """Assign > Area > Gravity Load..."""
         if not self.model:
             return
-        selected_ids = getattr(self.canvas, 'selected_area_ids', [])
-        if not selected_ids:
-            QMessageBox.information(self, "No Selection",
-                                    "Select one or more area elements first.")
-            return
-        from app.dialogs.dlg_area_gravity_load import AreaGravityLoadDialog
-        dlg = AreaGravityLoadDialog(self.model, selected_ids, parent=self)
-        dlg.exec()
-        self.draw_both_canvases()
+            
+        if not hasattr(self, '_area_gravity_load_dlg') or self._area_gravity_load_dlg is None:
+            from app.dialogs.dlg_area_gravity_load import AreaGravityLoadDialog
+            self._area_gravity_load_dlg = AreaGravityLoadDialog(self.model, parent=self)
+            self._area_gravity_load_dlg.finished.connect(lambda: setattr(self, '_area_gravity_load_dlg', None))
+            
+        self._area_gravity_load_dlg.show()
+        self._area_gravity_load_dlg.raise_()
+        self._area_gravity_load_dlg.activateWindow()
 
     def on_assign_area_mesh(self):
         """Triggered from Assign > Area > Automatic Area Mesh"""
@@ -3991,8 +4016,15 @@ class MainWindow(QMainWindow):
             QMessageBox.information(self, "Selection Required", "Please select at least one Area Element to mesh.")
             return
 
+        for aid in selected_ids:
+            ae = getattr(self.model, 'area_elements', {}).get(aid)
+            if ae and hasattr(ae.section, 'modeling_type') and ae.section.modeling_type == "Code Based (TS 500)":
+                from PyQt6.QtWidgets import QMessageBox
+                QMessageBox.warning(self, "Invalid Selection", "You cannot mesh Code Based (TS 500) slabs because they do not have internal FEM nodes.\n\nPlease deselect them and try again.")
+                return
+
         if params["mode"] == "divisions" and params["n"] == 1 and params["m"] == 1:
-            return 
+            return
 
         from app.commands import CmdMeshAreaElements
         
@@ -4025,7 +4057,10 @@ class MainWindow(QMainWindow):
         self.canvas.show_releases        = gs.get('show_releases', True)
         self.canvas.load_type_filter     = gs.get('load_type_filter', 'both')
         self.canvas.visible_load_patterns = gs.get('visible_load_patterns', [])
-
+        self.canvas.show_tributary_loads = gs.get('tributary_loads', False)
+        self.canvas.show_tributary_heatmap = gs.get('tributary_heatmap', False)
+        self.canvas.show_tributary_mesh    = gs.get('tributary_mesh', False)
+        
     def _update_active_border(self):
                                                
         if self.canvas2_visible:
@@ -4413,6 +4448,9 @@ def main():
                         window.on_units_changed(0)
                     
                     window.draw_both_canvases()
+                    if hasattr(window, '_tributary_generator'):
+                        window._tributary_generator.reset(window.model)
+                        window.update_yield_lines()
                     window.status.showMessage(f"Loaded: {file_path}")
                     window.canvas.set_standard_view("3D")
                     window.set_interface_state(True)

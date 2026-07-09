@@ -495,17 +495,22 @@ class CmdAssignJointLoad(QUndoCommand):
 
 class CmdAssignFrameLoad(QUndoCommand):
     """
-    Handles Distributed Loads (MemberLoad).
+    Handles Distributed Loads (MemberLoad) including new Trapezoidal data.
     """
     def __init__(self, model, main_window, elem_ids, pattern_name, 
-                 wx, wy, wz, projected, coord_sys, mode="replace"):
+                 wx, wy, wz, projected, coord_sys, mode="replace",
+                 distances=None, magnitudes=None, is_relative=True, 
+                 load_direction="Gravity", load_type="Force"):                 
         super().__init__("Assign Distributed Load")
         self.model = model
         self.main_window = main_window
         self.elem_ids = elem_ids
         self.pattern_name = pattern_name
-        self.params = (wx, wy, wz, projected, coord_sys)
         self.mode = mode
+        
+        self.params = (wx, wy, wz, projected, coord_sys, 
+                       distances, magnitudes, is_relative, 
+                       load_direction, load_type)
         
         self.old_loads = []
         for load in model.loads:
@@ -514,15 +519,20 @@ class CmdAssignFrameLoad(QUndoCommand):
                     self.old_loads.append(copy.deepcopy(load))
 
     def redo(self):
-        wx, wy, wz, proj, cs = self.params
+                                             
+        (wx, wy, wz, proj, cs, dists, mags, is_rel, l_dir, l_type) = self.params
+        
         for eid in self.elem_ids:
             self.model.assign_member_load(
-                eid, self.pattern_name, wx, wy, wz, proj, cs, self.mode
+                eid, self.pattern_name, wx, wy, wz, 
+                proj, cs, self.mode,
+                distances=dists, magnitudes=mags, is_relative=is_rel, 
+                load_direction=l_dir, load_type=l_type
             )
         self.main_window.draw_both_canvases()
 
     def undo(self):
-                          
+                                                                       
         for i in range(len(self.model.loads) - 1, -1, -1):
             load = self.model.loads[i]
             if isinstance(load, MemberLoad):

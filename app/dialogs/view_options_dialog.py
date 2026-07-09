@@ -86,6 +86,14 @@ class ViewOptionsDialog(QDialog):
         self.cb_show_loads.toggled.connect(self.toggle_load_options)
         loads_vbox.addWidget(self.cb_show_loads)
 
+        self.cb_tributary_loads = QCheckBox("Show Tributary Area Loads")
+        self.cb_tributary_heatmap = QCheckBox("Show Tributary Heatmap / Yield Lines")
+        self.cb_tributary_heatmap.toggled.connect(self._on_heatmap_toggled)
+        self.cb_extrude.toggled.connect(self._on_extrude_toggled)
+        self.cb_tributary_loads.setChecked(False)                      
+        loads_vbox.addWidget(self.cb_tributary_loads)
+        loads_vbox.addWidget(self.cb_tributary_heatmap)                    
+
         loads_vbox.addWidget(QLabel("Load Type:"))
         self.rb_nodal = QRadioButton("Nodal Only")
         self.rb_frame = QRadioButton("Frame Only")
@@ -151,6 +159,9 @@ class ViewOptionsDialog(QDialog):
         self.cb_constraints.setChecked(cvs.show_constraints)
         self.cb_releases.setChecked(cvs.show_releases)
         self.cb_show_loads.setChecked(cvs.show_loads)
+        self.cb_tributary_loads.setChecked(getattr(cvs, 'show_tributary_loads', False))
+        self.cb_tributary_heatmap.setChecked(getattr(cvs, 'show_tributary_heatmap', False))
+        
         self.chk_axes.setChecked(cvs.show_local_axes)
 
         lt = getattr(cvs, 'load_type_filter', 'both')
@@ -198,6 +209,8 @@ class ViewOptionsDialog(QDialog):
             'constraints':       self.cb_constraints.isChecked(),
             'releases':          self.cb_releases.isChecked(),
             'loads':             self.cb_show_loads.isChecked(),
+            'tributary_loads':   self.cb_tributary_loads.isChecked(),
+            'tributary_heatmap': self.cb_tributary_heatmap.isChecked(),
             'axes':              self.chk_axes.isChecked(),
             'load_type':         load_type,
             'visible_patterns':  visible_patterns,
@@ -208,6 +221,14 @@ class ViewOptionsDialog(QDialog):
             w.setEnabled(enabled)
         for cb in self.pattern_checkboxes.values():
             cb.setEnabled(enabled)
+
+    def _on_heatmap_toggled(self, checked):
+        if checked and self.cb_extrude.isChecked():
+            self.cb_extrude.setChecked(False)
+
+    def _on_extrude_toggled(self, checked):
+        if checked and self.cb_tributary_heatmap.isChecked():
+            self.cb_tributary_heatmap.setChecked(False)
 
     def on_apply(self):
         self._update_target_label()

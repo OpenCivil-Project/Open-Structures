@@ -4,7 +4,6 @@ import os
 import numpy as np
 import functools
 
-@functools.lru_cache(maxsize=16)
 def get_cached_matrices(path):
     if not os.path.exists(path): return {}
     with open(path, 'r') as f: return json.load(f)
@@ -322,7 +321,10 @@ class MemberAnalyzer:
             u2_l, v2, w2, thx2, thy2, thz2 = u_local[6:12]
 
             R_3x3 = self._t[0:3, 0:3]
-            w_loc = np.zeros(3)
+            p1_coords = np.array([el.node_i.x, el.node_i.y, el.node_i.z])
+            p2_coords = np.array([el.node_j.x, el.node_j.y, el.node_j.z])
+            
+            line_loads = []
             point_loads = []
 
             pattern_scales = {}
@@ -339,33 +341,91 @@ class MemberAnalyzer:
                         density = getattr(el.section.material, 'density', 0)
                         w_sw_mag = area * density * pat.self_weight_multiplier * net_scale
                         w_sw_local = R_3x3 @ np.array([0.0, 0.0, -w_sw_mag])
-                        w_loc += w_sw_local
+                        if np.any(np.abs(w_sw_local) > 1e-9):
+                            line_loads.append({
+                                'dists': [0.0, L_full],
+                                'vecs': [w_sw_local.copy(), w_sw_local.copy()]
+                            })
 
-            for load in getattr(self.model, 'loads', []):
-                if getattr(load, 'element_id', None) == int(el.id):
-                    load_pat = getattr(load, 'pattern', None)
+            for raw_load in getattr(self.model, 'loads', []):
+                                                                                   
+                is_dict = isinstance(raw_load, dict)
+                def get_p(k, default=None): return raw_load.get(k, default) if is_dict else getattr(raw_load, k, default)
+                def has_p(k): return k in raw_load if is_dict else hasattr(raw_load, k)
+
+                if get_p('element_id') == int(el.id):
+                    load_pat = get_p('pattern', get_p('pattern_name'))
                     if load_pat not in pattern_scales: continue
                     net_scale = pattern_scales[load_pat]
-                    is_local = getattr(load, 'coord_system', 'Global').lower() == 'local'
                     
-                    if hasattr(load, 'wx'): 
-                        w_vec = np.array([load.wx, load.wy, load.wz]) * net_scale
-                        if not is_local: w_vec = R_3x3 @ w_vec
-                        w_loc += w_vec
-                    elif hasattr(load, 'force'): 
-                        is_rel = getattr(load, 'is_rel', getattr(load, 'is_relative', False))
-                        dist_val = load.dist
+                    l_type = get_p('type', get_p('load_type', ''))
+                    is_local = str(get_p('coord_system', get_p('coord', 'Global'))).lower() == 'local'
+                    
+                    if l_type == 'member_dist' or (has_p('wx') and not has_p('force')):
+                        mags = np.array(get_p('magnitudes', [0, 0, 0, 0])) * net_scale
+                        dists = np.array(get_p('distances', [0, 0.25, 0.75, 1.0]))
+                        has_trap = any(abs(m) > 1e-9 for m in mags)
+                        
+                        if has_trap:
+                            is_rel = get_p('is_relative', True)
+                            if is_rel: dists = dists * L_full
+                            dir_str = str(get_p('load_direction', 'Gravity')).upper()
+                            w_vectors = []
+                            for m in mags:
+                                vec = np.zeros(3)
+                                if "GRAVITY" in dir_str: vec[2] = m
+                                elif "X" in dir_str or "1" in dir_str: vec[0] = m
+                                elif "Y" in dir_str or "2" in dir_str: vec[1] = m
+                                elif "Z" in dir_str or "3" in dir_str: vec[2] = m
+                                if not is_local: vec = R_3x3 @ vec
+                                if get_p('projected', False) and not is_local:
+                                    dx = p2_coords[0] - p1_coords[0]
+                                    dy = p2_coords[1] - p1_coords[1]
+                                    L_horiz = np.sqrt(dx**2 + dy**2)
+                                    if L_full > 1e-9: vec = vec * (L_horiz / L_full)
+                                w_vectors.append(vec)
+                            line_loads.append({'dists': dists, 'vecs': w_vectors})
+                        else:
+                            w_vec = np.array([get_p('wx', 0), get_p('wy', 0), get_p('wz', 0)]) * net_scale
+                            if not is_local: w_vec = R_3x3 @ w_vec
+                            if get_p('projected', False) and not is_local:
+                                dx = p2_coords[0] - p1_coords[0]
+                                dy = p2_coords[1] - p1_coords[1]
+                                L_horiz = np.sqrt(dx**2 + dy**2)
+                                if L_full > 1e-9: w_vec = w_vec * (L_horiz / L_full)
+                            line_loads.append({'dists': [0.0, L_full], 'vecs': [w_vec, w_vec]})
+                            
+                    elif l_type == 'member_point' or has_p('force'):
+                        is_rel = get_p('is_rel', get_p('is_relative', False))
+                        dist_val = get_p('dist', 0.0)
                         if is_rel and dist_val > 1.0: dist_val /= 100.0
                         a = dist_val * L_full if is_rel else dist_val
                         a_clear = a - ri
+                        
                         if 0 <= a_clear <= L_clear:
-                            dir_str = str(getattr(load, 'dir', getattr(load, 'axis', 'Z'))).upper()
-                            idx = 0 if ("X" in dir_str or "1" in dir_str) else (1 if ("Y" in dir_str or "2" in dir_str) else 2)
-                            vec = np.zeros(3); vec[idx] = load.force * net_scale
-                            if not is_local: vec = R_3x3 @ vec
-                            type_str = str(getattr(load, 'type', getattr(load, 'l_type', 'Force'))).upper()
-                            if 'MOMENT' in type_str: point_loads.append({'a_clear': a_clear, 'F': np.zeros(3), 'M': vec})
-                            else: point_loads.append({'a_clear': a_clear, 'F': vec, 'M': np.zeros(3)})
+                            dir_str = str(get_p('direction', get_p('dir', get_p('axis', 'Z')))).upper()
+
+                            sign = 1.0
+                            idx = 2
+                            if "GRAVITY" in dir_str:
+                                idx = 2
+                                sign = -1.0
+                                is_local = False
+                            elif "X" in dir_str or "1" in dir_str: idx = 0
+                            elif "Y" in dir_str or "2" in dir_str: idx = 1
+                            elif "Z" in dir_str or "3" in dir_str: idx = 2
+                            
+                            vec = np.zeros(3)
+                            vec[idx] = get_p('force', 0.0) * sign * net_scale
+                            
+                            if not is_local: 
+                                vec = R_3x3 @ vec
+                                
+                            l_type_str = str(get_p('load_type', get_p('l_type', 'Force'))).upper()
+                            if 'MOMENT' in l_type_str: 
+                                point_loads.append({'a_clear': a_clear, 'F': np.zeros(3), 'M': vec})
+                            else: 
+                                point_loads.append({'a_clear': a_clear, 'F': vec, 'M': np.zeros(3)})
 
             E = getattr(el.section.material, 'E', 1.0)
             I33 = getattr(el.section, 'I33', 1.0)
@@ -375,11 +435,58 @@ class MemberAnalyzer:
                 x_c = x_abs - ri
                 xi = x_c / L_clear if L_clear > 0 else 0
                 
-                P_val = -Fx1 - w_loc[0] * x_c
-                V2_val = Fy1 + w_loc[1] * x_c
-                V3_val = -(Fz1 + w_loc[2] * x_c)
-                M3_val = Mz1 - Fy1 * x_c - w_loc[1] * (x_c**2) / 2.0
-                M2_val = My1 + Fz1 * x_c + w_loc[2] * (x_c**2) / 2.0
+                w_P_tot = 0.0; w_V2_tot = 0.0; w_V3_tot = 0.0
+                w_M3_tot = 0.0; w_M2_tot = 0.0
+                
+                w_loc_sum = np.zeros(3)
+                len_sum = 0.0
+                
+                for ll in line_loads:
+                    dists = ll['dists']
+                    vecs = ll['vecs']
+                    for k in range(len(dists) - 1):
+                        x1_dist = dists[k]; x2_dist = dists[k+1]
+                        
+                        w_vec1 = vecs[k]; w_vec2 = vecs[k+1]
+                        
+                        if x2_dist - x1_dist < 1e-9: continue
+                        
+                        s_start = max(ri, x1_dist)
+                        s_end = min(x_abs, x2_dist)
+                        
+                        if s_start < s_end:
+                            t_start = (s_start - x1_dist) / (x2_dist - x1_dist)
+                            t_end = (s_end - x1_dist) / (x2_dist - x1_dist)
+                            ws = w_vec1 + t_start * (w_vec2 - w_vec1)
+                            we = w_vec1 + t_end * (w_vec2 - w_vec1)
+                            
+                            L_seg = s_end - s_start
+                            F_vec = 0.5 * (ws + we) * L_seg
+                            
+                            w_P_tot += F_vec[0]
+                            w_V2_tot += F_vec[1]
+                            w_V3_tot += F_vec[2]
+                            
+                            arm_rect = x_abs - 0.5 * (s_start + s_end)
+                            M_rect = ws * L_seg * arm_rect
+                            
+                            arm_tri = x_abs - (s_start + (2.0/3.0) * L_seg)
+                            M_tri = 0.5 * (we - ws) * L_seg * arm_tri
+                            
+                            M_vec = M_rect + M_tri
+                            w_M3_tot += M_vec[1]
+                            w_M2_tot += M_vec[2]
+                            
+                            w_loc_sum += 0.5 * (ws + we) * L_seg
+                            len_sum += L_seg
+                            
+                w_loc_avg = w_loc_sum / len_sum if len_sum > 1e-9 else np.zeros(3)
+                
+                P_val = -Fx1 - w_P_tot
+                V2_val = Fy1 + w_V2_tot
+                V3_val = -(Fz1 + w_V3_tot)
+                M3_val = Mz1 - Fy1 * x_c - w_M3_tot
+                M2_val = My1 + Fz1 * x_c + w_M2_tot
                 
                 for pl in point_loads:
                     a_c = pl['a_clear']
@@ -402,13 +509,14 @@ class MemberAnalyzer:
                 chord_2 = v1 + (v2 - v1) * xi
                 chord_3 = w1 + (w2 - w1) * xi
                 
-                defl_bubble_2 = (w_loc[1] * (x_c**2) * ((L_clear - x_c)**2)) / (24 * E * I33) if I33 > 0 else 0
-                defl_bubble_3 = (w_loc[2] * (x_c**2) * ((L_clear - x_c)**2)) / (24 * E * I22) if I22 > 0 else 0
+                defl_bubble_2 = (w_loc_avg[1] * (x_c**2) * ((L_clear - x_c)**2)) / (24 * E * I33) if I33 > 0 else 0
+                defl_bubble_3 = (w_loc_avg[2] * (x_c**2) * ((L_clear - x_c)**2)) / (24 * E * I22) if I22 > 0 else 0
                 
                 self.Defl_2_Rel[i] = (defl_2_abs - chord_2) + defl_bubble_2
                 self.Defl_3_Rel[i] = (defl_3_abs - chord_3) + defl_bubble_3
                 self.Defl_2_Abs[i] = defl_2_abs + defl_bubble_2
-                self.Defl_3_Abs[i] = defl_3_abs + defl_bubble_3            
+                self.Defl_3_Abs[i] = defl_3_abs + defl_bubble_3
+                          
 class MatrixSpyDialog(QDialog):
     def __init__(self, element_id, model, matrices_path, parent=None):
         super().__init__(parent, Qt.WindowType.Window)
@@ -537,12 +645,21 @@ class FBDViewerDialog(QDialog):
 
     def _populate_case_switcher(self, current_results_path):
         import glob
-        import json                                  
+        import json
         self.case_combo.blockSignals(True)
         self.case_combo.clear()
 
         active_case = self.results.get("info", {}).get("case_name", "")
 
+        is_single_case = active_case in getattr(self.model, 'load_cases', {})
+
+        if is_single_case:
+            self.case_combo.addItem(active_case, active_case)
+            self.case_combo.setCurrentIndex(0)
+            self.case_combo.setEnabled(False)                                           
+            self.case_combo.blockSignals(False)
+            return                       
+                                                  
         if active_case and f"_{active_case}_results.json" in current_results_path:
             self._base_file_path = current_results_path.replace(f"_{active_case}_results.json", "")
         else:
@@ -551,7 +668,7 @@ class FBDViewerDialog(QDialog):
                 self._base_file_path = self._base_file_path.rsplit("_", 1)[0]
 
         valid_cases = []
-        excluded_types = ["Modal", "Buckling", "LTHA"]                           
+        excluded_types = ["Modal", "Buckling", "LTHA"]
         
         search_pattern = f"{self._base_file_path}_*_results.json"
         for file_path in glob.glob(search_pattern):
@@ -561,8 +678,7 @@ class FBDViewerDialog(QDialog):
                 
                 case_type = temp_data.get("info", {}).get("type", "")
                 if case_type in excluded_types:
-                    continue                                                    
-                    
+                    continue
             except Exception:
                 continue
 

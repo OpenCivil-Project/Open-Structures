@@ -262,3 +262,116 @@ def condense_fef(k_local, fef_local, releases):
     except np.linalg.LinAlgError:
         print("Warning: Unstable release configuration in load condensation.")
         return fef_local
+
+def get_varying_fef_via_integration(L_clear, L_total, ri, rj, distances, w_vectors_local, mat, sec):
+    fef_local = np.zeros(12)
+    F_ri = np.zeros(3)
+    M_ri_cent = np.zeros(3)
+    F_rj = np.zeros(3)
+    M_rj_cent = np.zeros(3)
+    
+    gauss_pts = np.array([-0.9061798459, -0.5384693101, 0.0, 0.5384693101, 0.9061798459])
+    gauss_wts = np.array([0.2369268850, 0.4786286705, 0.5688888889, 0.4786286705, 0.2369268850])
+    
+    rj_start = L_total - rj
+    
+    for i in range(len(distances) - 1):
+        x_A = distances[i]
+        x_B = distances[i+1]
+        w_A = w_vectors_local[i]
+        w_B = w_vectors_local[i+1]
+        
+        if x_B - x_A <= 1e-9:
+            continue
+            
+        boundaries = [0.0, ri, rj_start, L_total]
+        break_points = [x_A, x_B]
+        for b in boundaries:
+            if b > x_A + 1e-9 and b < x_B - 1e-9:
+                break_points.append(b)
+                
+        break_points = sorted(list(set(break_points)))
+        
+        for j in range(len(break_points) - 1):
+            s_start = break_points[j]
+            s_end = break_points[j+1]
+            L_seg = s_end - s_start
+            if L_seg <= 1e-9: continue
+            
+            t_start = (s_start - x_A) / (x_B - x_A)
+            t_end = (s_end - x_A) / (x_B - x_A)
+            w_s = w_A + t_start * (w_B - w_A)
+            w_e = w_A + t_end * (w_B - w_A)
+            
+            mid_zone = 0.5 * (s_start + s_end)
+            
+            for pt, wt in zip(gauss_pts, gauss_wts):
+                x_mapped = 0.5 * L_seg * pt + 0.5 * (s_start + s_end)
+                t = (x_mapped - s_start) / L_seg
+                w_x = w_s + t * (w_e - w_s)
+                
+                dP_vec = w_x * (0.5 * L_seg * wt)
+                
+                if mid_zone <= ri + 1e-9:
+                    F_ri += dP_vec
+                    M_ri_cent += np.cross(np.array([x_mapped, 0.0, 0.0]), dP_vec)
+                elif mid_zone >= rj_start - 1e-9:
+                    F_rj += dP_vec
+                    M_rj_cent += np.cross(np.array([-(L_total - x_mapped), 0.0, 0.0]), dP_vec)
+                else:
+                    a_dist = x_mapped - ri
+                                                                           
+                    dP_fef = get_analytical_timoshenko_fef(L_clear, a_dist, dP_vec, mat, sec)
+                    fef_local += dP_fef
+                    
+    return fef_local, F_ri, M_ri_cent, F_rj, M_rj_cent
+
+def get_analytical_timoshenko_fef(L, a, P_vec_local, mat, sec):
+    """
+    Returns the EXACT Timoshenko fixed end reactions for a point load 
+    using pure analytical shape functions (Consistent Shear Deformation).
+    """
+    if L <= 1e-9: return np.zeros(12)
+    xi = a / L
+    
+    E = mat['E']
+    G = mat['G']
+    As2 = sec['As2']
+    As3 = sec['As3']
+    I22 = sec['I22']
+    I33 = sec['I33']
+    
+    phi_y = (12 * E * I33) / (G * As2 * L**2) if As2 > 0 else 0.0
+    phi_z = (12 * E * I22) / (G * As3 * L**2) if As3 > 0 else 0.0
+    
+    Px, Py, Pz = P_vec_local
+    fef = np.zeros(12)
+    
+    N1_x = 1 - xi
+    N2_x = xi
+    fef[0] = -Px * N1_x
+    fef[6] = -Px * N2_x
+    
+    Py_denom = 1 + phi_y
+    N1_y = (1 - 3*xi**2 + 2*xi**3 + phi_y*(1 - xi)) / Py_denom
+    N2_y = L * (xi - 2*xi**2 + xi**3 + 0.5*phi_y*(xi - xi**2)) / Py_denom
+    N3_y = (3*xi**2 - 2*xi**3 + phi_y*xi) / Py_denom
+    N4_y = L * (-xi**2 + xi**3 - 0.5*phi_y*(xi - xi**2)) / Py_denom
+    
+    fef[1] = -Py * N1_y
+    fef[5] = -Py * N2_y
+    fef[7] = -Py * N3_y
+    fef[11] = -Py * N4_y
+    
+    Pz_denom = 1 + phi_z
+    N1_z = (1 - 3*xi**2 + 2*xi**3 + phi_z*(1 - xi)) / Pz_denom
+    N2_z = L * (xi - 2*xi**2 + xi**3 + 0.5*phi_z*(xi - xi**2)) / Pz_denom
+    N3_z = (3*xi**2 - 2*xi**3 + phi_z*xi) / Pz_denom
+    N4_z = L * (-xi**2 + xi**3 - 0.5*phi_z*(xi - xi**2)) / Pz_denom
+    
+    fef[2] = -Pz * N1_z
+    fef[4] =  Pz * N2_z
+    fef[8] = -Pz * N3_z
+    fef[10] = Pz * N4_z
+    
+    return fef

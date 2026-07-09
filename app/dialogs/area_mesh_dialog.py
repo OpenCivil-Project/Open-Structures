@@ -80,6 +80,10 @@ class AreaMeshDialog(QDialog):
         self.chk_frames.setChecked(True)
         root.addWidget(self.chk_frames)
 
+        self.lbl_note = QLabel("Note: 'Code Based' slabs are skipped during meshing.")
+        self.lbl_note.setStyleSheet("color:#555555; font-style:italic; font-size:8pt;")
+        root.addWidget(self.lbl_note)
+                                         
         btn_layout = QHBoxLayout()
         btn_layout.addStretch()
         

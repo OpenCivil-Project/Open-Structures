@@ -357,32 +357,36 @@ class GlobalAssembler:
             w_vec_local_for_offset = np.zeros(3) 
 
             if load['type'] == 'member_dist':
-                w_defined = np.array([load['wx'], load['wy'], load['wz']]) * scale
+                                        
+                mags = load.get('magnitudes', [0, 0, 0, 0])
                 
-                if load.get('coord', 'Global') == 'Global':
-                    w_local = R_3x3 @ w_defined
-                else:
-                    w_local = w_defined
-
-                if load.get('projected', False):
-                    w_local = self._apply_projection_factor(
-                        w_local, 
-                        p1, 
-                        p2, 
-                        L_total, 
-                        load.get('coord', 'Global')
+                if any(abs(m) > 1e-9 for m in mags):
+                    fef_local, F_ri, M_ri_cent, F_rj, M_rj_cent = self._get_trapezoidal_fef_and_w(
+                        load, scale, R_3x3, L_clear, L_total, ri, rj, p1, p2, mat, sec
                     )
-                
-                wx, wy, wz = w_local
-                w_vec_local_for_offset = w_local                               
+                    w_vec_local_for_offset = None                                              
+                else:
+                                                                 
+                    w_defined = np.array([load.get('wx', 0.0), load.get('wy', 0.0), load.get('wz', 0.0)]) * scale
+                    
+                    if load.get('coord', 'Global') == 'Global':
+                        w_local = R_3x3 @ w_defined
+                    else:
+                        w_local = w_defined
 
-                fef_local[0] = -wx * L_clear / 2;    fef_local[6] = -wx * L_clear / 2
-                                    
-                fef_local[1] = -wy * L_clear / 2;    fef_local[7] = -wy * L_clear / 2
-                fef_local[5] = -wy * L_clear**2/12;  fef_local[11]=  wy * L_clear**2/12
-                                    
-                fef_local[2] = -wz * L_clear / 2;    fef_local[8] = -wz * L_clear / 2
-                fef_local[4] =  wz * L_clear**2/12;  fef_local[10]= -wz * L_clear**2/12
+                    if load.get('projected', False):
+                        w_local = self._apply_projection_factor(
+                            w_local, p1, p2, L_total, load.get('coord', 'Global')
+                        )
+                    
+                    wx, wy, wz = w_local
+                    w_vec_local_for_offset = w_local                               
+
+                    fef_local[0] = -wx * L_clear / 2;    fef_local[6] = -wx * L_clear / 2
+                    fef_local[1] = -wy * L_clear / 2;    fef_local[7] = -wy * L_clear / 2
+                    fef_local[5] = -wy * L_clear**2/12;  fef_local[11]=  wy * L_clear**2/12
+                    fef_local[2] = -wz * L_clear / 2;    fef_local[8] = -wz * L_clear / 2
+                    fef_local[4] =  wz * L_clear**2/12;  fef_local[10]= -wz * L_clear**2/12
 
             elif load['type'] == 'member_point':
                 P_val = load['force'] * scale
@@ -439,33 +443,33 @@ class GlobalAssembler:
             fef_global = T_total.T @ fef_local
 
             if load['type'] == 'member_dist' and (ri > 0 or rj > 0):
-                wx, wy, wz = w_vec_local_for_offset
-                
-                if ri > 0:
-                                                
-                    F_rigid_i = np.array([wx, wy, wz]) * ri
-                    
-                    centroid_i = np.array([ri/2.0, 0, 0])
-                    
-                    centroid_i += loc_off_insertion_i
-                    
-                    M_rigid_i = np.cross(centroid_i, F_rigid_i)
-                    
-                    fef_global[0:3] -= R_3x3.T @ F_rigid_i
-                    fef_global[3:6] -= R_3x3.T @ M_rigid_i
-                
-                if rj > 0:
-                                                
-                    F_rigid_j = np.array([wx, wy, wz]) * rj
-                    
-                    centroid_j = np.array([-rj/2.0, 0, 0])
-                    
-                    centroid_j += loc_off_insertion_j
-                    
-                    M_rigid_j = np.cross(centroid_j, F_rigid_j)
-                    
-                    fef_global[6:9] -= R_3x3.T @ F_rigid_j
-                    fef_global[9:12] -= R_3x3.T @ M_rigid_j
+                if w_vec_local_for_offset is not None:
+                                                                 
+                    wx, wy, wz = w_vec_local_for_offset
+                    if ri > 0:
+                        F_rigid_i = np.array([wx, wy, wz]) * ri
+                        centroid_i = np.array([ri/2.0, 0, 0])
+                        centroid_i += loc_off_insertion_i
+                        M_rigid_i = np.cross(centroid_i, F_rigid_i)
+                        fef_global[0:3] -= R_3x3.T @ F_rigid_i
+                        fef_global[3:6] -= R_3x3.T @ M_rigid_i
+                    if rj > 0:
+                        F_rigid_j = np.array([wx, wy, wz]) * rj
+                        centroid_j = np.array([-rj/2.0, 0, 0])
+                        centroid_j += loc_off_insertion_j
+                        M_rigid_j = np.cross(centroid_j, F_rigid_j)
+                        fef_global[6:9] -= R_3x3.T @ F_rigid_j
+                        fef_global[9:12] -= R_3x3.T @ M_rigid_j
+                else:
+                                                                       
+                    if ri > 0:
+                        M_rigid_i = M_ri_cent + np.cross(loc_off_insertion_i, F_ri)
+                        fef_global[0:3] -= R_3x3.T @ F_ri
+                        fef_global[3:6] -= R_3x3.T @ M_rigid_i
+                    if rj > 0:
+                        M_rigid_j = M_rj_cent + np.cross(loc_off_insertion_j, F_rj)
+                        fef_global[6:9] -= R_3x3.T @ F_rj
+                        fef_global[9:12] -= R_3x3.T @ M_rigid_j
     
             rows_i = slice(idx_i*6, idx_i*6+6)
             rows_j = slice(idx_j*6, idx_j*6+6)
@@ -533,3 +537,37 @@ class GlobalAssembler:
             f"Scaled = {np.linalg.norm(w_scaled):.2f} (factor = {proj_factor:.4f})")
         
         return w_scaled
+
+    def _get_trapezoidal_fef_and_w(self, load, scale, R_3x3, L_clear, L_total, ri, rj, p1, p2, mat, sec):
+        from element_library import get_varying_fef_via_integration
+        
+        mags = np.array(load.get('magnitudes', [0,0,0,0])) * scale
+        dists = np.array(load.get('distances', [0, 0.25, 0.75, 1.0]))
+        is_rel = load.get('is_relative', True)
+        
+        if is_rel:
+            dists = dists * L_total
+            
+        dir_str = str(load.get('load_direction', 'Gravity')).upper()
+        coord_sys = str(load.get('coord', 'Global')).upper()
+        
+        w_vectors_local = []
+        for m in mags:
+            vec = np.zeros(3)
+                                                                                       
+            if "GRAVITY" in dir_str: vec[2] = m
+            elif "X" in dir_str or "1" in dir_str: vec[0] = m
+            elif "Y" in dir_str or "2" in dir_str: vec[1] = m
+            elif "Z" in dir_str or "3" in dir_str: vec[2] = m
+                
+            if coord_sys == 'GLOBAL':
+                vec_local = R_3x3 @ vec
+            else:
+                vec_local = vec
+                
+            if load.get('projected', False):
+                vec_local = self._apply_projection_factor(vec_local, p1, p2, L_total, "Global")
+                
+            w_vectors_local.append(vec_local)
+            
+        return get_varying_fef_via_integration(L_clear, L_total, ri, rj, dists, w_vectors_local, mat, sec)

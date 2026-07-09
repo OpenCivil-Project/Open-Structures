@@ -566,6 +566,9 @@ class MCanvas3D(gl.GLViewWidget):
                                                                                   
             getattr(self, 'show_slabs',          True),
             getattr(self, 'view_extruded',        False),
+            getattr(self, 'view_deflected',       False),
+            getattr(self, 'show_tributary_loads', False),
+            getattr(self, 'show_tributary_heatmap', False),
             _plane['axis']  if _plane else None,
             _plane['value'] if _plane else None,
             getattr(self, 'show_ghost_structure', True),
@@ -629,6 +632,9 @@ class MCanvas3D(gl.GLViewWidget):
         vert_offset, ghost_v_offset = 0, 0
 
         for aeid, ae in model.area_elements.items():
+            if getattr(self, 'view_deflected', False):
+                if hasattr(ae.section, 'modeling_type') and ae.section.modeling_type == "Tributary Area":
+                    continue
             nodes = ae.nodes
             n_count = len(nodes)
             if n_count < 3: continue
@@ -655,7 +661,27 @@ class MCanvas3D(gl.GLViewWidget):
 
             fill_color = [r, g, b, face_opacity]
             edge_c = global_edge_c
-            
+
+            is_trib_area = hasattr(ae.section, 'modeling_type') and ae.section.modeling_type == "Tributary Area"
+            heat_data = None
+            if is_trib_area and getattr(self, 'show_tributary_heatmap', False) and not is_extruded:
+                trib_viz = getattr(model, 'tributary_visuals', None)
+                if trib_viz:
+                    heat_data = trib_viz.get('heatmap', {}).get(aeid)
+
+            if heat_data is not None and heat_data['faces'].size > 0:
+                hv, hc, hf = heat_data['verts'], heat_data['colors'], heat_data['faces']
+                for pt in hv:
+                    fill_verts.append(pt.tolist())
+                fill_colors.extend(hc.tolist())
+                fill_faces.extend((hf + vert_offset).tolist())
+                vert_offset += len(hv)
+                for i in range(n_count):
+                    ni = (i + 1) % n_count
+                    edge_verts.extend([pts[i].tolist(), pts[ni].tolist()])
+                    edge_colors.extend([edge_c, edge_c])
+                continue
+                                           
             if not is_extruded and n_count == 3:                            
                 tri_pts.append(pts); tri_fc.append(fill_color); tri_ec.append(edge_c)
             elif not is_extruded:                        
@@ -2444,7 +2470,14 @@ class MCanvas3D(gl.GLViewWidget):
         arrow_colors = []
         
         L = 2.0; H = 0.5; W = 0.2                           
-        
+
+        AXIS_X = np.array([1.0, 0.0, 0.0])
+        AXIS_Y = np.array([0.0, 1.0, 0.0])
+        AXIS_Z = np.array([0.0, 0.0, 1.0])
+        PERP_X = AXIS_X
+        PERP_Z = AXIS_Z
+        c_black = (0, 0, 0, 1)
+
         def add_arrow(pt, direction, color, is_moment):
             tip = pt
             tail = pt - (direction * L)
@@ -2452,9 +2485,9 @@ class MCanvas3D(gl.GLViewWidget):
             arrow_colors.append(color); arrow_colors.append(color)
             
             def add_head(base_pt):
-                if abs(direction[2]) > 0.9: perp = np.array([1.0, 0.0, 0.0])                        
-                elif abs(direction[1]) > 0.9: perp = np.array([1.0, 0.0, 0.0])                        
-                else: perp = np.array([0.0, 0.0, 1.0])                        
+                if abs(direction[2]) > 0.9: perp = PERP_X
+                elif abs(direction[1]) > 0.9: perp = PERP_X
+                else: perp = PERP_Z
                 w_vec = perp * W
                 base = base_pt - (direction * H)
                 arrow_lines.append(base_pt); arrow_lines.append(base + w_vec)
@@ -2486,15 +2519,13 @@ class MCanvas3D(gl.GLViewWidget):
                         l_type = "Moment" if is_moment else "Force"
                         self._add_load_label(origin, d, val, l_type, color, owner_id=node.id, owner_type='node')
 
-            c_black = (0, 0, 0, 1)
+            process_component(load.fz, AXIS_Z, c_black, False)
+            process_component(load.fx, AXIS_X, c_black, False)
+            process_component(load.fy, AXIS_Y, c_black, False)
 
-            process_component(load.fz, np.array([0, 0, 1.0]), c_black, False)
-            process_component(load.fx, np.array([1.0, 0, 0]), c_black, False)
-            process_component(load.fy, np.array([0, 1.0, 0]), c_black, False)
-
-            process_component(load.mz, np.array([0, 0, 1.0]), c_black, True)
-            process_component(load.mx, np.array([1.0, 0, 0]), c_black, True)
-            process_component(load.my, np.array([0, 1.0, 0]), c_black, True)
+            process_component(load.mz, AXIS_Z, c_black, True)
+            process_component(load.mx, AXIS_X, c_black, True)
+            process_component(load.my, AXIS_Y, c_black, True)
 
         if arrow_lines:
                                                                              
@@ -4550,6 +4581,9 @@ class MCanvas3D(gl.GLViewWidget):
 
         found_area_elems = []
         for aeid, ae in model.area_elements.items():
+            if getattr(self, 'view_deflected', False):
+                if hasattr(ae.section, 'modeling_type') and ae.section.modeling_type == "Tributary Area":
+                    continue
             corner_screens = []
             for n in ae.nodes:
                 s = node_screens.get(n.id)
@@ -4938,11 +4972,26 @@ class MCanvas3D(gl.GLViewWidget):
         super().keyPressEvent(event)
         event.ignore()
 
+    def _interp_linear(self, ts, vals, t):
+        """Piecewise-linear interpolation of vals over ts at parameter t (ts assumed sorted, 0-1)."""
+        if t <= ts[0]: return vals[0]
+        if t >= ts[-1]: return vals[-1]
+        for i in range(len(ts) - 1):
+            if ts[i] <= t <= ts[i + 1]:
+                span = ts[i + 1] - ts[i]
+                if span < 1e-9: return vals[i]
+                frac = (t - ts[i]) / span
+                return vals[i] + frac * (vals[i + 1] - vals[i])
+        return vals[-1]
+
     def _draw_member_loads(self, model):
         """
         Visualizes Distributed Loads (Professional UX).
         - Unselected: Faint colored curtain ONLY (no arrows, no text). Keeps scene clean.
         - Selected: Darker curtain, Outline, 5 distinct arrows, and Text Label.
+        - Trapezoidal/triangular loads (load.distances / load.magnitudes populated)
+          get a multi-point "load curtain" whose height follows the profile,
+          instead of the flat rectangular uniform-load curtain.
         """
         if not model.loads: return
         if not self.show_loads: return
@@ -4956,7 +5005,25 @@ class MCanvas3D(gl.GLViewWidget):
         ghost_idx_counter = 0
         ghost_lines = []; ghost_line_colors = []
 
+        loads_by_beam = {}
+        for ld in model.loads:
+            if hasattr(ld, 'element_id'):
+                                                  
+                if getattr(ld, 'is_tributary_generated', False) and not getattr(self, 'show_tributary_loads', False):
+                    continue
+                if self.visible_load_patterns and getattr(ld, 'pattern_name', None) not in self.visible_load_patterns:
+                    continue
+                
+                key = (ld.element_id, getattr(ld, 'pattern_name', None))
+                if key not in loads_by_beam:
+                    loads_by_beam[key] = []
+                loads_by_beam[key].append(ld)
+
         for load in model.loads:
+                                                                              
+            if getattr(load, 'is_tributary_generated', False) and not getattr(self, 'show_tributary_loads', False):
+                continue
+
             if not hasattr(load, 'wx') or not hasattr(load, 'element_id'): continue
             if self.visible_load_patterns and load.pattern_name not in self.visible_load_patterns:
                 continue
@@ -4979,16 +5046,28 @@ class MCanvas3D(gl.GLViewWidget):
             beam_dir = beam_vec / beam_len 
             
             raw_w = [load.wx, load.wy, load.wz]
+            
+            dists = getattr(load, 'distances', None)
+            mags  = getattr(load, 'magnitudes', None)
+            if dists and mags and len(mags) > 0 and max(abs(m) for m in mags) > 1e-9:
+                max_mag = max((abs(m) for m in mags), default=0.0)
+                l_dir = getattr(load, 'load_direction', 'Gravity').upper()
+                
+                if l_dir == 'GRAVITY': 
+                    raw_w[2] = max_mag if raw_w[2] == 0 else raw_w[2]
+                elif 'X' in l_dir or '1' in l_dir: 
+                    raw_w[0] = max_mag if raw_w[0] == 0 else raw_w[0]
+                elif 'Y' in l_dir or '2' in l_dir: 
+                    raw_w[1] = max_mag if raw_w[1] == 0 else raw_w[1]
+                else: 
+                    raw_w[2] = max_mag if raw_w[2] == 0 else raw_w[2]
+
             v1_ax, v2_ax, v3_ax = self._get_consistent_axes(el) 
 
             for axis_idx in range(3):
                 val = raw_w[axis_idx]
                 if abs(val) < 1e-6: continue
 
-                magnitude = max(1.0, abs(val))
-                scale = min(1.5, 0.5 + (np.log10(magnitude) * 0.2))
-                sign = 1 if val > 0 else -1
-                
                 if load.coord_system == "Local":
                     load_vec = [v1_ax, v2_ax, v3_ax][axis_idx]
                 else:
@@ -5001,10 +5080,156 @@ class MCanvas3D(gl.GLViewWidget):
                 c_sel_fill   = (*base_rgb, 0.55)
                 c_line       = (*base_rgb, 1.00)                                  
 
-                offset_vec = -1 * sign * load_vec * scale 
                 cross_prod = np.cross(beam_dir, load_vec)
                 is_parallel = np.linalg.norm(cross_prod) < 0.01
                 visual_shift = v2_ax * 0.5 if is_parallel else np.zeros(3)
+
+                dists = getattr(load, 'distances', None)
+                mags  = getattr(load, 'magnitudes', None)
+                has_trap = bool(
+                    dists and mags and len(dists) == len(mags) and len(dists) >= 2
+                    and max(abs(m) for m in mags) > 1e-9
+                )
+
+                udll_val = 0.0
+                has_companion_trap = False
+                
+                companion_loads = loads_by_beam.get((el.id, getattr(load, 'pattern_name', None)), [])
+
+                for other_load in companion_loads:
+                    if (getattr(other_load, 'coord_system', "Global") == getattr(load, 'coord_system', "Global") and
+                        getattr(other_load, 'load_direction', "Gravity") == getattr(load, 'load_direction', "Gravity") and
+                        other_load is not load):
+
+                        o_dists = getattr(other_load, 'distances', None)
+                        o_mags  = getattr(other_load, 'magnitudes', None)
+                        o_is_trap = bool(o_dists and o_mags and len(o_dists) == len(o_mags) and len(o_dists) >= 2 and max(abs(m) for m in o_mags) > 1e-9)
+
+                        if not o_is_trap:
+                            udll_val += [other_load.wx, other_load.wy, other_load.wz][axis_idx]
+                        else:
+                            has_companion_trap = True
+                                                                              
+                if has_trap:
+                    is_rel = getattr(load, 'is_relative', True)
+                    pts_t = []
+                    for d in dists:
+                        t = d if is_rel else (d / beam_len if beam_len > 0 else 0.0)
+                        pts_t.append(max(0.0, min(1.0, t)))
+
+                    order = sorted(range(len(pts_t)), key=lambda k: pts_t[k])
+                    ts_sorted   = [pts_t[k] for k in order]
+                    
+                    mags_sorted = [mags[k] + udll_val for k in order]
+
+                    max_abs_mag = max((abs(m) for m in mags_sorted), default=0.0)
+                    ref_magnitude = max(1.0, max_abs_mag)
+                    
+                    scale = min(0.6, 0.2 + (np.log10(ref_magnitude) * 0.1))
+
+                    base_pts, top_pts = [], []
+                    for t, m in zip(ts_sorted, mags_sorted):
+                        pb = p1 + t * (p2 - p1) + visual_shift
+                        point_scale = scale * (m / max_abs_mag) if max_abs_mag > 0 else 0.0
+                        base_pts.append(pb)
+                        top_pts.append(pb - point_scale * load_vec)
+
+                    N = len(base_pts)
+
+                    if is_ghosted:
+                        c_fill, c_edge = (*base_rgb, 0.08), (*base_rgb, 0.20)
+                        t_verts, t_colors, t_faces = ghost_verts, ghost_colors, ghost_faces
+                        t_lines, t_line_colors = ghost_lines, ghost_line_colors
+                    elif not is_selected:
+                        c_fill, c_edge = c_ghost, c_ghost_line
+                        t_verts, t_colors, t_faces = ghost_verts, ghost_colors, ghost_faces
+                        t_lines, t_line_colors = ghost_lines, ghost_line_colors
+                    else:
+                        c_fill, c_edge = c_sel_fill, c_line
+                        t_verts, t_colors, t_faces = sel_verts, sel_colors, sel_faces
+                        t_lines, t_line_colors = sel_lines, sel_line_colors
+
+                    start_idx = len(t_verts)
+                    for pb, pt in zip(base_pts, top_pts):
+                        t_verts.append(pb); t_colors.append(c_fill)
+                        t_verts.append(pt); t_colors.append(c_fill)
+                    for i in range(N - 1):
+                        b0, tp0 = start_idx + 2 * i,     start_idx + 2 * i + 1
+                        b1, tp1 = start_idx + 2 * i + 2, start_idx + 2 * i + 3
+                        t_faces.append([b0, b1, tp1])
+                        t_faces.append([b0, tp1, tp0])
+
+                    for i in range(N - 1):
+                        t_lines.extend([top_pts[i], top_pts[i + 1]])
+                        t_line_colors.extend([c_edge, c_edge])
+                    t_lines.extend([top_pts[0], base_pts[0]])
+                    t_line_colors.extend([c_edge, c_edge])
+                    t_lines.extend([top_pts[-1], base_pts[-1]])
+                    t_line_colors.extend([c_edge, c_edge])
+
+                    if is_selected and not is_ghosted:
+                        v_right = beam_dir.copy()
+                        if v_right[0] < -0.01: v_right = -v_right
+                        v_up_text = np.array([0.0, 0.0, 1.0])
+                        if abs(v_right[2]) > 0.99:
+                            v_up_text = np.array([1.0, 0.0, 0.0])
+
+                        q_scale = unit_registry.force_scale / unit_registry.length_scale
+                        unit_str = f"{unit_registry.force_unit_name}/{unit_registry.length_unit_name}"
+                        peak_signed = max(mags_sorted, key=lambda m: abs(m))
+                        peak_val = peak_signed * q_scale
+
+                        mid_top = np.mean(top_pts, axis=0)
+                        label_pos = mid_top + (v_up_text * 0.20)
+
+                        self.load_labels.append({
+                            'owner_id': el.id, 'owner_type': 'element',
+                            'pos_3d': label_pos.tolist(),
+                            'text': f"peak {abs(peak_val):.2f} {unit_str}",
+                            'val': max_abs_mag,
+                            'color': list(c_line[:4]),
+                            'v_right': v_right.tolist(),
+                            'v_up': v_up_text.tolist(),
+                            'align': 'center',
+                            'text_height': 0.20
+                        })
+
+                        def add_arrow_var(tip_pos, direction, color, length):
+                            if length < 1e-6: return
+                            head_size = length * 0.3
+                            tail = tip_pos + direction * length
+                            sel_lines.extend([tail, tip_pos])
+                            sel_line_colors.extend([color, color])
+                            perp = np.array([1.0, 0.0, 0.0]) if abs(direction[2]) > 0.9 else np.array([0.0, 0.0, 1.0])
+                            side_raw = np.cross(direction, perp)
+                            side_n = np.linalg.norm(side_raw)
+                            if side_n < 1e-9: return
+                            side_vec = (side_raw / side_n) * head_size
+                            base = tip_pos + direction * head_size
+                            sel_lines.extend([tip_pos, base + side_vec, tip_pos, base - side_vec])
+                            sel_line_colors.extend([color] * 4)
+
+                        num_arrows = 3
+                        for i in range(num_arrows):
+                            t = i / (num_arrows - 1)
+                            m_t = self._interp_linear(ts_sorted, mags_sorted, t)
+                            if abs(m_t) < 1e-9:
+                                continue
+                            pt_tip = p1 + t * (p2 - p1) + visual_shift
+                            point_scale = scale * (m_t / max_abs_mag) if max_abs_mag > 0 else 0.0
+                            arrow_dir = -np.sign(point_scale) * load_vec
+                            add_arrow_var(pt_tip, arrow_dir, c_line, abs(point_scale) * 0.9)
+
+                    continue                                                                  
+
+                if has_companion_trap:
+                    continue
+                
+                magnitude = max(1.0, abs(val))
+                scale = min(1.5, 0.5 + (np.log10(magnitude) * 0.2))
+                sign = 1 if val > 0 else -1
+
+                offset_vec = -1 * sign * load_vec * scale
 
                 pt_base_1 = p1 + visual_shift
                 pt_base_2 = p2 + visual_shift
@@ -5119,6 +5344,30 @@ class MCanvas3D(gl.GLViewWidget):
         if sel_lines:
             self._pending_load_line_pos.extend(sel_lines)
             self._pending_load_line_colors.extend(sel_line_colors)
+
+    def _update_tributary_visuals(self):
+        """Draws the faint tributary integration-grid dot overlay ("Show Tributary
+        Integration Grid" checkbox). The heatmap itself is NOT drawn here anymore —
+        it's a real per-vertex-colored mesh uploaded through _update_area_vbo and
+        drawn by vbo_manager.draw_areas, same pipeline as the normal slab fill.
+        That's what fixes the lag, the additive-blend whiteout, and the striping
+        artifact all at once: it's one small mesh per area, not a point cloud."""
+        if not hasattr(self, 'trib_scatter') or self.trib_scatter not in self.items:
+            self.trib_scatter = gl.GLScatterPlotItem()
+            self.addItem(self.trib_scatter)
+
+        if not getattr(self, 'show_tributary_mesh', False) or getattr(self, 'view_deflected', False):
+            self.trib_scatter.setData(pos=np.empty((0,3)), color=np.empty((0,4)))
+            return
+
+        visuals = getattr(self.current_model, 'tributary_visuals', None)
+        if not visuals or not visuals.get('points'):
+            self.trib_scatter.setData(pos=np.empty((0,3)), color=np.empty((0,4)))
+            return
+
+        all_pts = np.vstack(visuals['points'])
+        grid_colors = np.full((len(all_pts), 4), [1.0, 1.0, 1.0, 0.3], dtype=np.float32)
+        self.trib_scatter.setData(pos=all_pts, color=grid_colors, size=2, pxMode=True)
 
     def _draw_local_axes(self, model):
         """Draws RGB arrows at the center of each element representing local axes."""
@@ -5645,6 +5894,8 @@ class MCanvas3D(gl.GLViewWidget):
             self.pivot_dot, self.inspection_dot,
             self._area_preview_line, self._area_interior_lines
         ]
+        if hasattr(self, 'trib_scatter'):
+            top_items.append(self.trib_scatter)
         
         vis_states = []
         for item in top_items:
@@ -6068,6 +6319,10 @@ class MCanvas3D(gl.GLViewWidget):
 
         if hovered_node is None and hovered_elem is None and self.current_model.area_elements:
             for aeid, ae in self.current_model.area_elements.items():
+                                                                                
+                if getattr(self, 'view_deflected', False):
+                    if hasattr(ae.section, 'modeling_type') and ae.section.modeling_type == "Tributary Area":
+                        continue
                 corner_screens = []
                 for n in ae.nodes:
                     s = node_screens.get(n.id)
@@ -6261,6 +6516,18 @@ class MCanvas3D(gl.GLViewWidget):
         lc = np.array(line_colors, dtype=np.float32) if line_colors else np.zeros((0, 4), dtype=np.float32)
 
         self.vbo_manager.upload_load_geometry(fv, fc, ff, lp, lc)
+
+        if getattr(self, 'show_tributary_mesh', False):
+                                                                                  
+            if hasattr(self, 'current_model') and hasattr(self.current_model, 'tributary_visuals'):
+                try:
+                    self._update_tributary_visuals()
+                except Exception as e:
+                    print(f"Canvas Error (Tributary Visuals): {e}")
+        else:
+                                                                             
+            if hasattr(self, 'trib_scatter') and self.trib_scatter is not None:
+                self.trib_scatter.setData(pos=np.empty((0, 3)), color=np.empty((0, 4)))
 
     def _upload_load_labels_to_gpu(self):
         """Pushes current load_labels AND force_labels AND grid_labels to the SDF VBO pipeline."""

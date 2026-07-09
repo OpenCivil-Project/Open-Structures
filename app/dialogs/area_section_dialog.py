@@ -1,4 +1,3 @@
-
 """
 app/dialogs/area_section_dialog.py
 ===================================
@@ -282,6 +281,112 @@ class ShellSectionDialog(QDialog):
         mat = self.model.materials.get(self.cboMat.currentText())
         sec = ShellSection(name, mat, self._selected_type(),
                            mem, ben, ang, self.swatch.hex())
+
+        if self._source and self._source.name != name:
+            self.model.area_sections.pop(self._source.name, None)
+
+        self.model.area_sections[name] = sec
+        self.accept()
+
+class TributarySlabSectionDialog(QDialog):
+    """
+    Tributary Area slab definition — sibling of Shell/Plane/Asolid.
+    Deliberately minimal: Name, Thickness, Material only.
+    Produces a ShellSection stamped with .modeling_type = "Tributary Area".
+    """
+
+    _DEFAULT_SHELL_TYPE = "Membrane"
+
+    def __init__(self, model, section: ShellSection = None, parent=None):
+        super().__init__(parent)
+        self.model   = model
+        self._source = section
+        self.setWindowTitle("Slab Data - Tributary Area")
+        self.setMinimumWidth(360)
+        apply_dialog_style(self)
+        self._build_ui()
+        if section:
+            self._populate(section)
+
+    def _build_ui(self):
+        root = QVBoxLayout(self)
+        root.setContentsMargins(12, 12, 12, 10)
+        root.setSpacing(6)
+
+        r1 = QHBoxLayout()
+        r1.addWidget(QLabel("Section Name"))
+        self.eName = QLineEdit()
+        self.eName.setMinimumWidth(200)
+        r1.addWidget(self.eName)
+        r1.addStretch()
+        r1.addWidget(QLabel("Display Color"))
+        self.swatch = _ColorSwatch("#FF00FF")
+        r1.addWidget(self.swatch)
+        root.addLayout(r1)
+
+        root.addWidget(_hsep())
+
+        grp = QGroupBox("Tributary Slab Data")
+        tf = QFormLayout(grp)
+        tf.setLabelAlignment(Qt.AlignmentFlag.AlignRight)
+
+        self.eThickness = QLineEdit("0.1")
+        tf.addRow("Slab Thickness (h)", self.eThickness)
+
+        mat_layout, self._btnPlusMat, self.cboMat = _mat_row(self.model)
+        tf.addRow("Material Name", mat_layout)
+        self.eMatAngle = QLineEdit("0.")
+        tf.addRow("Material Angle", self.eMatAngle)
+
+        root.addWidget(grp)
+
+        note = QLabel("Tributary load transfer only — not a FEM shell.\n"
+                       "Used to convert this slab's load into beam loads.")
+        note.setStyleSheet("color: #666; font-style: italic;")
+        root.addWidget(note)
+
+        br = QHBoxLayout()
+        br.addStretch()
+        self.btnOK  = QPushButton("OK")
+        self.btnOK.setObjectName("primary")
+        self.btnCxl = QPushButton("Cancel")
+        self.btnOK.clicked.connect(self._on_ok)
+        self.btnCxl.clicked.connect(self.reject)
+        br.addWidget(self.btnOK)
+        br.addWidget(self.btnCxl)
+        root.addLayout(br)
+
+    def _populate(self, s: ShellSection):
+        self.eName.setText(s.name)
+        self.swatch.set_color(s.display_color)
+        self.eThickness.setText(str(s.membrane_thickness))
+        if s.material:
+            i = self.cboMat.findText(s.material.name)
+            if i >= 0:
+                self.cboMat.setCurrentIndex(i)
+        self.eMatAngle.setText(str(s.material_angle))
+
+    def _on_ok(self):
+        name = self.eName.text().strip()
+        if not name:
+            QMessageBox.warning(self, "Input Error", "Section Name cannot be empty.")
+            return
+        if self._source is None and name in self.model.area_sections:
+            QMessageBox.warning(self, "Duplicate Name",
+                                f"A section named '{name}' already exists.")
+            return
+        try:
+            th  = float(self.eThickness.text())
+            ang = float(self.eMatAngle.text())
+        except ValueError:
+            QMessageBox.warning(self, "Input Error", "Invalid numeric value.")
+            return
+
+        mat = self.model.materials.get(self.cboMat.currentText())
+        sec = ShellSection(name, mat, self._DEFAULT_SHELL_TYPE,
+                           th, th, ang, self.swatch.hex())
+        
+        sec.modeling_type = "Tributary Area"
 
         if self._source and self._source.name != name:
             self.model.area_sections.pop(self._source.name, None)
@@ -573,9 +678,10 @@ class AsolidSectionDialog(QDialog):
         self.accept()
 
 _DIALOG_MAP = {
-    "Shell":  ShellSectionDialog,
-    "Plane":  PlaneSectionDialog,
-    "Asolid": AsolidSectionDialog,
+    "Shell":                  ShellSectionDialog,
+    "Plane":                  PlaneSectionDialog,
+    "Asolid":                 AsolidSectionDialog,
+    "Slab (Tributary/Yield)": TributarySlabSectionDialog,
 }
 
 _CLASS_MAP = {
@@ -622,7 +728,7 @@ class AreaSectionsManagerDialog(QDialog):
 
         right.addWidget(QLabel("Select Section Type To Add"))
         self.cboType = QComboBox()
-        self.cboType.addItems(["Shell", "Plane", "Asolid"])
+        self.cboType.addItems(["Shell", "Plane", "Asolid", "Slab (Tributary/Yield)"])
         right.addWidget(self.cboType)
 
         right.addWidget(QLabel("Click to:"))
@@ -720,6 +826,8 @@ class AreaSectionsManagerDialog(QDialog):
                                     src.material_angle, src.display_color)
 
         new_sec.stiffness_modifiers = dict(src.stiffness_modifiers)
+        if hasattr(src, 'modeling_type'):
+            new_sec.modeling_type = src.modeling_type
         self.model.area_sections[new_name] = new_sec
         self._refresh_list()
 
@@ -731,7 +839,12 @@ class AreaSectionsManagerDialog(QDialog):
         src = self._selected_section()
         if src is None:
             return
-        type_key = _CLASS_MAP.get(type(src), "Shell")
+            
+        if getattr(src, 'modeling_type', None) == "Tributary Area":
+            type_key = "Slab (Tributary/Yield)"
+        else:
+            type_key = _CLASS_MAP.get(type(src), "Shell")
+            
         self._open_section_dialog(type_key, existing=src)
 
     def _on_delete(self):
