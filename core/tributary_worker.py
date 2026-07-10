@@ -72,11 +72,22 @@ class TributaryWorker(QRunnable):
             closest_beam_indices = np.argmin(Dists, axis=1)
             closest_t = t[np.arange(len(valid_pts)), closest_beam_indices]
 
+            from scipy.ndimage import gaussian_filter1d
+
             for b_idx, beam in enumerate(beams):
                 mask = (closest_beam_indices == b_idx)
                 t_vals = closest_t[mask]
                 if len(t_vals) == 0: continue
                 hist, _ = np.histogram(t_vals, bins=num_bins, range=(0.0, 1.0))
+                
+                raw_total = hist.sum()
+                if raw_total > 0:
+                    smoothed = gaussian_filter1d(hist.astype(np.float64), sigma=2.0, mode='nearest')
+                    smoothed_total = smoothed.sum()
+                    if smoothed_total > 0:
+                        smoothed *= (raw_total / smoothed_total)                               
+                    hist = smoothed
+                
                 beam_hists[b_idx] = hist
                 beam_lengths[b_idx] = beam['length']
 

@@ -8,8 +8,7 @@ from core.boundary import apply_restraint, Restraint
 from core.mesh import Slab, AreaElement 
 from core.units import unit_registry
 import numpy as np
-from core.loads import LoadPattern, NodalLoad, MemberLoad, MemberPointLoad, AreaGravityLoad, AreaUniformLoad
-
+from core.loads import LoadPattern, NodalLoad, MemberLoad, MemberPointLoad, AreaGravityLoad, AreaUniformLoad, GroundDisplacement
 class TSC2018Data:
     def __init__(self):
                                     
@@ -263,7 +262,48 @@ class StructuralModel:
                  if any([fx, fy, fz, mx, my, mz]):
                     new_load = NodalLoad(node_id, pattern_name, fx, fy, fz, mx, my, mz)
                     self.loads.append(new_load)
-                    
+
+    def assign_ground_displacement(self, node_id, pattern_name, ux=0, uy=0, uz=0, rx=0, ry=0, rz=0, mode="replace"):
+        """
+        Assigns ground displacement to a node.
+        mode: 'add' (accumulate), 'replace' (overwrite), 'delete' (remove)
+        """
+        if node_id not in self.nodes:
+            raise KeyError(f"Node {node_id} does not exist.")
+            
+        existing_indices = []
+        for i, load in enumerate(self.loads):
+                                                                           
+            if isinstance(load, GroundDisplacement) and load.node_id == node_id and load.pattern_name == pattern_name:
+                existing_indices.append(i)
+        
+        if mode == "delete":
+            for i in reversed(existing_indices):
+                del self.loads[i]
+            return
+
+        elif mode == "replace":
+            for i in reversed(existing_indices):
+                del self.loads[i]
+            
+            if any([ux, uy, uz, rx, ry, rz]):
+                new_disp = GroundDisplacement(node_id, pattern_name, ux, uy, uz, rx, ry, rz)
+                self.loads.append(new_disp)
+
+        elif mode == "add":
+            if existing_indices:
+                idx = existing_indices[0]
+                self.loads[idx].ux += ux
+                self.loads[idx].uy += uy
+                self.loads[idx].uz += uz
+                self.loads[idx].rx += rx
+                self.loads[idx].ry += ry
+                self.loads[idx].rz += rz
+            else:
+                 if any([ux, uy, uz, rx, ry, rz]):
+                    new_disp = GroundDisplacement(node_id, pattern_name, ux, uy, uz, rx, ry, rz)
+                    self.loads.append(new_disp)
+                   
     def is_node_used(self, node_id):
         """
         Integrity Check: Returns True if the node is supporting any geometry.
@@ -559,12 +599,20 @@ class StructuralModel:
                     "load_type": getattr(load, 'load_type', "Force")
                 })
                 
-            elif hasattr(load, 'node_id'):
+            elif isinstance(load, NodalLoad):
                 load_data.update({
                     "type": "nodal",
                     "node_id": load.node_id,
                     "fx": load.fx, "fy": load.fy, "fz": load.fz,
                     "mx": load.mx, "my": load.my, "mz": load.mz
+                })
+
+            elif isinstance(load, GroundDisplacement):
+                load_data.update({
+                    "type": "ground_displacement",
+                    "node_id": load.node_id,
+                    "ux": load.ux, "uy": load.uy, "uz": load.uz,
+                    "rx": load.rx, "ry": load.ry, "rz": load.rz
                 })
             
             data["loads"].append(load_data)
@@ -947,6 +995,14 @@ class StructuralModel:
                                          load_data["mx"], load_data["my"], load_data["mz"])
                     self.loads.append(new_load)
 
+                elif l_type == "ground_displacement":
+                    new_disp = GroundDisplacement(
+                        load_data["node_id"], pattern_name, 
+                        load_data.get("ux", 0), load_data.get("uy", 0), load_data.get("uz", 0), 
+                        load_data.get("rx", 0), load_data.get("ry", 0), load_data.get("rz", 0)
+                    )
+                    self.loads.append(new_disp)
+
                 elif l_type == "member_dist":
                     coord = load_data.get("coord", "Global")
                     proj = load_data.get("projected", False)
@@ -1055,13 +1111,22 @@ class StructuralModel:
 
                 if nid in node_load_map:
                     for old_load in node_load_map[nid]:
-                        self.assign_joint_load(
-                            new_node.id, 
-                            old_load.pattern_name,
-                            old_load.fx, old_load.fy, old_load.fz,
-                            old_load.mx, old_load.my, old_load.mz,
-                            mode="add"
-                        )
+                        if isinstance(old_load, NodalLoad):
+                            self.assign_joint_load(
+                                new_node.id, 
+                                old_load.pattern_name,
+                                old_load.fx, old_load.fy, old_load.fz,
+                                old_load.mx, old_load.my, old_load.mz,
+                                mode="add"
+                            )
+                        elif isinstance(old_load, GroundDisplacement):
+                            self.assign_ground_displacement(
+                                new_node.id, 
+                                old_load.pattern_name,
+                                old_load.ux, old_load.uy, old_load.uz,
+                                old_load.rx, old_load.ry, old_load.rz,
+                                mode="add"
+                            )
 
             for eid in elem_ids:
                 if eid not in self.elements: continue

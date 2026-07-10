@@ -12,6 +12,7 @@ from core.tributary_worker import TributaryWorker
 
 class TributaryLoadGenerator(QObject):
     signal_redraw_requested = pyqtSignal()
+    signal_all_loads_ready = pyqtSignal()                                                                        
 
     def __init__(self, model):
         super().__init__()
@@ -19,6 +20,11 @@ class TributaryLoadGenerator(QObject):
         self.grid_density = 2500     
         self.num_bins = 250      
         self.thread_pool = QThreadPool.globalInstance()
+        self._pending_count = 0                                                                                  
+
+    def is_busy(self):
+        """True if any background slab computation is still in flight."""
+        return self._pending_count > 0
 
     def calculate_slab_pressure(self, area_elem, pattern_name):
         q_total = 0.0
@@ -85,6 +91,7 @@ class TributaryLoadGenerator(QObject):
         
         cache = self.model._tributary_cache
         live_area_ids = set()
+        dispatched = 0                                                                                           
 
         for area in self.model.area_elements.values():
             if not hasattr(area.section, 'modeling_type') or area.section.modeling_type != "Tributary Area":
@@ -133,11 +140,16 @@ class TributaryLoadGenerator(QObject):
                 worker = TributaryWorker(area.id, geom_sig, snap)
                 worker.signals.finished.connect(self._on_worker_finished)
                 self.thread_pool.start(worker)
+                dispatched += 1                                                                                  
 
         for aid in set(cache.keys()) - live_area_ids:
             del cache[aid]
 
+        self._pending_count += dispatched                                                                        
         self._apply_cached_loads()
+
+        if self._pending_count == 0:                                                                             
+            self.signal_all_loads_ready.emit()
 
     def _on_worker_finished(self, result):
         """Phase C: Triggered when background numpy math finishes."""
@@ -150,6 +162,10 @@ class TributaryLoadGenerator(QObject):
             cache[area_id] = result
             self._apply_cached_loads()
             self.signal_redraw_requested.emit()
+
+        self._pending_count = max(0, self._pending_count - 1)                                                    
+        if self._pending_count == 0:                                                                             
+            self.signal_all_loads_ready.emit()
 
     def _apply_cached_loads(self):
         """
@@ -228,4 +244,4 @@ class TributaryLoadGenerator(QObject):
         self.model = new_model
                                                                                             
         self.model._tributary_cache = {} 
-        self.thread_pool.clear()                                             
+        self.thread_pool.clear()

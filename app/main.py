@@ -813,6 +813,10 @@ class MainWindow(QMainWindow):
         load_action.triggered.connect(self.on_assign_joint_load)
         joint_menu.addAction(load_action)
 
+        disp_action = QAction(qta.icon('fa5s.arrows-alt', color='#6c757d'), "Ground Displacements...", self)
+        disp_action.triggered.connect(self.on_assign_joint_displacement)
+        joint_menu.addAction(disp_action)
+
         frame_menu = self.menu_assign.addMenu("Frame")
         frame_menu.setIcon(qta.icon('fa5s.minus', color='#6c757d'))
 
@@ -1693,6 +1697,7 @@ class MainWindow(QMainWindow):
             QApplication.processEvents()
     
             self.draw_both_canvases(progress=_report)
+            self.update_yield_lines()                                                                            
             self.canvas.set_standard_view("3D")
             self.set_interface_state(True)
             self.update_window_title()
@@ -2426,6 +2431,15 @@ class MainWindow(QMainWindow):
             self.joint_load_dlg.show()
         else: self.joint_load_dlg.raise_()
 
+    def on_assign_joint_displacement(self):
+        """Opens the Ground Displacement Assignment Dialog"""
+        if not hasattr(self, 'joint_disp_dlg') or not self.joint_disp_dlg.isVisible():
+            from app.dialogs.assign_displacement_dialog import AssignJointDisplacementDialog
+            self.joint_disp_dlg = AssignJointDisplacementDialog(self)
+            self.joint_disp_dlg.show()
+        else: 
+            self.joint_disp_dlg.raise_()
+
     def on_assign_frame_load(self):
         if not hasattr(self, 'frame_load_dlg') or not self.frame_load_dlg.isVisible():
             from app.dialogs.assign_member_load_dialog import AssignFrameLoadDialog
@@ -2810,32 +2824,38 @@ class MainWindow(QMainWindow):
                                                    
             if not self.model.file_path:
                 return
-        for ae in getattr(self.model, 'area_elements', {}).values():
-            if hasattr(ae.section, 'modeling_type') and ae.section.modeling_type == "Tributary Area":              
-                for node in ae.nodes:
-                    is_restrained = any(node.restraints) if hasattr(node, 'restraints') else False
-                    is_framed = self.is_node_connected(node.id)
-                    
-                    if not is_restrained and not is_framed:
-                        QApplication.restoreOverrideCursor()
-                        QMessageBox.critical(
-                            self, 
-                            "Unstable Geometry Detected", 
-                            f"Analysis Aborted: Tributary Area slab has a free, unsupported corner at Node {node.id}.\n\n"
-                            f"Tributary load transfer requires all slab corners to be supported by a frame element or a boundary restraint. "
-                            f"Please attach a beam/column to Node {node.id} or delete the slab."
-                        )
-                        self.set_interface_state(True)
-                        return
 
         print(f"Main: Starting analysis for case '{case_name}'...")
-        
+
         self.set_interface_state(False)
         self.status.showMessage(f"Running Analysis: {case_name}... Please Wait.")
         QApplication.setOverrideCursor(Qt.CursorShape.WaitCursor)
-        
+
+        self.update_yield_lines()
+
+        if self._tributary_generator.is_busy():
+            self.status.showMessage(f"Recalculating slab loads before running '{case_name}'...")
+            self._pending_analysis_args = (case_name, show_log)
+            self._tributary_generator.signal_all_loads_ready.connect(
+                self._continue_analysis_after_loads, Qt.ConnectionType.UniqueConnection
+            )
+            return
+
+        self._proceed_with_analysis(case_name, show_log)
+
+    def _continue_analysis_after_loads(self):
+        """Fired once TributaryLoadGenerator finishes any in-flight slab load computation."""
+        try:
+            self._tributary_generator.signal_all_loads_ready.disconnect(self._continue_analysis_after_loads)
+        except TypeError:
+            pass
+        case_name, show_log = self._pending_analysis_args
+        self._proceed_with_analysis(case_name, show_log)
+
+    def _proceed_with_analysis(self, case_name, show_log=True):
+        """Actual save + solver launch. Only called once slab loads are guaranteed complete."""
         self.solver_input_path = self.model.file_path
-        
+
         c_type = "Linear Static"
         if case_name == "Run All Cases & Combinations":
             c_type = "Batch Run"
@@ -2861,13 +2881,6 @@ class MainWindow(QMainWindow):
                 self.solver_output_path = f"{base_name}_{first_case}_results.json"
         else:
             self.solver_output_path = f"{base_name}_{case_name}_results.json"
-
-        from core.tributary_loads import TributaryLoadGenerator
-        
-        self.model.loads = [ld for ld in self.model.loads if not getattr(ld, 'is_tributary_generated', False)]
-        
-        yield_generator = TributaryLoadGenerator(self.model)
-        yield_generator.distribute_loads_to_frames()
 
         try:
             self.model.save_to_file(self.solver_input_path)

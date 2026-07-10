@@ -104,3 +104,19 @@ class AreaUniformLoad:
     def __repr__(self):
         return (f"AreaUniformLoad(area={self.area_id}, pat={self.pattern_name}, "
                 f"{self.uniform_load:.3g} [{self.load_direction}])")
+
+@dataclass
+class GroundDisplacement:
+    """
+    Specified ground displacement/rotation applied to a specific Node.
+    """
+    node_id: int
+    pattern_name: str
+            
+    ux: float = 0.0
+    uy: float = 0.0
+    uz: float = 0.0
+             
+    rx: float = 0.0
+    ry: float = 0.0
+    rz: float = 0.0

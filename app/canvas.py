@@ -2479,10 +2479,17 @@ class MCanvas3D(gl.GLViewWidget):
         c_black = (0, 0, 0, 1)
 
         def add_arrow(pt, direction, color, is_moment):
-            tip = pt
-            tail = pt - (direction * L)
-            arrow_lines.append(tail); arrow_lines.append(tip)
-            arrow_colors.append(color); arrow_colors.append(color)
+            if is_moment:
+                tail = pt
+                tip = pt + direction * L
+            else:
+                tip = pt
+                tail = pt - direction * L
+
+            arrow_lines.append(tail)
+            arrow_lines.append(tip)
+            arrow_colors.append(color)
+            arrow_colors.append(color)
             
             def add_head(base_pt):
                 if abs(direction[2]) > 0.9: perp = PERP_X
@@ -2510,22 +2517,35 @@ class MCanvas3D(gl.GLViewWidget):
             origin = np.array([node.x, node.y, node.z])
             is_selected = (node.id in self.selected_node_ids)
 
-            def process_component(val, axis_vec, color, is_moment):
+            def process_component(val, axis_vec, color, is_moment, l_type=None):
                 if abs(val) > 0:
                     d = axis_vec * (1 if val > 0 else -1)
                     add_arrow(origin, d, color, is_moment)
                     
                     if is_selected:
-                        l_type = "Moment" if is_moment else "Force"
+                        if l_type is None:
+                            l_type = "Moment" if is_moment else "Force"
                         self._add_load_label(origin, d, val, l_type, color, owner_id=node.id, owner_type='node')
 
-            process_component(load.fz, AXIS_Z, c_black, False)
-            process_component(load.fx, AXIS_X, c_black, False)
-            process_component(load.fy, AXIS_Y, c_black, False)
+            if hasattr(load, 'ux'):
+                                                            
+                c_disp = c_black
+                process_component(load.uz, AXIS_Z, c_disp, False, "Displacement")
+                process_component(load.ux, AXIS_X, c_disp, False, "Displacement")
+                process_component(load.uy, AXIS_Y, c_disp, False, "Displacement")
 
-            process_component(load.mz, AXIS_Z, c_black, True)
-            process_component(load.mx, AXIS_X, c_black, True)
-            process_component(load.my, AXIS_Y, c_black, True)
+                process_component(load.rz, AXIS_Z, c_disp, True, "Rotation")
+                process_component(load.rx, AXIS_X, c_disp, True, "Rotation")
+                process_component(load.ry, AXIS_Y, c_disp, True, "Rotation")
+            else:
+                                                 
+                process_component(getattr(load, 'fz', 0), AXIS_Z, c_black, False, "Force")
+                process_component(getattr(load, 'fx', 0), AXIS_X, c_black, False, "Force")
+                process_component(getattr(load, 'fy', 0), AXIS_Y, c_black, False, "Force")
+
+                process_component(getattr(load, 'mz', 0), AXIS_Z, c_black, True, "Moment")
+                process_component(getattr(load, 'mx', 0), AXIS_X, c_black, True, "Moment")
+                process_component(getattr(load, 'my', 0), AXIS_Y, c_black, True, "Moment")
 
         if arrow_lines:
                                                                              
@@ -2544,10 +2564,17 @@ class MCanvas3D(gl.GLViewWidget):
         c_black = (0, 0, 0, 1)
 
         def add_arrow(pt, direction, color, is_moment):
-            tip = pt
-            tail = pt - (direction * L)
-            arrow_lines.append(tail); arrow_lines.append(tip)
-            arrow_colors.append(color); arrow_colors.append(color)
+            if is_moment:
+                tail = pt
+                tip = pt + direction * L
+            else:
+                tip = pt
+                tail = pt - direction * L
+
+            arrow_lines.append(tail)
+            arrow_lines.append(tip)
+            arrow_colors.append(color)
+            arrow_colors.append(color)
 
             def add_head(base_pt):
                 if abs(direction[2]) > 0.9: perp = np.array([1.0, 0.0, 0.0])
@@ -2604,11 +2631,20 @@ class MCanvas3D(gl.GLViewWidget):
             m_scale = unit_registry.force_scale * unit_registry.length_scale
             display_val = abs(val) * m_scale
             unit_str = f"{unit_registry.force_unit_name}.{unit_registry.length_unit_name}"
+        elif l_type == "Displacement":
+            display_val = unit_registry.to_display_length(abs(val))
+            unit_str = unit_registry.current_unit_label.split(',')[1].strip() if ',' in unit_registry.current_unit_label else "m"
+        elif l_type == "Rotation":
+            display_val = abs(val)
+            unit_str = "rad"
         else:
             display_val = unit_registry.to_display_force(abs(val))
             unit_str = unit_registry.force_unit_name
             
-        label_pos = origin - (direction * 1.6)
+        if l_type == "Moment" or l_type == "Rotation":
+            label_pos = origin + (direction * 1.6)
+        else:
+            label_pos = origin - (direction * 1.6)
         
         v_right = direction.copy()
         if v_right[0] < -0.01: v_right = -v_right                                  

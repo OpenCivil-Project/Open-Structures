@@ -1,6 +1,6 @@
 from PyQt6.QtGui import QUndoCommand
 import copy
-from core.loads import NodalLoad, MemberLoad, MemberPointLoad
+from core.loads import NodalLoad, MemberLoad, MemberPointLoad, GroundDisplacement
 
 class CmdDrawFrame(QUndoCommand):
 
@@ -960,3 +960,47 @@ class CmdMeshAreaElements(QUndoCommand):
             ae.nodes = [self.model.nodes.get(n.id, n) for n in ae.nodes]
             if ae.section.name in self.model.area_sections: 
                 ae.section = self.model.area_sections[ae.section.name]
+
+class CmdAssignJointDisplacement(QUndoCommand):
+    """
+    Handles Add/Replace/Delete of Nodal Ground Displacements.
+    Snapshot strategy: Save ALL ground displacements for the target nodes/pattern, then restore.
+    """
+    def __init__(self, model, main_window, node_ids, pattern_name, 
+                 ux, uy, uz, rx, ry, rz, mode="replace"):
+        super().__init__("Assign Joint Displacement")
+        self.model = model
+        self.main_window = main_window
+        self.node_ids = node_ids
+        self.pattern_name = pattern_name
+        self.values = (ux, uy, uz, rx, ry, rz)
+        self.mode = mode
+        
+        self.old_disps = []
+                                                                                        
+        for load in model.loads:
+            if isinstance(load, GroundDisplacement):
+                if load.node_id in node_ids and load.pattern_name == pattern_name:
+                    self.old_disps.append(copy.deepcopy(load))
+
+    def redo(self):
+        ux, uy, uz, rx, ry, rz = self.values
+        for nid in self.node_ids:
+                                                        
+            self.model.assign_ground_displacement(
+                nid, self.pattern_name, ux, uy, uz, rx, ry, rz, self.mode
+            )
+        self.main_window.draw_both_canvases()
+
+    def undo(self):
+                                                                                        
+        for i in range(len(self.model.loads) - 1, -1, -1):
+            load = self.model.loads[i]
+            if isinstance(load, GroundDisplacement):
+                if load.node_id in self.node_ids and load.pattern_name == self.pattern_name:
+                    del self.model.loads[i]
+        
+        for old_disp in self.old_disps:
+            self.model.loads.append(copy.deepcopy(old_disp))
+            
+        self.main_window.draw_both_canvases()
