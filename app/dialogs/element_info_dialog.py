@@ -156,6 +156,12 @@ class ObjectInfoDialog(QDialog):
             active_restr = [labels[i] for i, val in enumerate(restr) if val]
             self.add_row(table, "Restraints", ", ".join(active_restr) if active_restr else "None")
             self.add_row(table, "Rigid Diaphragm", self.obj.diaphragm_name or "None")
+            
+            spring = getattr(self.obj, 'spring_matrix', None)
+            if spring is not None:
+                self.add_row(table, "Joint Spring", "Assigned (6x6 Matrix)")
+            else:
+                self.add_row(table, "Joint Spring", "None")
 
         elif isinstance(self.obj, FrameElement):
             sec = self.obj.section
@@ -301,6 +307,19 @@ class ObjectInfoDialog(QDialog):
             proj = " (Proj)" if getattr(load, 'projected', False) else ""
             disp_dir = f"{coord}{proj}"
             disp_loc = "Full Span"
+
+        elif hasattr(load, 'ux'):                        
+            disp_type = "Ground Disp."
+            disp_dir = "Global"
+            disp_loc = "Joint"
+            val_strs = []
+            if getattr(load, 'ux', 0) != 0: val_strs.append(f"Ux={to_L(load.ux):.3f}")
+            if getattr(load, 'uy', 0) != 0: val_strs.append(f"Uy={to_L(load.uy):.3f}")
+            if getattr(load, 'uz', 0) != 0: val_strs.append(f"Uz={to_L(load.uz):.3f}")
+            if getattr(load, 'rx', 0) != 0: val_strs.append(f"Rx={load.rx:.4f}")
+            if getattr(load, 'ry', 0) != 0: val_strs.append(f"Ry={load.ry:.4f}")
+            if getattr(load, 'rz', 0) != 0: val_strs.append(f"Rz={load.rz:.4f}")
+            disp_val = f"{', '.join(val_strs)} [{L_unit}, rad]" if val_strs else "None"
 
         elif hasattr(load, 'fx'):                        
             disp_type = "Joint Force"

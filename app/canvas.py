@@ -14,6 +14,7 @@ from core.properties import RectangularSection, CircularSection, TrapezoidalSect
 from PyQt6.QtWidgets import QLabel        
 from graphic.vbo_engine import VBORenderManager, VectorizedLTHAEngine                               
 from graphic.sdf_text import SDFTextBuilder
+from graphic._vbo_supports import build_spring_visuals
 
 class MCanvas3D(gl.GLViewWidget):
     signal_canvas_clicked = pyqtSignal(float, float, float)
@@ -1438,6 +1439,14 @@ class MCanvas3D(gl.GLViewWidget):
             )
             self.addItem(item)
             self.node_items.append(item)
+
+        in_analysis_mode = hasattr(model, 'has_results') and model.has_results
+        if self.show_supports and not in_analysis_mode:
+            scale = getattr(self, 'current_bubble_size', 1.0)
+            spring_item = build_spring_visuals(model.nodes, scale=scale)
+            if spring_item:
+                self.addItem(spring_item)
+                self.node_items.append(spring_item)
 
     def _is_visible(self, x, y, z):
         """
@@ -6581,3 +6590,4 @@ class MCanvas3D(gl.GLViewWidget):
             self.vbo_manager.upload_text_geometry(verts, uvs, colors, indices)
         else:
             self.vbo_manager.upload_text_geometry(np.array([]), np.array([]), np.array([]), np.array([]))
+

@@ -99,7 +99,9 @@ class DataManager:
                 'idx': self.node_id_to_idx[n_data['id']],
                 'coords': np.array([n_data['x'], n_data['y'], n_data['z']]),
                 'restraints': n_data['restraints'],
-                'diaphragm': n_data.get('diaphragm', None)
+                'diaphragm': n_data.get('diaphragm', None),
+                                                                   
+                'spring_matrix': np.array(n_data['spring_matrix']) if n_data.get('spring_matrix') else None
             })
             
         self.total_dofs = len(user_ids) * 6

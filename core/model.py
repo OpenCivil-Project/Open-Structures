@@ -479,10 +479,16 @@ class StructuralModel:
         _p(f"Saving {len(self.nodes)} nodes & boundary conditions...")
         for n_id in sorted(self.nodes.keys()):
             n = self.nodes[n_id]
-            data["nodes"].append({
+            node_dict = {
                 "id": n.id, "x": n.x, "y": n.y, "z": n.z,
-                "restraints": n.restraints, "diaphragm": n.diaphragm_name  
-            })
+                "restraints": n.restraints, 
+                "diaphragm": getattr(n, 'diaphragm_name', None)  
+            }
+                                                      
+            if getattr(n, 'spring_matrix', None) is not None:
+                node_dict["spring_matrix"] = n.spring_matrix.tolist()
+                
+            data["nodes"].append(node_dict)
 
         _p(f"Saving {len(self.elements)} frame element(s) & releases...")
         for el_id in sorted(self.elements.keys()):
@@ -788,8 +794,15 @@ class StructuralModel:
             n_id = n_data["id"]
             node = self.add_node(n_data["x"], n_data["y"], n_data["z"])
             del self.nodes[node.id]; node.id = n_id; self.nodes[n_id] = node
+            
             node.restraints = n_data["restraints"]
             if "diaphragm" in n_data: node.diaphragm_name = n_data["diaphragm"]
+            
+            if "spring_matrix" in n_data and n_data["spring_matrix"] is not None:
+                node.spring_matrix = np.array(n_data["spring_matrix"])
+            else:
+                node.spring_matrix = None
+                
             self._node_counter = max(self._node_counter, n_id + 1)
 
         _p("Loading diaphragm constraints...")

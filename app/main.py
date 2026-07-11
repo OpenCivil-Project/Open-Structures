@@ -805,6 +805,10 @@ class MainWindow(QMainWindow):
         restraint_action.triggered.connect(self.on_assign_restraints)
         joint_menu.addAction(restraint_action)
 
+        spring_action = QAction(qta.icon('fa5s.compress-arrows-alt', color='#6c757d'), "Springs...", self)
+        spring_action.triggered.connect(self.on_assign_joint_springs)
+        joint_menu.addAction(spring_action)
+
         constraint_action = QAction(qta.icon('fa5s.link', color='#6c757d'), "Diaphragms / Constraints...", self)
         constraint_action.triggered.connect(self.on_assign_constraints)
         joint_menu.addAction(constraint_action)
@@ -2416,6 +2420,15 @@ class MainWindow(QMainWindow):
             self.restraint_dlg = RestraintDialog(self)
             self.restraint_dlg.show()
         else: self.restraint_dlg.raise_()
+
+    def on_assign_joint_springs(self):
+        """Opens the Joint Spring Assignment Dialog"""
+        if not hasattr(self, 'joint_spring_dlg') or not self.joint_spring_dlg.isVisible():
+            from app.dialogs.assign_spring_dialog import AssignJointSpringDialog
+            self.joint_spring_dlg = AssignJointSpringDialog(self)
+            self.joint_spring_dlg.show()
+        else: 
+            self.joint_spring_dlg.raise_()
 
     def on_assign_constraints(self):
         if not hasattr(self, 'constraint_dlg') or not self.constraint_dlg.isVisible():

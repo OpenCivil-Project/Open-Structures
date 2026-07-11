@@ -130,6 +130,12 @@ class GlobalAssembler:
             self.K[start_j:start_j+6, start_i:start_i+6] += k_global[6:12, 0:6]
             self.K[start_j:start_j+6, start_j:start_j+6] += k_global[6:12, 6:12]
 
+        for node in self.dm.nodes:
+            if node.get('spring_matrix') is not None:
+                start_idx = node['idx'] * 6
+                                                                             
+                self.K[start_idx:start_idx+6, start_idx:start_idx+6] += node['spring_matrix']
+
     def _condense_matrix(self, k, releases):
         rel_vec = releases[0] + releases[1]
         idx_k = [i for i, r in enumerate(rel_vec) if not r]

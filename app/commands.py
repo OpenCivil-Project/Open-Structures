@@ -1004,3 +1004,42 @@ class CmdAssignJointDisplacement(QUndoCommand):
             self.model.loads.append(copy.deepcopy(old_disp))
             
         self.main_window.draw_both_canvases()
+
+class CmdAssignJointSpring(QUndoCommand):
+    """
+    Command to Assign, Add, or Delete 6x6 Joint Springs.
+    """
+    def __init__(self, model, main_window, node_ids, matrix_si, mode, description="Assign Joint Springs"):
+        super().__init__(description)
+        self.model = model
+        self.main_window = main_window
+        self.node_ids = node_ids
+        self.matrix = matrix_si
+        self.mode = mode
+        
+        self.previous_states = {}
+
+    def redo(self):
+        for nid in self.node_ids:
+            node = self.model.nodes[nid]
+            
+            if getattr(node, 'spring_matrix', None) is not None:
+                self.previous_states[nid] = node.spring_matrix.copy()
+            else:
+                self.previous_states[nid] = None
+
+            if self.mode == "replace":
+                node.spring_matrix = self.matrix.copy()
+            elif self.mode == "add":
+                if getattr(node, 'spring_matrix', None) is not None:
+                    node.spring_matrix += self.matrix
+                else:
+                    node.spring_matrix = self.matrix.copy()
+            elif self.mode == "delete":
+                node.spring_matrix = None
+
+    def undo(self):
+        for nid in self.node_ids:
+            node = self.model.nodes[nid]
+                                              
+            node.spring_matrix = self.previous_states.get(nid)
