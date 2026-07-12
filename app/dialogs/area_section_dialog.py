@@ -22,6 +22,7 @@ from PyQt6.QtWidgets import (
 )
 from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QColor
+from core.integrity_checks import check_area_section_in_use
 
 try:
     from app.ui.theme import apply_dialog_style
@@ -851,6 +852,12 @@ class AreaSectionsManagerDialog(QDialog):
         src = self._selected_section()
         if src is None:
             return
+
+        in_use, msg = check_area_section_in_use(self.model, src.name)
+        if in_use:
+            QMessageBox.warning(self, "Section In Use", msg)
+            return
+
         reply = QMessageBox.question(
             self, "Delete Section",
             f"Delete section '{src.name}'?",

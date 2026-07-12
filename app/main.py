@@ -135,6 +135,7 @@ class VideoSplash(QWidget):
         self.player.errorOccurred.connect(self.finished.emit)
 
     def start(self):
+        self.player.setPlaybackRate(1.5)
         self.player.play()
 
     def cleanup_player(self):
@@ -298,6 +299,13 @@ class MainWindow(QMainWindow):
             return QIcon(pixmap)
         
         menubar = self.menuBar()
+        menubar.setStyleSheet("""
+            QMenu::separator {
+                height: 2px;
+                background: #b7bec7;
+                margin: 6px 10px;
+            }
+        """)
 
         file_menu = menubar.addMenu("File")
         
@@ -365,11 +373,15 @@ class MainWindow(QMainWindow):
             
         reset_labels_action.triggered.connect(reset_all_labels)
         self.menu_edit.addAction(reset_labels_action)
+
+        self.menu_edit.addSeparator()
                                   
         rep_action = QAction(qta.icon('fa5s.copy', color='#6c757d'), "Replicate...", self)
         rep_action.setShortcut("Ctrl+R") 
         rep_action.triggered.connect(self.on_edit_replicate)
         self.menu_edit.addAction(rep_action)
+
+        self.menu_edit.addSeparator()
 
         merge_action = QAction(qta.icon('fa5s.compress-arrows-alt', color='#6c757d'), "Merge Joints...", self)
         merge_action.triggered.connect(self.on_edit_merge)
@@ -385,22 +397,28 @@ class MainWindow(QMainWindow):
         mat_action = QAction(qta.icon('fa5s.cubes', color='#6c757d'), "Material Properties...", self)
         mat_action.triggered.connect(self.on_define_materials)
         self.menu_define.addAction(mat_action)
+
+        self.menu_define.addSeparator()
         
-        sec_action = QAction(qta.icon('fa5s.shapes', color='#6c757d'), "Section Properties...", self)
+        sec_action = QAction(qta.icon('fa5s.shapes', color='#6c757d'), "Frame Properties...", self)
         sec_action.triggered.connect(self.on_define_sections) 
         self.menu_define.addAction(sec_action)
-
-        link_action = QAction(qta.icon('fa5s.link', color='#6c757d'), "Link/Support Properties...", self)
-        link_action.triggered.connect(self.on_define_link_properties) 
-        self.menu_define.addAction(link_action)
 
         area_sec_action = QAction(qta.icon('fa5s.vector-square', color='#6c757d'), "Area Sections...", self)
         area_sec_action.triggered.connect(self.on_define_area_sections)
         self.menu_define.addAction(area_sec_action)
 
+        link_action = QAction(qta.icon('fa5s.link', color='#6c757d'), "Link/Support Properties...", self)
+        link_action.triggered.connect(self.on_define_link_properties) 
+        self.menu_define.addAction(link_action)
+
+        self.menu_define.addSeparator()
+
         mass_action = QAction(qta.icon('fa5s.weight-hanging', color='#6c757d'), "Mass Source...", self)
         mass_action.triggered.connect(self.on_define_mass_source)
         self.menu_define.addAction(mass_action)
+
+        self.menu_define.addSeparator()
 
         load_pat_action = QAction(qta.icon('fa5s.list-ul', color='#6c757d'), "Load Patterns...", self)
         load_pat_action.triggered.connect(self.on_define_load_patterns)
@@ -414,6 +432,8 @@ class MainWindow(QMainWindow):
         load_combo_action.triggered.connect(self.on_define_load_combos)
         self.menu_define.addAction(load_combo_action)
 
+        self.menu_define.addSeparator()
+        
         self.menu_functions = self.menu_define.addMenu("Functions")
                                                               
         self.menu_functions.setIcon(qta.icon('fa5s.chart-line', color='#6c757d'))
@@ -434,17 +454,33 @@ class MainWindow(QMainWindow):
         draw_action.triggered.connect(self.on_draw_frame)
         self.menu_draw.addAction(draw_action)
 
+        self.menu_draw.addSeparator()
+
         draw_area_action = QAction(qta.icon('fa5s.vector-square', color='#6c757d'), "Draw Poly Area...", self)
         draw_area_action.triggered.connect(self.on_draw_poly_area)
         self.menu_draw.addAction(draw_area_action)
+
+        self.menu_draw.addSeparator()
 
         cross_brace_action = QAction(qta.icon('fa5s.times', color='#6c757d'), "Quick Cross Brace...", self)
         cross_brace_action.triggered.connect(self.on_draw_cross_brace)
         self.menu_draw.addAction(cross_brace_action)
 
+        self.menu_draw.addSeparator()
+
         beam_col_action = QAction(qta.icon('fa5s.i-cursor', color='#6c757d'), "Quick Beam / Column...", self)
         beam_col_action.triggered.connect(self.on_draw_beam_column)
         self.menu_draw.addAction(beam_col_action)
+
+        self.menu_draw.addSeparator()
+
+        draw_link2_action = QAction(qta.icon('fa5s.expand-alt', color='#6c757d'), "Draw 2-Joint Link...", self)
+        draw_link2_action.triggered.connect(self.on_draw_link2)
+        self.menu_draw.addAction(draw_link2_action)
+
+        draw_link1_action = QAction(qta.icon('fa5s.thumbtack', color='#6c757d'), "Draw 1-Joint Link...", self)
+        draw_link1_action.triggered.connect(self.on_draw_link1)
+        self.menu_draw.addAction(draw_link1_action)
 
         self.toolbar = self.addToolBar("Views")
         self.toolbar.setMovable(False)
@@ -682,14 +718,14 @@ class MainWindow(QMainWindow):
         self.draw_action_group.addAction(self.act_quick_brace)
         self.sidebar.addAction(self.act_quick_brace)
 
-        self.act_draw_link2 = QAction(qta.icon('fa5s.arrows-alt-h', color='#6c757d'), "Draw 2-Joint Link", self)
+        self.act_draw_link2 = QAction(qta.icon('fa5s.expand-alt', color='#6c757d'), "Draw 2-Joint Link", self)
         self.act_draw_link2.setToolTip("Draw 2-Joint Link")
         self.act_draw_link2.setCheckable(True)
         self.act_draw_link2.triggered.connect(self.on_draw_link2)
         self.draw_action_group.addAction(self.act_draw_link2)
         self.sidebar.addAction(self.act_draw_link2)
 
-        self.act_draw_link1 = QAction(qta.icon('fa5s.map-pin', color='#6c757d'), "Draw 1-Joint Link", self)
+        self.act_draw_link1 = QAction(qta.icon('fa5s.thumbtack', color='#6c757d'), "Draw 1-Joint Link", self)
         self.act_draw_link1.setToolTip("Draw 1-Joint (Grounded) Link")
         self.act_draw_link1.setCheckable(True)
         self.act_draw_link1.triggered.connect(self.on_draw_link1)
@@ -760,8 +796,6 @@ class MainWindow(QMainWindow):
         self.action_area_mesh = QAction(qta.icon('fa5s.th', color='#6c757d'), "Automatic Area Mesh...", self)
         self.action_area_mesh.triggered.connect(self.on_assign_area_mesh)
         self.menu_assign_area.addAction(self.action_area_mesh)
-
-        self.menu_assign_area.addSeparator()
  
         self.action_area_uniform_load = QAction(
             qta.icon('fa5s.arrows-alt-v', color='#6c757d'), "Uniform Load...", self)
@@ -832,21 +866,27 @@ class MainWindow(QMainWindow):
         restraint_action.triggered.connect(self.on_assign_restraints)
         joint_menu.addAction(restraint_action)
 
-        spring_action = QAction(qta.icon('fa5s.compress-arrows-alt', color='#6c757d'), "Springs...", self)
-        spring_action.triggered.connect(self.on_assign_joint_springs)
-        joint_menu.addAction(spring_action)
-
         constraint_action = QAction(qta.icon('fa5s.link', color='#6c757d'), "Diaphragms / Constraints...", self)
         constraint_action.triggered.connect(self.on_assign_constraints)
         joint_menu.addAction(constraint_action)
 
-        load_action = QAction(qta.icon('fa5s.arrow-down', color='#6c757d'), "Forces...", self)
+        joint_menu.addSeparator()
+
+        spring_action = QAction(qta.icon('fa5s.compress-arrows-alt', color='#6c757d'), "Joint Springs...", self)
+        spring_action.triggered.connect(self.on_assign_joint_springs)
+        joint_menu.addAction(spring_action)
+
+        joint_menu.addSeparator()
+
+        load_action = QAction(qta.icon('fa5s.arrow-down', color='#6c757d'), "Point Loads...", self)
         load_action.triggered.connect(self.on_assign_joint_load)
         joint_menu.addAction(load_action)
 
-        disp_action = QAction(qta.icon('fa5s.arrows-alt', color='#6c757d'), "Ground Displacements...", self)
+        disp_action = QAction(qta.icon('fa5s.arrows-alt', color='#6c757d'), "Joint Displacements...", self)
         disp_action.triggered.connect(self.on_assign_joint_displacement)
         joint_menu.addAction(disp_action)
+
+        self.menu_assign.addSeparator()
 
         frame_menu = self.menu_assign.addMenu("Frame")
         frame_menu.setIcon(qta.icon('fa5s.minus', color='#6c757d'))
@@ -859,6 +899,8 @@ class MainWindow(QMainWindow):
         frame_load_action.triggered.connect(self.on_assign_frame_load)
         frame_menu.addAction(frame_load_action)
 
+        frame_menu.addSeparator()
+
         frame_rel_action = QAction(qta.icon('fa5s.unlink', color='#6c757d'), "Releases & Partial Fixity...", self)
         frame_rel_action.triggered.connect(self.on_assign_releases)
         frame_menu.addAction(frame_rel_action)
@@ -870,6 +912,8 @@ class MainWindow(QMainWindow):
         end_offset_action = QAction(qta.icon('fa5s.arrows-alt-h', color='#6c757d'), "End Length Offsets...", self)
         end_offset_action.triggered.connect(self.on_assign_end_offsets)
         frame_menu.addAction(end_offset_action)
+
+        frame_menu.addSeparator()
 
         local_axis_action = QAction(qta.icon('fa5s.location-arrow', color='#6c757d'), "Local Axes...", self)
         local_axis_action.triggered.connect(self.on_assign_local_axis)
@@ -884,12 +928,16 @@ class MainWindow(QMainWindow):
         self.solid_run_action.triggered.connect(self.on_run_solid_analysis)
         self.menu_analyze.addAction(self.solid_run_action)
 
+        self.menu_analyze.addSeparator()
+
         self.menu_analyze.addAction(self.btn_deform)
 
         self.action_deform_opts = QAction("Deformed Shape Options...", self)
         self.action_deform_opts.triggered.connect(self.on_view_deformed_shape)
         self.action_deform_opts.setEnabled(False)
         self.menu_analyze.addAction(self.action_deform_opts)
+
+        self.menu_analyze.addSeparator()
 
         self.action_display_forces = QAction(
             qta.icon('fa5s.chart-bar', color='#6c757d'),

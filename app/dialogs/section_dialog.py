@@ -13,6 +13,7 @@ from core.properties import (RectangularSection, ISection, Material,
                              PipeSection, TubeSection, TrapezoidalSection,
                              ArbitrarySection)
 from app.section_designer.section_designer_dialog import SectionDesignerDialog
+from core.integrity_checks import check_section_in_use
 
 class AISCSelectionDialog(QDialog):
     """Dialog to select a specific shape from the loaded AISC list."""
@@ -947,6 +948,12 @@ class SectionManagerDialog(QDialog):
         item = self.list_widget.currentItem()
         if not item: return
         name = item.text()
+
+        in_use, msg = check_section_in_use(self.model, name)
+        if in_use:
+            QMessageBox.warning(self, "Section In Use", msg)
+            return
+
         if QMessageBox.question(self, 'Delete', f"Delete section '{name}'?", 
                                 QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No) == QMessageBox.StandardButton.Yes:
             del self.model.sections[name]

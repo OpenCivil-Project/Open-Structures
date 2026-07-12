@@ -322,16 +322,38 @@ class DataManager:
         return P
     
     def _parse_links(self):
-        """Routes links into 1-Joint or 2-Joint categories."""
+        """Routes links into 1-Joint or 2-Joint categories. Generates phantom nodes for 1-Joint links."""
         for link_data in self.raw.get('links', []):
             prop = self.link_properties[link_data['prop_name']]
 
             if len(link_data['nodes']) == 1:
-                idx = self.node_id_to_idx[link_data['nodes'][0]]
-                self.links_1j.append({
+                                              
+                parent_id = link_data['nodes'][0]
+                parent_idx = self.node_id_to_idx[parent_id]
+                parent_node = next(n for n in self.nodes if n['idx'] == parent_idx)
+                
+                phantom_id = f"{parent_id}~Link"
+                phantom_idx = len(self.nodes)                       
+                
+                self.node_id_to_idx[phantom_id] = phantom_idx
+                self.nodes.append({
+                    'id': phantom_id,
+                    'idx': phantom_idx,
+                    'coords': np.copy(parent_node['coords']),
+                    'restraints': [True, True, True, True, True, True],                  
+                    'diaphragm': None,
+                    'spring_matrix': None
+                })
+                
+                self.total_dofs += 6 
+                
+                self.links_2j.append({
                     'id': link_data['id'],
-                    'node_idx': idx,
-                    'property': prop
+                    'node_indices': [parent_idx, phantom_idx],
+                    'property': prop,
+                    'beta': link_data.get('beta', 0.0),
+                    'p1': np.copy(parent_node['coords']),
+                    'p2': np.copy(parent_node['coords']) 
                 })
 
             elif len(link_data['nodes']) == 2:
@@ -340,11 +362,7 @@ class DataManager:
 
                 p1 = next(n['coords'] for n in self.nodes if n['idx'] == idx_i)
                 p2 = next(n['coords'] for n in self.nodes if n['idx'] == idx_j)
-                L_total = np.linalg.norm(p2 - p1)
-
-                if L_total < 1e-9:
-                    raise SolverException("E202", f"Link ID {link_data['id']} has zero length.")
-
+                
                 self.links_2j.append({
                     'id': link_data['id'],
                     'node_indices': [idx_i, idx_j],

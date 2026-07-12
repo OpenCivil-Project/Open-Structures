@@ -297,7 +297,7 @@ class AnalysisResultsDialog(QDialog):
 
         if "displacements" in self.results:
             disp_data = []
-            for nid, dofs in sorted(self.results["displacements"].items(), key=lambda x: int(x[0]) if x[0].isdigit() else x[0]):
+            for nid, dofs in sorted(self.results["displacements"].items(), key=lambda x: (int(str(x[0]).split('~')[0]), str(x[0])) if str(x[0]).split('~')[0].isdigit() else (float('inf'), str(x[0]))):
                 disp_data.append({
                     "joint": nid,
                     "case":  case_name,
@@ -326,7 +326,7 @@ class AnalysisResultsDialog(QDialog):
         if "reactions" in self.results:
             restrained = set(self.results.get("restrained_nodes", []))
             reac_data = []
-            for nid, dofs in sorted(self.results["reactions"].items(), key=lambda x: int(x[0]) if x[0].isdigit() else x[0]):
+            for nid, dofs in sorted(self.results["reactions"].items(), key=lambda x: (int(str(x[0]).split('~')[0]), str(x[0])) if str(x[0]).split('~')[0].isdigit() else (float('inf'), str(x[0]))):
                 if restrained and nid not in restrained:
                     continue
                 if not restrained and max(abs(v) for v in dofs) < 1e-6:
@@ -407,8 +407,8 @@ class AnalysisResultsDialog(QDialog):
                     "U1": masses[0] * sm, "U2": masses[1] * sm, "U3": masses[2] * sm,
                     "R1": masses[3] * s_mom, "R2": masses[4] * s_mom, "R3": masses[5] * s_mom
                 })
-            mass_data.sort(key=lambda x: int(x["Node"]) if x["Node"].isdigit() else x["Node"])
-
+            
+            mass_data.sort(key=lambda x: (int(str(x["Node"]).split('~')[0]), str(x["Node"])) if str(x["Node"]).split('~')[0].isdigit() else (float('inf'), str(x["Node"])))
             if self.selected_node_ids:
                 mass_data = [d for d in mass_data if d["Node"] in self.selected_node_ids]
 

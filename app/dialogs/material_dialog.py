@@ -6,6 +6,7 @@ from PyQt6.QtGui import QColor, QFont
 from PyQt6.QtCore import Qt
 from core.properties import Material
 from core.units import unit_registry
+from core.integrity_checks import check_material_in_use
 
 FORCE_SCALES = {
     "N":    1.0,
@@ -367,5 +368,19 @@ class MaterialManagerDialog(QDialog):
         items = self.list_widget.selectedItems()
         if not items:
             return
-        del self.model.materials[items[0].text()]
+        name = items[0].text()
+
+        in_use, msg = check_material_in_use(self.model, name)
+        if in_use:
+            QMessageBox.warning(self, "Material In Use", msg)
+            return
+
+        if QMessageBox.question(
+            self, "Delete Material", f"Delete material '{name}'?",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.No
+        ) != QMessageBox.StandardButton.Yes:
+            return
+
+        del self.model.materials[name]
         self.refresh_list()

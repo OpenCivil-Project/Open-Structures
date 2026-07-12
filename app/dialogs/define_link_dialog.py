@@ -6,6 +6,7 @@ from PyQt6.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, QLabel,
 from PyQt6.QtCore import Qt
 
 from core.units import UnitConverter, unit_registry
+from core.integrity_checks import check_link_property_in_use
 
 class LinkPropertyDataDialog(QDialog):
     def __init__(self, parent=None, prop_name="LINK1", prop_data=None):
@@ -340,5 +341,18 @@ class LinkManagerDialog(QDialog):
         current = self.list_widget.currentItem()
         if not current: return
         name = current.text()
+
+        in_use, msg = check_link_property_in_use(self.model, name)
+        if in_use:
+            QMessageBox.warning(self, "Property In Use", msg)
+            return
+
+        if QMessageBox.question(
+            self, "Delete Property", f"Delete link property '{name}'?",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.No
+        ) != QMessageBox.StandardButton.Yes:
+            return
+
         del self.model.link_properties[name]
         self.refresh_list()
