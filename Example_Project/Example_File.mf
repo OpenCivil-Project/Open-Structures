@@ -323,7 +323,8 @@
                 "visible": true,
                 "bubble": "End"
             }
-        ]
+        ],
+        "bubble_size": 1.25
     },
     "materials": [
         {
@@ -27914,5 +27915,6 @@
                 0.0002544218923321713
             ]
         }
-    ]
+    ],
+    "load_combos": []
 }

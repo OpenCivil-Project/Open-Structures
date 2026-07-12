@@ -105,7 +105,10 @@ class StructuralModel:
         self.nodes = {}                        
         self.elements = {}                             
         self.materials = {}                          
-        self.sections = {}                          
+        self.sections = {} 
+        self.link_properties = {}
+        self.links = {}
+        self._link_counter = 1                         
         self.load_patterns = {}                           
         self.load_cases = {}   
         self.load_combos = {}
@@ -385,7 +388,8 @@ class StructuralModel:
                 "x_lines": self.grid.x_lines,
                 "y_lines": self.grid.y_lines,
                 "z_lines": self.grid.z_lines,
-                "bubble_size": getattr(self.grid, 'bubble_size', 1.25)
+                "bubble_size": getattr(self.grid, 'bubble_size', 1.25),
+                "bubble_alpha": getattr(self.grid, 'bubble_alpha', 1.0)
             },
             "materials": [],
             "sections": [],
@@ -395,6 +399,8 @@ class StructuralModel:
             "area_elements": [],
             "area_sections": [],   
             "constraints": [],
+            "link_properties": [],
+            "links": [],
             "load_patterns": [],
             "loads": [],
             "mass_sources": [],
@@ -489,6 +495,29 @@ class StructuralModel:
                 node_dict["spring_matrix"] = n.spring_matrix.tolist()
                 
             data["nodes"].append(node_dict)
+
+        _p(f"Saving {len(self.link_properties)} link properties...")
+        for name, prop in self.link_properties.items():
+            data["link_properties"].append({
+                "name": name,
+                "mass": prop.get("mass", 0.0),
+                "weight": prop.get("weight", 0.0),
+                "r1": prop.get("r1", 0.0),
+                "r2": prop.get("r2", 0.0),
+                "r3": prop.get("r3", 0.0),
+                "is_fixed": prop.get("is_fixed", [False]*6),
+                "stiffness": prop.get("stiffness", np.zeros((6,6))).tolist(),
+                "damping": prop.get("damping", np.zeros((6,6))).tolist()
+            })
+
+        _p(f"Saving {len(self.links)} links...")
+        for lid, link in self.links.items():
+            data["links"].append({
+                "id": lid,
+                "prop_name": link["prop_name"],
+                "nodes": link["nodes"],
+                "beta": link.get("beta", 0.0)
+            })
 
         _p(f"Saving {len(self.elements)} frame element(s) & releases...")
         for el_id in sorted(self.elements.keys()):
@@ -691,6 +720,8 @@ class StructuralModel:
         self.nodes.clear(); self.elements.clear(); self.materials.clear()
         self.sections.clear(); self.area_sections.clear(); self.load_patterns.clear(); self.loads.clear()                                  
         self.slabs.clear(); self.area_elements.clear(); self.constraints.clear()
+        self.link_properties.clear(); self.links.clear()
+        self._link_counter = 1
         self.load_combos.clear()
         self.functions = {}
         self.th_functions = {}
@@ -703,6 +734,7 @@ class StructuralModel:
         grid_data = data["grid"]
 
         self.grid.bubble_size = grid_data.get("bubble_size", 1.25)
+        self.grid.bubble_alpha = grid_data.get("bubble_alpha", 1.0)
         
         if "x_lines" in grid_data:
             self.grid.x_lines = grid_data["x_lines"]; self.grid.y_lines = grid_data["y_lines"]; self.grid.z_lines = grid_data["z_lines"]
@@ -875,6 +907,30 @@ class StructuralModel:
                 el.end_offset_i = el_data.get("end_off_i", 0.0)
                 el.end_offset_j = el_data.get("end_off_j", 0.0)
                 el.rigid_zone_factor = el_data.get("rz_factor", 0.0)
+
+        _p("Loading link properties...")
+        for lp_data in data.get("link_properties", []):
+            self.link_properties[lp_data["name"]] = {
+                "mass": lp_data.get("mass", 0.0),
+                "weight": lp_data.get("weight", 0.0),
+                "r1": lp_data.get("r1", 0.0),
+                "r2": lp_data.get("r2", 0.0),
+                "r3": lp_data.get("r3", 0.0),
+                "is_fixed": lp_data.get("is_fixed", [False]*6),
+                "stiffness": np.array(lp_data.get("stiffness", np.zeros((6,6)))),
+                "damping": np.array(lp_data.get("damping", np.zeros((6,6))))
+            }
+
+        _p("Loading link elements...")
+        for link_data in data.get("links", []):
+            lid = link_data["id"]
+            self.links[lid] = {
+                "id": lid,
+                "prop_name": link_data["prop_name"],
+                "nodes": link_data["nodes"],
+                "beta": link_data.get("beta", 0.0)
+            }
+            self._link_counter = max(self._link_counter, lid + 1)
 
         _p("Loading area elements...")
         if "area_elements" in data:
@@ -1348,6 +1404,10 @@ class StructuralModel:
                 if n.id == node_id:
                     return
 
+        for link in self.links.values():
+            if node_id in link['nodes']:
+                return
+
         if any(self.nodes[node_id].restraints):
             return 
 
@@ -1675,4 +1735,4 @@ class LoadCombination:
     def __init__(self, name, combo_type="Linear Add"):
         self.name = name
         self.combo_type = combo_type                                                    
-        self.cases = []                                                                 
+        self.cases = []

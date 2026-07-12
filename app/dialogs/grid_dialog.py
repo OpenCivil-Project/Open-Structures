@@ -3,7 +3,7 @@ import re
 from PyQt6.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, QLabel, 
                              QTableWidget, QTableWidgetItem, QPushButton, 
                              QGroupBox, QHeaderView, QRadioButton, QButtonGroup,
-                             QFrame, QDoubleSpinBox, QMessageBox, QWidget, QComboBox)
+                             QFrame, QDoubleSpinBox, QSpinBox, QMessageBox, QWidget, QComboBox)
 from PyQt6.QtCore import Qt, QRectF, QPointF
 from PyQt6.QtGui import QPainter, QPen, QBrush, QColor, QFont
 from core.units import unit_registry
@@ -22,12 +22,14 @@ class GridPreviewWidget(QFrame):
         self.v_grids = []                              
         self.plane = "XY"
         self.bubble_size = 1.0
+        self.bubble_alpha = 1.0
 
-    def update_data(self, h_data, v_data, plane, bubble_size):
+    def update_data(self, h_data, v_data, plane, bubble_size, bubble_alpha=1.0):
         self.h_grids = h_data
         self.v_grids = v_data
         self.plane = plane
         self.bubble_size = bubble_size
+        self.bubble_alpha = bubble_alpha
         self.update()                  
 
     def paintEvent(self, event):
@@ -81,7 +83,9 @@ class GridPreviewWidget(QFrame):
         b_radius = 5 + (self.bubble_size * 2) 
         
         painter.setFont(QFont("Arial", 8))
-        painter.setBrush(QBrush(QColor(240, 240, 240)))
+        bubble_color = QColor(240, 240, 240)
+        bubble_color.setAlphaF(self.bubble_alpha)
+        painter.setBrush(QBrush(bubble_color))
         painter.setPen(Qt.GlobalColor.black)
 
         for gid, h_val, bub_loc in self.h_grids:
@@ -125,6 +129,8 @@ class GridEditorDialog(QDialog):
         self.z_data = []
         
         self.current_mode = "ordinate" 
+        self.initial_bubble_size = getattr(current_grid, 'bubble_size', 1.25)
+        self.initial_bubble_alpha = getattr(current_grid, 'bubble_alpha', 1.0)
         self.parse_grid_obj(current_grid)
 
         self.setup_ui()
@@ -210,11 +216,22 @@ class GridEditorDialog(QDialog):
         bub_layout.addWidget(QLabel("Bubble Size:"))
         self.spin_bubble = QDoubleSpinBox()
         self.spin_bubble.setRange(0.1, 10.0)
-        self.spin_bubble.setValue(1.25)
+        self.spin_bubble.setValue(self.initial_bubble_size)
         self.spin_bubble.setSingleStep(0.25)
         self.spin_bubble.valueChanged.connect(self.update_preview)
         bub_layout.addWidget(self.spin_bubble)
         right_panel.addLayout(bub_layout)
+
+        bub_alpha_layout = QHBoxLayout()
+        bub_alpha_layout.addWidget(QLabel("Bubble Opacity:"))
+        self.spin_bubble_alpha = QSpinBox()
+        self.spin_bubble_alpha.setRange(10, 100)
+        self.spin_bubble_alpha.setValue(round(self.initial_bubble_alpha * 100))
+        self.spin_bubble_alpha.setSingleStep(5)
+        self.spin_bubble_alpha.setSuffix("%")
+        self.spin_bubble_alpha.valueChanged.connect(self.update_preview)
+        bub_alpha_layout.addWidget(self.spin_bubble_alpha)
+        right_panel.addLayout(bub_alpha_layout)
 
         self._all_visible = True
         self.btn_global_viz = QPushButton("Hide All Gridlines")
@@ -403,7 +420,7 @@ class GridEditorDialog(QDialog):
             v_data = [(row[0], row[1], row[4]) for row in self.z_data]                
             plane_name = "YZ"
 
-        self.preview.update_data(h_data, v_data, plane_name, self.spin_bubble.value())
+        self.preview.update_data(h_data, v_data, plane_name, self.spin_bubble.value(), self.spin_bubble_alpha.value() / 100.0)
 
     def add_grid_line(self, axis):
         if axis == 'x': data = self.x_data; tbl = self.table_x['table']
@@ -468,7 +485,8 @@ class GridEditorDialog(QDialog):
             "x": pack(self.x_data),
             "y": pack(self.y_data),
             "z": pack(self.z_data),
-            "bubble_size": self.spin_bubble.value()
+            "bubble_size": self.spin_bubble.value(),
+            "bubble_alpha": self.spin_bubble_alpha.value() / 100.0
         }
     
     def toggle_all_axes_visibility(self):

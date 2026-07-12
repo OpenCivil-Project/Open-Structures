@@ -241,6 +241,10 @@ class MainWindow(QMainWindow):
             self.setWindowIcon(QIcon(icon_path))
 
         self.draw_mode_active = False
+        self.draw_link2_mode_active = False
+        self.draw_link1_mode_active = False
+        self.draw_link2_dialog = None
+        self.draw_link1_dialog = None
         self.draw_start_node = None 
         self.draw_dialog = None
         self.cross_brace_mode_active = False
@@ -270,6 +274,11 @@ class MainWindow(QMainWindow):
         self.draw_area_mode_active = False
         self.draw_area_dialog = None
         self._current_area_nodes = []
+
+        self.draw_link2_mode_active = False
+        self.draw_link1_mode_active = False
+        self.draw_link2_dialog = None
+        self.draw_link1_dialog = None
         
         self.init_ui()
         QApplication.instance().applicationStateChanged.connect(self._on_app_state_changed)
@@ -380,6 +389,10 @@ class MainWindow(QMainWindow):
         sec_action = QAction(qta.icon('fa5s.shapes', color='#6c757d'), "Section Properties...", self)
         sec_action.triggered.connect(self.on_define_sections) 
         self.menu_define.addAction(sec_action)
+
+        link_action = QAction(qta.icon('fa5s.link', color='#6c757d'), "Link/Support Properties...", self)
+        link_action.triggered.connect(self.on_define_link_properties) 
+        self.menu_define.addAction(link_action)
 
         area_sec_action = QAction(qta.icon('fa5s.vector-square', color='#6c757d'), "Area Sections...", self)
         area_sec_action.triggered.connect(self.on_define_area_sections)
@@ -669,6 +682,20 @@ class MainWindow(QMainWindow):
         self.draw_action_group.addAction(self.act_quick_brace)
         self.sidebar.addAction(self.act_quick_brace)
 
+        self.act_draw_link2 = QAction(qta.icon('fa5s.arrows-alt-h', color='#6c757d'), "Draw 2-Joint Link", self)
+        self.act_draw_link2.setToolTip("Draw 2-Joint Link")
+        self.act_draw_link2.setCheckable(True)
+        self.act_draw_link2.triggered.connect(self.on_draw_link2)
+        self.draw_action_group.addAction(self.act_draw_link2)
+        self.sidebar.addAction(self.act_draw_link2)
+
+        self.act_draw_link1 = QAction(qta.icon('fa5s.map-pin', color='#6c757d'), "Draw 1-Joint Link", self)
+        self.act_draw_link1.setToolTip("Draw 1-Joint (Grounded) Link")
+        self.act_draw_link1.setCheckable(True)
+        self.act_draw_link1.triggered.connect(self.on_draw_link1)
+        self.draw_action_group.addAction(self.act_draw_link1)
+        self.sidebar.addAction(self.act_draw_link1)
+
         self.central_widget = QWidget()
         self.setCentralWidget(self.central_widget)
         self.layout = QVBoxLayout(self.central_widget)
@@ -953,16 +980,18 @@ class MainWindow(QMainWindow):
             self._hidden_dialogs = []
 
     def on_select_all(self):
-        if not self.model:
-            return
+        if not self.model: return
         self.selected_ids = list(self.model.elements.keys())
         self.selected_node_ids = list(self.model.nodes.keys())
         self.selected_area_ids = list(self.model.area_elements.keys()) if hasattr(self.model, 'area_elements') else []
+        self.selected_link_ids = list(self.model.links.keys()) if hasattr(self.model, 'links') else []          
+        
         self._refresh_selection_overlay()
         self.status.showMessage(
             f"Selected All: {len(self.selected_ids)} Frames, "
             f"{len(self.selected_node_ids)} Joints, "
-            f"{len(self.selected_area_ids)} Areas")
+            f"{len(self.selected_area_ids)} Areas, "
+            f"{len(self.selected_link_ids)} Links")
 
     def on_select_none(self):
         if not self.model:
@@ -970,6 +999,7 @@ class MainWindow(QMainWindow):
         self.selected_ids = []
         self.selected_node_ids = []
         self.selected_area_ids = []
+        self.selected_link_ids = []
         
         if hasattr(self, 'canvas'):                                                                                                 
             self.canvas.clear_hover_popup()
@@ -997,7 +1027,7 @@ class MainWindow(QMainWindow):
 
     def _refresh_selection_overlay(self):
         for cvs in [self.canvas, self.canvas2]:
-            cvs.update_selection_overlay(self.selected_ids, self.selected_node_ids, self.selected_area_ids)
+            cvs.update_selection_overlay(self.selected_ids, self.selected_node_ids, self.selected_area_ids, getattr(self, 'selected_link_ids', []))
 
     def _toolbar_zoom_in(self):
         """Zoom in button — simulates a scroll-up at canvas centre."""
@@ -1774,6 +1804,80 @@ class MainWindow(QMainWindow):
             if getattr(self, 'draw_area_dialog', None): self.draw_area_dialog.hide()
             self.on_draw_poly_area_finished()
 
+        if getattr(self, 'draw_link2_mode_active', False):
+            if getattr(self, 'draw_link2_dialog', None): self.draw_link2_dialog.hide()
+            self.on_draw_link2_finished()
+
+        if getattr(self, 'draw_link1_mode_active', False):
+            if getattr(self, 'draw_link1_dialog', None): self.draw_link1_dialog.hide()
+            self.on_draw_link1_finished()
+
+    def on_define_link_properties(self):
+        if not self.model: return
+        from app.dialogs.define_link_dialog import LinkManagerDialog
+        
+        dialog = LinkManagerDialog(self.model, self)
+        dialog.exec()
+        
+        self.status.showMessage("Link Properties updated.")
+
+    def on_draw_link2(self):
+        if not hasattr(self.model, 'link_properties') or not self.model.link_properties:
+            QMessageBox.warning(self, "Error", "Define a Link Property first!")
+            if hasattr(self, 'act_select'): self.act_select.setChecked(True)
+            return
+            
+        self.draw_link2_mode_active = True
+        for cvs in [self.canvas, getattr(self, 'canvas2', None)]:
+            if cvs: cvs.snapping_enabled = True
+        self.draw_start_node = None
+        self.status.showMessage("Draw 2-Joint Link: Select Start Point...")
+        
+        if self.draw_link2_dialog is None:
+            from app.dialogs.draw_link_dialogs import DrawLink2JDialog
+            self.draw_link2_dialog = DrawLink2JDialog(self.model, self)
+            self.draw_link2_dialog.signal_dialog_closed.connect(self.on_draw_link2_finished)
+            
+        self.draw_link2_dialog.refresh_properties()
+        self.draw_link2_dialog.show()
+
+    def on_draw_link2_finished(self):
+        self.draw_link2_mode_active = False
+        self.draw_start_node = None
+        for cvs in [self.canvas, getattr(self, 'canvas2', None)]:
+            if cvs:
+                cvs.snapping_enabled = False 
+                cvs.hide_preview_line()
+                cvs._draw_start = None
+        self.status.showMessage("Ready")
+        if hasattr(self, 'act_select'): self.act_select.setChecked(True)
+
+    def on_draw_link1(self):
+        if not hasattr(self.model, 'link_properties') or not self.model.link_properties:
+            QMessageBox.warning(self, "Error", "Define a Link Property first!")
+            if hasattr(self, 'act_select'): self.act_select.setChecked(True)
+            return
+            
+        self.draw_link1_mode_active = True
+        for cvs in [self.canvas, getattr(self, 'canvas2', None)]:
+            if cvs: cvs.snapping_enabled = True
+        self.status.showMessage("Draw 1-Joint Link: Click a joint to assign...")
+        
+        if self.draw_link1_dialog is None:
+            from app.dialogs.draw_link_dialogs import DrawLink1JDialog
+            self.draw_link1_dialog = DrawLink1JDialog(self.model, self)
+            self.draw_link1_dialog.signal_dialog_closed.connect(self.on_draw_link1_finished)
+            
+        self.draw_link1_dialog.refresh_properties()
+        self.draw_link1_dialog.show()
+
+    def on_draw_link1_finished(self):
+        self.draw_link1_mode_active = False
+        for cvs in [self.canvas, getattr(self, 'canvas2', None)]:
+            if cvs: cvs.snapping_enabled = False
+        self.status.showMessage("Ready")
+        if hasattr(self, 'act_select'): self.act_select.setChecked(True)
+
     def _frame_exists_between(self, p1, p2):
         """Return True if an element already connects the same two points (either direction)."""
         tol = 1e-6
@@ -2038,10 +2142,82 @@ class MainWindow(QMainWindow):
                     self.replicate_dialog.set_increments(dx, dy, dz)
                 
                 self.status.showMessage("Replicate values set.")
-            return                        
+            return        
+
+        if getattr(self, 'draw_link1_mode_active', False):
+            prop_name = self.draw_link1_dialog.get_selected_property()
+            if prop_name:
+                from app.commands import CmdDrawLink1J
+                cmd = CmdDrawLink1J(self.model, self, (x, y, z), prop_name)
+                self.add_command(cmd)
+                self.status.showMessage(f"1-Joint Link '{prop_name}' placed. Click another joint or Esc to exit.")
+            return
+
+        if getattr(self, 'draw_link2_mode_active', False):
+            clicked_node = self.model.get_or_create_node(x, y, z)
+            if getattr(self, 'draw_start_node', None) is None:
+                self.draw_start_node = clicked_node
+                self.active_canvas._draw_start = (clicked_node.x, clicked_node.y, clicked_node.z)
+                self.status.showMessage(f"Link Start Selected. Select End Point...")
+            else:
+                end_node = clicked_node
+                dx = end_node.x - self.draw_start_node.x
+                dy = end_node.y - self.draw_start_node.y
+                dz = end_node.z - self.draw_start_node.z
+                if (dx**2 + dy**2 + dz**2) < 0.001: return                      
+                
+                prop_name = self.draw_link2_dialog.get_selected_property()
+                if prop_name:
+                    p1 = (self.draw_start_node.x, self.draw_start_node.y, self.draw_start_node.z)
+                    p2 = (end_node.x, end_node.y, end_node.z)
+                    
+                    from app.commands import CmdDrawLink2J
+                    cmd = CmdDrawLink2J(self.model, self, p1, p2, prop_name)
+                    self.add_command(cmd)
+                    
+                    self.draw_start_node = self.model.get_or_create_node(*p2)
+                    self.active_canvas._draw_start = (self.draw_start_node.x, self.draw_start_node.y, self.draw_start_node.z)
+                    self.status.showMessage(f"2-Joint Link Drawn. Next Start Node selected...")
+            return                
         
         if not self.draw_mode_active: return
         clicked_node = self.model.get_or_create_node(x, y, z)
+
+        if getattr(self, 'draw_link1_mode_active', False):
+            prop_name = self.draw_link1_dialog.get_selected_property()
+            if prop_name:
+                from app.commands import CmdDrawLink1J
+                cmd = CmdDrawLink1J(self.model, self, (x, y, z), prop_name)
+                self.add_command(cmd)
+                self.status.showMessage(f"1-Joint Link '{prop_name}' placed. Click another joint or Esc to exit.")
+            return
+
+        if getattr(self, 'draw_link2_mode_active', False):
+            clicked_node = self.model.get_or_create_node(x, y, z)
+            if getattr(self, 'draw_start_node', None) is None:
+                self.draw_start_node = clicked_node
+                self.active_canvas._draw_start = (clicked_node.x, clicked_node.y, clicked_node.z)
+                self.status.showMessage(f"Link Start Selected. Select End Point...")
+            else:
+                end_node = clicked_node
+                dx = end_node.x - self.draw_start_node.x
+                dy = end_node.y - self.draw_start_node.y
+                dz = end_node.z - self.draw_start_node.z
+                if (dx**2 + dy**2 + dz**2) < 0.001: return 
+                
+                prop_name = self.draw_link2_dialog.get_selected_property()
+                if prop_name:
+                    p1 = (self.draw_start_node.x, self.draw_start_node.y, self.draw_start_node.z)
+                    p2 = (end_node.x, end_node.y, end_node.z)
+                    
+                    from app.commands import CmdDrawLink2J
+                    cmd = CmdDrawLink2J(self.model, self, p1, p2, prop_name)
+                    self.add_command(cmd)
+                    
+                    self.draw_start_node = self.model.get_or_create_node(*p2)
+                    self.active_canvas._draw_start = (self.draw_start_node.x, self.draw_start_node.y, self.draw_start_node.z)
+                    self.status.showMessage(f"2-Joint Link Drawn. Next Start Node selected...")
+            return
             
         if self.draw_start_node is None:
             self.draw_start_node = clicked_node
@@ -2104,6 +2280,10 @@ class MainWindow(QMainWindow):
         if target_elem_id is None and len(self.selected_ids) == 1:
             target_elem_id = self.selected_ids[0]
 
+        target_link_id = getattr(self.canvas, 'hovered_link_id', None)
+        if target_link_id is None and len(getattr(self, 'selected_link_ids', [])) == 1:
+            target_link_id = self.selected_link_ids[0]
+
         if target_node_id is not None and hasattr(self.model, 'has_results') and self.model.has_results:
             res_action = menu.addAction(f"Joint {target_node_id} Results...")
             
@@ -2125,7 +2305,7 @@ class MainWindow(QMainWindow):
             menu.addSeparator()
             hit_something = True
 
-        if target_elem_id is not None or target_node_id is not None or target_area_id is not None:
+        if target_elem_id is not None or target_node_id is not None or target_area_id is not None or target_link_id is not None:
             menu.addSeparator()
             
             if target_elem_id is not None:
@@ -2134,6 +2314,9 @@ class MainWindow(QMainWindow):
             elif target_area_id is not None:
                 obj = getattr(self.model, 'area_elements', {}).get(target_area_id)
                 menu_text = f"Area Information..."
+            elif target_link_id is not None:
+                obj = getattr(self.model, 'links', {}).get(target_link_id)
+                menu_text = f"Link Information..."
             else:
                 obj = self.model.nodes.get(target_node_id)
                 menu_text = f"Joint Information..."
@@ -2205,16 +2388,17 @@ class MainWindow(QMainWindow):
             self.model.grid.z_lines = new_grids["z"]
 
             self.model.grid.bubble_size = new_grids.get("bubble_size", 1.25)
+            self.model.grid.bubble_alpha = new_grids.get("bubble_alpha", 1.0)
             
             self.canvas.draw_model(self.model)
             if getattr(self, 'canvas2_visible', False):
                 self.canvas2.draw_model(self.model, list(self.selected_ids), list(self.selected_node_ids))
 
-    def _handle_box_selection_canvas2(self, node_ids, elem_ids, is_additive, is_deselect):
+    def _handle_box_selection_canvas2(self, node_ids, elem_ids, link_ids, is_additive, is_deselect):
         """Route canvas2 box-selection only when canvas2 is the active canvas."""
         if self.active_canvas is not self.canvas2:
             return
-        self.handle_box_selection(node_ids, elem_ids, is_additive, is_deselect)
+        self.handle_box_selection(node_ids, elem_ids, link_ids, is_additive, is_deselect)
 
     def handle_area_box_selection(self, area_ids, is_additive, is_deselect):
         """Handle selection/deselection of area elements from canvas signals."""
@@ -2269,28 +2453,33 @@ class MainWindow(QMainWindow):
         self.status.showMessage(f"Selected: {', '.join(parts)}" if parts else "Selection Cleared")
 
         for cvs in [self.canvas, self.canvas2]:
-            cvs.update_selection_overlay(self.selected_ids, self.selected_node_ids, self.selected_area_ids)
+            cvs.update_selection_overlay(self.selected_ids, self.selected_node_ids, self.selected_area_ids, getattr(self, 'selected_link_ids', []))
             
-    def handle_box_selection(self, node_ids, elem_ids, is_additive, is_deselect):
-        if is_deselect:
-            for nid in node_ids:
-                if nid in self.selected_node_ids:
-                    self.selected_node_ids.remove(nid)
-            for eid in elem_ids:
-                if eid in self.selected_ids:
-                    self.selected_ids.remove(eid)
-            self.status.showMessage(f"Selection: {len(self.selected_ids)} Frames, {len(self.selected_node_ids)} Joints")
+    def handle_box_selection(self, node_ids, elem_ids, link_ids, is_additive, is_deselect):
+        if not hasattr(self, 'selected_link_ids'): 
+            self.selected_link_ids = []
+
+        if is_additive:
+            self.selected_node_ids = list(set(self.selected_node_ids + node_ids))
+            self.selected_ids = list(set(self.selected_ids + elem_ids))
+            self.selected_link_ids = list(set(getattr(self, 'selected_link_ids', []) + link_ids))
+        elif is_deselect:
+            self.selected_node_ids = [n for n in self.selected_node_ids if n not in node_ids]
+            self.selected_ids = [e for e in self.selected_ids if e not in elem_ids]
+            self.selected_link_ids = [l for l in getattr(self, 'selected_link_ids', []) if l not in link_ids]
         else:
-            hit_something = (len(node_ids) > 0) or (len(elem_ids) > 0)
+            hit_something = bool(node_ids or elem_ids or link_ids)
             if hit_something:
-                for nid in node_ids:
-                    if nid not in self.selected_node_ids: self.selected_node_ids.append(nid)
-                for eid in elem_ids:
-                    if eid not in self.selected_ids: self.selected_ids.append(eid)
-                self.status.showMessage(f"Selected: {len(self.selected_ids)} Frames, {len(self.selected_node_ids)} Joints")
-        
-        for cvs in [self.canvas, self.canvas2]:
-            cvs.update_selection_overlay(self.selected_ids, self.selected_node_ids, self.selected_area_ids)
+                                                                                                    
+                self.selected_node_ids = list(set(self.selected_node_ids + node_ids))
+                self.selected_ids = list(set(self.selected_ids + elem_ids))
+                self.selected_link_ids = list(set(getattr(self, 'selected_link_ids', []) + link_ids))
+                                                                                              
+        for cvs in [self.canvas, getattr(self, 'canvas2', None)]:
+            if cvs:
+                cvs.update_selection_overlay(self.selected_ids, self.selected_node_ids, getattr(self, 'selected_area_ids', []), self.selected_link_ids)
+
+        self.status.showMessage(f"Selected: {len(self.selected_ids)} Frames, {len(self.selected_node_ids)} Joints, {len(self.selected_link_ids)} Links")
 
         modifiers = QApplication.keyboardModifiers()
         is_focus_requested = (modifiers == Qt.KeyboardModifier.AltModifier)
@@ -2340,7 +2529,7 @@ class MainWindow(QMainWindow):
     def delete_current_selection(self):
         if not self.model: return
         
-        if not self.selected_ids and not self.selected_node_ids and not self.selected_area_ids:
+        if not self.selected_ids and not self.selected_node_ids and not self.selected_area_ids and not getattr(self, 'selected_link_ids', []):
             return
 
         final_elem_ids = list(self.selected_ids)
@@ -2385,22 +2574,29 @@ class MainWindow(QMainWindow):
             return
 
         deleted_area_count = len(self.selected_area_ids)
+        deleted_link_count = len(getattr(self, 'selected_link_ids', []))
+
         cmd = CmdDeleteSelection(
             self.model, 
             self, 
             final_node_ids, 
             final_elem_ids,
-            area_elem_ids=list(self.selected_area_ids)
+            area_elem_ids=list(self.selected_area_ids),
+            link_ids=list(getattr(self, 'selected_link_ids', []))          
         )
         self.add_command(cmd)
         
         self.selected_ids = [] 
         self.selected_node_ids = []
         self.selected_area_ids = []
+        self.selected_link_ids = []          
+        
         parts = []
-        if final_elem_ids:    parts.append(f"{len(final_elem_ids)} Frames")
-        if final_node_ids:    parts.append(f"{len(final_node_ids)} Joints")
+        if final_elem_ids:     parts.append(f"{len(final_elem_ids)} Frames")
+        if final_node_ids:     parts.append(f"{len(final_node_ids)} Joints")
         if deleted_area_count: parts.append(f"{deleted_area_count} Areas")
+        if deleted_link_count: parts.append(f"{deleted_link_count} Links")          
+        
         msg = f"Deleted {', '.join(parts)}." if parts else "Nothing deleted."
         if skipped_shared_joints:
             msg += f" (⚠️ {skipped_shared_joints} shared joint(s) skipped — still in use by other elements)"

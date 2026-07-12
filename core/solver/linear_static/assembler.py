@@ -1,10 +1,10 @@
                                                           
 import numpy as np
 from scipy.sparse import lil_matrix
-from element_library import get_local_stiffness_matrix, get_rotation_matrix, get_eccentricity_matrix
+from element_library import get_local_stiffness_matrix, get_link_stiffness_matrix, get_rotation_matrix, get_eccentricity_matrix
 from matrix_spy import MatrixSpy
 from error_definitions import SolverException
-from element_library import get_local_stiffness_matrix, get_rotation_matrix, get_eccentricity_matrix, get_exact_fef_via_stiffness, condense_fef
+from element_library import get_local_stiffness_matrix, get_link_stiffness_matrix, get_rotation_matrix, get_eccentricity_matrix, get_exact_fef_via_stiffness, condense_fef
 from core.solver.modal.mass_assembler import GlobalMassAssembler
 
 class GlobalAssembler:
@@ -122,6 +122,40 @@ class GlobalAssembler:
 
             k_global = T_total.T @ k_local @ T_total
 
+            start_i = idx_i * 6
+            start_j = idx_j * 6
+            
+            self.K[start_i:start_i+6, start_i:start_i+6] += k_global[0:6, 0:6]
+            self.K[start_i:start_i+6, start_j:start_j+6] += k_global[0:6, 6:12]
+            self.K[start_j:start_j+6, start_i:start_i+6] += k_global[6:12, 0:6]
+            self.K[start_j:start_j+6, start_j:start_j+6] += k_global[6:12, 6:12]
+
+        for link in self.dm.links_1j:
+            prop = link['property']
+            k_local = get_link_stiffness_matrix(prop['stiffness'], prop['is_fixed'], num_joints=1)
+            
+            start_idx = link['node_idx'] * 6
+            self.K[start_idx:start_idx+6, start_idx:start_idx+6] += k_local
+
+        for link in self.dm.links_2j:
+            prop = link['property']
+            k_local = get_link_stiffness_matrix(prop['stiffness'], prop['is_fixed'], num_joints=2)
+            
+            idx_i, idx_j = link['node_indices']
+            
+            L = np.linalg.norm(link['p2'] - link['p1'])
+            
+            R_3x3 = get_rotation_matrix(link['p1'], link['p2'], link['beta'])
+            T_rot = np.zeros((12, 12))
+            for i in range(4): 
+                T_rot[i*3:(i+1)*3, i*3:(i+1)*3] = R_3x3
+                
+            T_ecc = get_eccentricity_matrix([0.0, 0.0, 0.0], [-L, 0.0, 0.0])
+            
+            T_total = T_ecc @ T_rot
+            
+            k_global = T_total.T @ k_local @ T_total
+            
             start_i = idx_i * 6
             start_j = idx_j * 6
             

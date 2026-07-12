@@ -1,9 +1,58 @@
 from PyQt6.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, QTableWidget, 
                              QTableWidgetItem, QHeaderView, QPushButton, QTabWidget,
-                             QWidget)
+                             QWidget, QLabel)
 from PyQt6.QtGui import QColor
 from core.units import unit_registry
-from core.mesh import Node, FrameElement, AreaElement                             
+from core.mesh import Node, FrameElement, AreaElement   
+from PyQt6.QtCore import Qt  
+
+class ViewSpringMatrixDialog(QDialog):
+    def __init__(self, matrix, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle("Assigned Joint Spring Stiffness")
+        self.resize(550, 300)
+        
+        layout = QVBoxLayout(self)
+        
+        u_f = unit_registry.force_unit_name
+        u_l = unit_registry.length_unit_name
+        f_scale = unit_registry.force_scale
+        l_scale = unit_registry.length_scale
+        
+        table = QTableWidget(6, 6)
+        headers = ['U1', 'U2', 'U3', 'R1', 'R2', 'R3']
+        table.setHorizontalHeaderLabels(headers)
+        table.setVerticalHeaderLabels(headers)
+        table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
+        
+        for i in range(6):
+            for j in range(6):
+                si_val = matrix[i, j]
+                
+                if i < 3 and j < 3: 
+                    disp_val = si_val * (f_scale / l_scale)
+                elif (i < 3 and j >= 3) or (i >= 3 and j < 3):
+                    disp_val = si_val * f_scale
+                else:
+                    disp_val = si_val * (f_scale * l_scale)
+                    
+                item = QTableWidgetItem(f"{disp_val:g}")
+                item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
+                table.setItem(i, j, item)
+        
+        table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
+        table.verticalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
+        layout.addWidget(table)
+        
+        legend_layout = QHBoxLayout()
+        legend_layout.addWidget(QLabel(f"<b>Translational:</b> {u_f}/{u_l}"))
+        legend_layout.addWidget(QLabel(f"<b>Coupled:</b> {u_f}/rad"))
+        legend_layout.addWidget(QLabel(f"<b>Rotational:</b> {u_f}-{u_l}/rad"))
+        layout.addLayout(legend_layout)
+        
+        btn_close = QPushButton("Close")
+        btn_close.clicked.connect(self.accept)
+        layout.addWidget(btn_close)
 
 class ObjectInfoDialog(QDialog):
     def __init__(self, obj, model, parent=None):
@@ -11,14 +60,19 @@ class ObjectInfoDialog(QDialog):
         self.obj = obj
         self.model = model
         
-        self.obj_label = getattr(self.obj, 'label', str(self.obj.id))
-        
+        if isinstance(self.obj, dict):
+            self.obj_label = f"Link {self.obj.get('id')}"
+        else:
+            self.obj_label = getattr(self.obj, 'label', str(self.obj.id))
+
         if isinstance(self.obj, Node):
             self.setWindowTitle(f"Object Model - Joint Information (Label: {self.obj_label})")
         elif isinstance(self.obj, FrameElement):
             self.setWindowTitle(f"Object Model - Frame Information (Label: {self.obj_label})")
         elif isinstance(self.obj, AreaElement):
             self.setWindowTitle(f"Object Model - Area Information (Label: {self.obj_label})")
+        elif isinstance(self.obj, dict):
+            self.setWindowTitle(f"Object Model - Link Information (Label: {self.obj_label})")
         else:
             self.setWindowTitle(f"Object Model - Information (ID: {self.obj.id})")
 
@@ -67,27 +121,30 @@ class ObjectInfoDialog(QDialog):
         table.insertRow(row)
         
         item_lbl = QTableWidgetItem(str(label))
-        item_val = QTableWidgetItem(str(value))
         
         if sub_header:
             font = item_lbl.font()
             font.setBold(True)
             item_lbl.setFont(font)
-            item_val.setFont(font)
             c = QColor("lightgray")
             item_lbl.setBackground(c)
-            item_val.setBackground(c)
         elif bold:
             font = item_lbl.font()
             font.setBold(True)
             item_lbl.setFont(font)
-            item_val.setFont(font)
             c = QColor("aliceblue") 
             item_lbl.setBackground(c)
-            item_val.setBackground(c)
 
         table.setItem(row, 0, item_lbl)
-        table.setItem(row, 1, item_val)
+
+        if isinstance(value, QWidget):
+            table.setCellWidget(row, 1, value)
+        else:
+            item_val = QTableWidgetItem(str(value))
+            if sub_header or bold:
+                item_val.setFont(font)
+                item_val.setBackground(c)
+            table.setItem(row, 1, item_val)
 
     def create_location_tab(self):
         tab = QWidget()
@@ -138,6 +195,32 @@ class ObjectInfoDialog(QDialog):
             for i, n in enumerate(self.obj.nodes):
                 self.add_row(table, f"Node {i+1}", f"Label: {getattr(n, 'label', n.id)} | ({to_L(n.x):.3f}, {to_L(n.y):.3f}, {to_L(n.z):.3f}) {L_unit}")
 
+        elif isinstance(self.obj, dict):
+            link_type = self.obj.get('type', 'link')
+            type_label = "1-Joint (Grounded)" if link_type == "link_1j" else "2-Joint"
+            self.add_row(table, "Link Label", self.obj_label, bold=True)
+            self.add_row(table, "Internal ID", self.obj.get('id'))
+            self.add_row(table, "Link Type", type_label)
+
+            self.add_row(table, "Connected Joints", "", sub_header=True)
+            node_ids = self.obj.get('nodes', [])
+            for i, nid in enumerate(node_ids):
+                n = self.model.nodes.get(nid)
+                role = "I" if i == 0 else "J"
+                if n:
+                    self.add_row(table, f"Node {role}", f"Label: {getattr(n, 'label', n.id)} | ({to_L(n.x):.3f}, {to_L(n.y):.3f}, {to_L(n.z):.3f}) {L_unit}")
+                else:
+                    self.add_row(table, f"Node {role}", f"Missing (ID {nid})")
+
+            if len(node_ids) == 2:
+                n1 = self.model.nodes.get(node_ids[0])
+                n2 = self.model.nodes.get(node_ids[1])
+                if n1 and n2:
+                    length = ((n1.x - n2.x)**2 + (n1.y - n2.y)**2 + (n1.z - n2.z)**2)**0.5
+                    self.add_row(table, "Length", f"{to_L(length):.4f} {L_unit}")
+
+            self.add_row(table, "Local Axis Angle (Beta)", f"{self.obj.get('beta', 0.0):.1f}°")
+
         layout.addWidget(table)
         return tab
 
@@ -159,7 +242,11 @@ class ObjectInfoDialog(QDialog):
             
             spring = getattr(self.obj, 'spring_matrix', None)
             if spring is not None:
-                self.add_row(table, "Joint Spring", "Assigned (6x6 Matrix)")
+                btn_view = QPushButton("View 6×6 Matrix...")
+                btn_view.clicked.connect(
+                    lambda checked=False, m=spring: ViewSpringMatrixDialog(m, self).exec()
+                )
+                self.add_row(table, "Joint Spring", btn_view)
             else:
                 self.add_row(table, "Joint Spring", "None")
 
@@ -217,6 +304,43 @@ class ObjectInfoDialog(QDialog):
                 self.add_row(table, "Membrane Thickness", f"{to_L(sec.membrane_thickness):.4f} {L_unit}")
             if hasattr(sec, 'bending_thickness'):
                 self.add_row(table, "Bending Thickness", f"{to_L(sec.bending_thickness):.4f} {L_unit}")
+
+        elif isinstance(self.obj, dict):
+            prop_name = self.obj.get('prop_name', 'None')
+            self.add_row(table, "Link Property", prop_name, bold=True)
+
+            prop = getattr(self.model, 'link_properties', {}).get(prop_name)
+            if prop:
+                fixed = prop.get('is_fixed', [False]*6)
+                labels = ["U1", "U2", "U3", "R1", "R2", "R3"]
+                active_fixed = [labels[i] for i, val in enumerate(fixed) if val]
+                self.add_row(table, "Fixed DOFs", ", ".join(active_fixed) if active_fixed else "None")
+
+                stiffness = prop.get('stiffness')
+                if stiffness is not None:
+                    btn_view = QPushButton("View 6×6 Matrix...")
+                    btn_view.clicked.connect(
+                        lambda checked=False, m=stiffness: ViewSpringMatrixDialog(m, self).exec()
+                    )
+                    self.add_row(table, "Stiffness", btn_view)
+                else:
+                    self.add_row(table, "Stiffness", "None")
+
+                self.add_row(table, "Mass & Weight", "", sub_header=True)
+                self.add_row(table, "Mass", f"{prop.get('mass', 0.0):g}")
+                self.add_row(table, "Weight", f"{prop.get('weight', 0.0):g}")
+
+                damping = prop.get('damping')
+                if damping is not None and hasattr(damping, 'any') and damping.any():
+                    btn_damp = QPushButton("View 6×6 Matrix...")
+                    btn_damp.clicked.connect(
+                        lambda checked=False, m=damping: ViewSpringMatrixDialog(m, self).exec()
+                    )
+                    self.add_row(table, "Damping", btn_damp)
+                else:
+                    self.add_row(table, "Damping", "None")
+            else:
+                self.add_row(table, "Stiffness", "Property Not Found")
 
         layout.addWidget(table)
         return tab

@@ -376,36 +376,32 @@ def get_analytical_timoshenko_fef(L, a, P_vec_local, mat, sec):
     
     return fef
 
-def get_link_stiffness_matrix(k_user_6x6, num_joints=1):
+def get_link_stiffness_matrix(k_user_6x6, is_fixed, num_joints=1):
     """
-    Builds the local stiffness matrix for a Link or Spring element.
-    
-    Args:
-        k_user_6x6 (array-like): The 6x6 local stiffness matrix defined by the user.
-                                 (Can be diagonal for 'Simple' or full for 'Advanced').
-        num_joints (int): 1 for a Grounded Spring, 2 for a standard Link.
-        
-    Returns:
-        numpy.ndarray: A 6x6 matrix (Spring) or a 12x12 matrix (Link).
+    Builds the local stiffness matrix for a Link or Spring element,
+    injecting penalty stiffness for Fixed DOFs.
     """
     k_local = np.array(k_user_6x6, dtype=float)
     
     if k_local.shape != (6, 6):
         raise ValueError("Link/Spring stiffness must be a 6x6 matrix.")
 
+    penalty = 1e14
+    for i in range(6):
+        if is_fixed[i]:
+            k_local[i, i] = penalty
+
     if num_joints == 1:
-                                                                               
+                               
         return k_local
 
     elif num_joints == 2:
-                                       
+                               
         k_expanded = np.zeros((12, 12))
-        
         k_expanded[0:6, 0:6]   =  k_local        
         k_expanded[0:6, 6:12]  = -k_local        
         k_expanded[6:12, 0:6]  = -k_local        
         k_expanded[6:12, 6:12] =  k_local        
-        
         return k_expanded
         
     else:

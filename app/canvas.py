@@ -14,12 +14,12 @@ from core.properties import RectangularSection, CircularSection, TrapezoidalSect
 from PyQt6.QtWidgets import QLabel        
 from graphic.vbo_engine import VBORenderManager, VectorizedLTHAEngine                               
 from graphic.sdf_text import SDFTextBuilder
-from graphic._vbo_supports import build_spring_visuals
+from graphic._vbo_supports import build_boundary_visuals
 
 class MCanvas3D(gl.GLViewWidget):
     signal_canvas_clicked = pyqtSignal(float, float, float)
     signal_right_clicked = pyqtSignal()
-    signal_box_selection = pyqtSignal(list, list, bool, bool)
+    signal_box_selection = pyqtSignal(list, list, list, bool, bool)
     signal_area_box_selection = pyqtSignal(list, bool, bool)                                   
     signal_element_selected = pyqtSignal(int)
     signal_mouse_moved = pyqtSignal(float, float, float)
@@ -541,6 +541,7 @@ class MCanvas3D(gl.GLViewWidget):
         self.selected_element_ids = []
         self.selected_node_ids    = []
         self.selected_area_ids    = []
+        self.selected_link_ids    = []
         self._rebuild_selection_overlay()
         self._rebuild_area_interior_lines()                                        
         self.update()                               
@@ -928,7 +929,7 @@ class MCanvas3D(gl.GLViewWidget):
                 self.opts['center'] = center
                 self.camera.animate_to(target_center=center, target_dist=needed_dist)
 
-    def update_selection_overlay(self, sel_elems, sel_nodes, sel_areas=None, progress=None):
+    def update_selection_overlay(self, sel_elems, sel_nodes, sel_areas=None, sel_links=None, progress=None):
 
         def _p(msg):
             if progress: progress(msg)
@@ -940,6 +941,7 @@ class MCanvas3D(gl.GLViewWidget):
         self.selected_element_ids = list(sel_elems) if sel_elems is not None else []
         self.selected_node_ids    = list(sel_nodes)  if sel_nodes  is not None else []
         self.selected_area_ids    = list(sel_areas)  if sel_areas  is not None else []
+        self.selected_link_ids    = list(sel_links)  if sel_links  is not None else []
         current_model = self.current_model
         in_analysis_mode = hasattr(current_model, 'has_results') and current_model.has_results if current_model else False
         
@@ -1001,6 +1003,35 @@ class MCanvas3D(gl.GLViewWidget):
         else:
             self._rebuild_wireframe_selection_overlay()
         self._rebuild_node_selection_overlay()
+        self._rebuild_link_selection_overlay()
+
+    def _rebuild_link_selection_overlay(self):
+        if not getattr(self, 'selected_link_ids', None) or not self.current_model: return
+        model = self.current_model
+        sel_color = np.array([1.0, 1.0, 0.0, 1.0])
+        sel_pos = []
+
+        if not hasattr(model, 'links'): return
+
+        for lid in self.selected_link_ids:
+            if lid not in model.links: continue
+            nodes = model.links[lid]['nodes']
+
+            if len(nodes) == 2:
+                n0, n1 = nodes[0], nodes[1]
+                                                      
+                nd1 = model.nodes.get(n0) or model.nodes.get(int(n0)) or model.nodes.get(str(n0))
+                nd2 = model.nodes.get(n1) or model.nodes.get(int(n1)) or model.nodes.get(str(n1))
+                if not nd1 or not nd2: continue
+                if min(self._get_visibility_state(nd1.x, nd1.y, nd1.z), self._get_visibility_state(nd2.x, nd2.y, nd2.z)) != 2:
+                    continue
+                sel_pos.extend([[nd1.x, nd1.y, nd1.z], [nd2.x, nd2.y, nd2.z]])
+
+        if sel_pos:
+            item = gl.GLLinePlotItem(pos=np.array(sel_pos), color=sel_color, mode='lines', width=4.0, antialias=True)
+            item.setGLOptions({'glEnable': (GL_BLEND,), 'glBlendFunc': (GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA), 'glDisable': (GL_DEPTH_TEST,)})
+            self.addItem(item)
+            self._sel_overlay_items.append(item)
 
     def _rebuild_wireframe_selection_overlay(self):
         if not self.selected_element_ids or not self.current_model:
@@ -1369,7 +1400,6 @@ class MCanvas3D(gl.GLViewWidget):
         
         pos_free = []
         ghost_pos = []
-        supports_fixed = []; supports_pinned = []; supports_roller = []; supports_custom = []
 
         size = self.display_config.get("node_size", 6)
         color_tuple = self.display_config.get("node_color", (1, 0, 0, 1))
@@ -1380,13 +1410,11 @@ class MCanvas3D(gl.GLViewWidget):
                        model.results is not None)
                               
         for nid, n in model.nodes.items():
-                                                
             nx, ny, nz = n.x, n.y, n.z
             
             if can_deflect:
                 disp = model.results.get("displacements", {}).get(str(nid))
                 if disp:
-                                                            
                     nx += disp[0] * self.deflection_scale * self.anim_factor
                     ny += disp[1] * self.deflection_scale * self.anim_factor
                     nz += disp[2] * self.deflection_scale * self.anim_factor
@@ -1395,8 +1423,7 @@ class MCanvas3D(gl.GLViewWidget):
             
             v_state = self._get_visibility_state(n.x, n.y, n.z)
             if v_state < 2:
-                if v_state == 1:                                
-                    ghost_pos.append(xyz)
+                if v_state == 1: ghost_pos.append(xyz)
                 continue                                      
 
             is_active = self._is_visible(n.x, n.y, n.z)
@@ -1404,49 +1431,52 @@ class MCanvas3D(gl.GLViewWidget):
                 ghost_pos.append(xyz)
                 continue
             
-            r = n.restraints
-            is_fixed = all(r[:3]) and all(r[3:]) 
-            is_pinned = all(r[:3]) and not any(r[3:]) 
-            is_roller = r[2] and not any(r[0:2]) and not any(r[3:])                  
-            has_any = any(r)
-
+            r = getattr(n, 'restraints', [])
+            has_any_restraint = any(r) if r else False
             in_analysis_mode = hasattr(model, 'has_results') and model.has_results
-            if has_any and self.show_supports and not in_analysis_mode:
-                if is_fixed: supports_fixed.append(xyz)
-                elif is_pinned: supports_pinned.append(xyz)
-                elif is_roller: supports_roller.append(xyz)
-                else: supports_custom.append(xyz)
+
+            if has_any_restraint and self.show_supports and not in_analysis_mode:
+                pass                                                    
             elif self.show_joints:
                 pos_free.append(xyz)
 
         if pos_free: 
-            item = gl.GLScatterPlotItem(
-                pos=np.array(pos_free), 
-                size=size,                           
-                color=color_tuple,                   
-                pxMode=True)
+            item = gl.GLScatterPlotItem(pos=np.array(pos_free), size=size, color=color_tuple, pxMode=True)
             self.addItem(item)
             self.node_items.append(item)
 
-        if supports_fixed:  self._support_positions['fixed']  = supports_fixed;  self._draw_support_meshes(supports_fixed,  'fixed')
-        if supports_pinned: self._support_positions['pinned'] = supports_pinned; self._draw_support_meshes(supports_pinned, 'pinned')
-        if supports_roller: self._support_positions['roller'] = supports_roller; self._draw_support_meshes(supports_roller, 'roller')
-        if supports_custom: self._support_positions['custom'] = supports_custom; self._draw_support_meshes(supports_custom, 'custom')
-        
         if ghost_pos and self.show_joints:
-            item = gl.GLScatterPlotItem(
-                pos=np.array(ghost_pos), size=4, color=(0.7, 0.7, 0.7, 0.4), pxMode=True
-            )
+            item = gl.GLScatterPlotItem(pos=np.array(ghost_pos), size=4, color=(0.7, 0.7, 0.7, 0.4), pxMode=True)
             self.addItem(item)
             self.node_items.append(item)
 
         in_analysis_mode = hasattr(model, 'has_results') and model.has_results
         if self.show_supports and not in_analysis_mode:
-            scale = getattr(self, 'current_bubble_size', 1.0)
-            spring_item = build_spring_visuals(model.nodes, scale=scale)
-            if spring_item:
-                self.addItem(spring_item)
-                self.node_items.append(spring_item)
+                                                                                         
+            visible_nodes = {nid: n for nid, n in model.nodes.items() if self._get_visibility_state(n.x, n.y, n.z) == 2}
+            
+            visible_nodes = {nid: n for nid, n in model.nodes.items() if self._get_visibility_state(n.x, n.y, n.z) == 2}
+            
+            scale = self._screen_scale() 
+            links_dict = getattr(model, 'links', {})
+            link_props = getattr(model, 'link_properties', {})
+            
+            mesh_item, line_item = build_boundary_visuals(
+                visible_nodes, 
+                links_dict=links_dict, 
+                link_props=link_props, 
+                scale=scale
+            )
+                                                 
+            if mesh_item:
+                self.addItem(mesh_item)
+                self._support_items.append(mesh_item)
+                self.node_items.append(mesh_item)
+                
+            if line_item:
+                self.addItem(line_item)
+                self._support_items.append(line_item)
+                self.node_items.append(line_item)
 
     def _is_visible(self, x, y, z):
         """
@@ -2319,152 +2349,45 @@ class MCanvas3D(gl.GLViewWidget):
 
         return 1 if self.show_ghost_structure else 0
 
-    def _draw_support_meshes(self, positions, s_type):
-        """
-        Draws realistic 3D shapes for supports.
-        Fixed = Concrete block + Baseplate
-        Pinned = Baseplate + Hinge Pyramid
-        Roller = Baseplate + Sphere (Roller)
-        Custom = Floating Octahedron (Mixed/Partial constraints)
-        """
-        if not positions: return
-
-        all_verts = []
-        all_faces = []
-        all_colors = []
-        idx_offset = 0
-
-        if s_type == 'fixed': c = (0.40, 0.45, 0.50, 1.0)                
-        elif s_type == 'pinned': c = (0.25, 0.55, 0.75, 1.0)               
-        elif s_type == 'roller': c = (0.20, 0.65, 0.50, 1.0)              
-        else: c = (0.85, 0.55, 0.20, 1.0)                                   
-
-        s = self._screen_scale() * 5
-
-        def add_box(cx, cy, cz, wx, wy, wz):
-            nonlocal idx_offset
-            v = [
-                [cx-wx, cy-wy, cz-wz], [cx+wx, cy-wy, cz-wz], [cx+wx, cy+wy, cz-wz], [cx-wx, cy+wy, cz-wz],
-                [cx-wx, cy-wy, cz+wz], [cx+wx, cy-wy, cz+wz], [cx+wx, cy+wy, cz+wz], [cx-wx, cy+wy, cz+wz]
-            ]
-            f = [
-                [0, 1, 2], [0, 2, 3], [4, 5, 6], [4, 6, 7],
-                [0, 1, 5], [0, 5, 4], [2, 3, 7], [2, 7, 6],
-                [0, 3, 7], [0, 7, 4], [1, 2, 6], [1, 6, 5]
-            ]
-            all_verts.extend(v)
-            all_faces.extend([[i + idx_offset for i in face] for face in f])
-            for _ in range(8): all_colors.append(c)
-            idx_offset += 8
-
-        def add_pyramid(apex_x, apex_y, apex_z, base_w, height):
-            nonlocal idx_offset
-            z_base = apex_z - height
-            v = [
-                [apex_x, apex_y, apex_z],
-                [apex_x-base_w, apex_y-base_w, z_base], [apex_x+base_w, apex_y-base_w, z_base],
-                [apex_x+base_w, apex_y+base_w, z_base], [apex_x-base_w, apex_y+base_w, z_base]
-            ]
-            f = [
-                [0, 1, 2], [0, 2, 3], [0, 3, 4], [0, 4, 1],
-                [1, 2, 3], [1, 3, 4]
-            ]
-            all_verts.extend(v)
-            all_faces.extend([[i + idx_offset for i in face] for face in f])
-            for _ in range(5): all_colors.append(c)
-            idx_offset += 5
-
-        def add_sphere(cx, cy, cz, radius, bands=8):
-            nonlocal idx_offset
-            local_verts = []
-            local_faces = []
-            
-            for i in range(bands + 1):
-                lat = np.pi * i / bands
-                z_val = np.cos(lat)
-                r_ring = np.sin(lat)
-                for j in range(bands):
-                     lon = 2 * np.pi * j / bands
-                     x_val = r_ring * np.cos(lon)
-                     y_val = r_ring * np.sin(lon)
-                     local_verts.append([cx + x_val*radius, cy + y_val*radius, cz + z_val*radius])
-            
-            for i in range(bands):
-                for j in range(bands):
-                    row1 = i * bands
-                    row2 = (i + 1) * bands
-                    c1 = j
-                    c2 = (j + 1) % bands
-                    p1, p2 = row1 + c1, row1 + c2
-                    p3, p4 = row2 + c2, row2 + c1
-                    local_faces.append([p1, p2, p4])
-                    local_faces.append([p2, p3, p4])
-
-            all_verts.extend(local_verts)
-            all_faces.extend([[i + idx_offset for i in face] for face in local_faces])
-            for _ in range(len(local_verts)): all_colors.append(c)
-            idx_offset += len(local_verts)
-
-        for x, y, z in positions:
-            if s_type == 'fixed':
-                                                     
-                add_box(x, y, z - s, s*0.8, s*0.8, s)
-                add_box(x, y, z - s*2.1, s*1.2, s*1.2, s*0.1)
-
-            elif s_type == 'pinned':
-                                            
-                add_pyramid(x, y, z, s*0.8, s*1.8)
-                add_box(x, y, z - s*1.9, s*1.2, s*1.2, s*0.1)
-
-            elif s_type == 'roller':
-                                                        
-                add_sphere(x, y, z - s*0.9, s*0.9)            
-                add_box(x, y, z - s*1.9, s*1.2, s*1.2, s*0.1)                  
-
-            elif s_type == 'custom':
-                                                                  
-                add_pyramid(x, y, z, s*0.6, s)
-                v = [
-                    [x, y, z],
-                    [x-s*0.6, y-s*0.6, z-s], [x+s*0.6, y-s*0.6, z-s], 
-                    [x+s*0.6, y+s*0.6, z-s], [x-s*0.6, y+s*0.6, z-s],
-                    [x, y, z-s*2]
-                ]
-                f = [
-                    [0, 1, 2], [0, 2, 3], [0, 3, 4], [0, 4, 1],
-                    [5, 2, 1], [5, 3, 2], [5, 4, 3], [5, 1, 4]
-                ]
-                all_verts.extend(v)
-                all_faces.extend([[i + idx_offset for i in face] for face in f])
-                for _ in range(6): all_colors.append(c)
-                idx_offset += 6
-
-        if not all_verts: return
-
-        mesh = gl.GLMeshItem(
-            vertexes=np.array(all_verts, dtype=np.float32),
-            faces=np.array(all_faces, dtype=np.int32),
-            vertexColors=np.array(all_colors, dtype=np.float32),
-            smooth=False, 
-            shader='balloon',
-            glOptions='opaque'
-        )
-        self.addItem(mesh)
-        self._support_items.append(mesh)
-
     def _rebuild_support_items(self):
         """Rebuild support meshes with current zoom level — keeps symbols screen-size-stable."""
         for item in self._support_items:
             try: self.removeItem(item)
             except Exception: pass
         self._support_items.clear()
+        
+        self.node_items = [item for item in self.node_items if item not in self._support_items]
 
-        sp = self._support_positions
-        if sp['fixed']:  self._draw_support_meshes(sp['fixed'],  'fixed')
-        if sp['pinned']: self._draw_support_meshes(sp['pinned'], 'pinned')
-        if sp['roller']: self._draw_support_meshes(sp['roller'], 'roller')
-        if sp['custom']: self._draw_support_meshes(sp['custom'], 'custom')
+        if not self.current_model or not getattr(self, 'show_supports', True): 
+            return
+            
+        in_analysis_mode = hasattr(self.current_model, 'has_results') and self.current_model.has_results
+        if in_analysis_mode: 
+            return
 
+        visible_nodes = {nid: n for nid, n in self.current_model.nodes.items() if self._get_visibility_state(n.x, n.y, n.z) == 2}
+
+        scale = self._screen_scale()
+        links_dict = getattr(self.current_model, 'links', {})
+        link_props = getattr(self.current_model, 'link_properties', {})
+        
+        mesh_item, line_item = build_boundary_visuals(
+            visible_nodes, 
+            links_dict=links_dict, 
+            link_props=link_props, 
+            scale=scale
+        )
+        
+        if mesh_item:
+            self.addItem(mesh_item)
+            self._support_items.append(mesh_item)
+            self.node_items.append(mesh_item)
+            
+        if line_item:
+            self.addItem(line_item)
+            self._support_items.append(line_item)
+            self.node_items.append(line_item)
+            
     def _draw_loads(self, model):
         """
         Visualizes Nodal Loads.
@@ -3663,23 +3586,6 @@ class MCanvas3D(gl.GLViewWidget):
         
         self.element_items.clear()
     
-    def update_selection_during_animation(self, sel_elems=None, sel_nodes=None):
-        """
-        Updates selection state during animation without causing redraw lag.
-        
-        This is called when user selects nodes/elements while animation is running.
-        Instead of redrawing everything (which causes lag), we just update the
-        selection state. The next animation frame will show the updated selection.
-        
-        Args:
-            sel_elems: List of selected element IDs
-            sel_nodes: List of selected node IDs
-        """
-        if sel_elems is not None:
-            self.selected_element_ids = sel_elems
-        if sel_nodes is not None:
-            self.selected_node_ids = sel_nodes
-        
     def prerender_animation_frames(self, anim_factors, progress_callback=None):
         """
         Pre-calculates ALL geometry for all 60 animation frames.
@@ -4624,6 +4530,36 @@ class MCanvas3D(gl.GLViewWidget):
                     if self._line_intersects_rect(p1s[i], p2s[i], rect)
                 ]
 
+        found_links = []
+        l_ids, lp1s, lp2s = [], [], []
+
+        if hasattr(model, 'links'):
+            for lid, link in model.links.items():
+                nodes = link['nodes']
+                if len(nodes) == 1:
+                    n0 = nodes[0]
+                    p1 = node_screens.get(n0) or node_screens.get(int(n0)) or node_screens.get(str(n0))
+                    if p1 and (x_min <= p1[0] <= x_max) and (y_min <= p1[1] <= y_max):
+                        found_links.append(lid)
+                elif len(nodes) == 2:
+                    n0, n1 = nodes[0], nodes[1]
+                    p1 = node_screens.get(n0) or node_screens.get(int(n0)) or node_screens.get(str(n0))
+                    p2 = node_screens.get(n1) or node_screens.get(int(n1)) or node_screens.get(str(n1))
+                    if p1 is None or p2 is None: continue
+                    l_ids.append(lid)
+                    lp1s.append(p1)
+                    lp2s.append(p2)
+
+            if l_ids:
+                if is_window_select:
+                    p1_arr = np.array(lp1s); p2_arr = np.array(lp2s)
+                    p1_in = ((p1_arr[:, 0] >= x_min) & (p1_arr[:, 0] <= x_max) & (p1_arr[:, 1] >= y_min) & (p1_arr[:, 1] <= y_max))
+                    p2_in = ((p2_arr[:, 0] >= x_min) & (p2_arr[:, 0] <= x_max) & (p2_arr[:, 1] >= y_min) & (p2_arr[:, 1] <= y_max))
+                    found_links.extend([l_ids[i] for i in np.where(p1_in & p2_in)[0]])
+                else:
+                    rect = (x_min, y_min, x_max, y_max)
+                    found_links.extend([l_ids[i] for i in range(len(l_ids)) if self._line_intersects_rect(lp1s[i], lp2s[i], rect)])
+                                          
         found_area_elems = []
         for aeid, ae in model.area_elements.items():
             if getattr(self, 'view_deflected', False):
@@ -4661,7 +4597,7 @@ class MCanvas3D(gl.GLViewWidget):
         modifiers   = QApplication.keyboardModifiers()
         is_additive = (modifiers == Qt.KeyboardModifier.ControlModifier)
         is_deselect = (modifiers == Qt.KeyboardModifier.ShiftModifier)
-        self.signal_box_selection.emit(found_nodes, found_elems, is_additive, is_deselect)
+        self.signal_box_selection.emit(found_nodes, found_elems, found_links, is_additive, is_deselect)
         self.signal_area_box_selection.emit(found_area_elems, is_additive, is_deselect)
         
     def _point_in_polygon_2d(self, px, py, pts):
@@ -6590,4 +6526,3 @@ class MCanvas3D(gl.GLViewWidget):
             self.vbo_manager.upload_text_geometry(verts, uvs, colors, indices)
         else:
             self.vbo_manager.upload_text_geometry(np.array([]), np.array([]), np.array([]), np.array([]))
-

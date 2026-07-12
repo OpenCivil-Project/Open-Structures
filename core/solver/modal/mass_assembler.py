@@ -46,6 +46,7 @@ class GlobalMassAssembler:
 
     def _add_element_self_mass(self, scale_factor=1.0):
         print(f"   -> Adding Element Self-Mass (Lumped, Scale={scale_factor:.2f})...")
+        
         for el in self.dm.elements:
             A = el['section']['A']
             rho = el['material']['rho'] 
@@ -62,6 +63,40 @@ class GlobalMassAssembler:
                 self.M[start_dof + 0, start_dof + 0] += half_mass
                 self.M[start_dof + 1, start_dof + 1] += half_mass
                 self.M[start_dof + 2, start_dof + 2] += half_mass
+
+        for link in self.dm.raw.get('links', []):
+            prop = self.dm.link_properties.get(link['prop_name'])
+            if not prop: continue
+            
+            link_mass = prop.get('mass', 0.0) * scale_factor
+            r1 = prop.get('r1', 0.0) * scale_factor
+            r2 = prop.get('r2', 0.0) * scale_factor
+            r3 = prop.get('r3', 0.0) * scale_factor
+            
+            if link_mass <= 1e-9 and r1 <= 1e-9 and r2 <= 1e-9 and r3 <= 1e-9:
+                continue
+            
+            nodes = link.get('nodes', [])
+            if not nodes: continue
+            
+            m_split = link_mass / len(nodes)
+            r1_split = r1 / len(nodes)
+            r2_split = r2 / len(nodes)
+            r3_split = r3 / len(nodes)
+            
+            for nid in nodes:
+                node_idx = self.dm.node_id_to_idx.get(nid)
+                if node_idx is None: continue
+                
+                start_dof = node_idx * 6
+                
+                self.M[start_dof + 0, start_dof + 0] += m_split
+                self.M[start_dof + 1, start_dof + 1] += m_split
+                self.M[start_dof + 2, start_dof + 2] += m_split
+                
+                self.M[start_dof + 3, start_dof + 3] += r1_split
+                self.M[start_dof + 4, start_dof + 4] += r2_split
+                self.M[start_dof + 5, start_dof + 5] += r3_split
 
     def _add_mass_from_net_loads(self, pattern_list):
         print("   -> Calculating Net Nodal Forces (Algebraic Sum)...")

@@ -18,23 +18,24 @@ class DataManager:
         self.sections = {}                              
         
         self.nodes = []                                      
-        self.elements = []                                      
+        self.elements = []   
+        self.link_properties = {}
+        self.links_1j = []
+        self.links_2j = []                                   
         self.load_case = None                                       
         self.total_dofs = 0                                      
 
     def _generate_self_weight(self):
         """
-        Calculates A * gamma (Unit Weight) for every element and injects it as a 
-        Member Distributed Load into the raw load list.
+        Calculates self-weight for frames and links, injecting them as 
+        loads into the raw load list.
         """
-                                                                         
         if 'load_patterns' not in self.raw: return
         
         active_pattern_names = {p[0] for p in self.load_case['patterns']} 
         
         target_patterns = []
         for pat in self.raw['load_patterns']:
-                                                                    
             if pat['name'] in active_pattern_names and pat['sw_mult'] != 0:
                 target_patterns.append(pat)
 
@@ -45,17 +46,14 @@ class DataManager:
         count = 0
         
         for el in self.elements:
-                                 
             A = el['section']['A']
             gamma = el['material']['rho']                                  
-            
             w_per_len = A * gamma 
             
             if w_per_len <= 1e-9: continue
 
             for pat in target_patterns:
                 mult = pat['sw_mult']
-                
                 w_z = -1.0 * w_per_len * mult
                 
                 new_load = {
@@ -74,14 +72,44 @@ class DataManager:
                 self.raw['loads'].append(new_load)
                 count += 1
                 
+        for link in self.raw.get('links', []):
+            prop = self.link_properties.get(link['prop_name'])
+            if not prop: continue
+            
+            weight = prop.get('weight', 0.0)
+            if weight <= 1e-9: continue
+            
+            nodes = link.get('nodes', [])
+            if not nodes: continue
+            
+            weight_per_node = weight / len(nodes)
+            
+            for pat in target_patterns:
+                mult = pat['sw_mult']
+                fz = -1.0 * weight_per_node * mult
+                
+                for nid in nodes:
+                    new_load = {
+                        'type': 'nodal',
+                        'pattern': pat['name'],
+                        'node_id': nid,
+                        'fx': 0.0, 'fy': 0.0, 'fz': fz,
+                        'mx': 0.0, 'my': 0.0, 'mz': 0.0,
+                        '_is_sw': True
+                    }
+                    if 'loads' not in self.raw: self.raw['loads'] = []
+                    self.raw['loads'].append(new_load)
+                    count += 1
+
         if count > 0:
             print(f"      -> Injected {count} self-weight load records.")
-
+            
     def process_all(self, case_name="DEAD"):
         """The master sequence to prepare the solver data."""
         self._parse_properties()
         self._map_nodes()
         self._parse_elements()
+        self._parse_links()
         self._prepare_load_case(case_name)
         self._generate_self_weight()
         from auto_seismic import AutoSeismicGenerator
@@ -138,7 +166,19 @@ class DataManager:
                 'As2': p.get('As2', 0.0),                                             
                 'As3': p.get('As3', 0.0)                                              
             }
-
+                                                                                  
+        for lp in self.raw.get('link_properties', []):
+            self.link_properties[lp['name']] = {
+                'stiffness': np.array(lp.get('stiffness', np.zeros((6, 6)))),
+                'damping': np.array(lp.get('damping', np.zeros((6, 6)))),
+                'is_fixed': lp.get('is_fixed', [False] * 6),
+                'mass': lp.get('mass', 0.0),
+                'weight': lp.get('weight', 0.0),
+                'r1': lp.get('r1', 0.0),
+                'r2': lp.get('r2', 0.0),
+                'r3': lp.get('r3', 0.0)
+            }
+        
     def _parse_elements(self):
         for el_data in self.raw['elements']:
                               
@@ -280,3 +320,36 @@ class DataManager:
                 print(f"      Quake '{pat_name}' -> Diaphragm '{dia_name}': Fx={Fx:.2f}, Fy={Fy:.2f}, Mz={Mz_total:.2f} (Applied at Master Node {master_id})")
 
         return P
+    
+    def _parse_links(self):
+        """Routes links into 1-Joint or 2-Joint categories."""
+        for link_data in self.raw.get('links', []):
+            prop = self.link_properties[link_data['prop_name']]
+
+            if len(link_data['nodes']) == 1:
+                idx = self.node_id_to_idx[link_data['nodes'][0]]
+                self.links_1j.append({
+                    'id': link_data['id'],
+                    'node_idx': idx,
+                    'property': prop
+                })
+
+            elif len(link_data['nodes']) == 2:
+                idx_i = self.node_id_to_idx[link_data['nodes'][0]]
+                idx_j = self.node_id_to_idx[link_data['nodes'][1]]
+
+                p1 = next(n['coords'] for n in self.nodes if n['idx'] == idx_i)
+                p2 = next(n['coords'] for n in self.nodes if n['idx'] == idx_j)
+                L_total = np.linalg.norm(p2 - p1)
+
+                if L_total < 1e-9:
+                    raise SolverException("E202", f"Link ID {link_data['id']} has zero length.")
+
+                self.links_2j.append({
+                    'id': link_data['id'],
+                    'node_indices': [idx_i, idx_j],
+                    'property': prop,
+                    'beta': link_data.get('beta', 0.0),
+                    'p1': p1,
+                    'p2': p2
+                })

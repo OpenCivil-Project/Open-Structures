@@ -72,38 +72,84 @@ class CmdDrawFrame(QUndoCommand):
         
 class CmdDeleteSelection(QUndoCommand):
     """
-    Command to Delete Frames, Shells and/or Joints.
-    Includes DOUBLE SAFETY CHECK:
-    1. Auto-detects orphans created by deleting frames OR shells.
-    2. Protects explicitly selected nodes if they are still supporting other frames/shells.
+    Command to Delete Frames, Shells, Links, and/or Joints.
+    Includes DOUBLE SAFETY CHECK to protect nodes still in use.
     """
-    def __init__(self, model, main_window, node_ids, elem_ids, area_elem_ids=None):
+    def __init__(self, model, main_window, node_ids, elem_ids, area_elem_ids=None, link_ids=None):
         super().__init__("Delete Selection")
         self.model = model
         self.main_window = main_window
         
         ids_elements_to_delete = set(elem_ids)
         ids_area_elements_to_delete = set(area_elem_ids or [])
+        ids_links_to_delete = set(link_ids or [])
+
+        if hasattr(model, 'links'):
+            changed = True
+            while changed:
+                changed = False
+                touched_nodes = set()
+
+                for eid in ids_elements_to_delete:
+                    if eid in model.elements:
+                        el = model.elements[eid]
+                        touched_nodes.add(el.node_i.id)
+                        touched_nodes.add(el.node_j.id)
+
+                if hasattr(model, 'area_elements'):
+                    for aeid in ids_area_elements_to_delete:
+                        if aeid in model.area_elements:
+                            for n in model.area_elements[aeid].nodes:
+                                touched_nodes.add(n.id)
+
+                for lid in ids_links_to_delete:
+                    if lid in model.links:
+                        touched_nodes.update(model.links[lid]['nodes'])
+
+                for nid in touched_nodes:
+                    if nid not in model.nodes:
+                        continue
+                    if any(model.nodes[nid].restraints):
+                        continue                                            
+
+                    still_has_element = any(
+                        (el.node_i.id == nid or el.node_j.id == nid)
+                        for eid2, el in model.elements.items()
+                        if eid2 not in ids_elements_to_delete
+                    )
+                    if still_has_element:
+                        continue
+
+                    still_has_area = False
+                    if hasattr(model, 'area_elements'):
+                        still_has_area = any(
+                            any(n.id == nid for n in ae.nodes)
+                            for aeid2, ae in model.area_elements.items()
+                            if aeid2 not in ids_area_elements_to_delete
+                        )
+                    if still_has_area:
+                        continue
+
+                    for lid, link in model.links.items():
+                        if lid in ids_links_to_delete:
+                            continue
+                        if nid in link['nodes']:
+                            ids_links_to_delete.add(lid)
+                            changed = True
         
         nodes_to_actually_delete = set()
         
         for nid in node_ids:
-                                                                       
-            if self._is_truly_orphaned(model, nid, ids_elements_to_delete, ids_area_elements_to_delete):
+            if self._is_truly_orphaned(model, nid, ids_elements_to_delete, ids_area_elements_to_delete, ids_links_to_delete):
                 nodes_to_actually_delete.add(nid)
         
-        self.node_ids_to_del = list(nodes_to_actually_delete)
-        self.elem_ids_to_del = list(ids_elements_to_delete)
-        self.area_elem_ids_to_del = list(ids_area_elements_to_delete)
-        
         safe_nodes_to_delete = set()
-                                                                                      
         for eid in ids_elements_to_delete:
             if eid in model.elements:
                 el = model.elements[eid]
-                if self._will_become_orphan(model, el.node_i.id, ids_elements_to_delete, ids_area_elements_to_delete):
+                if self._will_become_orphan(model, el.node_i.id, ids_elements_to_delete, ids_area_elements_to_delete, ids_links_to_delete):
                     safe_nodes_to_delete.add(el.node_i.id)
-                if self._will_become_orphan(model, el.node_j.id, ids_elements_to_delete, ids_area_elements_to_delete):
+                if self._will_become_orphan(model, el.node_j.id, ids_elements_to_delete, ids_area_elements_to_delete, ids_links_to_delete):
                     safe_nodes_to_delete.add(el.node_j.id)
 
         if hasattr(model, 'area_elements'):
@@ -111,16 +157,26 @@ class CmdDeleteSelection(QUndoCommand):
                 if aeid in model.area_elements:
                     ae = model.area_elements[aeid]
                     for node in ae.nodes:
-                        if self._will_become_orphan(model, node.id, ids_elements_to_delete, ids_area_elements_to_delete):
+                        if self._will_become_orphan(model, node.id, ids_elements_to_delete, ids_area_elements_to_delete, ids_links_to_delete):
                             safe_nodes_to_delete.add(node.id)
+
+        if hasattr(model, 'links'):
+            for lid in ids_links_to_delete:
+                if lid in model.links:
+                    link = model.links[lid]
+                    for nid in link['nodes']:
+                        if self._will_become_orphan(model, nid, ids_elements_to_delete, ids_area_elements_to_delete, ids_links_to_delete):
+                            safe_nodes_to_delete.add(nid)
         
-        self.node_ids_to_del = list(safe_nodes_to_delete)
+        self.node_ids_to_del = list(nodes_to_actually_delete | safe_nodes_to_delete)
         self.elem_ids_to_del = list(ids_elements_to_delete)
         self.area_elem_ids_to_del = list(ids_area_elements_to_delete)
+        self.link_ids_to_del = list(ids_links_to_delete)
 
         self.saved_nodes = {}
         self.saved_elems = {}
         self.saved_area_elems = {}
+        self.saved_links = {}
         self.saved_loads = []
 
         for eid in self.elem_ids_to_del:
@@ -131,6 +187,11 @@ class CmdDeleteSelection(QUndoCommand):
             for aeid in self.area_elem_ids_to_del:
                 if aeid in model.area_elements:
                     self.saved_area_elems[aeid] = copy.deepcopy(model.area_elements[aeid])
+                    
+        if hasattr(model, 'links'):
+            for lid in self.link_ids_to_del:
+                if lid in model.links:
+                    self.saved_links[lid] = copy.deepcopy(model.links[lid])
         
         for nid in self.node_ids_to_del:
             if nid in model.nodes:
@@ -145,12 +206,7 @@ class CmdDeleteSelection(QUndoCommand):
             if should_save:
                 self.saved_loads.append(copy.deepcopy(load))
 
-    def _is_truly_orphaned(self, model, node_id, deleted_elem_ids, deleted_area_ids):
-        """
-        Returns True if the node is NOT connected to any element that is 
-        staying in the model.
-        """
-                                                                             
+    def _is_truly_orphaned(self, model, node_id, deleted_elem_ids, deleted_area_ids, deleted_link_ids):
         for el in model.elements.values():
             if el.id not in deleted_elem_ids:
                 if el.node_i.id == node_id or el.node_j.id == node_id:
@@ -161,20 +217,19 @@ class CmdDeleteSelection(QUndoCommand):
                 if ae.id not in deleted_area_ids:
                     if any(n.id == node_id for n in ae.nodes):
                         return False 
+                        
+        if hasattr(model, 'links'):
+            for link in model.links.values():
+                if link['id'] not in deleted_link_ids:
+                    if node_id in link['nodes']:
+                        return False
         
         if any(model.nodes[node_id].restraints):
             return False 
             
         return True
     
-    def _will_become_orphan(self, model, node_id, deleted_element_ids, deleted_area_ids=None):
-        """
-        Returns True if the node will have NO connected elements
-        after the specified frame elements AND shell elements are deleted.
-        Checks both model.elements (frames) and model.area_elements (shells).
-        """
-        deleted_area_ids = deleted_area_ids or set()
-
+    def _will_become_orphan(self, model, node_id, deleted_element_ids, deleted_area_ids, deleted_link_ids):
         for el in model.elements.values():
             if el.id not in deleted_element_ids:
                 if el.node_i.id == node_id or el.node_j.id == node_id:
@@ -185,11 +240,16 @@ class CmdDeleteSelection(QUndoCommand):
                 if ae.id not in deleted_area_ids:
                     if any(n.id == node_id for n in ae.nodes):
                         return False
+                        
+        if hasattr(model, 'links'):
+            for link in model.links.values():
+                if link['id'] not in deleted_link_ids:
+                    if node_id in link['nodes']:
+                        return False
 
         return True
 
     def redo(self):
-                            
         for eid in self.elem_ids_to_del:
             if eid in self.model.elements:
                 self.model.remove_element(eid)
@@ -198,6 +258,11 @@ class CmdDeleteSelection(QUndoCommand):
             for aeid in self.area_elem_ids_to_del:
                 if aeid in self.model.area_elements:
                     del self.model.area_elements[aeid]
+                    
+        if hasattr(self.model, 'links'):
+            for lid in self.link_ids_to_del:
+                if lid in self.model.links:
+                    del self.model.links[lid]
         
         for nid in self.node_ids_to_del:
             if nid in self.model.nodes:
@@ -213,16 +278,17 @@ class CmdDeleteSelection(QUndoCommand):
         self.main_window.selected_node_ids = []
         if hasattr(self.main_window, 'selected_area_ids'):
             self.main_window.selected_area_ids = []
+        if hasattr(self.main_window, 'selected_link_ids'):
+            self.main_window.selected_link_ids = []
+            
         self._refresh_view()
 
     def undo(self):
-                                                               
         for nid, node_obj in self.saved_nodes.items():
             self.model.nodes[nid] = node_obj
             self.model._node_counter = max(self.model._node_counter, nid + 1)
 
         for eid, el_obj in self.saved_elems.items():
-            
             if el_obj.node_i.id in self.model.nodes:
                 el_obj.node_i = self.model.nodes[el_obj.node_i.id]
             if el_obj.node_j.id in self.model.nodes:
@@ -238,9 +304,7 @@ class CmdDeleteSelection(QUndoCommand):
 
         if hasattr(self.model, 'area_elements'):
             for aeid, ae_obj in self.saved_area_elems.items():
-                ae_obj.nodes = [
-                    self.model.nodes.get(n.id, n) for n in ae_obj.nodes
-                ]
+                ae_obj.nodes = [self.model.nodes.get(n.id, n) for n in ae_obj.nodes]
                 if hasattr(ae_obj, 'section') and ae_obj.section is not None:
                     sec_name = ae_obj.section.name
                     if hasattr(self.model, 'area_sections') and sec_name in self.model.area_sections:
@@ -250,6 +314,11 @@ class CmdDeleteSelection(QUndoCommand):
                 self.model.area_elements[aeid] = ae_obj
                 if hasattr(self.model, '_area_elem_counter'):
                     self.model._area_elem_counter = max(self.model._area_elem_counter, aeid + 1)
+                    
+        if hasattr(self.model, 'links'):
+            for lid, link_obj in self.saved_links.items():
+                self.model.links[lid] = link_obj
+                self.model._link_counter = max(getattr(self.model, '_link_counter', 1), lid + 1)
 
         for load in self.saved_loads:
             self.model.loads.append(copy.deepcopy(load))
@@ -1043,3 +1112,73 @@ class CmdAssignJointSpring(QUndoCommand):
             node = self.model.nodes[nid]
                                               
             node.spring_matrix = self.previous_states.get(nid)
+
+class CmdDrawLink2J(QUndoCommand):
+    def __init__(self, model, main_window, p1, p2, prop_name):
+        super().__init__(f"Draw 2-Joint Link ({prop_name})")
+        self.model = model
+        self.main_window = main_window
+        self.p1 = p1
+        self.p2 = p2
+        self.prop_name = prop_name
+        self.link_id = None
+        self.n1_id = None
+        self.n2_id = None
+
+    def redo(self):
+        n1 = self.model.get_or_create_node(*self.p1)
+        n2 = self.model.get_or_create_node(*self.p2)
+        self.n1_id = n1.id
+        self.n2_id = n2.id
+        
+        if self.link_id is None:
+            self.link_id = getattr(self.model, '_link_counter', 1)
+            self.model._link_counter = self.link_id + 1
+            
+        self.model.links[self.link_id] = {
+            "id": self.link_id,
+            "prop_name": self.prop_name,
+            "nodes": [self.n1_id, self.n2_id],
+            "beta": 0.0,
+            "type": "link_2j"
+        }
+        self.main_window.refresh_canvas()
+
+    def undo(self):
+        if self.link_id in self.model.links:
+            del self.model.links[self.link_id]
+        self.model._cleanup_orphan_node(self.n1_id)
+        self.model._cleanup_orphan_node(self.n2_id)
+        self.main_window.refresh_canvas()
+
+class CmdDrawLink1J(QUndoCommand):
+    def __init__(self, model, main_window, p1, prop_name):
+        super().__init__(f"Draw 1-Joint Link ({prop_name})")
+        self.model = model
+        self.main_window = main_window
+        self.p1 = p1
+        self.prop_name = prop_name
+        self.link_id = None
+        self.n1_id = None
+
+    def redo(self):
+        n1 = self.model.get_or_create_node(*self.p1)
+        self.n1_id = n1.id
+        
+        if self.link_id is None:
+            self.link_id = getattr(self.model, '_link_counter', 1)
+            self.model._link_counter = self.link_id + 1
+            
+        self.model.links[self.link_id] = {
+            "id": self.link_id,
+            "prop_name": self.prop_name,
+            "nodes": [self.n1_id],
+            "type": "link_1j"
+        }
+        self.main_window.refresh_canvas()
+
+    def undo(self):
+        if self.link_id in self.model.links:
+            del self.model.links[self.link_id]
+        self.model._cleanup_orphan_node(self.n1_id)
+        self.main_window.refresh_canvas()
