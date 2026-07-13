@@ -1,11 +1,20 @@
 import numpy as np
 import pyqtgraph.opengl as gl
 
-def build_boundary_visuals(nodes_dict, links_dict=None, link_props=None, scale=1.0):
+def build_boundary_visuals(nodes_dict, links_dict=None, link_props=None, scale=1.0,
+                            show_1joint_links=True, show_2joint_links=True,
+                            show_support_glyphs=True,
+                            node_displacements=None, disp_scale=0.0):
     """
     Generates unified boundary conditions in a single pass:
     - Meshes: Fixed, Pinned, Roller, Custom supports + Coupled Spring warnings.
     - Lines: Standard 6-DOF springs.
+
+    node_displacements: optional {node_id: [dx,dy,dz,rx,ry,rz]} results dict.
+    disp_scale: scalar multiplier applied to node_displacements (e.g. deflection_scale * anim_factor).
+    When provided, nodal springs and 1-joint links attach to the DISPLACED node
+    position, while their ground/anchor ends stay fixed at the node's original
+    (undeformed) position. 2-joint links are never displaced.
     """
                                       
     mesh_verts, mesh_faces, mesh_colors = [], [], []
@@ -129,23 +138,24 @@ def build_boundary_visuals(nodes_dict, links_dict=None, link_props=None, scale=1
         line_verts.append(lead2_start); line_verts.append(p2)
         line_colors.append(color); line_colors.append(color)
 
-    def add_axis_spring(base_pt, axis_vec, color, is_rotational=False):
-        """
-        Nodal DOF spring: same coil style as the grounded link, but running
-        along a single global axis and capped with a small anchor plate.
-        axis_vec is always a unit vector along +/-X, +/-Y or +/-Z.
-        The plate is always a flat horizontal cap (thin along Z) so X/Y springs
-        read as a "coin" like the Z spring does, instead of a standing wall.
-        """
+    def add_axis_spring(base_pt, axis_vec, color, is_rotational=False, attach_pt=None):
         length = (10 * scale) if is_rotational else (22 * scale)
-        radius = (5 * scale) if is_rotational else (6 * scale)
+        
+        radius = (2.5 * scale) if is_rotational else (3.0 * scale) 
+        
         end_pt = base_pt + axis_vec * length
+        start_pt = attach_pt if attach_pt is not None else base_pt
 
-        add_line_spring(base_pt, end_pt, color, coil_radius=radius, turns=3, lead_frac=0.2)
+        add_line_spring(start_pt, end_pt, color, coil_radius=radius, turns=3, lead_frac=0.2)
 
         plate_half = radius * 1.15
-        thin = s * 0.1
-        add_box(end_pt[0], end_pt[1], end_pt[2], plate_half, plate_half, thin, color)
+        thin = s * 0.15
+        
+        wx = thin if abs(axis_vec[0]) > 0.5 else plate_half
+        wy = thin if abs(axis_vec[1]) > 0.5 else plate_half
+        wz = thin if abs(axis_vec[2]) > 0.5 else plate_half
+        
+        add_box(end_pt[0], end_pt[1], end_pt[2], wx, wy, wz, color)
 
     def add_wireframe_box(cx, cy, cz, wx, wy, wz, color):
                               
@@ -166,39 +176,47 @@ def build_boundary_visuals(nodes_dict, links_dict=None, link_props=None, scale=1
             line_colors.append(color)
             line_colors.append(color)
 
+    node_displacements = node_displacements or {}
+
     for n_id, node in nodes_dict.items():
         base_pt = np.array([node.x, node.y, node.z])
         x, y, z = node.x, node.y, node.z
-        
+
+        struct_pt = base_pt
+        disp = node_displacements.get(str(n_id))
+        if disp is not None and disp_scale:
+            struct_pt = base_pt + np.array(disp[:3]) * disp_scale
+
         if hasattr(node, 'restraints') and any(node.restraints):
             r = node.restraints
             is_fixed = all(r[:3]) and all(r[3:]) 
             is_pinned = all(r[:3]) and not any(r[3:]) 
             is_roller = r[2] and not any(r[0:2]) and not any(r[3:])
             
-            if is_fixed:
-                c = (0.40, 0.45, 0.50, 1.0)
-                add_box(x, y, z - s, s*0.8, s*0.8, s, c)
-                add_box(x, y, z - s*2.1, s*1.2, s*1.2, s*0.1, c)
-            elif is_pinned:
-                c = (0.25, 0.55, 0.75, 1.0)
-                add_pyramid(x, y, z, s*0.8, s*1.8, c)
-                add_box(x, y, z - s*1.9, s*1.2, s*1.2, s*0.1, c)
-            elif is_roller:
-                c = (0.20, 0.65, 0.50, 1.0)
-                add_sphere(x, y, z - s*0.9, s*0.9, c)            
-                add_box(x, y, z - s*1.9, s*1.2, s*1.2, s*0.1, c)
-            else:                       
-                c = (0.85, 0.55, 0.20, 1.0)
-                add_pyramid(x, y, z, s*0.6, s, c)
-                v = [[x, y, z], [x-s*0.6, y-s*0.6, z-s], [x+s*0.6, y-s*0.6, z-s], 
-                     [x+s*0.6, y+s*0.6, z-s], [x-s*0.6, y+s*0.6, z-s], [x, y, z-s*2]]
-                f = [[0, 1, 2], [0, 2, 3], [0, 3, 4], [0, 4, 1],
-                     [5, 2, 1], [5, 3, 2], [5, 4, 3], [5, 1, 4]]
-                mesh_verts.extend(v)
-                mesh_faces.extend([[i + mesh_idx_offset for i in face] for face in f])
-                for _ in range(6): mesh_colors.append(c)
-                mesh_idx_offset += 6
+            if show_support_glyphs:
+                if is_fixed:
+                    c = (0.40, 0.45, 0.50, 1.0)
+                    add_box(x, y, z - s, s*0.8, s*0.8, s, c)
+                    add_box(x, y, z - s*2.1, s*1.2, s*1.2, s*0.1, c)
+                elif is_pinned:
+                    c = (0.25, 0.55, 0.75, 1.0)
+                    add_pyramid(x, y, z, s*0.8, s*1.8, c)
+                    add_box(x, y, z - s*1.9, s*1.2, s*1.2, s*0.1, c)
+                elif is_roller:
+                    c = (0.20, 0.65, 0.50, 1.0)
+                    add_sphere(x, y, z - s*0.9, s*0.9, c)            
+                    add_box(x, y, z - s*1.9, s*1.2, s*1.2, s*0.1, c)
+                else:                       
+                    c = (0.85, 0.55, 0.20, 1.0)
+                    add_pyramid(x, y, z, s*0.6, s, c)
+                    v = [[x, y, z], [x-s*0.6, y-s*0.6, z-s], [x+s*0.6, y-s*0.6, z-s], 
+                         [x+s*0.6, y+s*0.6, z-s], [x-s*0.6, y+s*0.6, z-s], [x, y, z-s*2]]
+                    f = [[0, 1, 2], [0, 2, 3], [0, 3, 4], [0, 4, 1],
+                         [5, 2, 1], [5, 3, 2], [5, 4, 3], [5, 1, 4]]
+                    mesh_verts.extend(v)
+                    mesh_faces.extend([[i + mesh_idx_offset for i in face] for face in f])
+                    for _ in range(6): mesh_colors.append(c)
+                    mesh_idx_offset += 6
 
         k = getattr(node, 'spring_matrix', None)
         if k is not None:
@@ -209,13 +227,15 @@ def build_boundary_visuals(nodes_dict, links_dict=None, link_props=None, scale=1
                                                   
                 add_wireframe_box(x, y, z, s*0.8, s*0.8, s*0.8, [0.0, 0.0, 0.0, 1.0])
             else:
-                                                                             
-                if abs(k[0, 0]) > 1e-6: add_axis_spring(base_pt, np.array([-1.0, 0.0, 0.0]), c_x)
-                if abs(k[1, 1]) > 1e-6: add_axis_spring(base_pt, np.array([0.0, -1.0, 0.0]), c_y)
-                if abs(k[2, 2]) > 1e-6: add_axis_spring(base_pt, np.array([0.0, 0.0, -1.0]), c_z)
-                if abs(k[3, 3]) > 1e-6: add_axis_spring(base_pt, np.array([1.0, 0.0, 0.0]), c_rot, is_rotational=True)
-                if abs(k[4, 4]) > 1e-6: add_axis_spring(base_pt, np.array([0.0, 1.0, 0.0]), c_rot, is_rotational=True)
-                if abs(k[5, 5]) > 1e-6: add_axis_spring(base_pt, np.array([0.0, 0.0, 1.0]), c_rot, is_rotational=True)
+                                                                                       
+                if abs(k[0, 0]) > 1e-6: add_axis_spring(base_pt, np.array([1.0, 0.0, 0.0]), c_x, attach_pt=struct_pt)
+                if abs(k[1, 1]) > 1e-6: add_axis_spring(base_pt, np.array([0.0, 1.0, 0.0]), c_y, attach_pt=struct_pt)
+                
+                if abs(k[2, 2]) > 1e-6: add_axis_spring(base_pt, np.array([0.0, 0.0, -1.0]), c_z, attach_pt=struct_pt)
+                
+                if abs(k[3, 3]) > 1e-6: add_axis_spring(base_pt, np.array([1.0, 0.0, 0.0]), c_rot, is_rotational=True, attach_pt=struct_pt)
+                if abs(k[4, 4]) > 1e-6: add_axis_spring(base_pt, np.array([0.0, 1.0, 0.0]), c_rot, is_rotational=True, attach_pt=struct_pt)
+                if abs(k[5, 5]) > 1e-6: add_axis_spring(base_pt, np.array([0.0, 0.0, 1.0]), c_rot, is_rotational=True, attach_pt=struct_pt)
 
     if links_dict is None: links_dict = {}
     if link_props is None: link_props = {}
@@ -228,13 +248,21 @@ def build_boundary_visuals(nodes_dict, links_dict=None, link_props=None, scale=1
         nodes = link['nodes']
 
         if len(nodes) == 1:
+            if not show_1joint_links:
+                continue
                                              
             nid = nodes[0]
                                                            
             n = nodes_dict.get(nid) or nodes_dict.get(str(nid))
             
             if n:
-                p1 = np.array([n.x, n.y, n.z])
+                                                                          
+                p1_orig = np.array([n.x, n.y, n.z])
+                p1 = p1_orig
+                disp = node_displacements.get(str(nid))
+                if disp is not None and disp_scale:
+                    p1 = p1_orig + np.array(disp[:3]) * disp_scale
+
                 ground_z = n.z - s * 2.2
                 p2 = np.array([n.x, n.y, ground_z])
                 add_line_spring(p1, p2, c_link, coil_radius=s * 0.5, turns=4, lead_frac=0.15)
@@ -242,6 +270,8 @@ def build_boundary_visuals(nodes_dict, links_dict=None, link_props=None, scale=1
                 add_box(n.x, n.y, ground_z - s*0.1, s*1.0, s*1.0, s*0.1, c_link)
                 
         elif len(nodes) == 2:
+            if not show_2joint_links:
+                continue
                                                                     
             nid_i, nid_j = nodes
             
@@ -251,6 +281,14 @@ def build_boundary_visuals(nodes_dict, links_dict=None, link_props=None, scale=1
             if n_i and n_j:
                 p1 = np.array([n_i.x, n_i.y, n_i.z])
                 p2 = np.array([n_j.x, n_j.y, n_j.z])
+
+                disp_i = node_displacements.get(str(nid_i))
+                if disp_i is not None and disp_scale:
+                    p1 = p1 + np.array(disp_i[:3]) * disp_scale
+
+                disp_j = node_displacements.get(str(nid_j))
+                if disp_j is not None and disp_scale:
+                    p2 = p2 + np.array(disp_j[:3]) * disp_scale
 
                 if np.linalg.norm(p2 - p1) < 1e-6: continue
 
@@ -270,7 +308,7 @@ def build_boundary_visuals(nodes_dict, links_dict=None, link_props=None, scale=1
         line_item = gl.GLLinePlotItem(
             pos=np.array(line_verts, dtype=np.float32), 
             color=np.array(line_colors, dtype=np.float32), 
-            mode='lines', width=2.0, antialias=True
+            mode='lines', width=1.75, antialias=True
         )
 
     return mesh_item, line_item

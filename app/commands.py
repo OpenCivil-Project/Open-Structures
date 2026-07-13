@@ -247,6 +247,9 @@ class CmdDeleteSelection(QUndoCommand):
                     if node_id in link['nodes']:
                         return False
 
+        if node_id in model.nodes and any(model.nodes[node_id].restraints):
+            return False
+
         return True
 
     def redo(self):
@@ -716,7 +719,7 @@ class CmdReplicate(QUndoCommand):
         if self.delete_original:
             self.delete_cmd = CmdDeleteSelection(model, main_window, node_ids, elem_ids,
                                                  self.area_elem_ids_src)
-
+            
     def redo(self):
                                                                 
         self.created_node_ids = []

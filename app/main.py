@@ -135,7 +135,7 @@ class VideoSplash(QWidget):
         self.player.errorOccurred.connect(self.finished.emit)
 
     def start(self):
-        self.player.setPlaybackRate(1.5)
+        self.player.setPlaybackRate(2.0)
         self.player.play()
 
     def cleanup_player(self):
@@ -2380,6 +2380,29 @@ class MainWindow(QMainWindow):
                 info_action.triggered.connect(show_info)
                 hit_something = True
 
+            if target_link_id is not None:
+                link_obj = getattr(self.model, 'links', {}).get(target_link_id)
+                if link_obj is not None:
+                    link_nodes = link_obj.get('nodes', []) if isinstance(link_obj, dict) else getattr(link_obj, 'nodes', [])
+                    if len(link_nodes) == 1:
+                        del_link_action = menu.addAction("Delete 1D Link")
+                        def force_delete_1d_link(lid=target_link_id):
+                                                                        
+                            if getattr(self, 'is_locked', False):
+                                self.status.showMessage("⚠️ Cannot delete objects while Analysis Results are active. Unlock model first.")
+                                return
+                            print(f"DEBUG: about to delete link {lid}", flush=True)
+                            cmd = CmdDeleteSelection(self.model, self, [], [], area_elem_ids=[], link_ids=[lid])
+                            self.add_command(cmd)
+                            print(f"DEBUG: link {lid} still in model.links? {lid in self.model.links}", flush=True)
+                                                                                         
+                            self.selected_link_ids = [l for l in getattr(self, 'selected_link_ids', []) if l != lid]
+                            if target_node_id in self.selected_node_ids:
+                                self.selected_node_ids.remove(target_node_id)
+                            self._refresh_selection_overlay()
+                            self.status.showMessage("1D Link Deleted.")
+                        del_link_action.triggered.connect(force_delete_1d_link)
+                    
         if target_elem_id is not None and hasattr(self.model, 'has_results') and self.model.has_results:
             eid = target_elem_id
             spy_action = menu.addAction("Show Matrices (K, T, FEE)")
@@ -2617,20 +2640,25 @@ class MainWindow(QMainWindow):
 
         skipped_shared_joints = len(self.selected_node_ids) - len(final_node_ids)
 
-        if self.selected_node_ids and not final_node_ids and not final_elem_ids and not self.selected_area_ids:
+        auto_link_ids = set(getattr(self, 'selected_link_ids', []))
+        if hasattr(self.model, 'links'):
+            kept_node_ids = set(self.selected_node_ids) - set(final_node_ids)
+            for lid, link in self.model.links.items():
+                l_nodes = link.get('nodes', []) if isinstance(link, dict) else getattr(link, 'nodes', [])
+                if len(l_nodes) == 1 and l_nodes[0] in kept_node_ids:
+                    auto_link_ids.add(lid)
+
+        if self.selected_node_ids and not final_node_ids and not final_elem_ids and not self.selected_area_ids and not auto_link_ids:
             self.status.showMessage("⚠️ Cannot delete selected joints. They are shared with existing elements.")
             return
 
         deleted_area_count = len(self.selected_area_ids)
-        deleted_link_count = len(getattr(self, 'selected_link_ids', []))
+        deleted_link_count = len(auto_link_ids)
 
         cmd = CmdDeleteSelection(
-            self.model, 
-            self, 
-            final_node_ids, 
-            final_elem_ids,
+            self.model, self, final_node_ids, final_elem_ids,
             area_elem_ids=list(self.selected_area_ids),
-            link_ids=list(getattr(self, 'selected_link_ids', []))          
+            link_ids=list(auto_link_ids)
         )
         self.add_command(cmd)
         

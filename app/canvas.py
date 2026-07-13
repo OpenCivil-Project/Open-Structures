@@ -1395,6 +1395,42 @@ class MCanvas3D(gl.GLViewWidget):
             self.addItem(sp)
             self._sel_overlay_items.append(sp)
 
+    def _boundary_visuals_kwargs(self, model):
+        """
+        Decides which link types to draw and whether they should follow the
+        deflected shape, based on the current view mode. Returns a kwargs dict
+        for build_boundary_visuals().
+
+        - No results yet: show both link types, undeformed (today's behavior).
+        - Force diagram active: 2-joint links only, always undeformed.
+        - Deflected view (not force diagram): 1-joint links, nodal springs, and
+          2-joint links all follow the deflected shape. 2-joint links use each
+          end's exact solved nodal displacement directly (a link has no
+          distributed stiffness along its length to interpolate, unlike a
+          frame element, so the straight segment between displaced endpoints
+          is exact, not an approximation).
+        - Results loaded but undeformed and no force diagram: same as "no
+          results" case, since geometry is undeformed anyway.
+        """
+        in_analysis_mode = hasattr(model, 'has_results') and model.has_results
+
+        if not in_analysis_mode:
+            return dict(show_1joint_links=True, show_2joint_links=True, show_support_glyphs=True)
+
+        if self.force_diagram_active:
+            return dict(show_1joint_links=False, show_2joint_links=True, show_support_glyphs=False)
+
+        if self.view_deflected:
+            return dict(
+                show_1joint_links=True,
+                show_2joint_links=True,
+                show_support_glyphs=False,
+                node_displacements=model.results.get("displacements", {}),
+                disp_scale=self.deflection_scale * self.anim_factor
+            )
+
+        return dict(show_1joint_links=True, show_2joint_links=True, show_support_glyphs=True)
+
     def _draw_nodes(self, model):
         if not model.nodes: return
         
@@ -1450,11 +1486,8 @@ class MCanvas3D(gl.GLViewWidget):
             self.addItem(item)
             self.node_items.append(item)
 
-        in_analysis_mode = hasattr(model, 'has_results') and model.has_results
-        if self.show_supports and not in_analysis_mode:
+        if self.show_supports:
                                                                                          
-            visible_nodes = {nid: n for nid, n in model.nodes.items() if self._get_visibility_state(n.x, n.y, n.z) == 2}
-            
             visible_nodes = {nid: n for nid, n in model.nodes.items() if self._get_visibility_state(n.x, n.y, n.z) == 2}
             
             scale = self._screen_scale() 
@@ -1465,7 +1498,8 @@ class MCanvas3D(gl.GLViewWidget):
                 visible_nodes, 
                 links_dict=links_dict, 
                 link_props=link_props, 
-                scale=scale
+                scale=scale,
+                **self._boundary_visuals_kwargs(model)
             )
                                                  
             if mesh_item:
@@ -2360,10 +2394,6 @@ class MCanvas3D(gl.GLViewWidget):
 
         if not self.current_model or not getattr(self, 'show_supports', True): 
             return
-            
-        in_analysis_mode = hasattr(self.current_model, 'has_results') and self.current_model.has_results
-        if in_analysis_mode: 
-            return
 
         visible_nodes = {nid: n for nid, n in self.current_model.nodes.items() if self._get_visibility_state(n.x, n.y, n.z) == 2}
 
@@ -2375,7 +2405,8 @@ class MCanvas3D(gl.GLViewWidget):
             visible_nodes, 
             links_dict=links_dict, 
             link_props=link_props, 
-            scale=scale
+            scale=scale,
+            **self._boundary_visuals_kwargs(self.current_model)
         )
         
         if mesh_item:
@@ -4481,13 +4512,13 @@ class MCanvas3D(gl.GLViewWidget):
 
                 N     = len(positions)
                 pos_h = np.hstack([positions, np.ones((N, 1))])          
-                clip  = pos_h @ mvp.T                                     
+                clip  = pos_h @ mvp.T                                    
 
                 w_clip       = clip[:, 3]
                 screen_valid = w_clip > 0
                 safe_w       = np.where(screen_valid, w_clip, 1.0)
 
-                sx = (clip[:, 0] / safe_w *  0.5 + 0.5) * w
+                sx = (clip[:, 0] / safe_w * 0.5 + 0.5) * w
                 sy = (1.0 - (clip[:, 1] / safe_w * 0.5 + 0.5)) * h
 
                 in_box = (screen_valid
@@ -4514,7 +4545,6 @@ class MCanvas3D(gl.GLViewWidget):
 
         if e_ids:
             if is_window_select:
-                                                       
                 p1_arr = np.array(p1s)
                 p2_arr = np.array(p2s)
                 p1_in  = ((p1_arr[:, 0] >= x_min) & (p1_arr[:, 0] <= x_max) &
@@ -4523,7 +4553,6 @@ class MCanvas3D(gl.GLViewWidget):
                         (p2_arr[:, 1] >= y_min) & (p2_arr[:, 1] <= y_max))
                 found_elems = [e_ids[i] for i in np.where(p1_in & p2_in)[0]]
             else:
-                                                                               
                 rect = (x_min, y_min, x_max, y_max)
                 found_elems = [
                     e_ids[i] for i in range(len(e_ids))
@@ -4538,9 +4567,28 @@ class MCanvas3D(gl.GLViewWidget):
                 nodes = link['nodes']
                 if len(nodes) == 1:
                     n0 = nodes[0]
-                    p1 = node_screens.get(n0) or node_screens.get(int(n0)) or node_screens.get(str(n0))
-                    if p1 and (x_min <= p1[0] <= x_max) and (y_min <= p1[1] <= y_max):
-                        found_links.append(lid)
+                                                                          
+                    real_node = model.nodes.get(n0) or model.nodes.get(int(n0)) or model.nodes.get(str(n0))
+                    
+                    if real_node:
+                                                   
+                        if hasattr(self, 'cache_scale_used') and self.cache_scale_used is not None:
+                            scale = self.cache_scale_used
+                        else:
+                            bounds = getattr(self, 'compute_model_bbox', lambda: None)()
+                            if bounds and len(bounds) >= 2:
+                                                                        
+                                scale = bounds[1] * 0.05
+                            else:
+                                scale = 1.0
+
+                        ground_z = real_node.z - scale * 6.0 * 2.2
+                        
+                        s = self._project_to_screen(real_node.x, real_node.y, ground_z, mvp, w, h)
+                        
+                        if s and (x_min <= s[0] <= x_max) and (y_min <= s[1] <= y_max):
+                            found_links.append(lid)
+
                 elif len(nodes) == 2:
                     n0, n1 = nodes[0], nodes[1]
                     p1 = node_screens.get(n0) or node_screens.get(int(n0)) or node_screens.get(str(n0))
@@ -4558,8 +4606,7 @@ class MCanvas3D(gl.GLViewWidget):
                     found_links.extend([l_ids[i] for i in np.where(p1_in & p2_in)[0]])
                 else:
                     rect = (x_min, y_min, x_max, y_max)
-                    found_links.extend([l_ids[i] for i in range(len(l_ids)) if self._line_intersects_rect(lp1s[i], lp2s[i], rect)])
-                                          
+                    found_links.extend([l_ids[i] for i in range(len(l_ids)) if self._line_intersects_rect(lp1s[i], lp2s[i], rect)])   
         found_area_elems = []
         for aeid, ae in model.area_elements.items():
             if getattr(self, 'view_deflected', False):
@@ -4599,7 +4646,7 @@ class MCanvas3D(gl.GLViewWidget):
         is_deselect = (modifiers == Qt.KeyboardModifier.ShiftModifier)
         self.signal_box_selection.emit(found_nodes, found_elems, found_links, is_additive, is_deselect)
         self.signal_area_box_selection.emit(found_area_elems, is_additive, is_deselect)
-        
+
     def _point_in_polygon_2d(self, px, py, pts):
         """Winding number test — works for convex and concave screen-space polygons."""
         winding = 0
