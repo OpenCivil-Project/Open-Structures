@@ -41,6 +41,12 @@ class CopyableTableWidget(QTableWidget):
         selected_set = set((i.row(), i.column()) for i in indexes)
 
         lines = []
+
+        header_item = self.horizontalHeaderItem
+        lines.append("\t".join(
+            (header_item(c).text() if header_item(c) else "") for c in cols
+        ))
+
         for r in rows:
             line_vals = []
             for c in cols:

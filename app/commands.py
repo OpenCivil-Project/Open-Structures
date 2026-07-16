@@ -224,9 +224,6 @@ class CmdDeleteSelection(QUndoCommand):
                     if node_id in link['nodes']:
                         return False
         
-        if any(model.nodes[node_id].restraints):
-            return False 
-            
         return True
     
     def _will_become_orphan(self, model, node_id, deleted_element_ids, deleted_area_ids, deleted_link_ids):
@@ -246,9 +243,6 @@ class CmdDeleteSelection(QUndoCommand):
                 if link['id'] not in deleted_link_ids:
                     if node_id in link['nodes']:
                         return False
-
-        if node_id in model.nodes and any(model.nodes[node_id].restraints):
-            return False
 
         return True
 
@@ -698,13 +692,14 @@ class CmdReplicate(QUndoCommand):
     Handles Linear Replication (Copy/Move).
     """
     def __init__(self, model, main_window, node_ids, elem_ids, area_elem_ids=None,
-                 dx=0.0, dy=0.0, dz=0.0, num=1, delete_original=False):
+                 dx=0.0, dy=0.0, dz=0.0, num=1, delete_original=False, link_ids=None):
         super().__init__("Replicate Selection")
         self.model = model
         self.main_window = main_window
         self.node_ids_src = node_ids
         self.elem_ids_src = elem_ids
         self.area_elem_ids_src = list(area_elem_ids or [])
+        self.link_ids_src = list(link_ids or [])
         self.dx = dx
         self.dy = dy
         self.dz = dz
@@ -714,33 +709,60 @@ class CmdReplicate(QUndoCommand):
         self.created_node_ids = []
         self.created_elem_ids = []
         self.created_area_elem_ids = []
+        self.created_link_ids = []
+        self.skipped_node_ids = []
+        self.skipped_link_ids = []
 
         self.delete_cmd = None
         if self.delete_original:
             self.delete_cmd = CmdDeleteSelection(model, main_window, node_ids, elem_ids,
-                                                 self.area_elem_ids_src)
+                                                 self.area_elem_ids_src, self.link_ids_src)
             
     def redo(self):
                                                                 
         self.created_node_ids = []
         self.created_elem_ids = []
         self.created_area_elem_ids = []
+        self.created_link_ids = []
+        self.skipped_node_ids = []
+        self.skipped_link_ids = []
 
         involved_node_ids = set(self.node_ids_src)
+        carried_node_ids = set()
         for eid in self.elem_ids_src:
             if eid in self.model.elements:
                 el = self.model.elements[eid]
                 involved_node_ids.add(el.node_i.id)
                 involved_node_ids.add(el.node_j.id)
+                carried_node_ids.add(el.node_i.id)
+                carried_node_ids.add(el.node_j.id)
 
         if hasattr(self.model, 'area_elements'):
             for aeid in self.area_elem_ids_src:
                 if aeid in self.model.area_elements:
                     for node in self.model.area_elements[aeid].nodes:
                         involved_node_ids.add(node.id)
+                        carried_node_ids.add(node.id)
+
+        if hasattr(self.model, 'links'):
+            for lid in self.link_ids_src:
+                if lid in self.model.links:
+                    for nid in self.model.links[lid]['nodes']:
+                        involved_node_ids.add(nid)
+                        carried_node_ids.add(nid)
+
+        gated_node_ids = involved_node_ids - carried_node_ids
+        pre_existing_connected_coords = []
+        if gated_node_ids:
+            for nid, node in self.model.nodes.items():
+                if self._is_node_connected(nid):
+                    pre_existing_connected_coords.append((node.x, node.y, node.z))
+
+        explicit_node_ids = set(self.node_ids_src)
 
         node_load_map = {}
         elem_load_map = {}
+        area_load_map = {}
         for load in self.model.loads:
             if hasattr(load, 'node_id'):
                 if load.node_id not in node_load_map: node_load_map[load.node_id] = []
@@ -748,6 +770,9 @@ class CmdReplicate(QUndoCommand):
             elif hasattr(load, 'element_id'):
                 if load.element_id not in elem_load_map: elem_load_map[load.element_id] = []
                 elem_load_map[load.element_id].append(load)
+            elif hasattr(load, 'area_id'):
+                if load.area_id not in area_load_map: area_load_map[load.area_id] = []
+                area_load_map[load.area_id].append(load)
 
         for i in range(1, self.num + 1):
             node_map = {}                             
@@ -759,6 +784,14 @@ class CmdReplicate(QUndoCommand):
                 nx = original_node.x + (self.dx * i)
                 ny = original_node.y + (self.dy * i)
                 nz = original_node.z + (self.dz * i)
+
+                if nid in gated_node_ids:
+                    if not self._matches_existing_connected(nx, ny, nz, pre_existing_connected_coords):
+                        self.skipped_node_ids.append(nid)
+                        continue
+                    new_node = self.model.get_or_create_node(nx, ny, nz)
+                    node_map[nid] = new_node
+                    continue
                 
                 new_node = self.model.get_or_create_node(nx, ny, nz)
                 
@@ -766,25 +799,37 @@ class CmdReplicate(QUndoCommand):
                     self.created_node_ids.append(new_node.id)
 
                 node_map[nid] = new_node
+
+                if nid not in explicit_node_ids:
+                                                                              
+                    continue
                 
-                if abs(self.dz) < 0.001:
-                    new_node.restraints = original_node.restraints[:]
-                else:
-                    new_node.restraints = [False, False, False, False, False, False]
+                new_node.restraints = original_node.restraints[:]
                 
                 if abs(self.dz) > 0.001:
                     new_node.diaphragm_name = None 
                 else:
                     new_node.diaphragm_name = original_node.diaphragm_name
 
+                orig_spring = getattr(original_node, 'spring_matrix', None)
+                new_node.spring_matrix = orig_spring.copy() if orig_spring is not None else None
+
                 if nid in node_load_map:
                     for old_load in node_load_map[nid]:
-                        self.model.assign_joint_load(
-                            new_node.id, old_load.pattern_name,
-                            old_load.fx, old_load.fy, old_load.fz,
-                            old_load.mx, old_load.my, old_load.mz,
-                            mode="add"
-                        )
+                        if isinstance(old_load, GroundDisplacement):
+                            self.model.assign_ground_displacement(
+                                new_node.id, old_load.pattern_name,
+                                old_load.ux, old_load.uy, old_load.uz,
+                                old_load.rx, old_load.ry, old_load.rz,
+                                mode="add"
+                            )
+                        elif isinstance(old_load, NodalLoad):
+                            self.model.assign_joint_load(
+                                new_node.id, old_load.pattern_name,
+                                old_load.fx, old_load.fy, old_load.fz,
+                                old_load.mx, old_load.my, old_load.mz,
+                                mode="add"
+                            )
 
             for eid in self.elem_ids_src:
                 if eid not in self.model.elements: continue
@@ -853,6 +898,57 @@ class CmdReplicate(QUndoCommand):
                     new_ae = self.model.add_area_element(mapped_nodes, orig_ae.section)
                     self.created_area_elem_ids.append(new_ae.id)
 
+                    if aeid in area_load_map:
+                        for old_load in area_load_map[aeid]:
+                            if hasattr(old_load, 'gx'):
+                                self.model.assign_area_gravity_load(
+                                    new_ae.id, old_load.pattern_name,
+                                    old_load.gx, old_load.gy, old_load.gz,
+                                    coord_system=getattr(old_load, 'coord_system', "GLOBAL"),
+                                    mode="add"
+                                )
+                            elif hasattr(old_load, 'uniform_load'):
+                                self.model.assign_area_uniform_load(
+                                    new_ae.id, old_load.pattern_name,
+                                    old_load.uniform_load,
+                                    load_direction=getattr(old_load, 'load_direction', "Gravity"),
+                                    coord_system=getattr(old_load, 'coord_system', "GLOBAL"),
+                                    mode="add"
+                                )
+
+            if hasattr(self.model, 'links'):
+                for lid in self.link_ids_src:
+                    if lid not in self.model.links:
+                        continue
+                    orig_link = self.model.links[lid]
+
+                    mapped_ids = []
+                    all_mapped = True
+                    for nid in orig_link['nodes']:
+                        if nid not in node_map:
+                            all_mapped = False
+                            break
+                        mapped_ids.append(node_map[nid].id)
+
+                    if not all_mapped:
+                        self.skipped_link_ids.append(lid)
+                        continue
+
+                    if self._link_exists(mapped_ids, orig_link.get('type')):
+                        continue
+
+                    new_link_id = getattr(self.model, '_link_counter', 1)
+                    self.model._link_counter = new_link_id + 1
+
+                    self.model.links[new_link_id] = {
+                        "id": new_link_id,
+                        "prop_name": orig_link['prop_name'],
+                        "nodes": mapped_ids,
+                        "beta": orig_link.get('beta', 0.0),
+                        "type": orig_link.get('type', 'link_2j')
+                    }
+                    self.created_link_ids.append(new_link_id)
+
         if self.delete_original and self.delete_cmd:
             self.delete_cmd.redo()
 
@@ -862,6 +958,11 @@ class CmdReplicate(QUndoCommand):
                                                         
         if self.delete_original and self.delete_cmd:
             self.delete_cmd.undo()
+
+        if hasattr(self.model, 'links'):
+            for lid in reversed(self.created_link_ids):
+                if lid in self.model.links:
+                    del self.model.links[lid]
 
         for eid in reversed(self.created_elem_ids):
             if eid in self.model.elements:
@@ -886,6 +987,12 @@ class CmdReplicate(QUndoCommand):
                     if any(n.id == nid for n in ae.nodes):
                         is_connected = True
                         break
+
+            if not is_connected and hasattr(self.model, 'links'):
+                for link in self.model.links.values():
+                    if nid in link['nodes']:
+                        is_connected = True
+                        break
             
             if not is_connected:
                 del self.model.nodes[nid]
@@ -907,6 +1014,43 @@ class CmdReplicate(QUndoCommand):
             for ae in self.model.area_elements.values():
                 if {n.id for n in ae.nodes} == target_ids:
                     return True
+        return False
+
+    def _link_exists(self, node_ids, link_type):
+        """Return True if a link of the same type already connects this exact node set."""
+        target_ids = set(node_ids)
+        if hasattr(self.model, 'links'):
+            for link in self.model.links.values():
+                if set(link['nodes']) == target_ids and link.get('type') == link_type:
+                    return True
+        return False
+
+    def _is_node_connected(self, node_id):
+        """Read-only check: is this node attached to any element, area, slab, or link right now."""
+        m = self.model
+        for el in m.elements.values():
+            if el.node_i.id == node_id or el.node_j.id == node_id:
+                return True
+        if hasattr(m, 'area_elements'):
+            for ae in m.area_elements.values():
+                if any(n.id == node_id for n in ae.nodes):
+                    return True
+        if hasattr(m, 'slabs'):
+            for slab in m.slabs.values():
+                if any(n.id == node_id for n in slab.nodes):
+                    return True
+        if hasattr(m, 'links'):
+            for link in m.links.values():
+                if node_id in link['nodes']:
+                    return True
+        return False
+
+    def _matches_existing_connected(self, x, y, z, snapshot_coords, tol=0.005):
+        """Is (x, y, z) within tolerance of a node that was already connected before this op?"""
+        for (sx, sy, sz) in snapshot_coords:
+            dist = ((sx - x) ** 2 + (sy - y) ** 2 + (sz - z) ** 2) ** 0.5
+            if dist < tol:
+                return True
         return False
 
 class CmdDrawAreaElement(QUndoCommand):

@@ -2838,34 +2838,56 @@ class MainWindow(QMainWindow):
         self.status.showMessage(f"Display Options Updated")
 
     def on_edit_replicate(self):
-        if not self.selected_ids and not self.selected_node_ids and not self.selected_area_ids:
-            QMessageBox.warning(self, "Selection", "Please select objects to replicate first.")
-            return
-
         if self.replicate_dialog is None:
             from app.dialogs.replicate_dialog import ReplicateDialog
             self.replicate_dialog = ReplicateDialog(self)
             self.replicate_dialog.signal_pick_points.connect(self.start_replicate_picking)
-        
-        if self.replicate_dialog.exec():
-                                              
-            dx = self.replicate_dialog.dx
-            dy = self.replicate_dialog.dy
-            dz = self.replicate_dialog.dz
-            num = self.replicate_dialog.num
-            delete = self.replicate_dialog.delete_original
+            self.replicate_dialog.signal_apply.connect(self.on_replicate_apply)
 
-            cmd = CmdReplicate(
-                self.model,
-                self,
-                list(self.selected_node_ids),
-                list(self.selected_ids),
-                list(self.selected_area_ids),
-                dx, dy, dz, num, delete
+        self.replicate_dialog.show()
+        self.replicate_dialog.raise_()
+        self.replicate_dialog.activateWindow()
+
+    def on_replicate_apply(self):
+        if (not self.selected_ids and not self.selected_node_ids
+                and not self.selected_area_ids and not getattr(self, 'selected_link_ids', [])):
+            QMessageBox.warning(self, "Selection", "Please select objects to replicate first.")
+            return
+
+        dx = self.replicate_dialog.dx
+        dy = self.replicate_dialog.dy
+        dz = self.replicate_dialog.dz
+        num = self.replicate_dialog.num
+        delete = self.replicate_dialog.delete_original
+
+        cmd = CmdReplicate(
+            self.model,
+            self,
+            list(self.selected_node_ids),
+            list(self.selected_ids),
+            list(self.selected_area_ids),
+            dx, dy, dz, num, delete,
+            link_ids=list(getattr(self, 'selected_link_ids', []))
+        )
+        self.add_command(cmd)
+
+        n_skipped_nodes = len(set(cmd.skipped_node_ids))
+        n_skipped_links = len(set(cmd.skipped_link_ids))
+        if n_skipped_nodes or n_skipped_links:
+            QMessageBox.warning(
+                self, "Replicate: Some Items Skipped",
+                f"{n_skipped_nodes} node(s) and {n_skipped_links} link(s) were not replicated: "
+                "no connecting frame/area was selected with them, and no existing "
+                "structure was found at the target location."
             )
-            self.add_command(cmd)
-            
+        else:
             self.status.showMessage("Replication Complete.")
+
+        self.selected_ids = []
+        self.selected_node_ids = []
+        self.selected_area_ids = []
+        self.selected_link_ids = []
+        self.draw_both_canvases()
             
     def on_draw_frame(self):
         if not self.model.sections:

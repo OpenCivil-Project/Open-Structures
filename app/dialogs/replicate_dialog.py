@@ -1,17 +1,18 @@
-                                 
 from PyQt6.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, QLabel, 
                              QLineEdit, QPushButton, QCheckBox, QGroupBox, 
-                             QTabWidget, QWidget, QDialogButtonBox)
+                             QTabWidget, QWidget, QDialogButtonBox, QMessageBox)
 from PyQt6.QtCore import pyqtSignal
 
 class ReplicateDialog(QDialog):
                                                         
     signal_pick_points = pyqtSignal()
+    signal_apply = pyqtSignal()
 
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setWindowTitle("Replicate")
         self.resize(350, 400)
+        self.setModal(False)
         
         self.dx = 0.0
         self.dy = 0.0
@@ -76,9 +77,12 @@ class ReplicateDialog(QDialog):
 
         lin_layout.addStretch()
 
-        buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel)
-        buttons.accepted.connect(self.accept_inputs)
+        buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Ok |
+                                   QDialogButtonBox.StandardButton.Apply |
+                                   QDialogButtonBox.StandardButton.Cancel)
+        buttons.accepted.connect(self.on_ok_clicked)
         buttons.rejected.connect(self.reject)
+        buttons.button(QDialogButtonBox.StandardButton.Apply).clicked.connect(self.on_apply_clicked)
         layout.addWidget(buttons)
 
     def on_pick_clicked(self):
@@ -94,13 +98,35 @@ class ReplicateDialog(QDialog):
         self.show()                 
         self.raise_()
 
-    def accept_inputs(self):
+    def _parse_inputs(self):
+        """Reads and validates the input fields. Returns True on success.
+        Shows a message and returns False on bad input, instead of failing silently."""
         try:
-            self.dx = float(self.input_dx.text())
-            self.dy = float(self.input_dy.text())
-            self.dz = float(self.input_dz.text())
-            self.num = int(self.input_num.text())
-            self.delete_original = self.chk_delete.isChecked()
-            self.accept()
+            dx = float(self.input_dx.text())
+            dy = float(self.input_dy.text())
+            dz = float(self.input_dz.text())
+            num = int(self.input_num.text())
         except ValueError:
-            pass                                        
+            QMessageBox.warning(self, "Invalid Input",
+                                "dx, dy, and dz must be numbers, and Number must be a whole number.")
+            return False
+
+        if num < 1:
+            QMessageBox.warning(self, "Invalid Input", "Number must be at least 1.")
+            return False
+
+        self.dx = dx
+        self.dy = dy
+        self.dz = dz
+        self.num = num
+        self.delete_original = self.chk_delete.isChecked()
+        return True
+
+    def on_ok_clicked(self):
+        if self._parse_inputs():
+            self.signal_apply.emit()
+            self.accept()
+
+    def on_apply_clicked(self):
+        if self._parse_inputs():
+            self.signal_apply.emit()
