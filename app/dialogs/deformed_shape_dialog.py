@@ -2,7 +2,7 @@ import os
 import json
 from PyQt6.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, QLabel, 
                              QPushButton, QDoubleSpinBox, QCheckBox, QGroupBox,
-                             QColorDialog, QSlider)
+                             QColorDialog, QSlider, QComboBox, QRadioButton, QButtonGroup)
 from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QColor
 
@@ -10,11 +10,14 @@ class DeformedShapeDialog(QDialog):
     def __init__(self, parent=None, current_scale=50.0, auto_scale=50.0, is_active=False, 
                  show_shadow=True, shadow_color=(0.6, 0.6, 0.6, 0.3),
                  is_animating=False, current_speed=1.0,
-                 ltha_mode=False, ltha_n_steps=0, ltha_dt=0.01):
+                 ltha_mode=False, ltha_n_steps=0, ltha_dt=0.01,
+                 contour_enabled=False, contour_component="Resultant",
+                 contour_range_auto=True, contour_min=0.0, contour_max=1.0,
+                 contour_absolute=False):
         super().__init__(parent)
         self.setWindowTitle("Deformed Shape & Animation")
         self.setWindowFlags(self.windowFlags() & ~Qt.WindowType.WindowContextHelpButtonHint)
-        self.resize(380, 500)
+        self.resize(380, 560)
 
         self.scale_value = current_scale
         self.auto_scale = auto_scale
@@ -23,6 +26,12 @@ class DeformedShapeDialog(QDialog):
         self.shadow_rgba = shadow_color
         self.is_animating = is_animating
         self.anim_speed = current_speed
+        self.contour_enabled = contour_enabled
+        self.contour_component = contour_component
+        self.contour_range_auto = contour_range_auto
+        self.contour_min = contour_min
+        self.contour_max = contour_max
+        self.contour_absolute = contour_absolute
 
         self.ltha_mode = ltha_mode
         self.ltha_n_steps = ltha_n_steps
@@ -74,7 +83,7 @@ class DeformedShapeDialog(QDialog):
         s_layout.addLayout(lbl_layout)
                                                             
         self.spin_scale = QDoubleSpinBox()
-        self.spin_scale.setRange(0.1, 10000.0)
+        self.spin_scale.setRange(0.000001, 1000000.0)
         self.spin_scale.setValue(self.scale_value)
         self.spin_scale.setSingleStep(10.0)
         
@@ -85,6 +94,74 @@ class DeformedShapeDialog(QDialog):
         s_layout.addWidget(self.spin_scale)
         grp_scale.setLayout(s_layout)
         layout.addWidget(grp_scale)
+
+        self.grp_contour = QGroupBox("Contour Options")
+        c_layout = QVBoxLayout()
+
+        self.chk_contour = QCheckBox("Show Contour")
+        self.chk_contour.setChecked(self.contour_enabled)
+        self.chk_contour.setEnabled(self.show_deformed)
+        self.chk_contour.toggled.connect(self.on_toggle_contour)
+        c_layout.addWidget(self.chk_contour)
+
+        h_comp = QHBoxLayout()
+        h_comp.addWidget(QLabel("Contour Component:"))
+        self.combo_contour_component = QComboBox()
+        self.combo_contour_component.addItems(["Ux", "Uy", "Uz", "Resultant"])
+        idx = self.combo_contour_component.findText(self.contour_component)
+        self.combo_contour_component.setCurrentIndex(idx if idx >= 0 else 0)
+        self.combo_contour_component.setEnabled(self.show_deformed and self.chk_contour.isChecked())
+        self.combo_contour_component.currentTextChanged.connect(self.on_contour_component_changed)
+        h_comp.addWidget(self.combo_contour_component)
+        c_layout.addLayout(h_comp)
+
+        self.chk_contour_absolute = QCheckBox("Absolute Value (ignore sign)")
+        self.chk_contour_absolute.setToolTip("Only applies to Ux/Uy/Uz. Resultant is already a magnitude.")
+        self.chk_contour_absolute.setChecked(self.contour_absolute)
+        self.chk_contour_absolute.setEnabled(self.show_deformed and self.chk_contour.isChecked()
+                                              and self.contour_component in ("Ux", "Uy", "Uz"))
+        self.chk_contour_absolute.toggled.connect(lambda _: self.on_apply())
+        c_layout.addWidget(self.chk_contour_absolute)
+
+        h_range_mode = QHBoxLayout()
+        self.rad_contour_auto = QRadioButton("Automatic")
+        self.rad_contour_user = QRadioButton("User Defined")
+        self.rad_contour_auto.setChecked(self.contour_range_auto)
+        self.rad_contour_user.setChecked(not self.contour_range_auto)
+        self._contour_range_group = QButtonGroup(self)
+        self._contour_range_group.addButton(self.rad_contour_auto)
+        self._contour_range_group.addButton(self.rad_contour_user)
+        self.rad_contour_auto.toggled.connect(self.on_toggle_contour_range_mode)
+        h_range_mode.addWidget(self.rad_contour_auto)
+        h_range_mode.addWidget(self.rad_contour_user)
+        c_layout.addLayout(h_range_mode)
+
+        h_range_vals = QHBoxLayout()
+        h_range_vals.addWidget(QLabel("Min:"))
+        self.spin_contour_min = QDoubleSpinBox()
+        self.spin_contour_min.setRange(-1e9, 1e9)
+        self.spin_contour_min.setDecimals(6)
+        self.spin_contour_min.setValue(self.contour_min)
+        self.spin_contour_min.valueChanged.connect(self.on_apply)
+        h_range_vals.addWidget(self.spin_contour_min)
+
+        h_range_vals.addWidget(QLabel("Max:"))
+        self.spin_contour_max = QDoubleSpinBox()
+        self.spin_contour_max.setRange(-1e9, 1e9)
+        self.spin_contour_max.setDecimals(6)
+        self.spin_contour_max.setValue(self.contour_max)
+        self.spin_contour_max.valueChanged.connect(self.on_apply)
+        h_range_vals.addWidget(self.spin_contour_max)
+        c_layout.addLayout(h_range_vals)
+
+        range_enabled = self.show_deformed and self.chk_contour.isChecked() and not self.contour_range_auto
+        self.spin_contour_min.setEnabled(range_enabled)
+        self.spin_contour_max.setEnabled(range_enabled)
+        self.rad_contour_auto.setEnabled(self.show_deformed and self.chk_contour.isChecked())
+        self.rad_contour_user.setEnabled(self.show_deformed and self.chk_contour.isChecked())
+
+        self.grp_contour.setLayout(c_layout)
+        layout.addWidget(self.grp_contour)
 
         self.grp_anim = QGroupBox("Animation  —  LTHA Time History" if self.ltha_mode else "Animation")
         self.grp_anim.setEnabled(self.show_deformed)                                   
@@ -226,11 +303,44 @@ class DeformedShapeDialog(QDialog):
             
         if hasattr(self, 'grp_anim'):
             self.grp_anim.setEnabled(checked)
+
+        if hasattr(self, 'chk_contour'):
+            self.chk_contour.setEnabled(checked)
+            contour_on = checked and self.chk_contour.isChecked()
+            self.combo_contour_component.setEnabled(contour_on)
+            self.chk_contour_absolute.setEnabled(contour_on and self.combo_contour_component.currentText() in ("Ux", "Uy", "Uz"))
+            self.rad_contour_auto.setEnabled(contour_on)
+            self.rad_contour_user.setEnabled(contour_on)
+            self.spin_contour_min.setEnabled(contour_on and self.rad_contour_user.isChecked())
+            self.spin_contour_max.setEnabled(contour_on and self.rad_contour_user.isChecked())
             
         if not checked and hasattr(self, 'btn_animate') and self.btn_animate.isChecked():
             self.btn_animate.setChecked(False)
             self.on_toggle_anim()
             
+        self.on_apply()
+
+    def on_toggle_contour(self, checked):
+        enabled = self.chk_show.isChecked() and checked
+        self.combo_contour_component.setEnabled(enabled)
+        self.chk_contour_absolute.setEnabled(enabled and self.combo_contour_component.currentText() in ("Ux", "Uy", "Uz"))
+        self.rad_contour_auto.setEnabled(enabled)
+        self.rad_contour_user.setEnabled(enabled)
+        self.spin_contour_min.setEnabled(enabled and self.rad_contour_user.isChecked())
+        self.spin_contour_max.setEnabled(enabled and self.rad_contour_user.isChecked())
+        self.on_apply()
+
+    def on_toggle_contour_range_mode(self, auto_checked):
+        enabled = self.chk_show.isChecked() and self.chk_contour.isChecked() and not auto_checked
+        self.spin_contour_min.setEnabled(enabled)
+        self.spin_contour_max.setEnabled(enabled)
+        self.on_apply()
+
+    def on_contour_component_changed(self, text):
+        """Ux/Uy/Uz are signed; Resultant is already a magnitude, so the
+        Absolute Value checkbox only makes sense for the former."""
+        enabled = self.chk_show.isChecked() and self.chk_contour.isChecked() and text in ("Ux", "Uy", "Uz")
+        self.chk_contour_absolute.setEnabled(enabled)
         self.on_apply()
 
     def update_anim_button_style(self):
@@ -327,7 +437,13 @@ class DeformedShapeDialog(QDialog):
                 self.chk_show.isChecked(), 
                 self.spin_scale.value(),
                 self.chk_shadow.isChecked(),
-                self.shadow_rgba
+                self.shadow_rgba,
+                self.chk_contour.isChecked(),
+                self.combo_contour_component.currentText(),
+                self.rad_contour_auto.isChecked(),
+                self.spin_contour_min.value(),
+                self.spin_contour_max.value(),
+                self.chk_contour_absolute.isChecked()
             )
             if self.chk_show.isChecked() and hasattr(self.parent(), 'canvas'):
                 self.parent().canvas.clear_force_diagrams()
@@ -429,3 +545,7 @@ class DeformedShapeDialog(QDialog):
             self.on_toggle_anim()
             
         super().closeEvent(event)
+
+    def update_auto_scale(self, new_auto_scale):
+        """Updates the ideal scale factor when the load case changes externally."""
+        self.auto_scale = new_auto_scale

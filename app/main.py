@@ -3862,16 +3862,31 @@ class MainWindow(QMainWindow):
             current_speed=current_spd,
             ltha_mode=is_ltha,
             ltha_n_steps=n_steps,
-            ltha_dt=ltha_dt
+            ltha_dt=ltha_dt,
+            contour_enabled=getattr(cvs, 'contour_active', False),
+            contour_component=getattr(cvs, 'contour_component', "Resultant"),
+            contour_range_auto=getattr(cvs, 'contour_range_auto', True),
+            contour_min=getattr(cvs, 'contour_min', 0.0),
+            contour_max=getattr(cvs, 'contour_max', 1.0),
+            contour_absolute=getattr(cvs, 'contour_absolute', False)
         )
 
         self._deformed_dlg.setWindowModality(Qt.WindowModality.NonModal)
         self._deformed_dlg.show()
 
-    def apply_deformed_shape(self, is_visible, scale_factor, show_shadow, shadow_color):
+    def apply_deformed_shape(self, is_visible, scale_factor, show_shadow, shadow_color,
+                              contour_enabled=False, contour_component="Resultant",
+                              contour_range_auto=True, contour_min=0.0, contour_max=1.0,
+                              contour_absolute=False):
         """Callback from the Dialog to update the active canvas."""
         cvs = self.active_canvas
         cvs.view_deflected = is_visible
+
+        if is_visible:
+            mgr = getattr(cvs, "animation_manager", None)
+            if not (mgr and mgr.is_running):
+                                                                                   
+                cvs.anim_factor = 1.0
 
         if cvs.deflection_scale != scale_factor:
             cvs.deflection_scale = scale_factor
@@ -3881,10 +3896,19 @@ class MainWindow(QMainWindow):
         cvs.view_shadow = show_shadow
         cvs.shadow_color = shadow_color
 
+        cvs.contour_active = contour_enabled and is_visible
+        cvs.contour_component = contour_component
+                                                                       
+        cvs.contour_range_auto = contour_range_auto
+        cvs.contour_min = contour_min
+        cvs.contour_max = contour_max
+        cvs.contour_absolute = contour_absolute
+
         self.draw_both_canvases()
 
         state_msg = "ON" if is_visible else "OFF"
-        self.status.showMessage(f"Deformed Shape: {state_msg} (Scale: {scale_factor}x)")
+        contour_msg = f", Contour: {contour_component}" if cvs.contour_active else ""
+        self.status.showMessage(f"Deformed Shape: {state_msg} (Scale: {scale_factor}x{contour_msg})")
 
     def toggle_animation(self, start, play_sound):
         """Called by DeformedShapeDialog."""

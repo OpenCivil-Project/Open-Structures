@@ -1,5 +1,49 @@
-                              
 import numpy as np
+
+def _contour_colormap_batch(t):
+    """
+    Vectorized port of Canvas._contour_colormap. t is an array of any shape,
+    normalized to [0, 1]. Returns an array of shape t.shape + (4,) RGBA.
+    Same blue->cyan->green->yellow->red bands, same edges, array-shaped.
+    """
+    t = np.clip(t, 0.0, 1.0)
+    r = np.zeros_like(t)
+    g = np.zeros_like(t)
+    b = np.ones_like(t)
+
+    band0 = t < 0.25
+    band1 = (t >= 0.25) & (t < 0.5)
+    band2 = (t >= 0.5) & (t < 0.75)
+    band3 = t >= 0.75
+
+    g = np.where(band0, t / 0.25, g)
+
+    r = np.where(band1, 0.0, r)
+    g = np.where(band1, 1.0, g)
+    b = np.where(band1, 1.0 - (t - 0.25) / 0.25, b)
+
+    r = np.where(band2, (t - 0.5) / 0.25, r)
+    g = np.where(band2, 1.0, g)
+    b = np.where(band2, 0.0, b)
+
+    r = np.where(band3, 1.0, r)
+    g = np.where(band3, 1.0 - (t - 0.75) / 0.25, g)
+    b = np.where(band3, 0.0, b)
+
+    a = np.ones_like(t)
+    return np.stack([r, g, b, a], axis=-1)
+
+def _contour_scalar_batch(u_global, component, absolute=False):
+    """
+    Vectorized port of Canvas._contour_scalar. u_global is (..., 3) of raw
+    (unscaled) global Ux,Uy,Uz. Returns (...,) scalar: picked component or
+    resultant norm -- same convention as the static contour render.
+    """
+    idx = {"Ux": 0, "Uy": 1, "Uz": 2}.get(component)
+    if idx is not None:
+        val = u_global[..., idx]
+        return np.abs(val) if absolute else val
+    return np.linalg.norm(u_global, axis=-1)
 
 class VectorizedLTHAEngine:
     """
@@ -21,6 +65,13 @@ class VectorizedLTHAEngine:
         self.idx_i = np.zeros(self.N, dtype=np.int32)
         self.idx_j = np.zeros(self.N, dtype=np.int32)
         self.colors = np.zeros((self.N, 4), dtype=np.float32)
+
+        self.contour_active = False
+        self.contour_component = "Resultant"
+        self.contour_c_min = 0.0
+        self.contour_c_max = 1.0
+        self.contour_opacity = 1.0
+        self.contour_absolute = False
         
         s = np.linspace(0, 1, self.num_points).reshape(1, self.num_points).astype(np.float32)
         s2 = s * s
@@ -32,6 +83,17 @@ class VectorizedLTHAEngine:
         self.H3 = 3.0*s2 - 2.0*s3
         self.H2_base = s * (1.0 - s)**2
         self.H4_base = s * (s2 - s)
+
+    def set_contour(self, active, component, c_min, c_max, opacity=1.0, absolute=False):
+        """Called from canvas.py whenever contour settings change (load time
+        or live toggle/component switch). c_min/c_max should be the stable,
+        precomputed range for `component` -- not rescanned here."""
+        self.contour_active = active
+        self.contour_component = component
+        self.contour_c_min = c_min
+        self.contour_c_max = c_max
+        self.contour_opacity = opacity
+        self.contour_absolute = absolute
 
     def compute_wireframe(self, U_nodes, scale):
         """
@@ -46,6 +108,8 @@ class VectorizedLTHAEngine:
         
         u_global_i, theta_global_i = U_i[:, :3], U_i[:, 3:]
         u_global_j, theta_global_j = U_j[:, :3], U_j[:, 3:]
+        u_global_i_raw = U_nodes[self.idx_i][:, :3]
+        u_global_j_raw = U_nodes[self.idx_j][:, :3]
         
         u_local_i = np.einsum('nij,nj->ni', self.R, u_global_i)
         theta_local_i = np.einsum('nij,nj->ni', self.R, theta_global_i)
@@ -105,7 +169,18 @@ class VectorizedLTHAEngine:
         lines = np.stack([start_pts, end_pts], axis=2)                
         lines_flat = lines.reshape(-1, 3)                         
         
-        colors_flat = np.repeat(self.colors, 20, axis=0)            
+        if self.contour_active:
+            scalar_i = _contour_scalar_batch(u_global_i_raw, self.contour_component, self.contour_absolute).reshape(self.N, 1)
+            scalar_j = _contour_scalar_batch(u_global_j_raw, self.contour_component, self.contour_absolute).reshape(self.N, 1)
+            scalar_station = scalar_i + (scalar_j - scalar_i) * self.s
+            span = max(self.contour_c_max - self.contour_c_min, 1e-12)
+            t = (scalar_station - self.contour_c_min) / span
+            colors_station = _contour_colormap_batch(t)
+            start_colors = colors_station[:, :-1, :]
+            end_colors   = colors_station[:, 1:, :]
+            colors_flat = np.stack([start_colors, end_colors], axis=2).reshape(-1, 4)
+        else:
+            colors_flat = np.repeat(self.colors, 20, axis=0)
         
         return lines_flat, colors_flat
     
@@ -124,6 +199,8 @@ class VectorizedLTHAEngine:
             
         U_i = U_nodes[self.idx_i] * scale
         U_j = U_nodes[self.idx_j] * scale
+        u_global_i_raw = U_nodes[self.idx_i][:, :3]
+        u_global_j_raw = U_nodes[self.idx_j][:, :3]
         
         u_local_i = np.einsum('nij,nj->ni', self.R, U_i[:, :3])
         theta_local_i = np.einsum('nij,nj->ni', self.R, U_i[:, 3:])
@@ -196,4 +273,16 @@ class VectorizedLTHAEngine:
         P = self.ext_P
         verts = global_pos[E, P] + self.ext_off + self.ext_Y * v2_curr[E, P] + self.ext_Z * v3_curr[E, P]
         
-        return verts.flatten(), self.ext_colors_flat
+        if self.contour_active:
+            scalar_i = _contour_scalar_batch(u_global_i_raw, self.contour_component, self.contour_absolute).reshape(self.N, 1)
+            scalar_j = _contour_scalar_batch(u_global_j_raw, self.contour_component, self.contour_absolute).reshape(self.N, 1)
+            scalar_station = scalar_i + (scalar_j - scalar_i) * self.s
+            span = max(self.contour_c_max - self.contour_c_min, 1e-12)
+            t = (scalar_station - self.contour_c_min) / span
+            colors_station = _contour_colormap_batch(t)
+            colors_station[..., 3] = self.contour_opacity
+            colors_flat = colors_station[E, P].flatten()
+        else:
+            colors_flat = self.ext_colors_flat
+        
+        return verts.flatten(), colors_flat

@@ -82,6 +82,12 @@ class MCanvas3D(gl.GLViewWidget):
         self.camera = ArcballCamera(self)
         self.view_deflected = False    
         self.deflection_scale = 50.0
+        self.contour_active = False
+        self.contour_component = "Resultant"
+        self.contour_range_auto = True
+        self.contour_absolute = False
+        self.contour_min = 0.0
+        self.contour_max = 1.0
         self.view_shadow = True
         self.shadow_color = (0.7, 0.7, 0.7, 0.5)
         self.show_grid = True
@@ -1643,6 +1649,50 @@ class MCanvas3D(gl.GLViewWidget):
         self.linked_plane_item = mesh
         self.linked_plane_outline = outline
         
+    def _contour_colormap(self, t, alpha=1.0):
+        """
+        Maps a normalized scalar t in [0, 1] to an RGBA color.
+        Classic blue -> cyan -> green -> yellow -> red ramp (SAP2000-style).
+        """
+        t = 0.0 if t < 0.0 else (1.0 if t > 1.0 else t)
+        if t < 0.25:
+            r, g, b = 0.0, t / 0.25, 1.0
+        elif t < 0.5:
+            r, g, b = 0.0, 1.0, 1.0 - (t - 0.25) / 0.25
+        elif t < 0.75:
+            r, g, b = (t - 0.5) / 0.25, 1.0, 0.0
+        else:
+            r, g, b = 1.0, 1.0 - (t - 0.75) / 0.25, 0.0
+        return (r, g, b, alpha)
+
+    def _contour_scalar(self, disp_vector):
+        """Reduces a 6-DOF displacement vector to the scalar contour is currently coloring by."""
+        comp = getattr(self, 'contour_component', 'Resultant')
+        idx = {'Ux': 0, 'Uy': 1, 'Uz': 2}.get(comp)
+        if idx is not None:
+            val = disp_vector[idx]
+            return abs(val) if getattr(self, "contour_absolute", False) else val
+        ux, uy, uz = disp_vector[0], disp_vector[1], disp_vector[2]
+        return (ux * ux + uy * uy + uz * uz) ** 0.5
+
+    def _get_contour_range(self, displacements):
+        """
+        Returns (c_min, c_max) for the current contour component.
+        Automatic: min/max scanned across the current case's displacement dict.
+        User Defined: whatever the dialog set on contour_min/contour_max.
+        """
+        if getattr(self, 'contour_range_auto', True):
+            if not displacements:
+                return 0.0, 1.0
+            scalars = [self._contour_scalar(v) for v in displacements.values()]
+            c_min, c_max = min(scalars), max(scalars)
+        else:
+            c_min = getattr(self, 'contour_min', 0.0)
+            c_max = getattr(self, 'contour_max', 1.0)
+        if c_max - c_min < 1e-12:
+            c_max = c_min + 1e-12
+        return c_min, c_max
+
     def _draw_elements_wireframe(self, model):
         if not model.elements:
             self.makeCurrent()
@@ -1664,6 +1714,10 @@ class MCanvas3D(gl.GLViewWidget):
                     model.results is not None)
 
         displacements = model.results.get("displacements", {}) if can_deflect else {}
+
+        contour_on = can_deflect and getattr(self, 'contour_active', False)
+        if contour_on:
+            contour_c_min, contour_c_max = self._get_contour_range(displacements)
 
         for eid, el in model.elements.items():
             n1, n2 = el.node_i, el.node_j
@@ -1762,7 +1816,22 @@ class MCanvas3D(gl.GLViewWidget):
                     pairs[0::2]  = pts[:-1]
                     pairs[1::2]  = pts[1:]
                     curved_pos.extend(pairs)
-                    curved_colors.extend([c] * (2 * (K - 1)))
+
+                    if contour_on:
+                                                                                   
+                        s_i = self._contour_scalar(res_i) * self.anim_factor
+                        s_j = self._contour_scalar(res_j) * self.anim_factor
+                        station_scalars = s_i + (s_j - s_i) * s_arr.flatten()
+                        station_colors = [
+                            self._contour_colormap((sv - contour_c_min) / (contour_c_max - contour_c_min))
+                            for sv in station_scalars
+                        ]
+                        seg_colors = np.empty((2 * (K - 1), 4), dtype=np.float32)
+                        seg_colors[0::2] = station_colors[:-1]
+                        seg_colors[1::2] = station_colors[1:]
+                        curved_colors.extend(seg_colors)
+                    else:
+                        curved_colors.extend([c] * (2 * (K - 1)))
 
                     drawn_as_curve = True
 
@@ -1878,6 +1947,10 @@ class MCanvas3D(gl.GLViewWidget):
 
         displacements = model.results.get("displacements", {}) if can_deflect else {}
 
+        contour_on = can_deflect and getattr(self, 'contour_active', False)
+        if contour_on:
+            contour_c_min, contour_c_max = self._get_contour_range(displacements)
+
         fallback_line_pos    = []
         fallback_line_colors = []
 
@@ -1942,6 +2015,7 @@ class MCanvas3D(gl.GLViewWidget):
                 show_edges_for_this = show_edges
 
             path_points = []
+            path_colors = []
             
             p1 = np.array([n1.x, n1.y, n1.z])
             p2 = np.array([n2.x, n2.y, n2.z])
@@ -1964,6 +2038,11 @@ class MCanvas3D(gl.GLViewWidget):
                         off_i=getattr(el, 'end_offset_i', 0.0),
                         off_j=getattr(el, 'end_offset_j', 0.0)
                     )   
+
+                    K = len(curve_data)
+                    if contour_on:
+                        s_i = self._contour_scalar(res_i) * self.anim_factor
+                        s_j = self._contour_scalar(res_j) * self.anim_factor
                     
                     for k in range(len(curve_data)):
                         pos, tan_vec, twist = curve_data[k]
@@ -1981,6 +2060,13 @@ class MCanvas3D(gl.GLViewWidget):
                             
                         v3_curr = np.cross(v1_curr, v2_curr)
                         path_points.append( (pos, v2_curr, v3_curr) )
+
+                        if contour_on:
+                            frac = k / (K - 1) if K > 1 else 0.0
+                            scalar = s_i + (s_j - s_i) * frac
+                            path_colors.append(
+                                self._contour_colormap((scalar - contour_c_min) / (contour_c_max - contour_c_min), alpha=opacity)
+                            )
 
             if not path_points:
                 off_i = getattr(el, 'end_offset_i', 0.0)
@@ -2011,6 +2097,7 @@ class MCanvas3D(gl.GLViewWidget):
             off_vec_j = getattr(el, 'joint_offset_j', np.array([0,0,0]))
             
             num_pts = len(path_points)
+            has_contour_colors = contour_on and len(path_colors) == num_pts
             
             for i in range(num_pts - 1):
                 pos_a, v2_a, v3_a = path_points[i]
@@ -2050,7 +2137,9 @@ class MCanvas3D(gl.GLViewWidget):
                         show_edges_for_this, current_edge_color,
                         draw_start_ring=is_first_seg, 
                         draw_end_ring=is_last_seg,
-                        draw_caps=needs_caps
+                        draw_caps=needs_caps,
+                        color_a=path_colors[i] if has_contour_colors else None,
+                        color_b=path_colors[i + 1] if has_contour_colors else None
                     )
 
         v_arr = np.array(self.ex_vertices, dtype=np.float32) if self.ex_vertices else np.empty((0, 3), dtype=np.float32)
@@ -2091,7 +2180,7 @@ class MCanvas3D(gl.GLViewWidget):
             self.addItem(ghost_ext_mesh)
             self.element_items.append(ghost_ext_mesh)
 
-    def _add_loft_segment(self, c1, c2, v2_a, v3_a, v2_b, v3_b, shape, color, show_edges, edge_color, draw_start_ring=False, draw_end_ring=False, draw_caps=False):
+    def _add_loft_segment(self, c1, c2, v2_a, v3_a, v2_b, v3_b, shape, color, show_edges, edge_color, draw_start_ring=False, draw_end_ring=False, draw_caps=False, color_a=None, color_b=None):
         """
         Smart Extrusion: Generates triangles but selectively hides internal 'ribs' 
         to maintain the clean 'glass' look.
@@ -2112,8 +2201,12 @@ class MCanvas3D(gl.GLViewWidget):
         self.ex_vertices.extend(verts_a)
         self.ex_vertices.extend(verts_b)
         
-        for _ in range(len(verts_a) + len(verts_b)):
-            self.ex_colors.append(color)
+        ring_color_a = color_a if color_a is not None else color
+        ring_color_b = color_b if color_b is not None else color
+        for _ in range(len(verts_a)):
+            self.ex_colors.append(ring_color_a)
+        for _ in range(len(verts_b)):
+            self.ex_colors.append(ring_color_b)
             
         n = len(shape)
         for i in range(n):
@@ -3521,6 +3614,22 @@ class MCanvas3D(gl.GLViewWidget):
             wire = getattr(el.section, 'color', [0.5, 0.5, 0.5, 1.0])
             self.ltha_engine.colors[i] = wire if len(wire) == 4 else list(wire) + [1.0]
 
+        real_tensor = self.ltha_tensor[:N_nodes, :, :3]
+        self.ltha_contour_ranges = {}
+        for comp, comp_idx in (("Ux", 0), ("Uy", 1), ("Uz", 2)):
+            vals = real_tensor[:, :, comp_idx]
+            self.ltha_contour_ranges[(comp, False)] = (float(vals.min()), float(vals.max()))
+            self.ltha_contour_ranges[(comp, True)] = (0.0, float(np.abs(vals).max()))
+        resultant = np.linalg.norm(real_tensor, axis=2)
+        res_range = (float(resultant.min()), float(resultant.max()))
+        self.ltha_contour_ranges[("Resultant", False)] = res_range
+        self.ltha_contour_ranges[("Resultant", True)] = res_range
+
+        c_min, c_max = self.ltha_contour_ranges.get((self.contour_component, getattr(self, "contour_absolute", False)), (0.0, 1.0))
+        if c_max - c_min < 1e-12:
+            c_max = c_min + 1e-12
+        self.ltha_engine.set_contour(getattr(self, "contour_active", False), self.contour_component, c_min, c_max, self.display_config.get("extrude_opacity", 0.35), getattr(self, "contour_absolute", False))
+
         self._build_ltha_extruded_metadata()
         
         self._clear_static_elements()
@@ -3536,6 +3645,9 @@ class MCanvas3D(gl.GLViewWidget):
                                                    
         if not hasattr(self, 'ltha_engine') or not hasattr(self, 'ltha_tensor'):
             return
+
+        c_min, c_max = getattr(self, "ltha_contour_ranges", {}).get((self.contour_component, getattr(self, "contour_absolute", False)), (0.0, 1.0))
+        self.ltha_engine.set_contour(getattr(self, "contour_active", False), self.contour_component, c_min, c_max, self.display_config.get("extrude_opacity", 0.35), getattr(self, "contour_absolute", False))
 
         U_current = self.ltha_tensor[:, t, :]
 
@@ -3553,6 +3665,9 @@ class MCanvas3D(gl.GLViewWidget):
         """
         if not hasattr(self, 'ltha_engine') or not hasattr(self, 'ltha_tensor'):
             return
+
+        c_min, c_max = getattr(self, "ltha_contour_ranges", {}).get((self.contour_component, getattr(self, "contour_absolute", False)), (0.0, 1.0))
+        self.ltha_engine.set_contour(getattr(self, "contour_active", False), self.contour_component, c_min, c_max, self.display_config.get("extrude_opacity", 0.35), getattr(self, "contour_absolute", False))
 
         U_current = self.ltha_tensor[:, t, :]
         
