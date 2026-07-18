@@ -147,7 +147,7 @@ class GridEditorDialog(QDialog):
                 for i, val in enumerate(lines_dict):
                                               
                     disp_val = unit_registry.to_display_length(val)
-                    rows.append([f"{prefix}{i+1}", disp_val, "Primary", True, "End"])
+                    rows.append([f"{prefix}{i+1}", disp_val, "Primary", True, "Start"])
             else:
                 for item in lines_dict:
                                               
@@ -215,9 +215,10 @@ class GridEditorDialog(QDialog):
         bub_layout = QHBoxLayout()
         bub_layout.addWidget(QLabel("Bubble Size:"))
         self.spin_bubble = QDoubleSpinBox()
-        self.spin_bubble.setRange(0.1, 10.0)
+        self.spin_bubble.setRange(0.001, 100.0)
+        self.spin_bubble.setDecimals(3)
         self.spin_bubble.setValue(self.initial_bubble_size)
-        self.spin_bubble.setSingleStep(0.25)
+        self.spin_bubble.setSingleStep(0.05)
         self.spin_bubble.valueChanged.connect(self.update_preview)
         bub_layout.addWidget(self.spin_bubble)
         right_panel.addLayout(bub_layout)
@@ -338,7 +339,7 @@ class GridEditorDialog(QDialog):
         for i, row in enumerate(data):
             table.insertRow(i)
             table.setItem(i, 0, QTableWidgetItem(str(row[0])))
-            table.setItem(i, 1, QTableWidgetItem(f"{display_vals[i]:.4f}"))
+            table.setItem(i, 1, QTableWidgetItem(f"{display_vals[i]:.6f}"))
             table.setItem(i, 2, QTableWidgetItem(row[2]))
             table.setItem(i, 3, QTableWidgetItem("Yes" if row[3] else "No"))
             

@@ -3,7 +3,7 @@
 ; ====================================================================
 
 #define MyAppName "Open//Structures"
-#define MyAppVersion "0.7.81"
+#define MyAppVersion "0.7.82"
 #define MyAppPublisher "Open//Structures"
 #define MyAppExeName "OpenStructures.exe"
 #define MyAppId "{{CFB760FC-A702-4F1E-864E-79088FEF3B6F}}"

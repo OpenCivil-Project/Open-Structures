@@ -23,6 +23,17 @@ class DisplayForcesDialog(QDialog):
     def init_ui(self):
         main_layout = QVBoxLayout(self)
 
+        main_layout.setSpacing(4) 
+        main_layout.setContentsMargins(10, 10, 10, 10) 
+        
+        gb_case = QGroupBox("Load Case / Combination")
+        layout_case = QHBoxLayout(gb_case)
+
+        layout_case.setSpacing(4)
+        layout_case.setContentsMargins(5, 10, 5, 5) 
+        
+        self.cb_case = QComboBox()
+
         gb_case = QGroupBox("Load Case / Combination")
         layout_case = QHBoxLayout(gb_case)
         self.cb_case = QComboBox()

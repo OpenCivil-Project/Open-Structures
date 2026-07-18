@@ -14,7 +14,7 @@ class GridLines:
     @x_grids.setter
     def x_grids(self, values):
                                                                                       
-        self.x_lines = [{'id': str(i+1), 'ord': v, 'visible': True, 'bubble': 'End'} 
+        self.x_lines = [{'id': str(i+1), 'ord': v, 'visible': True, 'bubble': 'Start'} 
                         for i, v in enumerate(sorted(values))]
 
     @property
@@ -23,7 +23,7 @@ class GridLines:
 
     @y_grids.setter
     def y_grids(self, values):
-        self.y_lines = [{'id': str(i+1), 'ord': v, 'visible': True, 'bubble': 'End'} 
+        self.y_lines = [{'id': str(i+1), 'ord': v, 'visible': True, 'bubble': 'Start'} 
                         for i, v in enumerate(sorted(values))]
 
     @property
@@ -32,7 +32,7 @@ class GridLines:
 
     @z_grids.setter
     def z_grids(self, values):
-        self.z_lines = [{'id': f"Z{i+1}", 'ord': v, 'visible': True, 'bubble': 'End'} 
+        self.z_lines = [{'id': f"Z{i+1}", 'ord': v, 'visible': True, 'bubble': 'Start'} 
                         for i, v in enumerate(sorted(values))]
 
     def create_uniform(self, axis, start, num, spacing):

@@ -230,7 +230,7 @@ class MainWindow(QMainWindow):
             except Exception:
                 pass
         
-        self.setWindowTitle("Open//Structures v0.7.81")
+        self.setWindowTitle("Open//Structures v0.7.82")
         self.resize(1200, 800)
 
         icon_path = os.path.join(root_dir, "app", "graphic", "logo.png") 
@@ -793,10 +793,15 @@ class MainWindow(QMainWindow):
         self.menu_assign_area = self.menu_assign.addMenu("Area") 
         self.menu_assign_area.setIcon(qta.icon('fa5s.vector-square', color='#6c757d'))                                              
         
+        self.menu_assign.addSeparator() 
+        
         self.action_area_mesh = QAction(qta.icon('fa5s.th', color='#6c757d'), "Automatic Area Mesh...", self)
         self.action_area_mesh.triggered.connect(self.on_assign_area_mesh)
         self.menu_assign_area.addAction(self.action_area_mesh)
  
+        self.menu_assign_area.addSeparator()
+
+        
         self.action_area_uniform_load = QAction(
             qta.icon('fa5s.arrows-alt-v', color='#6c757d'), "Uniform Load...", self)
         self.action_area_uniform_load.triggered.connect(self.on_assign_area_uniform_load)
@@ -3806,7 +3811,7 @@ class MainWindow(QMainWindow):
     def update_window_title(self):
         """Updates window title to show currently active filename and version."""
                                                               
-        base_title = "Open//Structures v0.7.81" 
+        base_title = "Open//Structures v0.7.82" 
         
         if self.model and getattr(self.model, 'file_path', None):
             short_name = os.path.basename(self.model.file_path)
