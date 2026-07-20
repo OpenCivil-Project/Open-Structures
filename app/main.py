@@ -61,6 +61,7 @@ from app.dialogs.area_mesh_dialog import AreaMeshDialog
 from release_notes import RELEASE_NOTES, NOTICES
 from app.dialogs.display_reactions_dialog import DisplayReactionsDialog
 from app.dialogs.model_io_dialog import ModelIODialog, LAUNCH_ON_ANALYSIS
+from app.dialogs.plot_function_dialog import PlotFunctionDisplayDialog
 
 class OpenStructureSplash(QSplashScreen):
     def __init__(self, pixmap):
@@ -637,11 +638,24 @@ class MainWindow(QMainWindow):
         self.btn_deform.setEnabled(False)
         self.toolbar.addAction(self.btn_deform)
 
+        from PyQt6.QtWidgets import QToolButton, QMenu
+        
         self.btn_play_anim = QAction(qta.icon('fa5s.film', color='#6c757d', disabled_color='#cccccc'), "Play Animation", self)
-        self.btn_play_anim.setToolTip("Play / Pause Animation (Results Mode Only)")
+        self.btn_play_anim.setToolTip("Click to Play/Pause. Hold for Animation Options.")
         self.btn_play_anim.triggered.connect(self._toolbar_toggle_animation)
         self.btn_play_anim.setEnabled(False)
-        self.toolbar.addAction(self.btn_play_anim)
+
+        anim_button = QToolButton(self)
+        anim_button.setDefaultAction(self.btn_play_anim)
+
+        anim_menu = QMenu(self)
+        opts_action = anim_menu.addAction("Animation Options...")
+        opts_action.triggered.connect(self.on_view_deformed_shape)
+        
+        anim_button.setMenu(anim_menu)
+        anim_button.setPopupMode(QToolButton.ToolButtonPopupMode.DelayedPopup)
+
+        self.toolbar.addWidget(anim_button)
 
         self.toolbar.addSeparator()
         self.toolbar.addSeparator()
@@ -801,7 +815,6 @@ class MainWindow(QMainWindow):
  
         self.menu_assign_area.addSeparator()
 
-        
         self.action_area_uniform_load = QAction(
             qta.icon('fa5s.arrows-alt-v', color='#6c757d'), "Uniform Load...", self)
         self.action_area_uniform_load.triggered.connect(self.on_assign_area_uniform_load)
@@ -966,6 +979,17 @@ class MainWindow(QMainWindow):
         self.action_display_reactions.triggered.connect(self.on_display_joint_reactions)
         self.menu_analyze.addAction(self.action_display_reactions)
 
+        self.action_plot_functions = QAction(
+            qta.icon('fa5s.chart-line', color='#6c757d'),
+            "Plot Functions...",
+            self
+        )
+        self.action_plot_functions.setEnabled(False)
+        self.action_plot_functions.triggered.connect(self.on_display_plot_functions)
+        self.menu_analyze.addAction(self.action_plot_functions)
+
+        self.menu_analyze.addSeparator()
+
         self.menu_analyze.addSeparator()
         self.res_action = QAction(qta.icon('fa5s.table', color='#6c757d'), "Show Result Tables...", self)
         self.res_action.setShortcut("Ctrl+T")
@@ -1093,19 +1117,20 @@ class MainWindow(QMainWindow):
         self.active_canvas.camera.zoom(-120, w / 2, h / 2, w, h)
 
     def _toolbar_toggle_animation(self):
-        """▶ Animate button — opens the deformed shape dialog if needed,
-        then toggles play/pause directly."""
+        """▶ Animate button — toggles play/pause directly."""
         if not self.model or not self.model.has_results:
             QMessageBox.warning(self, "No Results", "Please run the analysis first.")
             return
-                                                                  
-        self.on_view_deformed_shape()
-                                                       
+
+        mgr = getattr(self.active_canvas, 'animation_manager', None)
+        is_animating = mgr.is_running if mgr else False
+
+        self.toggle_animation(not is_animating, False)
+
         dlg = getattr(self, '_deformed_dlg', None)
         if dlg and dlg.isVisible():
-            checked = not dlg.btn_animate.isChecked()
-            dlg.btn_animate.setChecked(checked)
-            dlg.on_toggle_anim()
+            dlg.btn_animate.setChecked(not is_animating)
+            dlg.update_anim_button_style()
 
     def on_mouse_moved(self, x, y, z):
         self.lbl_coords.setText(f"X: {x:.2f}  Y: {y:.2f}  Z: {z:.2f}")
@@ -1573,6 +1598,7 @@ class MainWindow(QMainWindow):
         self.btn_deform.setChecked(False)
         self.action_display_forces.setEnabled(False)
         self.action_display_reactions.setEnabled(False)
+        self.action_plot_functions.setEnabled(False)
         
         self.btn_lock.setIcon(qta.icon('fa5s.unlock', color='#6c757d'))
         self.btn_lock.setToolTip("Model is editable.")
@@ -3474,6 +3500,7 @@ class MainWindow(QMainWindow):
             self.btn_deform.setEnabled(True)
             self.action_display_forces.setEnabled(True)
             self.action_display_reactions.setEnabled(True)
+            self.action_plot_functions.setEnabled(is_ltha)
             self.btn_deform.setChecked(True)                                
             self.canvas.view_deflected = True
             
@@ -3709,6 +3736,7 @@ class MainWindow(QMainWindow):
         self.btn_deform.setChecked(False)     
         self.action_display_forces.setEnabled(False)  
         self.action_display_reactions.setEnabled(False)                 
+        self.action_plot_functions.setEnabled(False)
                                                              
         if hasattr(self.canvas, 'clear_force_diagrams'):
             self.canvas.clear_force_diagrams()
@@ -3832,6 +3860,28 @@ class MainWindow(QMainWindow):
 
         self.undo_stack.push(command)
 
+    def on_display_plot_functions(self):
+        """Opens the Plot Function Trace Display dialog (LTHA only, read-only)."""
+        if not self.model or not getattr(self.canvas, 'ltha_mode', False):
+            QMessageBox.warning(self, "No LTHA Results", "Run a Linear Time History analysis first.")
+            return
+
+        if hasattr(self, '_plot_functions_dlg') and self._plot_functions_dlg is not None:
+            if self._plot_functions_dlg.isVisible():
+                self._plot_functions_dlg.raise_()
+                self._plot_functions_dlg.activateWindow()
+                return
+            else:
+                self._plot_functions_dlg.deleteLater()
+
+        self._plot_functions_dlg = PlotFunctionDisplayDialog(
+            parent=self,
+            model=self.model,
+            animation_manager=self.canvas.animation_manager if hasattr(self.canvas, 'animation_manager') else None
+        )
+        self._plot_functions_dlg.setWindowModality(Qt.WindowModality.NonModal)
+        self._plot_functions_dlg.show()
+
     def on_view_deformed_shape(self):
         """Opens the Deformed Shape Control Dialog."""
         if not self.model or not self.model.has_results:
@@ -3917,12 +3967,12 @@ class MainWindow(QMainWindow):
 
     def toggle_animation(self, start, play_sound):
         """Called by DeformedShapeDialog."""
-        is_ltha = getattr(self.canvas, 'ltha_mode', False)
+        is_ltha = getattr(self.active_canvas, 'ltha_mode', False)
 
         if start:
             if is_ltha:
                                                                   
-                self.canvas.animation_manager.start_animation()
+                self.active_canvas.animation_manager.start_animation()
             else:
                                                                        
                 progress = QProgressDialog("Pre-rendering animation frames...\nPlease wait...",
@@ -3936,7 +3986,7 @@ class MainWindow(QMainWindow):
                     progress.setValue(percent)
                     QApplication.processEvents()
 
-                self.canvas.animation_manager.start_animation(update_progress)
+                self.active_canvas.animation_manager.start_animation(update_progress)
                 progress.close()
 
                 if play_sound and self.sound_effect.source().isValid():
@@ -3944,11 +3994,11 @@ class MainWindow(QMainWindow):
 
             self.status.showMessage("Animation Running...")
         else:   
-            self.canvas.animation_manager.stop_animation()
+            self.active_canvas.animation_manager.stop_animation()
             if not is_ltha:
-                self.canvas.anim_factor = 1.0
-                self.canvas.invalidate_animation_cache()
-                self.canvas._force_draw_model(
+                self.active_canvas.anim_factor = 1.0
+                self.active_canvas.invalidate_animation_cache()
+                self.active_canvas._force_draw_model(
                     self.model,
                     self.selected_ids,
                     self.selected_node_ids
@@ -3967,8 +4017,8 @@ class MainWindow(QMainWindow):
 
     def set_animation_speed(self, speed_factor):
         """Called by speed toggle buttons to change animation speed live."""
-        if hasattr(self.canvas, 'animation_manager'):
-            self.canvas.animation_manager.set_speed(speed_factor)
+        if hasattr(self.active_canvas, 'animation_manager'):
+            self.active_canvas.animation_manager.set_speed(speed_factor)
 
     def prerender_ltha_animation(self, t_start_s, t_end_s, done_callback=None):
         """
@@ -3980,13 +4030,13 @@ class MainWindow(QMainWindow):
             t_end_s     (float): Window end in seconds.
             done_callback: Called with no args when done (or cancelled).
         """
-        mgr = self.canvas.animation_manager
-        if not mgr.ltha_mode or not self.canvas.ltha_history:
+        mgr = self.active_canvas.animation_manager
+        if not mgr.ltha_mode or not self.active_canvas.ltha_history:
             if done_callback: done_callback()
             return
 
-        dt  = self.canvas.ltha_dt
-        n   = self.canvas.ltha_n_steps
+        dt  = self.active_canvas.ltha_dt
+        n   = self.active_canvas.ltha_n_steps
 
         i_start = max(0,     int(round(t_start_s / dt)))
         i_end   = min(n - 1, int(round(t_end_s   / dt)))
@@ -4006,38 +4056,38 @@ class MainWindow(QMainWindow):
         progress.setValue(0)
         QApplication.processEvents()
 
-        self.canvas.view_deflected = True
-        self.canvas.prerendered_geometry_frames.clear()
+        self.active_canvas.view_deflected = True
+        self.active_canvas.prerendered_geometry_frames.clear()
 
         for idx, t in enumerate(range(i_start, i_end + 1)):
             snapshot = {nid: hist[t].tolist()
-                        for nid, hist in self.canvas.ltha_history.items()}
-            self.canvas.current_model.results["displacements"] = snapshot
+                        for nid, hist in self.active_canvas.ltha_history.items()}
+            self.active_canvas.current_model.results["displacements"] = snapshot
             
-            self.canvas.deflection_cache.clear()
+            self.active_canvas.deflection_cache.clear()
 
-            self.canvas.prerendered_geometry_frames.append(
-                self.canvas._calculate_frame_geometry(anim_factor=1.0)
+            self.active_canvas.prerendered_geometry_frames.append(
+                self.active_canvas._calculate_frame_geometry(anim_factor=1.0)
             )
 
             progress.setValue(idx + 1)
             QApplication.processEvents()
 
             if progress.wasCanceled():
-                self.canvas.prerendered_geometry_frames.clear()
-                self.canvas.is_animation_cached = False
+                self.active_canvas.prerendered_geometry_frames.clear()
+                self.active_canvas.is_animation_cached = False
                 progress.close()
                 if done_callback: done_callback()
                 return
 
-        self.canvas.is_animation_cached = True
+        self.active_canvas.is_animation_cached = True
 
         mgr.ltha_prerender_start = i_start
         mgr.ltha_prerender_end   = i_end
         mgr.ltha_current_step    = i_start
 
-        self.canvas.ltha_highlight = (t_start_s, t_end_s)
-        self.canvas._invalidate_accel_pixmap()                                                
+        self.active_canvas.ltha_highlight = (t_start_s, t_end_s)
+        self.active_canvas._invalidate_accel_pixmap()                                                
 
         progress.close()
         self.status.showMessage(
@@ -4192,16 +4242,16 @@ class MainWindow(QMainWindow):
 
     def clear_ltha_prerender(self):
         """Clears the LTHA pre-rendered window and returns to full history playback."""
-        if hasattr(self, 'canvas') and self.canvas.animation_manager:
-            mgr = self.canvas.animation_manager
+        if hasattr(self, 'active_canvas') and self.active_canvas.animation_manager:
+            mgr = self.active_canvas.animation_manager
             
             mgr.ltha_prerender_start = None
             mgr.ltha_prerender_end = None
             
-            self.canvas.ltha_highlight = None
-            self.canvas._invalidate_accel_pixmap()                                                   
-            self.canvas.invalidate_animation_cache()
-            self.canvas.update() 
+            self.active_canvas.ltha_highlight = None
+            self.active_canvas._invalidate_accel_pixmap()                                                   
+            self.active_canvas.invalidate_animation_cache()
+            self.active_canvas.update() 
             
             self.status.showMessage("Pre-animation cleared. Full time history ready.")
 

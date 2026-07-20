@@ -287,7 +287,26 @@ class AnalysisResultsDialog(QDialog):
 
         u_acc = f"{u_len}/s\u00b2"
 
-        if "base_reaction" in self.results:
+        if "base_reaction_min" in self.results and "base_reaction_max" in self.results:
+            br_min = self.results["base_reaction_min"]
+            br_max = self.results["base_reaction_max"]
+            br_list = [
+                {
+                    "Case": "Min",
+                    "Fx": br_min["Fx"] * sf, "Fy": br_min["Fy"] * sf, "Fz": br_min["Fz"] * sf,
+                    "Mx": br_min["Mx"] * s_mom, "My": br_min["My"] * s_mom, "Mz": br_min["Mz"] * s_mom
+                },
+                {
+                    "Case": "Max",
+                    "Fx": br_max["Fx"] * sf, "Fy": br_max["Fy"] * sf, "Fz": br_max["Fz"] * sf,
+                    "Mx": br_max["Mx"] * s_mom, "My": br_max["My"] * s_mom, "Mz": br_max["Mz"] * s_mom
+                }
+            ]
+            headers = ["Envelope", f"Global FX ({u_force})", f"Global FY ({u_force})", f"Global FZ ({u_force})",
+                       f"Global MX ({u_force}-{u_len})", f"Global MY ({u_force}-{u_len})", f"Global MZ ({u_force}-{u_len})"]
+            self.tab_base_reac = self.create_table(headers, br_list, ["Case", "Fx", "Fy", "Fz", "Mx", "My", "Mz"])
+            self.tabs.addTab(self.tab_base_reac, "Base Reactions")
+        elif "base_reaction" in self.results:
             br = self.results["base_reaction"]
             br_list = [{
                 "Case": "Global Sum",
@@ -323,45 +342,49 @@ class AnalysisResultsDialog(QDialog):
                 f"U1 ({u_len})", f"U2 ({u_len})", f"U3 ({u_len})",
                 "R1 (rad)",     "R2 (rad)",     "R3 (rad)"
             ]
+            is_ltha = "displacements_min_abs" in self.results
             self.tab_displacements = self.create_table(
                 disp_headers, disp_data,
                 ["joint", "case", "u1", "u2", "u3", "r1", "r2", "r3"]
             )
-            self.tabs.addTab(self.tab_displacements, "Joint Displacements")
+            self.tabs.addTab(self.tab_displacements, "Joint Displacements (Max |U|)" if is_ltha else "Joint Displacements")
 
-        if "reactions" in self.results:
-            restrained = set(self.results.get("restrained_nodes", []))
-            reac_data = []
-            for nid, dofs in sorted(self.results["reactions"].items(), key=lambda x: (int(str(x[0]).split('~')[0]), str(x[0])) if str(x[0]).split('~')[0].isdigit() else (float('inf'), str(x[0]))):
-                if restrained and nid not in restrained:
-                    continue
-                if not restrained and max(abs(v) for v in dofs) < 1e-6:
-                    continue
-                reac_data.append({
-                    "joint": nid,
-                    "case":  case_name,
-                    "f1": dofs[0] * sf,
-                    "f2": dofs[1] * sf,
-                    "f3": dofs[2] * sf,
-                    "m1": dofs[3] * s_mom,
-                    "m2": dofs[4] * s_mom,
-                    "m3": dofs[5] * s_mom,
-                })
+        disp_headers = ["Joint", "Load Case", f"U1 ({u_len})", f"U2 ({u_len})", f"U3 ({u_len})", "R1 (rad)", "R2 (rad)", "R3 (rad)"]
+        for key, tab_name in [("displacements_max", "Joint Displacements (Max)"),
+                              ("displacements_min", "Joint Displacements (Min)"),
+                              ("displacements_abs", "Joint Displacements (Abs Max)")]:
+            if key in self.results:
+                self._add_envelope_table(self.results[key], case_name, col_scales=[sl, sl, sl, 1.0, 1.0, 1.0], headers=disp_headers, tab_title=tab_name)
 
-            if self.selected_node_ids:
-                reac_data = [d for d in reac_data if d["joint"] in self.selected_node_ids]
+        u_vel = f"{u_len}/s"
+        vel_headers = ["Joint", "Load Case", f"V1 ({u_vel})", f"V2 ({u_vel})", f"V3 ({u_vel})", "RV1 (rad/s)", "RV2 (rad/s)", "RV3 (rad/s)"]
+        for key, tab_name in [("velocities_max", "Joint Velocities (Max)"),
+                              ("velocities_min", "Joint Velocities (Min)"),
+                              ("velocities_abs", "Joint Velocities (Abs Max)")]:
+            if key in self.results:
+                self._add_envelope_table(self.results[key], case_name, col_scales=[sl, sl, sl, 1.0, 1.0, 1.0], headers=vel_headers, tab_title=tab_name)
 
-            reac_headers = [
-                "Joint", "Load Case",
-                f"F1 ({u_force})", f"F2 ({u_force})", f"F3 ({u_force})",
-                f"M1 ({u_force}-{u_len})", f"M2 ({u_force}-{u_len})", f"M3 ({u_force}-{u_len})"
-            ]
-            self.tab_reactions = self.create_table(
-                reac_headers, reac_data,
-                ["joint", "case", "f1", "f2", "f3", "m1", "m2", "m3"]
-            )
-            self.tabs.addTab(self.tab_reactions, "Joint Reactions")
+        acc_headers = ["Joint", "Load Case", f"A1 ({u_acc})", f"A2 ({u_acc})", f"A3 ({u_acc})", "RA1 (rad/s\u00b2)", "RA2 (rad/s\u00b2)", "RA3 (rad/s\u00b2)"]
+        for key, tab_name in [("accelerations_max", "Joint Accelerations (Max)"),
+                              ("accelerations_min", "Joint Accelerations (Min)"),
+                              ("accelerations_abs", "Joint Accelerations (Abs Max)")]:
+            if key in self.results:
+                self._add_envelope_table(self.results[key], case_name, col_scales=[sl, sl, sl, 1.0, 1.0, 1.0], headers=acc_headers, tab_title=tab_name)
 
+        reac_headers = ["Joint", "Load Case", f"F1 ({u_force})", f"F2 ({u_force})", f"F3 ({u_force})", f"M1 ({u_force}-{u_len})", f"M2 ({u_force}-{u_len})", f"M3 ({u_force}-{u_len})"]
+        
+        restrained_nodes = set(self.results.get("restrained_nodes", []))
+
+        for key, tab_name in [("reactions", "Joint Reactions"),
+                              ("reactions_max", "Joint Reactions (Max)"),
+                              ("reactions_min", "Joint Reactions (Min)"),
+                              ("reactions_abs", "Joint Reactions (Abs Max)")]:
+            if key in self.results:
+                                                                                    
+                filtered_reactions = {nid: dofs for nid, dofs in self.results[key].items() if str(nid) in restrained_nodes}
+                
+                self._add_envelope_table(filtered_reactions, case_name, col_scales=[sf, sf, sf, s_mom, s_mom, s_mom], headers=reac_headers, tab_title=tab_name)
+                
         if "rsa_detailed" in self.results:
             rsa_dict = self.results["rsa_detailed"]
 
@@ -547,6 +570,29 @@ class AnalysisResultsDialog(QDialog):
                 table.setItem(row, col, item)
 
         table.setSortingEnabled(True)
+        return table
+
+    def _add_envelope_table(self, node_dict, case_name, col_scales, headers, tab_title):
+        """
+        Builds one envelope table (6 DOF columns, one row per joint) from a
+        {node_id: [6 floats]} dict and adds it as a tab. Used for the LTHA
+        min/max(-abs) displacement, velocity, acceleration and reaction tables.
+        """
+        data = []
+        for nid, dofs in sorted(node_dict.items(), key=lambda x: (int(str(x[0]).split('~')[0]), str(x[0])) if str(x[0]).split('~')[0].isdigit() else (float('inf'), str(x[0]))):
+            row = {"joint": nid, "case": case_name}
+            for i, key in enumerate(["c0", "c1", "c2", "c3", "c4", "c5"]):
+                row[key] = dofs[i] * col_scales[i]
+            data.append(row)
+
+        if self.selected_node_ids:
+            data = [d for d in data if d["joint"] in self.selected_node_ids]
+
+        table = self.create_table(
+            headers, data,
+            ["joint", "case", "c0", "c1", "c2", "c3", "c4", "c5"]
+        )
+        self.tabs.addTab(table, tab_title)
         return table
 
     def create_summary_table(self, data_list, units):

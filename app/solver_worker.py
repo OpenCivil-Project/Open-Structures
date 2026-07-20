@@ -241,6 +241,7 @@ class SolverWorker(QThread):
 
                         elif c_type == "LTHA":
                             run_ltha_analysis(
+                                input_path=self.input_path,
                                 modal_results_path=modal_output_path, 
                                 model_data=temp_model.__dict__, 
                                 output_path=case_output_path, 
@@ -648,6 +649,7 @@ class SolverWorker(QThread):
 
                 elif self.case_type == "LTHA":
                     success = run_ltha_analysis(
+                        input_path=self.input_path,
                         modal_results_path=modal_output_path,
                         model_data=temp_model.__dict__,
                         output_path=self.output_path,

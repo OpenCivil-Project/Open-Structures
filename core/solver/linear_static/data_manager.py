@@ -1,4 +1,3 @@
-                                                             
 import json
 import numpy as np
 from error_definitions import SolverException
@@ -234,7 +233,7 @@ class DataManager:
             
         self.load_case = {
             'name': case_name,
-            'patterns': case_data['loads'],                               
+            'patterns': case_data.get('loads', []),
         }
         
     def build_load_vector(self, assembled_mass=None):

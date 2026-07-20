@@ -432,21 +432,31 @@ class DeformedShapeDialog(QDialog):
             self.on_toggle_anim()
 
     def on_apply(self):
-        if self.parent():
-            self.parent().apply_deformed_shape(
-                self.chk_show.isChecked(), 
-                self.spin_scale.value(),
-                self.chk_shadow.isChecked(),
-                self.shadow_rgba,
-                self.chk_contour.isChecked(),
-                self.combo_contour_component.currentText(),
-                self.rad_contour_auto.isChecked(),
-                self.spin_contour_min.value(),
-                self.spin_contour_max.value(),
-                self.chk_contour_absolute.isChecked()
-            )
-            if self.chk_show.isChecked() and hasattr(self.parent(), 'canvas'):
-                self.parent().canvas.clear_force_diagrams()
+        if not self.parent():
+            return
+            
+        current_val = self.spin_scale.value()
+        
+        if current_val >= 999999.0:
+            val_to_apply = self.auto_scale
+        else:
+            val_to_apply = current_val
+
+        self.parent().apply_deformed_shape(
+            self.chk_show.isChecked(), 
+            val_to_apply,                          
+            self.chk_shadow.isChecked(),
+            self.shadow_rgba,
+            self.chk_contour.isChecked(),
+            self.combo_contour_component.currentText(),
+            self.rad_contour_auto.isChecked(),
+            self.spin_contour_min.value(),
+            self.spin_contour_max.value(),
+            self.chk_contour_absolute.isChecked()
+        )
+        
+        if self.chk_show.isChecked() and hasattr(self.parent(), 'canvas'):
+            self.parent().canvas.clear_force_diagrams()
             
     def accept(self):
                                                   
@@ -470,7 +480,6 @@ class DeformedShapeDialog(QDialog):
                     prefs = json.load(f)
                     
                 if not self.is_animating:
-                    self.scale_value = prefs.get("deflection_scale", self.scale_value)
                     self.anim_speed = prefs.get("anim_speed", self.anim_speed)
                     
                 self.shadow_active = prefs.get("shadow_active", self.shadow_active)
@@ -509,8 +518,23 @@ class DeformedShapeDialog(QDialog):
         super().accept()
 
     def on_normalize(self):
+                                                                    
+        self.spin_scale.blockSignals(True)
         self.spin_scale.setValue(self.auto_scale)
-        self.on_apply()
+        self.spin_scale.blockSignals(False)
+        
+        if self.parent():
+            self.parent().apply_deformed_shape(
+                self.chk_show.isChecked(), 
+                self.auto_scale,                       
+                self.chk_shadow.isChecked(),
+                self.shadow_rgba,
+                self.chk_contour.isChecked(),
+                self.combo_contour_component.currentText(),
+                True,                          
+                0.0, 1.0,
+                self.chk_contour_absolute.isChecked()
+            )
 
     def _load_prefs(self):
         """Loads animation preferences from the JSON file."""
