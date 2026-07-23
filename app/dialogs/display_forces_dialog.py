@@ -55,7 +55,7 @@ class DisplayForcesDialog(QDialog):
                 is_valid = False
                 if hasattr(self.model, 'load_cases') and base_case in self.model.load_cases:
                     c_type = getattr(self.model.load_cases[base_case], 'case_type', 'Linear Static')
-                    if c_type not in ["Modal", "Buckling", "LTHA"]:
+                    if c_type not in ["Modal", "Buckling"]:
                         is_valid = True
                 elif hasattr(self.model, 'load_combos') and base_case in self.model.load_combos:
                     is_valid = True
@@ -70,7 +70,7 @@ class DisplayForcesDialog(QDialog):
                 is_valid = False
                 if hasattr(self.model, 'load_cases') and c_name in self.model.load_cases:
                     c_type = getattr(self.model.load_cases[c_name], 'case_type', 'Linear Static')
-                    if c_type not in ["Modal", "Buckling", "LTHA"]:
+                    if c_type not in ["Modal", "Buckling"]:
                         is_valid = True
                 elif hasattr(self.model, 'load_combos') and c_name in self.model.load_combos:
                     is_valid = True
@@ -263,6 +263,9 @@ class DisplayForcesDialog(QDialog):
 
         load_case = self.cb_case.currentText()
 
+        is_envelope = self.rb_envelope.isChecked()
+        step_number = self.sb_step.value() if self.rb_step.isChecked() else None
+
         return {
             'component': component,
             'scale_factor': scale_factor,
@@ -272,6 +275,8 @@ class DisplayForcesDialog(QDialog):
             'show_labels': show_labels,
             'show_labels_mode': show_labels_mode,
             'text_size': text_size,
+            'is_envelope': is_envelope, 
+            'step_number': step_number
         }
     
     def load_last_settings(self):

@@ -35,7 +35,7 @@ class ForceDiagramBuilder:
 
     def __init__(self, model, component='M3', scale_factor=None, n_stations=21,
                  displacements=None, matrices_path=None, show_labels=True,
-                 show_labels_mode='all', text_size=None, selected_ids=None, active_view_plane=None, show_ghost_structure=True):
+                 show_labels_mode='all', text_size=None, selected_ids=None, active_view_plane=None, show_ghost_structure=True, is_envelope=True, step_number=None):
         self.model       = model
         self.show_labels = show_labels
         self.show_labels_mode = show_labels_mode
@@ -46,6 +46,8 @@ class ForceDiagramBuilder:
         self.component   = component
         self._scale      = scale_factor
         self.n_stations  = max(n_stations, 5)
+        self.is_envelope = is_envelope
+        self.step_number = step_number
         self.displacements  = displacements                                       
         self.matrices_path  = matrices_path                                               
 
@@ -293,6 +295,90 @@ class ForceDiagramBuilder:
         return None
     
     def _batch_compute_nvm(self):
+        # ---------------------------------------------------------
+        # NEW: LTHA TRUE ENVELOPE AND FAST-PATH INTERCEPT
+        # ---------------------------------------------------------
+        res_info = getattr(self.model, 'results', {}).get("info", {})
+        is_ltha = res_info.get("type") == "Linear Time History Analysis"
+        
+        if is_ltha:
+            results = {}
+            history_path = getattr(self.model, 'results', {}).get("history_path")
+            
+            try:
+                import numpy as np
+                npz_data = np.load(history_path)
+            except Exception as e:
+                print(f"Error loading NPZ: {e}")
+                return {}
+
+            for el_id, el in self.model.elements.items():
+                key = f"force_elem_{el_id}"
+                if key not in npz_data: 
+                    continue
+                
+                # Full history of forces for this element: (n_steps, 12)
+                hist = npz_data[key] 
+                
+                L_full = el.length()
+                ri = getattr(el, 'end_offset_i', 0.0)
+                rj = getattr(el, 'end_offset_j', 0.0)
+                stations = np.linspace(ri, L_full - rj, self.n_stations)
+                
+                # 1. Vectorized static equilibrium over ALL timesteps simultaneously
+                Fx1 = hist[:, 0:1] # Shape: (n_steps, 1)
+                Fy1 = hist[:, 1:2]
+                Fz1 = hist[:, 2:3]
+                My1 = hist[:, 4:5]
+                Mz1 = hist[:, 5:6]
+                
+                x_c = (stations - ri).reshape(1, -1) # Shape: (1, n_stations)
+                
+                # Expand end forces across the beam
+                P_hist = np.repeat(-Fx1, self.n_stations, axis=1) # Shape: (n_steps, n_stations)
+                V2_hist = np.repeat(Fy1, self.n_stations, axis=1)
+                V3_hist = np.repeat(-Fz1, self.n_stations, axis=1)
+                
+                # Matrix multiplication to calculate moments across the span for every timestep
+                M3_hist = Mz1 - Fy1 @ x_c # Shape: (n_steps, n_stations)
+                M2_hist = My1 + Fz1 @ x_c
+                
+                if getattr(self, 'is_envelope', True):
+                    # 2A. TRUE ENVELOPE: Find the maximum absolute value at each station across time
+                    idx_P = np.argmax(np.abs(P_hist), axis=0)
+                    P_arr = P_hist[idx_P, np.arange(self.n_stations)]
+                    
+                    idx_V2 = np.argmax(np.abs(V2_hist), axis=0)
+                    V2_arr = V2_hist[idx_V2, np.arange(self.n_stations)]
+                    
+                    idx_V3 = np.argmax(np.abs(V3_hist), axis=0)
+                    V3_arr = V3_hist[idx_V3, np.arange(self.n_stations)]
+                    
+                    idx_M2 = np.argmax(np.abs(M2_hist), axis=0)
+                    M2_arr = M2_hist[idx_M2, np.arange(self.n_stations)]
+                    
+                    idx_M3 = np.argmax(np.abs(M3_hist), axis=0)
+                    M3_arr = M3_hist[idx_M3, np.arange(self.n_stations)]
+                else:
+                    # 2B. SPECIFIC STEP: Grab the single row for the animation frame
+                    step = getattr(self, 'step_number', 1)
+                    if step is None: step = 1
+                    
+                    # Convert your GUI's 1-based step counter to a 0-based array index
+                    step_idx = max(0, min(step - 1, hist.shape[0] - 1))
+                    
+                    P_arr = P_hist[step_idx, :]
+                    V2_arr = V2_hist[step_idx, :]
+                    V3_arr = V3_hist[step_idx, :]
+                    M2_arr = M2_hist[step_idx, :]
+                    M3_arr = M3_hist[step_idx, :]
+                    
+                results[el_id] = {
+                    'stations': stations, 'P': P_arr, 'V2': V2_arr, 'V3': V3_arr, 'M2': M2_arr, 'M3': M3_arr
+                }
+                
+            return results
+
         from app.dialogs.spy_dialogs import MemberAnalyzer
 
         mat_path = self._resolve_matrices_path()
@@ -340,4 +426,4 @@ class ForceDiagramBuilder:
             'V3': data.V3,
             'M2': data.M2,
             'M3': data.M3,
-        }.get(self.component, data.M3)  
+        }.get(self.component, data.M3)

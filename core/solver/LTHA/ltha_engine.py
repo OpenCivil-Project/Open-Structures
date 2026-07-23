@@ -20,7 +20,7 @@ from linear_static.assembler import GlobalAssembler
 
 def run_ltha_analysis(input_path, modal_results_path, model_data, output_path, case_name="LTHA"):
     print("=" * 60)
-    print("METUFIRE LTHA ENGINE | V0.3 (Modal Superposition + Reactions)")
+    print("METUFIRE LTHA ENGINE | V0.3 (Modal Superposition + Reactions + Forces)")
     print("=" * 60)
 
     if not os.path.exists(modal_results_path):
@@ -202,12 +202,6 @@ def run_ltha_analysis(input_path, modal_results_path, model_data, output_path, c
                     for s_dof, terms in assembler.eliminated_dofs.items():
                         phi_full[s_dof] = sum(phi_full[m_dof] * coeff for m_dof, coeff in terms.items())
 
-                for nid in restrained_node_ids:
-                    node_idx = next(n['idx'] for n in dm.nodes if str(n['id']) == nid)
-                    y_c, z_c, rx_c = phi_full[node_idx*6+1], phi_full[node_idx*6+2], phi_full[node_idx*6+3]
-                    if abs(y_c) > 1e-12 or abs(z_c) > 1e-12 or abs(rx_c) > 1e-12:
-                        print(f"  {mode_key} node {nid}: Y={y_c:.3e} Z={z_c:.3e} RX={rx_c:.3e}")
-
                 r_n_vec = K_restrained_rows.dot(phi_full)     
 
                 for k, (nid, dof) in enumerate(restrained_node_dof):
@@ -218,6 +212,66 @@ def run_ltha_analysis(input_path, modal_results_path, model_data, output_path, c
             if nid in A_history: A_history[nid][:, dir_idx] += accel_scaled
 
     print("[5/5] Extracting envelopes and writing results...")
+
+    print("      Recovering element internal forces...")
+    
+    import glob
+    base_path = input_path.replace(".mf", "")
+    search_pattern = f"{base_path}_*_matrices.json"
+    found_matrices = glob.glob(search_pattern)
+    
+    matrices_data = {}
+    if found_matrices:
+        matrices_path = found_matrices[0]
+        print(f"      Found matrices file at: {matrices_path}")
+        with open(matrices_path, 'r') as f:
+            matrices_data = json.load(f)
+    else:
+        print(f"      WARNING: No matrices file found matching {search_pattern}. Skipping element force recovery.")
+
+    F_history = {}
+    
+    if matrices_data:
+        elements_raw = dm.raw.get("elements", [])
+        
+        for el_data in elements_raw:
+            eid = str(el_data.get("id"))
+            
+            if eid not in matrices_data:
+                continue
+                
+            if "n1_id" in el_data and "n2_id" in el_data:
+                n_i = str(el_data["n1_id"])
+                n_j = str(el_data["n2_id"])
+            elif "node_i" in el_data and "node_j" in el_data:
+                n_i = str(el_data["node_i"])
+                n_j = str(el_data["node_j"])
+            elif "nodes" in el_data:
+                n_i = str(el_data["nodes"][0])
+                n_j = str(el_data["nodes"][1])
+            else:
+                print(f"      WARNING: Element {eid} data: {el_data}")
+                continue
+            
+            u_i = U_history.get(n_i, np.zeros((n_steps, 6)))
+            u_j = U_history.get(n_j, np.zeros((n_steps, 6)))
+            
+            u_global = np.hstack((u_i, u_j))
+            
+            # NOTE: LTHA has no member loads (no fef) — it's driven purely by
+            # ground acceleration via modal superposition. `k`/`t` are pure
+            # geometry/section properties so borrowing them from any static
+            # case's matrices file is harmless, but `fef` is case-specific
+            # fixed-end-force data and must NOT be added here — doing so was
+            # bleeding in an unrelated static case's load offset into every
+            # timestep of the recovered internal force.
+            k_mat = np.array(matrices_data[eid]["k"])
+            t_mat = np.array(matrices_data[eid]["t"])
+            
+            kT = k_mat @ t_mat
+            f_local = (kT @ u_global.T).T
+            
+            F_history[eid] = f_local
 
     def _get_envelopes(hist_dict):
         v_min, v_max, v_abs = {}, {}, {}
@@ -237,6 +291,8 @@ def run_ltha_analysis(input_path, modal_results_path, model_data, output_path, c
         reactions_min, reactions_max, reactions_abs = _get_envelopes(R_history)
     else:
         reactions_min, reactions_max, reactions_abs = {}, {}, {}
+        
+    forces_min, forces_max, forces_abs = _get_envelopes(F_history)
 
     base_reaction_history = np.zeros((n_steps, 6))
 
@@ -258,29 +314,7 @@ def run_ltha_analysis(input_path, modal_results_path, model_data, output_path, c
         base_reaction_history[:, 4] += my + (z * fx - x * fz)
         base_reaction_history[:, 5] += mz + (x * fy - y * fx)
 
-    imax = np.argmax(np.abs(mx_term + cross_term))
-
-    print("\n===== MX DEBUG =====")
-    print("Peak timestep:", imax)
-    print("Sum of support Mx =", mx_term[imax])
-    print("Sum of y*Fz-z*Fy =", cross_term[imax])
-    print("Total Mx =", mx_term[imax] + cross_term[imax])
-    print("====================")
-
     br_min = np.min(base_reaction_history, axis=0)
-    imax = np.argmax(base_reaction_history[:, 3])
-
-    print("\n===== PEAK MX =====")
-    print("Time step:", imax)
-    print("Mx =", base_reaction_history[imax, 3])
-
-    for nid, hist in R_history.items():
-        print(
-            nid,
-            hist[imax, 3],      
-            hist[imax, 2]       
-        )
-
     br_max = np.max(base_reaction_history, axis=0)
     br_absmax = np.max(np.abs(base_reaction_history), axis=0)
 
@@ -289,17 +323,14 @@ def run_ltha_analysis(input_path, modal_results_path, model_data, output_path, c
     base_reaction_max = {k: float(v) for k, v in zip(dof_keys, br_max)}
     base_reaction_absmax = {k: float(v) for k, v in zip(dof_keys, br_absmax)}
 
-    print("\n===== BASE REACTION =====")
-    for k, v in base_reaction_absmax.items():
-        print(f"{k}: {v}")
-    print("=========================\n")
-
     history_path = output_path.replace("_results.json", "_LTHA_history.npz")
     npz_payload = {"node_" + str(nid): hist for nid, hist in U_history.items()}
     npz_payload.update({"vel_node_" + str(nid): hist for nid, hist in V_history.items()})
     npz_payload.update({"acc_node_" + str(nid): hist for nid, hist in A_history.items()})
-
     npz_payload.update({"reac_node_" + str(nid): hist for nid, hist in R_history.items()})
+    
+    npz_payload.update({"force_elem_" + str(eid): hist for eid, hist in F_history.items()})
+    
     npz_payload["base_reaction_history"] = base_reaction_history
     np.savez_compressed(history_path, **npz_payload)
 
@@ -340,6 +371,9 @@ def run_ltha_analysis(input_path, modal_results_path, model_data, output_path, c
         "base_reaction":          base_reaction_absmax,
         "base_reaction_min":      base_reaction_min,
         "base_reaction_max":      base_reaction_max,
+        "forces_min":             forces_min,
+        "forces_max":             forces_max,
+        "forces_abs":             forces_abs,
         "history_path":           history_path,
         "accel_history":          accel_history_dict
     }
@@ -351,10 +385,6 @@ def run_ltha_analysis(input_path, modal_results_path, model_data, output_path, c
     return True
 
 def _read_values_from_file(file_path, header_skip, accel_col):
-    """
-    Fallback reader if th_functions cache is empty.
-    Mirrors the logic in TimeHistoryFunctionDialog._read_file.
-    """
     import csv
     values = []
     try:
@@ -375,48 +405,6 @@ def _read_values_from_file(file_path, header_skip, accel_col):
     except Exception:
         pass
     return values
-
-def _load_ground_motion(csv_path, dt):
-    """
-    Legacy CSV loader — kept intact for any external callers.
-    Acceleration is read from the column named 'acceleration_m_s2' (index 2 fallback).
-    """
-    import csv
-
-    accels = []
-    accel_col_idx = None
-
-    with open(csv_path, 'r') as f:
-        sample = f.read(1024)
-        f.seek(0)
-        delimiter = '\t' if '\t' in sample else ','
-        reader = csv.reader(f, delimiter=delimiter)
-
-        for row in reader:
-            if not row:
-                continue
-
-            if accel_col_idx is None:
-                for i, cell in enumerate(row):
-                    if 'acceleration_m_s2' in cell.lower():
-                        accel_col_idx = i
-                        break
-                if accel_col_idx is None:
-                    accel_col_idx = 2
-                continue
-
-            if len(row) <= accel_col_idx:
-                continue
-
-            try:
-                accels.append(float(row[accel_col_idx]))
-            except ValueError:
-                continue
-
-    if len(accels) < 10:
-        raise ValueError(f"Ground motion file has too few data rows: {csv_path}")
-
-    return np.array(accels)
 
 def _write_error(output_path, message):
     with open(output_path, 'w') as f:

@@ -3722,7 +3722,9 @@ class MainWindow(QMainWindow):
             show_labels=settings.get('show_labels', False),
             show_labels_mode=settings.get('show_labels_mode', 'all'),
             text_size=settings.get('text_size', None),
-            selected_ids=self.selected_ids
+            selected_ids=self.selected_ids,
+            is_envelope=settings.get('is_envelope', True),
+            step_number=settings.get('step_number', None)
         )
 
         if success:

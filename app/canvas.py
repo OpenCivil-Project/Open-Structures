@@ -2277,7 +2277,7 @@ class MCanvas3D(gl.GLViewWidget):
 
     def show_force_diagram(self, model, component='M3', scale_factor=None,
                            displacements=None, matrices_path=None, show_labels=False,
-                           show_labels_mode='all', text_size=None, selected_ids=None):
+                           show_labels_mode='all', text_size=None, selected_ids=None, is_envelope=True, step_number=None):
         """
         Builds and renders the 3D force diagrams for the active model.
         """
@@ -2313,7 +2313,9 @@ class MCanvas3D(gl.GLViewWidget):
             show_labels_mode=show_labels_mode,
             text_size=text_size,active_view_plane=self.active_view_plane,                    
             show_ghost_structure=self.show_ghost_structure,
-            selected_ids=selected_ids
+            selected_ids=selected_ids,
+            is_envelope=is_envelope,
+            step_number=step_number
         )
         success = builder.build()
 
