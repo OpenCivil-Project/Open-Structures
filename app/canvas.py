@@ -3534,7 +3534,7 @@ class MCanvas3D(gl.GLViewWidget):
         self._accel_overlay_last_step = -1
         try:
             data = np.load(npz_path)
-            self.ltha_history = {k[5:]: data[k] for k in data.files}
+            self.ltha_history = {k[5:]: data[k] for k in data.files if k.startswith("node_")}
             self.ltha_n_steps = next(iter(self.ltha_history.values())).shape[0]
             self.ltha_dt = dt
             self.ltha_mode = True

@@ -124,6 +124,7 @@ class StructuralModel:
 
         self.functions = {}
         self.th_functions = {}
+        self.plot_functions = []
         self.constraints = {}
                          
         self.grid = GridLines()
@@ -405,7 +406,8 @@ class StructuralModel:
             "loads": [],
             "mass_sources": [],
             "functions": [],
-            "th_functions": []
+            "th_functions": [],
+            "plot_functions": []
         }
 
         _p(f"Saving {len(self.load_cases)} load case(s)...")
@@ -673,6 +675,9 @@ class StructuralModel:
             for func_name, func_data in self.th_functions.items():
                 data["th_functions"].append(func_data)
 
+        _p("Saving plot functions...")
+        data["plot_functions"] = list(getattr(self, 'plot_functions', []))
+
         _p(f"Saving {len(self.area_sections)} area section(s)...")
         data["area_sections"] = [
             {
@@ -725,6 +730,7 @@ class StructuralModel:
         self.load_combos.clear()
         self.functions = {}
         self.th_functions = {}
+        self.plot_functions = []
         self._node_counter = 1; self._elem_counter = 1; self._slab_counter = 1; self._area_elem_counter = 1
         
         _p("Loading project info & grid...")
@@ -1049,6 +1055,9 @@ class StructuralModel:
             for func_data in data["th_functions"]:
                 f_name = func_data.get("name", "THFUNC")
                 self.th_functions[f_name] = func_data
+
+        _p("Loading plot functions...")
+        self.plot_functions = data.get("plot_functions", [])
 
         _p(f"Loading {len(data.get('loads', []))} load assignment(s)...")
         if "loads" in data:

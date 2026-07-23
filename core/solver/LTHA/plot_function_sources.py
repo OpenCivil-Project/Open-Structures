@@ -120,7 +120,7 @@ class JointResponseSource(PlotFunctionSource):
 
     def _auto_name(self):
         prefix = "Abs " if self.absolute else ""
-        return f"{prefix}{self.vector_type} {self.component} @ Joint {self.joint_id}"
+        return f"{prefix}{self.vector_type} {self.component} - Joint {self.joint_id}"
 
     def display_name(self):
         return self.name
@@ -158,7 +158,7 @@ class ReactionSource(PlotFunctionSource):
             raise ValueError(f"component must be one of {list(self._FORCE_TO_DOF)}")
         self.joint_id = str(joint_id)
         self.component = component
-        self.name = name or f"Reaction {component} @ Joint {self.joint_id}"
+        self.name = name or f"Reaction {component} - Joint {self.joint_id}"
 
     def display_name(self):
         return self.name

@@ -1,4 +1,3 @@
-                           
 import numpy as np
 from OpenGL.GL import *
 import ctypes
@@ -17,6 +16,8 @@ class LineMixin:
 
         interleaved_data = np.hstack((vertices, displacements, colors)).astype(np.float32).flatten()
         self.line_vertex_count = len(vertices)
+
+        self.persistent_line_buffer = np.zeros(len(vertices) * 10, dtype=np.float32)
 
         glBindVertexArray(self.line_vao)
         glBindBuffer(GL_ARRAY_BUFFER, self.line_vbo)

@@ -4,7 +4,7 @@ from PyQt6.QtCore import pyqtSignal
 
 class DisplayReactionsDialog(QDialog):
     """
-    Dialog to configure and display joint reactions in Open / Structure.
+    Dialog to configure and display joint reactions in Open // Structures.
     Includes an option to toggle the physics sign convention.
     """
                                                                                                    
@@ -18,6 +18,9 @@ class DisplayReactionsDialog(QDialog):
         
         self.available_cases = available_cases
         self.base_path = base_path
+
+        self.envelope_combo = QComboBox()
+        self.envelope_combo.addItems(["Max", "Min"])
         
         self.init_ui()
         self.load_last_settings()
@@ -27,85 +30,86 @@ class DisplayReactionsDialog(QDialog):
         
         grp_case = QGroupBox("Case/Combo Name")
         vbox_case = QVBoxLayout()
-        self.combo_case = QComboBox()
-        self.combo_case.addItems(self.available_cases)
-        vbox_case.addWidget(self.combo_case)
+        self.combo_cases = QComboBox()
+        self.combo_cases.addItems(self.available_cases)
+        vbox_case.addWidget(self.combo_cases)
         grp_case.setLayout(vbox_case)
         main_layout.addWidget(grp_case)
-        
+
+        grp_type = QGroupBox("Display Type")
+        vbox_type = QVBoxLayout()
+        self.radio_arrows = QRadioButton("Show as Arrows")
+        self.radio_arrows.setChecked(True)
+        self.radio_tabulated = QRadioButton("Show as Tabulated")
+        vbox_type.addWidget(self.radio_arrows)
+        vbox_type.addWidget(self.radio_tabulated)
+        grp_type.setLayout(vbox_type)
+        main_layout.addWidget(grp_type)
+
+        grp_env = QGroupBox("Envelope (LTHA / Combos)")
+        vbox_env = QVBoxLayout()
+        vbox_env.addWidget(self.envelope_combo)
+        grp_env.setLayout(vbox_env)
+        main_layout.addWidget(grp_env)
+
         grp_sign = QGroupBox("Sign Convention")
         vbox_sign = QVBoxLayout()
-        self.radio_ground_on_struct = QRadioButton("Ground on Structure")
-        self.radio_struct_on_ground = QRadioButton("Structure on Ground")
-        self.radio_ground_on_struct.setChecked(True)                               
-        
-        vbox_sign.addWidget(self.radio_ground_on_struct)
-        vbox_sign.addWidget(self.radio_struct_on_ground)
+        self.radio_ground = QRadioButton("Ground on Structure (Standard)")
+        self.radio_ground.setChecked(True)
+        self.radio_struct = QRadioButton("Structure on Ground (Reversed)")
+        vbox_sign.addWidget(self.radio_ground)
+        vbox_sign.addWidget(self.radio_struct)
         grp_sign.setLayout(vbox_sign)
         main_layout.addWidget(grp_sign)
 
-        grp_display = QGroupBox("Display Type")
-        vbox_display = QVBoxLayout()
-        self.radio_arrows = QRadioButton("Arrows")
-        self.radio_tabulated = QRadioButton("Tabulated")
-        self.radio_arrows.setChecked(True)
+        btn_layout = QHBoxLayout()
+        btn_apply = QPushButton("Apply")
+        btn_apply.clicked.connect(self.on_apply)
         
-        vbox_display.addWidget(self.radio_arrows)
-        vbox_display.addWidget(self.radio_tabulated)
-        grp_display.setLayout(vbox_display)
-        main_layout.addWidget(grp_display)
+        btn_close = QPushButton("Close")
+        btn_close.clicked.connect(self.close)
         
-        hbox_btns = QHBoxLayout()
-        self.btn_ok = QPushButton("OK")
-        self.btn_close = QPushButton("Close")
-        self.btn_apply = QPushButton("Apply")
-        
-        hbox_btns.addStretch()
-        hbox_btns.addWidget(self.btn_ok)
-        hbox_btns.addWidget(self.btn_close)
-        hbox_btns.addWidget(self.btn_apply)
-        main_layout.addLayout(hbox_btns)
-        
-        self.btn_ok.clicked.connect(self.on_ok)
-        self.btn_apply.clicked.connect(self.apply_settings)
-        self.btn_close.clicked.connect(self.reject)
-
-    def get_current_settings(self):
-        display_type = 'arrows' if self.radio_arrows.isChecked() else 'tabulated'
-        sign_conv = 'ground_on_structure' if self.radio_ground_on_struct.isChecked() else 'structure_on_ground'
-        
-        return {
-            'load_case': self.combo_case.currentText(),
-            'display_type': display_type,
-            'sign_convention': sign_conv,
-            'base_path': self.base_path
-        }
-
-    def save_last_settings(self):
-        DisplayReactionsDialog.last_settings = self.get_current_settings()
+        btn_layout.addStretch()
+        btn_layout.addWidget(btn_apply)
+        btn_layout.addWidget(btn_close)
+        main_layout.addLayout(btn_layout)
 
     def load_last_settings(self):
+        """Restores the last used parameters for a smoother user experience."""
         if DisplayReactionsDialog.last_settings:
             settings = DisplayReactionsDialog.last_settings
             
-            idx = self.combo_case.findText(settings.get('load_case', ''))
+            idx = self.combo_cases.findText(settings.get('load_case', ''))
             if idx >= 0:
-                self.combo_case.setCurrentIndex(idx)
-                
+                self.combo_cases.setCurrentIndex(idx)
+
             if settings.get('display_type') == 'tabulated':
                 self.radio_tabulated.setChecked(True)
             else:
                 self.radio_arrows.setChecked(True)
-                
+
+            env_idx = self.envelope_combo.findText(settings.get('envelope', 'max').capitalize())
+            if env_idx >= 0:
+                self.envelope_combo.setCurrentIndex(env_idx)
+
             if settings.get('sign_convention') == 'structure_on_ground':
-                self.radio_struct_on_ground.setChecked(True)
+                self.radio_struct.setChecked(True)
             else:
-                self.radio_ground_on_struct.setChecked(True)
+                self.radio_ground.setChecked(True)
 
-    def apply_settings(self):
-        self.save_last_settings()
-        self.apply_reactions_signal.emit(self.get_current_settings())
+    def on_apply(self):
+        """Packages the current UI states into a dictionary and emits the signal."""
+        display_type = 'tabulated' if self.radio_tabulated.isChecked() else 'arrows'
+        envelope = self.envelope_combo.currentText().lower()
+        sign_conv = 'structure_on_ground' if self.radio_struct.isChecked() else 'ground_on_structure'
 
-    def on_ok(self):
-        self.apply_settings()
-        self.accept()
+        settings = {
+            'load_case': self.combo_cases.currentText(),
+            'base_path': self.base_path,
+            'display_type': display_type,
+            'envelope': envelope,
+            'sign_convention': sign_conv
+        }
+
+        DisplayReactionsDialog.last_settings = settings
+        self.apply_reactions_signal.emit(settings)

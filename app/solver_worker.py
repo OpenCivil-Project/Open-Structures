@@ -240,6 +240,7 @@ class SolverWorker(QThread):
                                         shutil.copy2(found_matrices[0], rsa_matrices_path)
 
                         elif c_type == "LTHA":
+                            cb(f"Batch Runner: Executing LTHA Engine for '{base_case_name}'...", progress_val + 5)
                             run_ltha_analysis(
                                 input_path=self.input_path,
                                 modal_results_path=modal_output_path, 
@@ -247,6 +248,16 @@ class SolverWorker(QThread):
                                 output_path=case_output_path, 
                                 case_name=base_case_name
                             )
+                            
+                            import shutil, glob
+                            search_pattern = f"{base_path}_*_matrices.json"
+                            found_matrices = glob.glob(search_pattern)
+                            ltha_matrices_path = case_output_path.replace("_results.json", "_matrices.json")
+                            if found_matrices: 
+                                try:
+                                    shutil.copy2(found_matrices[0], ltha_matrices_path)
+                                except Exception:
+                                    pass
                             
                 load_combos = getattr(temp_model, 'load_combos', {}) or {}
                 

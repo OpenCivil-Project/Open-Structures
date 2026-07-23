@@ -25,7 +25,7 @@ from PyQt6.QtWidgets import (
     QDialog, QVBoxLayout, QHBoxLayout, QLabel, QListWidget, QListWidgetItem,
     QPushButton, QComboBox, QMessageBox, QFileDialog, QLineEdit, QSpinBox,
     QDoubleSpinBox, QRadioButton, QButtonGroup, QCheckBox, QGroupBox,
-    QSplitter, QWidget, QFormLayout, QGridLayout
+    QSplitter, QWidget, QFormLayout, QGridLayout, QScrollArea
 )
 from PyQt6.QtCore import Qt, pyqtSignal, QTimer
 from PyQt6.QtGui import QColor
@@ -420,10 +420,99 @@ class PlotFunctionDisplayDialog(QDialog):
         self.setWindowTitle("Plot Function Trace Display")
         self.resize(1240, 660)
         self._build_ui()
+        self._deserialize_functions()
         self._load_cases()
 
         if self.animation_manager is not None:
             self.animation_manager.signal_ltha_frame_update.connect(self._on_external_scrub)
+
+    def done(self, r):
+        """Save the defined plot functions onto the model every time this
+        dialog closes — OK, Close button, or the window X — not just on
+        explicit accept."""
+        self._save_functions_to_model()
+        super().done(r)
+
+    _SOURCE_KIND_FIELDS = {
+        "JointResponseSource": ("joint_id", "vector_type", "component", "absolute"),
+        "ReactionSource": ("joint_id", "component"),
+        "BaseReactionSource": ("component",),
+        "GroundMotionSource": ("direction",),
+    }
+
+    def _serialize_functions(self):
+        """Turns the current func_list into plain JSON-safe dicts, including
+        each item's checked state, keyed by source class name."""
+        _SOURCE_CLASSES = {
+            "JointResponseSource": JointResponseSource,
+            "ReactionSource": ReactionSource,
+            "BaseReactionSource": BaseReactionSource,
+            "GroundMotionSource": GroundMotionSource,
+        }
+        out = []
+        for i in range(self.func_list.count()):
+            item = self.func_list.item(i)
+            source = item.data(Qt.ItemDataRole.UserRole)
+            kind = None
+            for name, cls in _SOURCE_CLASSES.items():
+                if isinstance(source, cls):
+                    kind = name
+                    break
+            if kind is None:
+                continue
+
+            d = {
+                "kind": kind,
+                "checked": item.checkState() == Qt.CheckState.Checked,
+                "name": getattr(source, "name", None),
+            }
+            for field in self._SOURCE_KIND_FIELDS[kind]:
+                d[field] = getattr(source, field, None)
+            out.append(d)
+        return out
+
+    def _save_functions_to_model(self):
+        if self.model is None:
+            return
+        self.model.plot_functions = self._serialize_functions()
+
+    def _deserialize_functions(self):
+        """Restores previously-defined plot functions from the model, so
+        they survive closing and reopening this dialog."""
+        if self.model is None:
+            return
+        saved = getattr(self.model, "plot_functions", None) or []
+
+        self.func_list.blockSignals(True)
+        for d in saved:
+            kind = d.get("kind")
+            try:
+                if kind == "JointResponseSource":
+                    source = JointResponseSource(
+                        joint_id=d["joint_id"], vector_type=d["vector_type"],
+                        component=d["component"], absolute=d.get("absolute", False),
+                        name=d.get("name"),
+                    )
+                elif kind == "ReactionSource":
+                    source = ReactionSource(
+                        joint_id=d["joint_id"], component=d["component"], name=d.get("name"),
+                    )
+                elif kind == "BaseReactionSource":
+                    source = BaseReactionSource(component=d["component"], name=d.get("name"))
+                elif kind == "GroundMotionSource":
+                    source = GroundMotionSource(direction=d["direction"], name=d.get("name"))
+                else:
+                    continue
+            except (KeyError, TypeError):
+                continue
+
+            self.defined_functions.append(source)
+            item = QListWidgetItem(source.display_name())
+            item.setFlags(item.flags() | Qt.ItemFlag.ItemIsUserCheckable)
+            item.setCheckState(Qt.CheckState.Checked if d.get("checked", True) else Qt.CheckState.Unchecked)
+            item.setData(Qt.ItemDataRole.UserRole, source)
+            self.func_list.addItem(item)
+        self.func_list.blockSignals(False)
 
     def _build_ui(self):
         outer = QVBoxLayout(self)
@@ -491,9 +580,6 @@ class PlotFunctionDisplayDialog(QDialog):
         self.vline.setVisible(False)
         self.plot_widget.addItem(self.vline, ignoreBounds=True)
 
-        self._mouse_proxy = pg.SignalProxy(
-            self.plot_widget.scene().sigMouseMoved, rateLimit=60, slot=self._on_mouse_moved
-        )
         self.plot_widget.scene().sigMouseClicked.connect(self._on_mouse_clicked)
 
         right_layout.addWidget(self.plot_widget, 1)
@@ -603,8 +689,48 @@ class PlotFunctionDisplayDialog(QDialog):
         self.grid_check.toggled.connect(self._on_grid_toggled)
         layout.addWidget(self.grid_check)
 
+        max_grp = QGroupBox("Max Values (|peak|)")
+        max_grp_layout = QVBoxLayout(max_grp)
+        max_grp_layout.setContentsMargins(4, 4, 4, 4)
+
+        self.max_values_container = QWidget()
+        self.max_values_layout = QVBoxLayout(self.max_values_container)
+        self.max_values_layout.setContentsMargins(2, 2, 2, 2)
+        self.max_values_layout.setSpacing(2)
+        self.max_values_layout.addStretch()
+
+        max_scroll = QScrollArea()
+        max_scroll.setWidgetResizable(True)
+        max_scroll.setWidget(self.max_values_container)
+        max_scroll.setMinimumHeight(140)
+        layout.addWidget(max_grp)
+        max_grp_layout.addWidget(max_scroll)
+
         layout.addStretch()
         return panel
+
+    def _update_max_values_panel(self):
+        """Rebuilds the corner Max Values list from whatever is currently
+        plotted. Scrollable so it holds tens of functions without growing
+        the dialog."""
+        while self.max_values_layout.count() > 1:
+            item = self.max_values_layout.takeAt(0)
+            w = item.widget()
+            if w:
+                w.deleteLater()
+
+        for i, (source, curve) in enumerate(self.curve_items.items()):
+            xdata, ydata = curve.getData()
+            if ydata is None or len(ydata) == 0:
+                continue
+            peak = float(np.max(np.abs(ydata)))
+            row = QLabel(f"{source.display_name()}: {peak:.4g}")
+            row.setStyleSheet(
+                f"color: {CURVE_COLORS[i % len(CURVE_COLORS)]}; "
+                f"font-family: Consolas, monospace; font-size: 11px;"
+            )
+            row.setWordWrap(True)
+            self.max_values_layout.insertWidget(self.max_values_layout.count() - 1, row)
 
     def _on_reset_view(self):
                                                                              
@@ -778,6 +904,7 @@ class PlotFunctionDisplayDialog(QDialog):
         self.legend.clear()
 
         if self.current_case is None:
+            self._update_max_values_panel()
             return
 
         errors = []
@@ -816,6 +943,8 @@ class PlotFunctionDisplayDialog(QDialog):
             self._on_grid_toggled(self.grid_check.isChecked())
             self._apply_ranges()
 
+        self._update_max_values_panel()
+
     def _display_series(self, source, values):
         """
         Scale a raw-SI series into this dialog's local display units.
@@ -846,13 +975,14 @@ class PlotFunctionDisplayDialog(QDialog):
 
         return values, ""
 
-    def _on_mouse_moved(self, evt):
-        pos = evt[0]
-        if not self.plot_widget.sceneBoundingRect().contains(pos):
+    def _update_readout(self, t_index):
+        """Reads values off the bar's actual snapped position (t_index),
+        never off raw mouse/pixel coordinates."""
+        if self.current_case is None:
+            self.readout_label.setText("t = --")
             return
-        mouse_point = self.plot_widget.getPlotItem().vb.mapSceneToView(pos)
-        t = mouse_point.x()
 
+        t = t_index * self.current_case.dt
         parts = [f"t = {t:6.3f} s"]
         for source, curve in self.curve_items.items():
             xdata, ydata = curve.getData()
@@ -863,7 +993,7 @@ class PlotFunctionDisplayDialog(QDialog):
         self.readout_label.setText("   |   ".join(parts))
 
     def _on_mouse_clicked(self, evt):
-        if self.current_case is None or not self._scrub_sync_available:
+        if self.current_case is None:
             return
         if evt.button() != Qt.MouseButton.LeftButton:
             return
@@ -875,20 +1005,23 @@ class PlotFunctionDisplayDialog(QDialog):
         t_index = int(round(t / self.current_case.dt))
         t_index = max(0, min(t_index, self.current_case.n_steps - 1))
 
-        self._suppress_scrub_emit = True
         self.vline.setPos(t_index * self.current_case.dt)
         self.vline.setVisible(True)
-        self._suppress_scrub_emit = False
+        self._update_readout(t_index)
 
-        self.animation_manager.scrub_to_step(t_index)
+        if self._scrub_sync_available:
+            self._suppress_scrub_emit = True
+            self.animation_manager.scrub_to_step(t_index)
+            self._suppress_scrub_emit = False
 
     def _on_external_scrub(self, t_index):
         """Fired when playback or another dialog (e.g. DeformedShapeDialog's
-        scrubber) moves the timestep — keep our cursor in sync."""
+        scrubber) moves the timestep — keep our cursor and readout in sync."""
         if self.current_case is None or not self._scrub_sync_available:
             return
         self.vline.setPos(t_index * self.current_case.dt)
         self.vline.setVisible(True)
+        self._update_readout(t_index)
 
         self._sync_play_button_state()
 

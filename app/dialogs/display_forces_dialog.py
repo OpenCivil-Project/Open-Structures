@@ -51,23 +51,32 @@ class DisplayForcesDialog(QDialog):
                 case_name = filename[len(prefix):].replace("_results.json", "")
                 
                 base_case = case_name.rsplit(" (Max)", 1)[0].rsplit(" (Min)", 1)[0]
+                
+                is_valid = False
                 if hasattr(self.model, 'load_cases') and base_case in self.model.load_cases:
                     c_type = getattr(self.model.load_cases[base_case], 'case_type', 'Linear Static')
-                    if c_type in ["Modal", "Buckling", "LTHA"]:
-                        continue
+                    if c_type not in ["Modal", "Buckling", "LTHA"]:
+                        is_valid = True
+                elif hasattr(self.model, 'load_combos') and base_case in self.model.load_combos:
+                    is_valid = True
                         
-                if case_name not in valid_cases:
+                if is_valid and case_name not in valid_cases:
                     valid_cases.append(case_name)
                     
             valid_cases.sort()
         else:
-                      
+                                                       
             for c_name in self.available_cases:
+                is_valid = False
                 if hasattr(self.model, 'load_cases') and c_name in self.model.load_cases:
                     c_type = getattr(self.model.load_cases[c_name], 'case_type', 'Linear Static')
-                    if c_type in ["Modal", "Buckling", "LTHA"]:
-                        continue
-                valid_cases.append(c_name)
+                    if c_type not in ["Modal", "Buckling", "LTHA"]:
+                        is_valid = True
+                elif hasattr(self.model, 'load_combos') and c_name in self.model.load_combos:
+                    is_valid = True
+                    
+                if is_valid:
+                    valid_cases.append(c_name)
                                                                                            
         self.cb_case.addItems(valid_cases)
         

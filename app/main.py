@@ -3459,6 +3459,7 @@ class MainWindow(QMainWindow):
                 dt = data["info"].get("dt", 0.01)
                 accel = data.get("accel_history", None)
                 self.canvas.load_ltha_history(data["history_path"], dt, accel=accel)
+                self.canvas._ltha_loaded_case = data.get("info", {}).get("case_name", "")
 
                 envelope = data.get("displacements", {})
                 max_disp = max(
@@ -3588,10 +3589,10 @@ class MainWindow(QMainWindow):
             prefix = os.path.basename(base_name) + "_"
             suffix = fname[len(prefix):].replace("_results.json", "")
             if suffix:
-                                                                                            
                 if suffix in self.model.load_cases:
                     c_type = getattr(self.model.load_cases[suffix], 'case_type', 'Linear Static')
-                    if c_type in ["Modal", "Buckling", "LTHA"]:
+                                                                               
+                    if c_type in ["Modal", "Buckling"]: 
                         continue
                 available_cases.append(suffix)
 
@@ -3612,6 +3613,7 @@ class MainWindow(QMainWindow):
         load_case = settings['load_case']
         base_path = settings.get('base_path', '')
         display_type = settings.get('display_type', 'arrows')
+        envelope = settings.get('envelope', 'max')                                 
 
         res_path = f"{base_path}_{load_case}_results.json"
 
@@ -3621,6 +3623,10 @@ class MainWindow(QMainWindow):
 
         with open(res_path, 'r') as f:
             case_data = json.load(f)
+
+        if "reactions" not in case_data:
+            target_key = f"reactions_{envelope}"
+            case_data["reactions"] = case_data.get(target_key, {})
 
         self.model.results = case_data
         self.model.has_results = True
@@ -3632,7 +3638,13 @@ class MainWindow(QMainWindow):
                 if os.path.exists(bc_path):
                     with open(bc_path, 'r') as bcf:
                         bc_data = json.load(bcf)
-                        for nid, dofs in bc_data.get("reactions", {}).items():
+                        
+                        bc_reactions = bc_data.get("reactions", {})
+                        if not bc_reactions:
+                            target_key = f"reactions_{envelope}"
+                            bc_reactions = bc_data.get(target_key, {})
+
+                        for nid, dofs in bc_reactions.items():
                             if nid not in combo_reactions:
                                 combo_reactions[nid] = [0.0] * 6
                             for i in range(6):
@@ -3667,10 +3679,10 @@ class MainWindow(QMainWindow):
         success = self.active_canvas.show_reaction_diagram(self.model, reaction_data, sign_convention=sign_conv)
 
         if success:
-            self.statusBar().showMessage(f"[{load_case}]  Joint Reactions  —  {len(reaction_data)} joint(s)")
+            self.statusBar().showMessage(f"[{load_case}]  Joint Reactions ({envelope.upper()})  —  {len(reaction_data)} joint(s)")
         else:
-            self.statusBar().showMessage("No reaction data found for this case.")
-            
+            self.statusBar().showMessage(f"No {envelope} reaction data found for this case.")
+              
     def apply_force_diagrams_from_dialog(self, settings):
         """
         Receives the signal from DisplayForcesDialog.
@@ -3899,11 +3911,13 @@ class MainWindow(QMainWindow):
         ltha_dt = getattr(cvs, 'ltha_dt', 0.01)
 
         if hasattr(self, '_deformed_dlg') and self._deformed_dlg is not None:
-            if self._deformed_dlg.isVisible():
+            stale = getattr(self._deformed_dlg, 'ltha_mode', False) != is_ltha
+            if self._deformed_dlg.isVisible() and not stale:
                 self._deformed_dlg.raise_()
                 self._deformed_dlg.activateWindow()
                 return
             else:
+                self._deformed_dlg.close()
                 self._deformed_dlg.deleteLater()
 
         self._deformed_dlg = DeformedShapeDialog(
@@ -3935,6 +3949,13 @@ class MainWindow(QMainWindow):
                               contour_absolute=False):
         """Callback from the Dialog to update the active canvas."""
         cvs = self.active_canvas
+
+        if is_visible:
+            if hasattr(cvs, 'clear_force_diagrams'):
+                cvs.clear_force_diagrams()
+            if hasattr(cvs, 'clear_reaction_diagram'):
+                cvs.clear_reaction_diagram(self.model)
+
         cvs.view_deflected = is_visible
 
         if is_visible:
@@ -3970,6 +3991,12 @@ class MainWindow(QMainWindow):
         is_ltha = getattr(self.active_canvas, 'ltha_mode', False)
 
         if start:
+                                                                           
+            if hasattr(self.active_canvas, 'clear_force_diagrams'):
+                self.active_canvas.clear_force_diagrams()
+            if hasattr(self.active_canvas, 'clear_reaction_diagram'):
+                self.active_canvas.clear_reaction_diagram(self.model)
+
             if is_ltha:
                                                                   
                 self.active_canvas.animation_manager.start_animation()
@@ -4111,13 +4138,89 @@ class MainWindow(QMainWindow):
         dlg = AnalysisResultsDialog(self.model, self.model.results, self, selected_node_ids=filter_node_ids)
         dlg.exec()
 
+    def _teardown_ltha_playback(self):
+        """
+        Tears down any live LTHA playback state on the canvas — stops the
+        animation loop, disconnects the frame-update signal from everything
+        that was listening to it, clears the loaded time-history tensor, and
+        rebuilds the Deformed Shape dialog if it's open (so its scrubber
+        actually disappears instead of lingering from the previous case).
+        Called whenever the active view moves away from an LTHA case's Live
+        mode to something else (a different static/modal case, or that same
+        LTHA case's own envelope) so a stale tensor + scale mismatch can't
+        keep driving the canvas and make the model appear to oscillate.
+        """
+        mgr = getattr(self.canvas, "animation_manager", None)
+        if mgr:
+            if getattr(mgr, "is_running", False):
+                mgr.stop_animation()
+
+            listeners = [self.canvas._on_ltha_frame, getattr(self, "_on_ltha_frame_tick", None)]
+            if getattr(self, "_node_res_dlg", None):
+                listeners.append(self._node_res_dlg.update_live_values)
+            for sig_target in listeners:
+                if sig_target is None:
+                    continue
+                try:
+                    mgr.signal_ltha_frame_update.disconnect(sig_target)
+                except Exception:
+                    pass
+
+            mgr.disable_ltha_mode()
+
+        if hasattr(self.canvas, "clear_ltha_history"):
+            self.canvas.clear_ltha_history()
+
+        self.canvas._ltha_loaded_case = None
+
+        if hasattr(self, 'action_plot_functions'):
+            self.action_plot_functions.setEnabled(False)
+
     def switch_modal_view(self, mode_key):
         if not self.model or not self.model.results: return
         
         target_data = {}
         info_type = self.model.results.get("info", {}).get("type", "")
 
+        is_ltha_case = (info_type == "Linear Time History Analysis")
+        if not is_ltha_case and getattr(self.canvas, "_ltha_loaded_case", None) is not None:
+            self._teardown_ltha_playback()
+
         if mode_key == "MAIN_RESULT" or mode_key == "LTHA_LIVE":
+
+            if mode_key == "LTHA_LIVE":
+                info = self.model.results.get("info", {})
+                history_path = self.model.results.get("history_path", "")
+                case_name = info.get("case_name", "")
+
+                if history_path and os.path.exists(history_path):
+                    if getattr(self.canvas, "_ltha_loaded_case", None) != case_name:
+                        dt = info.get("dt", 0.01)
+                        accel = self.model.results.get("accel_history", None)
+
+                        self.canvas.load_ltha_history(history_path, dt, accel=accel)
+                        self.canvas._ltha_loaded_case = case_name
+
+                        self.canvas.animation_manager.enable_ltha_mode(self.canvas.ltha_n_steps, dt)
+
+                        for sig_target in (self.canvas._on_ltha_frame, self._on_ltha_frame_tick):
+                            try:
+                                self.canvas.animation_manager.signal_ltha_frame_update.disconnect(sig_target)
+                            except Exception:
+                                pass
+                            self.canvas.animation_manager.signal_ltha_frame_update.connect(sig_target)
+
+                        if getattr(self, '_node_res_dlg', None):
+                            try:
+                                self.canvas.animation_manager.signal_ltha_frame_update.disconnect(self._node_res_dlg.update_live_values)
+                            except Exception:
+                                pass
+                            self.canvas.animation_manager.signal_ltha_frame_update.connect(self._node_res_dlg.update_live_values)
+
+                    if hasattr(self, 'action_plot_functions'):
+                        self.action_plot_functions.setEnabled(True)
+                else:
+                    print(f"Warning: LTHA_LIVE selected for '{case_name}' but no history_path found on disk; canvas will keep showing its currently loaded case.")
                                                                                      
             target_data = self.model.results.get("_base_displacements", self.model.results.get("displacements", {}))
             
@@ -4185,6 +4288,11 @@ class MainWindow(QMainWindow):
         self.draw_both_canvases()
         
         self.status.showMessage(f"{self.status.currentMessage()} (Auto-Scale: {auto_scale:.1f}x)")
+
+        if getattr(self, "_deformed_dlg", None) and self._deformed_dlg.isVisible():
+            current_is_ltha = getattr(self.canvas, "ltha_mode", False)
+            if getattr(self._deformed_dlg, "ltha_mode", False) != current_is_ltha:
+                self.on_view_deformed_shape()
 
     def closeEvent(self, event):
         """Intercepts the window close request to check for unsaved changes."""
@@ -4335,6 +4443,12 @@ class MainWindow(QMainWindow):
         """Directly toggles the deformed shape on the active canvas without opening the dialog."""
         if not self.model or not self.model.has_results:
             return
+
+        if checked:
+            if hasattr(self.active_canvas, 'clear_force_diagrams'):
+                self.active_canvas.clear_force_diagrams()
+            if hasattr(self.active_canvas, 'clear_reaction_diagram'):
+                self.active_canvas.clear_reaction_diagram(self.model)
 
         self.active_canvas.view_deflected = checked
 
