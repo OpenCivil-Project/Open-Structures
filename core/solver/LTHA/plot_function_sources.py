@@ -15,7 +15,7 @@ Data assumptions (LTHA v1, per ltha_engine.py):
         base_reaction_history  -> total base reaction      (n_steps, 6)
 
     <case>_results.json holds:
-        info: {dt, n_steps, directions, case, type}
+        info: {dt, n_steps, directions, case_name, type}
         accel_history: {direction: [n_steps]}   ground motion, m/s^2
 
 Deliberately NOT implemented — no data exists yet, not stubbed:
@@ -46,7 +46,7 @@ class LTHACaseData:
             raise ValueError(f"Cannot plot — case did not complete successfully: {results_json_path}")
 
         info = self.results["info"]
-        self.case_name = info["case"]
+        self.case_name = info["case_name"]
         self.dt = info["dt"]
         self.n_steps = info["n_steps"]
         self.directions = info["directions"]
@@ -214,9 +214,40 @@ class GroundMotionSource(PlotFunctionSource):
         n = len(values)
         return case.time[:n], values, self.display_name()
 
+class ElementForceSource(PlotFunctionSource):
+    """Element internal force time history at End I or End J."""
+    type_name = "Element Force"
+                                                        
+    _COMPONENTS = {"P": 0, "V2": 1, "V3": 2, "T": 3, "M2": 4, "M3": 5}
+
+    def __init__(self, element_id, station="End I", component="P", name=None):
+        if component not in self._COMPONENTS:
+            raise ValueError(f"Component must be one of {list(self._COMPONENTS)}")
+        self.element_id = str(element_id)
+        self.station = station                      
+        self.component = component
+        self.name = name or f"{component} ({station}) - Elem {self.element_id}"
+
+    def display_name(self):
+        return self.name
+
+    def get_series(self, case: LTHACaseData):
+        key = f"force_elem_{self.element_id}"
+        arr = case.npz_array(key)
+        if arr is None:
+            raise ValueError(f"No force history for Element {self.element_id} in this case.")
+
+        base_idx = self._COMPONENTS[self.component]
+        idx = base_idx if self.station == "End I" else base_idx + 6
+
+        values = arr[:, idx].copy()
+        n = len(values)
+        return case.time[:n], values, self.display_name()
+    
 PLOT_FUNCTION_TYPES = {
     "Joint Response": JointResponseSource,
     "Joint Reaction": ReactionSource,
     "Base Reaction": BaseReactionSource,
     "Ground Motion": GroundMotionSource,
+    "Element Force": ElementForceSource,                    
 }

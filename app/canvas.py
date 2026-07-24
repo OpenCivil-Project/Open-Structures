@@ -15,6 +15,7 @@ from PyQt6.QtWidgets import QLabel
 from graphic.vbo_engine import VBORenderManager, VectorizedLTHAEngine                               
 from graphic.sdf_text import SDFTextBuilder
 from graphic._vbo_supports import build_boundary_visuals
+from core.ForceComputationWorker import ForceComputationWorker
 
 class MCanvas3D(gl.GLViewWidget):
     signal_canvas_clicked = pyqtSignal(float, float, float)
@@ -1075,14 +1076,10 @@ class MCanvas3D(gl.GLViewWidget):
                     if eid not in self.deflection_cache:
                         v1_orig, v2_orig, v3_orig = self._get_consistent_axes(el)
 
-                        off_i = getattr(el, 'end_offset_i', 0.0)
-                        off_j = getattr(el, 'end_offset_j', 0.0)
-
                         curve_data = get_deflected_shape(
                             [n1.x, n1.y, n1.z], [n2.x, n2.y, n2.z],
                             res_i, res_j, v1_orig, v2_orig, v3_orig,
-                            scale=self.deflection_scale, num_points=11, 
-                            off_i=getattr(el, 'end_offset_i', 0.0), off_j=getattr(el, 'end_offset_j', 0.0)                     
+                            scale=self.deflection_scale, num_points=11
                         )
                         self.deflection_cache[eid] = {
                             'curve_data': curve_data,
@@ -1095,20 +1092,7 @@ class MCanvas3D(gl.GLViewWidget):
                     p1_orig = cached['p1_orig']
                     p2_orig = cached['p2_orig']
 
-                    off_i = getattr(el, 'end_offset_i', 0.0)
-                    off_j = getattr(el, 'end_offset_j', 0.0)
-                    vec = p2_orig - p1_orig
-                    _len = np.linalg.norm(vec)
-                    p1_flex, p2_flex = p1_orig.copy(), p2_orig.copy()
-                    if _len > 0.001 and (off_i > 0 or off_j > 0):
-                        _u = vec / _len
-                        if off_i + off_j >= _len:
-                            _scale = (_len / (off_i + off_j)) * 0.99
-                            p1_flex = p1_orig + (_u * off_i * _scale)
-                            p2_flex = p2_orig - (_u * off_j * _scale)
-                        else:
-                            p1_flex = p1_orig + (_u * off_i)
-                            p2_flex = p2_orig - (_u * off_j)
+                    p1_flex, p2_flex = p1_orig, p2_orig
 
                     K = len(curve_data_full)
                     pos_full_arr = np.array([cd[0] for cd in curve_data_full], dtype=np.float64)
@@ -1278,20 +1262,7 @@ class MCanvas3D(gl.GLViewWidget):
                     p1_orig = cached['p1_orig']
                     p2_orig = cached['p2_orig']
 
-                    off_i = getattr(el, 'end_offset_i', 0.0)
-                    off_j = getattr(el, 'end_offset_j', 0.0)
-                    vec = p2_orig - p1_orig
-                    _len = np.linalg.norm(vec)
-                    p1_flex, p2_flex = p1_orig.copy(), p2_orig.copy()
-                    if _len > 0.001 and (off_i > 0 or off_j > 0):
-                        _u = vec / _len
-                        if off_i + off_j >= _len:
-                            _scale = (_len / (off_i + off_j)) * 0.99
-                            p1_flex = p1_orig + (_u * off_i * _scale)
-                            p2_flex = p2_orig - (_u * off_j * _scale)
-                        else:
-                            p1_flex = p1_orig + (_u * off_i)
-                            p2_flex = p2_orig - (_u * off_j)
+                    p1_flex, p2_flex = p1_orig, p2_orig
 
                     K = len(curve_data_full)
                     pos_full_arr = np.array([cd[0] for cd in curve_data_full], dtype=np.float64)
@@ -1765,9 +1736,7 @@ class MCanvas3D(gl.GLViewWidget):
                             res_i, res_j,
                             v1_ax, v2_ax, v3_ax,
                             scale=self.deflection_scale,
-                            num_points=11,
-                            off_i=getattr(el, 'end_offset_i', 0.0),
-                            off_j=getattr(el, 'end_offset_j', 0.0)
+                            num_points=11
                         )
                         self.deflection_cache[cache_key] = {
                             'curve_data': curve_data,
@@ -1778,34 +1747,7 @@ class MCanvas3D(gl.GLViewWidget):
                     cached          = self.deflection_cache[cache_key]
                     curve_data_full = cached['curve_data']
 
-                    _off_i = getattr(el, 'end_offset_i', 0.0)
-                    _off_j = getattr(el, 'end_offset_j', 0.0)
-                    _vec   = p2 - p1
-                    _len   = np.linalg.norm(_vec)
-                    p1_flex, p2_flex = p1.copy(), p2.copy()
-                    if _len > 0.001 and (_off_i > 0 or _off_j > 0):
-                        _u = _vec / _len
-                        if _off_i + _off_j >= _len:
-                            _scale  = (_len / (_off_i + _off_j)) * 0.99
-                            p1_flex = p1 + (_u * _off_i * _scale)
-                            p2_flex = p2 - (_u * _off_j * _scale)
-                        else:
-                            p1_flex = p1 + (_u * _off_i)
-                            p2_flex = p2 - (_u * _off_j)
-
-                    if _off_i > 0:
-                        p1_def       = p1 + np.array(res_i[:3]) * self.deflection_scale * self.anim_factor
-                        p1_flex_def, _, _ = curve_data_full[0]
-                        p1_flex_anim = p1_flex + (p1_flex_def - p1_flex) * self.anim_factor
-                        curved_pos.extend([p1_def, p1_flex_anim])
-                        curved_colors.extend([rigid_black, rigid_black])
-
-                    if _off_j > 0:
-                        p2_def       = p2 + np.array(res_j[:3]) * self.deflection_scale * self.anim_factor
-                        p2_flex_def, _, _ = curve_data_full[-1]
-                        p2_flex_anim = p2_flex + (p2_flex_def - p2_flex) * self.anim_factor
-                        curved_pos.extend([p2_flex_anim, p2_def])
-                        curved_colors.extend([rigid_black, rigid_black])
+                    p1_flex, p2_flex = p1, p2
 
                     K            = len(curve_data_full)
                     pos_full_arr = np.array([cd[0] for cd in curve_data_full], dtype=np.float64)
@@ -1987,9 +1929,7 @@ class MCanvas3D(gl.GLViewWidget):
                             [n1.x, n1.y, n1.z], [n2.x, n2.y, n2.z],
                             res_i, res_j, v1_ax, v2_ax, v3_ax,
                             scale=eff_scale,
-                            num_points=11,
-                            off_i=getattr(el, 'end_offset_i', 0.0),
-                            off_j=getattr(el, 'end_offset_j', 0.0)
+                            num_points=11
                         )
                         curve_pts = [cd[0] for cd in curve_data]
                         for k in range(len(curve_pts) - 1):
@@ -2034,9 +1974,7 @@ class MCanvas3D(gl.GLViewWidget):
                         res_i, res_j,
                         v1_orig, v2_orig, v3_orig,
                         scale=eff_scale,
-                        num_points=11,
-                        off_i=getattr(el, 'end_offset_i', 0.0),
-                        off_j=getattr(el, 'end_offset_j', 0.0)
+                        num_points=11
                     )   
 
                     K = len(curve_data)
@@ -2279,10 +2217,8 @@ class MCanvas3D(gl.GLViewWidget):
                            displacements=None, matrices_path=None, show_labels=False,
                            show_labels_mode='all', text_size=None, selected_ids=None, is_envelope=True, step_number=None):
         """
-        Builds and renders the 3D force diagrams for the active model.
+        Builds and renders the 3D force diagrams for the active model asynchronously.
         """
-        from core.force_diagram import ForceDiagramBuilder
-
         if self.reaction_diagram_active:
             self.clear_reaction_diagram(model)
 
@@ -2303,45 +2239,40 @@ class MCanvas3D(gl.GLViewWidget):
         if needs_redraw:
             self._force_draw_model(model)
 
-        builder = ForceDiagramBuilder(
-            model,
-            component=component,
-            scale_factor=scale_factor,
-            displacements=displacements,
-            matrices_path=matrices_path,
-            show_labels=show_labels,
-            show_labels_mode=show_labels_mode,
-            text_size=text_size,active_view_plane=self.active_view_plane,                    
-            show_ghost_structure=self.show_ghost_structure,
-            selected_ids=selected_ids,
-            is_envelope=is_envelope,
-            step_number=step_number
+        if not hasattr(self, '_force_calc_token'):
+            self._force_calc_token = 0
+        self._force_calc_token += 1
+
+        self._force_worker = ForceComputationWorker(
+            self._force_calc_token, model, component, scale_factor, displacements, matrices_path,
+            show_labels, show_labels_mode, text_size, self.active_view_plane,
+            self.show_ghost_structure, selected_ids, is_envelope, step_number
         )
-        success = builder.build()
+        self._force_worker.signal_finished.connect(self._on_force_computation_finished)
+        self._force_worker.start()
+
+        return True                             
+
+    def _on_force_computation_finished(self, success, vbo_data, labels, token):
+                                                                                         
+        if getattr(self, '_force_calc_token', 0) != token:
+            return
 
         if not success:
             self.vbo_manager.clear_force_geometry()
             self.force_labels = []
-            return False
+            self.force_diagram_active = False
+            self.update()
+            return
 
-        self.force_labels = builder.labels
-
+        self.force_labels = labels
+        
         self.makeCurrent()
-                                                                                
         self._upload_load_labels_to_gpu()
 
-        self._pending_force_upload = {
-            'fill_verts':  builder.fill_verts,
-            'fill_colors': builder.fill_colors,
-            'fill_faces':  builder.fill_faces,
-            'line_pos':    builder.line_pos,
-            'line_colors': builder.line_colors,
-        }
-
+        self._pending_force_upload = vbo_data
         self.force_diagram_active = True
-
         self.update()
-        return True
 
     def clear_force_diagrams(self):
         """Hides force diagrams and restores extruded/deformed state that was active before."""
@@ -3608,8 +3539,9 @@ class MCanvas3D(gl.GLViewWidget):
             p2 = np.array([el.node_j.x, el.node_j.y, el.node_j.z], dtype=np.float32)
             self.ltha_engine.P1[i], self.ltha_engine.P2[i] = p1, p2
             self.ltha_engine.L[i, 0] = max(np.linalg.norm(p2 - p1), 1e-6)
-            self.ltha_engine.off_i[i, 0] = getattr(el, 'end_offset_i', 0.0)
-            self.ltha_engine.off_j[i, 0] = getattr(el, 'end_offset_j', 0.0)
+                                                                                     
+            self.ltha_engine.off_i[i, 0] = 0.0
+            self.ltha_engine.off_j[i, 0] = 0.0
             self.ltha_engine.R[i] = np.vstack(self._get_consistent_axes(el))
             self.ltha_engine.idx_i[i] = self.ltha_node_map.get(str(el.node_i.id), dummy_idx)
             self.ltha_engine.idx_j[i] = self.ltha_node_map.get(str(el.node_j.id), dummy_idx)
@@ -3840,9 +3772,6 @@ class MCanvas3D(gl.GLViewWidget):
             if eid not in self.deflection_cache:
                 v1_ax, v2_ax, v3_ax = self._get_consistent_axes(el)
 
-                off_i = getattr(el, 'end_offset_i', 0.0)
-                off_j = getattr(el, 'end_offset_j', 0.0)
-
                 curve_data = get_deflected_shape(
                     [n1.x, n1.y, n1.z], [n2.x, n2.y, n2.z],
                     res_i, res_j, v1_ax, v2_ax, v3_ax,
@@ -3857,38 +3786,7 @@ class MCanvas3D(gl.GLViewWidget):
             curve_data_full = self.deflection_cache[eid]['curve_data']
             n_pts = len(curve_data_full)
 
-            off_i = getattr(el, 'end_offset_i', 0.0)
-            off_j = getattr(el, 'end_offset_j', 0.0)
-            vec = p2 - p1
-            _len = np.linalg.norm(vec)
-            p1_flex, p2_flex = p1.copy(), p2.copy()
-            if _len > 0.001 and (off_i > 0 or off_j > 0):
-                _u = vec / _len
-                if off_i + off_j >= _len:
-                    _scale = (_len / (off_i + off_j)) * 0.99
-                    p1_flex = p1 + (_u * off_i * _scale)
-                    p2_flex = p2 - (_u * off_j * _scale)
-                else:
-                    p1_flex = p1 + (_u * off_i)
-                    p2_flex = p2 - (_u * off_j)
-
-                if off_i > 0:
-                    p1_flex_def, _, _ = curve_data_full[0]
-                    rest_verts.extend([p1, p1_flex])
-                    displacements.extend([
-                        np.array(res_i[:3]) * self.deflection_scale,
-                        p1_flex_def - p1_flex
-                    ])
-                    colors.extend([np.array([0,0,0,1]), np.array([0,0,0,1])])
-
-                if off_j > 0:
-                    p2_flex_def, _, _ = curve_data_full[-1]
-                    rest_verts.extend([p2_flex, p2])
-                    displacements.extend([
-                        p2_flex_def - p2_flex,
-                        np.array(res_j[:3]) * self.deflection_scale
-                    ])
-                    colors.extend([np.array([0,0,0,1]), np.array([0,0,0,1])])
+            p1_flex, p2_flex = p1, p2
 
             for k in range(n_pts - 1):
                 pos_full_a, _, _ = curve_data_full[k]
@@ -4044,8 +3942,7 @@ class MCanvas3D(gl.GLViewWidget):
                     res_i, res_j, 
                     v1_ax, v2_ax, v3_ax, 
                     scale=self.deflection_scale,
-                    num_points=11, off_i=getattr(el, 'end_offset_i', 0.0), off_j=getattr(el, 'end_offset_j', 0.0)
-                    
+                    num_points=11
                 )
                 
                 self.deflection_cache[cache_key] = {
@@ -4057,34 +3954,7 @@ class MCanvas3D(gl.GLViewWidget):
             cached = self.deflection_cache[cache_key]
             curve_data_full = cached['curve_data']
             
-            off_i = getattr(el, 'end_offset_i', 0.0)
-            off_j = getattr(el, 'end_offset_j', 0.0)
-            vec = p2 - p1
-            _len = np.linalg.norm(vec)
-            p1_flex, p2_flex = p1.copy(), p2.copy()
-            if _len > 0.001 and (off_i > 0 or off_j > 0):
-                _u = vec / _len
-                if off_i + off_j >= _len:
-                    _scale = (_len / (off_i + off_j)) * 0.99
-                    p1_flex = p1 + (_u * off_i * _scale)
-                    p2_flex = p2 - (_u * off_j * _scale)
-                else:
-                    p1_flex = p1 + (_u * off_i)
-                    p2_flex = p2 - (_u * off_j)
-
-            if off_i > 0:
-                p1_def = p1 + np.array(res_i[:3]) * self.deflection_scale * anim_factor
-                p1_flex_def, _, _ = curve_data_full[0]
-                p1_flex_anim = p1_flex + (p1_flex_def - p1_flex) * anim_factor
-                curved_pos.extend([p1_def, p1_flex_anim])
-                curved_colors.extend([np.array([0,0,0,1]), np.array([0,0,0,1])])
-
-            if off_j > 0:
-                p2_def = p2 + np.array(res_j[:3]) * self.deflection_scale * anim_factor
-                p2_flex_def, _, _ = curve_data_full[-1]
-                p2_flex_anim = p2_flex + (p2_flex_def - p2_flex) * anim_factor
-                curved_pos.extend([p2_flex_anim, p2_def])
-                curved_colors.extend([np.array([0,0,0,1]), np.array([0,0,0,1])])
+            p1_flex, p2_flex = p1, p2
 
             for k in range(len(curve_data_full) - 1):
                 pos_full, _, _ = curve_data_full[k]

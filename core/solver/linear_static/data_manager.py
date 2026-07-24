@@ -195,13 +195,18 @@ class DataManager:
             
             L_total = np.linalg.norm(p2_adj - p1_adj)
             
+            L_total = np.linalg.norm(p2_adj - p1_adj)
+            
             if L_total < 1e-9:
                 raise SolverException("E201", f"Element ID: {el_data['id']} connects coincident nodes.")
 
             end_off_i = el_data.get('end_off_i', 0.0)
             end_off_j = el_data.get('end_off_j', 0.0)
+            rz_factor = el_data.get('rz_factor', 0.0)
             
-            L_clear = L_total - (end_off_i + end_off_j)
+            rigid_i = end_off_i * rz_factor
+            rigid_j = end_off_j * rz_factor
+            L_clear = L_total - (rigid_i + rigid_j)
             
             try:
                 self.elements.append({
@@ -213,6 +218,7 @@ class DataManager:
                     'L_clear': L_clear,
                     'end_off_i': end_off_i, 
                     'end_off_j': end_off_j,
+                    'rz_factor': rz_factor,                       
                     'beta': el_data['beta'],
                     'releases': [el_data['rel_i'], el_data['rel_j']],
                     'offsets': [el_data['off_i'], el_data['off_j']]

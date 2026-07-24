@@ -26,7 +26,8 @@ class ForceDiagramBuilder:
         'V2': 'y',                                     
         'V3': 'z',                                       
         'M3': 'y',                                                 
-        'M2': 'z',                
+        'M2': 'z',     
+        'T':  'z',           
     }
 
     POS_COLOR  = np.array([0.15, 0.40, 1.00, 0.72], dtype=np.float32)
@@ -295,9 +296,7 @@ class ForceDiagramBuilder:
         return None
     
     def _batch_compute_nvm(self):
-        # ---------------------------------------------------------
-        # NEW: LTHA TRUE ENVELOPE AND FAST-PATH INTERCEPT
-        # ---------------------------------------------------------
+                                                                   
         res_info = getattr(self.model, 'results', {}).get("info", {})
         is_ltha = res_info.get("type") == "Linear Time History Analysis"
         
@@ -307,17 +306,25 @@ class ForceDiagramBuilder:
             
             try:
                 import numpy as np
-                npz_data = np.load(history_path)
+                                                                
+                if getattr(self.model, '_ltha_npz_cache_path', None) != history_path:
+                                                                                             
+                    with np.load(history_path) as raw_npz:
+                        self.model._ltha_npz_cache_data = {k: raw_npz[k] for k in raw_npz.files}
+                    self.model._ltha_npz_cache_path = history_path
+                
+                npz_data = self.model._ltha_npz_cache_data
+                                                                  
             except Exception as e:
                 print(f"Error loading NPZ: {e}")
                 return {}
 
             for el_id, el in self.model.elements.items():
+
                 key = f"force_elem_{el_id}"
                 if key not in npz_data: 
                     continue
                 
-                # Full history of forces for this element: (n_steps, 12)
                 hist = npz_data[key] 
                 
                 L_full = el.length()
@@ -325,26 +332,23 @@ class ForceDiagramBuilder:
                 rj = getattr(el, 'end_offset_j', 0.0)
                 stations = np.linspace(ri, L_full - rj, self.n_stations)
                 
-                # 1. Vectorized static equilibrium over ALL timesteps simultaneously
-                Fx1 = hist[:, 0:1] # Shape: (n_steps, 1)
+                Fx1 = hist[:, 0:1]                      
                 Fy1 = hist[:, 1:2]
                 Fz1 = hist[:, 2:3]
                 My1 = hist[:, 4:5]
                 Mz1 = hist[:, 5:6]
                 
-                x_c = (stations - ri).reshape(1, -1) # Shape: (1, n_stations)
+                x_c = (stations - ri).reshape(1, -1)                         
                 
-                # Expand end forces across the beam
-                P_hist = np.repeat(-Fx1, self.n_stations, axis=1) # Shape: (n_steps, n_stations)
+                P_hist = np.repeat(-Fx1, self.n_stations, axis=1)                               
                 V2_hist = np.repeat(Fy1, self.n_stations, axis=1)
                 V3_hist = np.repeat(-Fz1, self.n_stations, axis=1)
                 
-                # Matrix multiplication to calculate moments across the span for every timestep
-                M3_hist = Mz1 - Fy1 @ x_c # Shape: (n_steps, n_stations)
+                M3_hist = Mz1 - Fy1 @ x_c                               
                 M2_hist = My1 + Fz1 @ x_c
                 
                 if getattr(self, 'is_envelope', True):
-                    # 2A. TRUE ENVELOPE: Find the maximum absolute value at each station across time
+                                                                                                    
                     idx_P = np.argmax(np.abs(P_hist), axis=0)
                     P_arr = P_hist[idx_P, np.arange(self.n_stations)]
                     
@@ -360,11 +364,10 @@ class ForceDiagramBuilder:
                     idx_M3 = np.argmax(np.abs(M3_hist), axis=0)
                     M3_arr = M3_hist[idx_M3, np.arange(self.n_stations)]
                 else:
-                    # 2B. SPECIFIC STEP: Grab the single row for the animation frame
+                                                                                    
                     step = getattr(self, 'step_number', 1)
                     if step is None: step = 1
                     
-                    # Convert your GUI's 1-based step counter to a 0-based array index
                     step_idx = max(0, min(step - 1, hist.shape[0] - 1))
                     
                     P_arr = P_hist[step_idx, :]
@@ -406,6 +409,7 @@ class ForceDiagramBuilder:
                 'V3': analyzer.V3,
                 'M2': analyzer.M2,
                 'M3': analyzer.M3,
+                'T': analyzer.T,
             }
             
         return results
@@ -426,4 +430,5 @@ class ForceDiagramBuilder:
             'V3': data.V3,
             'M2': data.M2,
             'M3': data.M3,
+            'T':  data.T,
         }.get(self.component, data.M3)

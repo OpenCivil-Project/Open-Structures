@@ -137,10 +137,9 @@ class SolverWorker(QThread):
                             
                         modal_output_path = f"{base_path}_{modal_case_name}_results.json"
                         
-                        if not os.path.exists(modal_output_path):
-                            print(f"Worker Error: Missing modal results for {base_case_name}. Skipping.")
-                            continue
-                            
+                        cb(f"Batch Runner: Generating fresh Modal results '{modal_case_name}'...", progress_val)
+                        run_modal_analysis(self.input_path, modal_output_path, target_case_name=modal_case_name, progress_callback=cb)
+                        
                         if c_type == "Response Spectrum":
                             engine = RSAEngine(modal_output_path, temp_model.__dict__)
                             shear_results, disp_results, summary_items = [], [], []
@@ -241,12 +240,16 @@ class SolverWorker(QThread):
 
                         elif c_type == "LTHA":
                             cb(f"Batch Runner: Executing LTHA Engine for '{base_case_name}'...", progress_val + 5)
+                            
+                            ltha_cb = lambda msg, p: cb(msg, progress_val + int((p/100) * 5))
+                            
                             run_ltha_analysis(
                                 input_path=self.input_path,
                                 modal_results_path=modal_output_path, 
                                 model_data=temp_model.__dict__, 
                                 output_path=case_output_path, 
-                                case_name=base_case_name
+                                case_name=base_case_name,
+                                progress_callback=ltha_cb              
                             )
                             
                             import shutil, glob
@@ -476,28 +479,25 @@ class SolverWorker(QThread):
                 case_obj = temp_model.load_cases.get(self.case_name)
                 if case_obj and hasattr(case_obj, 'modal_case') and case_obj.modal_case:
                     modal_case_name = case_obj.modal_case
-                
-                exact_swap = self.output_path.replace(f"_{self.case_name}_results.json", f"_{modal_case_name}_results.json")
-                base = self.output_path.replace("_results.json", "")
-                
-                candidates = [
-                    exact_swap,
-                    base + f"_{modal_case_name}_results.json",
-                    base.rsplit("_", 1)[0] + f"_{modal_case_name}_results.json" if "_" in base else ""
-                ]
-                
-                modal_output_path = ""
-                import os as sys_os                      
-                for c in candidates:
-                                        
-                    if c and sys_os.path.exists(c):  
-                        modal_output_path = c
-                        print(f"Worker: Found Modal Results at {modal_output_path}")
-                        break
-                        
-                if not modal_output_path:
-                    raise Exception(f"Could not locate modal results for case '{modal_case_name}'. Run the Modal case first.")
+                from progress import make_callback
+                cb = make_callback(self.signal_progress.emit)
 
+                modal_output_path = self.output_path.replace(f"_{self.case_name}_results.json", f"_{modal_case_name}_results.json")
+                
+                cb(f"Worker: Running prerequisite Modal case '{modal_case_name}'...", 5)
+                modal_success = run_modal_analysis(self.input_path, modal_output_path, target_case_name=modal_case_name, progress_callback=cb)
+                
+                if not modal_success:
+                    raise Exception(f"Failed to generate prerequisite modal results for '{modal_case_name}'.")
+
+                if self.case_type == "Response Spectrum":
+                    engine = RSAEngine(modal_output_path, temp_model.__dict__)
+                    
+                    shear_results = [] 
+                    disp_results = []
+                    rsa_detailed_tables = {} 
+                    summary_items = []
+                                                                
                 if self.case_type == "Response Spectrum":
                     engine = RSAEngine(modal_output_path, temp_model.__dict__)
                     
@@ -664,7 +664,7 @@ class SolverWorker(QThread):
                         modal_results_path=modal_output_path,
                         model_data=temp_model.__dict__,
                         output_path=self.output_path,
-                        case_name=self.case_name
+                        case_name=self.case_name,
                     )
 
             elif self.case_type == "Buckling":

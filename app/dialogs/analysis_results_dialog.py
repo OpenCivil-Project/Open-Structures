@@ -473,6 +473,35 @@ class AnalysisResultsDialog(QDialog):
             )
             self.tabs.addTab(self.tab_ratios, "Mass Participation")
 
+        if "tables" in self.results and "participation_factors" in self.results["tables"]:
+            pf_data = []
+            import math
+            sqrt_sm = math.sqrt(sm) if sm > 0 else 1.0
+
+            for row in self.results["tables"]["participation_factors"]:
+                pf_data.append({
+                    "mode": row.get("mode", 0),
+                    "T": row.get("T", 0.0),
+                    "Ux": row.get("Ux_disp", 0.0) * sqrt_sm, 
+                    "Uy": row.get("Uy_disp", 0.0) * sqrt_sm, 
+                    "Uz": row.get("Uz_disp", 0.0) * sqrt_sm,
+                    "Rx": row.get("Rx_disp", 0.0) * sqrt_sm * sl, 
+                    "Ry": row.get("Ry_disp", 0.0) * sqrt_sm * sl, 
+                    "Rz": row.get("Rz_disp", 0.0) * sqrt_sm * sl,
+                    "ModalMass": row.get("ModalMass_disp", 1.0),                                   
+                    "ModalStiff": row.get("ModalStiff", 0.0)
+                })
+
+            self.tab_pf = self.create_table(
+                ["Mode", "Period (sec)",
+                 "UX", "UY", "UZ",
+                 "RX", "RY", "RZ",
+                 "ModalMass", "ModalStiff (\u03c9\u00b2)"],
+                pf_data,
+                ["mode", "T", "Ux", "Uy", "Uz", "Rx", "Ry", "Rz", "ModalMass", "ModalStiff"]
+            )
+            self.tabs.addTab(self.tab_pf, "Modal Participation Factors")
+
         if "tables" in self.results and "buckling_factors" in self.results["tables"]:
             buckling_data = self.results["tables"]["buckling_factors"]
 

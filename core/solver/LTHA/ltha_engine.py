@@ -14,14 +14,18 @@ if solver_dir not in sys.path:
 if linear_static_dir not in sys.path:
     sys.path.append(linear_static_dir)
 
-from newmark_sdof import newmark_elastic_sdof, exact_analytical_sdof
+from newmark_sdof import exact_analytical_sdof
 from linear_static.data_manager import DataManager
 from linear_static.assembler import GlobalAssembler
 
-def run_ltha_analysis(input_path, modal_results_path, model_data, output_path, case_name="LTHA"):
-    print("=" * 60)
-    print("METUFIRE LTHA ENGINE | V0.3 (Modal Superposition + Reactions + Forces)")
-    print("=" * 60)
+def run_ltha_analysis(input_path, modal_results_path, model_data, output_path, case_name="LTHA", progress_callback=None):
+    if progress_callback is None:
+        from progress import noop_callback
+        progress_callback = noop_callback
+
+    progress_callback("=" * 60, 0)
+    progress_callback("METUFIRE LTHA ENGINE | V0.4 (Vectorized Matrix Superposition)", 2)
+    progress_callback("=" * 60, 5)
 
     if not os.path.exists(modal_results_path):
         _write_error(output_path, "Modal results not found. Run MODAL analysis first.")
@@ -37,11 +41,12 @@ def run_ltha_analysis(input_path, modal_results_path, model_data, output_path, c
     periods_table = modal_data["tables"]["periods"]
     mass_ratios   = modal_data["tables"]["participation_mass"]
     mode_shapes   = modal_data["mode_shapes"]
+    n_modes       = len(periods_table)
 
-    print(f"[1/5] Loaded {len(periods_table)} modes from modal results.")
+    progress_callback(f"[1/5] Loaded {n_modes} modes from modal results.", 15)
 
-    load_cases  = model_data.get("load_cases", {})
-    case_obj    = load_cases.get(case_name)
+    load_cases   = model_data.get("load_cases", {})
+    case_obj     = load_cases.get(case_name)
     th_functions = getattr(model_data, "th_functions", None) or model_data.get("th_functions", {})
 
     zeta = 0.05
@@ -74,16 +79,16 @@ def run_ltha_analysis(input_path, modal_results_path, model_data, output_path, c
 
         dt = func_data.get("dt", 0.01)
         resolved_loads.append((direction, np.array(values, dtype=float), dt, float(scale)))
-        print(f"[2/5] Function '{func_name}' ({direction}): {len(values)} steps, dt={dt:.4f}s")
+        progress_callback(f"[2/5] Function '{func_name}' ({direction}): {len(values)} steps, dt={dt:.4f}s", 25)
 
     n_steps = max(len(a) for _, a, _, _ in resolved_loads)
     dt_ref = resolved_loads[0][2]
 
-    print("[3/5] Assembling stiffness matrix K for reaction recovery...")
+    progress_callback("[3/5] Assembling system structures & mode shape matrices...", 35)
     try:
         dm = DataManager(input_path)
         dm.process_all(case_name=case_name)
-        assembler = GlobalAssembler(dm)          
+        assembler = GlobalAssembler(dm)
         K, _ = assembler.assemble_system()
         K_csr = K.tocsr()
 
@@ -100,10 +105,12 @@ def run_ltha_analysis(input_path, modal_results_path, model_data, output_path, c
     restrained_indices = []
     restrained_node_dof = []
     node_coords = {}
+    node_id_to_idx = {}
 
     for node in dm.nodes:
         nid = str(node['id'])
         idx = node['idx'] * 6
+        node_id_to_idx[nid] = node['idx']
         restraints = node['restraints']
         for d in range(6):
             if restraints[d]:
@@ -121,17 +128,39 @@ def run_ltha_analysis(input_path, modal_results_path, model_data, output_path, c
         print("      WARNING: No restrained DOFs found — joint/base reactions will be zero.")
 
     node_ids = list(mode_shapes["Mode 1"].keys())
-    U_history = {nid: np.zeros((n_steps, 6)) for nid in node_ids}
-    V_history = {nid: np.zeros((n_steps, 6)) for nid in node_ids}
-    A_history = {nid: np.zeros((n_steps, 6)) for nid in node_ids}
-
     restrained_node_ids = sorted(set(nid for nid, _ in restrained_node_dof))
-    R_history = {nid: np.zeros((n_steps, 6)) for nid in restrained_node_ids}
-    
-    R_inertia = {nid: np.zeros((n_steps, 3)) for nid in restrained_node_ids}
+
+    Phi_full = np.zeros((dm.total_dofs, n_modes))
+    for m_idx in range(n_modes):
+        mode_key = f"Mode {m_idx + 1}"
+        shape_data = mode_shapes.get(mode_key, {})
+        for node in dm.nodes:
+            snid = str(node['id'])
+            if snid in shape_data:
+                sidx = node['idx'] * 6
+                Phi_full[sidx: sidx + 6, m_idx] = shape_data[snid]
+
+        if hasattr(assembler, 'eliminated_dofs') and assembler.eliminated_dofs:
+            for s_dof, terms in assembler.eliminated_dofs.items():
+                Phi_full[s_dof, m_idx] = sum(Phi_full[m_dof, m_idx] * coeff for m_dof, coeff in terms.items())
+
+    if has_restraints:
+        R_modal = K_restrained_rows.dot(Phi_full)
+    else:
+        R_modal = np.zeros((0, n_modes))
+
+    Q_global = np.zeros((n_steps, n_modes))
+    V_global = np.zeros((n_steps, n_modes))
+    A_global = np.zeros((n_steps, n_modes))
+
+    R_history_raw = np.zeros((n_steps, len(restrained_node_dof)))
+    R_inertia_dict = {nid: np.zeros((n_steps, 3)) for nid in restrained_node_ids}
+
+    total_ground_v = {nid: np.zeros((n_steps, 6)) for nid in node_ids}
+    total_ground_a = {nid: np.zeros((n_steps, 6)) for nid in node_ids}
 
     directions_str = " + ".join(d for d, _, _, _ in resolved_loads)
-    print(f"[4/5] Running modal superposition (directions={directions_str})...")
+    progress_callback(f"[4/5] Vectorized modal superposition (directions={directions_str})...", 50)
 
     for direction, accel_raw, dt, scale in resolved_loads:
         if len(accel_raw) < n_steps:
@@ -143,18 +172,20 @@ def run_ltha_analysis(input_path, modal_results_path, model_data, output_path, c
         accel_scaled = scale * accel_padded
 
         ground_v = np.zeros(n_steps)
-        for j in range(n_steps - 1):
-            ground_v[j+1] = ground_v[j] + 0.5 * (accel_scaled[j] + accel_scaled[j+1]) * dt
+        ground_v[1:] = np.cumsum(0.5 * (accel_scaled[:-1] + accel_scaled[1:]) * dt)
 
         dir_idx = 0 if direction == "X" else (1 if direction == "Y" else 2)
 
-        for nid, hist in R_history.items():
-            node_idx = next((n['idx'] for n in dm.nodes if str(n['id']) == nid), None)
+        for nid in node_ids:
+            total_ground_v[nid][:, dir_idx] += ground_v
+            total_ground_a[nid][:, dir_idx] += accel_scaled
+
+        for nid in restrained_node_ids:
+            node_idx = node_id_to_idx.get(nid)
             if node_idx is not None:
                 m_val = M_diag[node_idx * 6 + dir_idx]
                 inertia_force = m_val * accel_scaled
-                hist[:, dir_idx] += inertia_force
-                R_inertia[nid][:, dir_idx] += inertia_force
+                R_inertia_dict[nid][:, dir_idx] += inertia_force
 
         for i, mode_info in enumerate(periods_table):
             T     = mode_info["T"]
@@ -180,46 +211,40 @@ def run_ltha_analysis(input_path, modal_results_path, model_data, output_path, c
             accel_eff = Gamma * accel_scaled
             q_n, v_n, a_n = exact_analytical_sdof(accel_eff, dt, T, zeta, m=1.0)
 
-            mode_key   = f"Mode {i+1}"
-            shape_data = mode_shapes.get(mode_key, {})
+            Q_global[:, i] += q_n
+            V_global[:, i] += v_n
+            A_global[:, i] += a_n
 
-            for nid in node_ids:
-                if nid not in shape_data: continue
-                phi = np.array(shape_data[nid])
-                U_history[nid] += np.outer(q_n, phi)
-                V_history[nid] += np.outer(v_n, phi)
-                A_history[nid] += np.outer(a_n, phi)
+    U_full_hist = Q_global @ Phi_full.T                                
+    V_full_hist = V_global @ Phi_full.T
+    A_full_hist = A_global @ Phi_full.T
 
-            if has_restraints:
-                phi_full = np.zeros(dm.total_dofs)
-                for node in dm.nodes:
-                    snid = str(node['id'])
-                    if snid in shape_data:
-                        sidx = node['idx'] * 6
-                        phi_full[sidx: sidx + 6] = shape_data[snid]
+    U_history = {}
+    V_history = {}
+    A_history = {}
 
-                if hasattr(assembler, 'eliminated_dofs') and assembler.eliminated_dofs:
-                    for s_dof, terms in assembler.eliminated_dofs.items():
-                        phi_full[s_dof] = sum(phi_full[m_dof] * coeff for m_dof, coeff in terms.items())
+    for nid in node_ids:
+        n_idx = node_id_to_idx[nid] * 6
+        U_history[nid] = U_full_hist[:, n_idx: n_idx + 6]
+        V_history[nid] = V_full_hist[:, n_idx: n_idx + 6] + total_ground_v[nid]
+        A_history[nid] = A_full_hist[:, n_idx: n_idx + 6] + total_ground_a[nid]
 
-                r_n_vec = K_restrained_rows.dot(phi_full)     
+    R_history = {nid: np.zeros((n_steps, 6)) for nid in restrained_node_ids}
+    if has_restraints:
+        R_history_raw = Q_global @ R_modal.T                                    
+        for k, (nid, dof) in enumerate(restrained_node_dof):
+            R_history[nid][:, dof] += R_history_raw[:, k]
 
-                for k, (nid, dof) in enumerate(restrained_node_dof):
-                    R_history[nid][:, dof] += q_n * r_n_vec[k]
+        for nid in restrained_node_ids:
+            R_history[nid][:, :3] += R_inertia_dict[nid]
 
-        for nid in node_ids:
-            if nid in V_history: V_history[nid][:, dir_idx] += ground_v
-            if nid in A_history: A_history[nid][:, dir_idx] += accel_scaled
+    progress_callback("[5/5] Extracting envelopes and writing results...", 80)
 
-    print("[5/5] Extracting envelopes and writing results...")
-
-    print("      Recovering element internal forces...")
-    
     import glob
     base_path = input_path.replace(".mf", "")
     search_pattern = f"{base_path}_*_matrices.json"
     found_matrices = glob.glob(search_pattern)
-    
+
     matrices_data = {}
     if found_matrices:
         matrices_path = found_matrices[0]
@@ -230,48 +255,35 @@ def run_ltha_analysis(input_path, modal_results_path, model_data, output_path, c
         print(f"      WARNING: No matrices file found matching {search_pattern}. Skipping element force recovery.")
 
     F_history = {}
-    
+
     if matrices_data:
         elements_raw = dm.raw.get("elements", [])
-        
+
         for el_data in elements_raw:
             eid = str(el_data.get("id"))
-            
+
             if eid not in matrices_data:
                 continue
-                
+
             if "n1_id" in el_data and "n2_id" in el_data:
-                n_i = str(el_data["n1_id"])
-                n_j = str(el_data["n2_id"])
+                n_i, n_j = str(el_data["n1_id"]), str(el_data["n2_id"])
             elif "node_i" in el_data and "node_j" in el_data:
-                n_i = str(el_data["node_i"])
-                n_j = str(el_data["node_j"])
+                n_i, n_j = str(el_data["node_i"]), str(el_data["node_j"])
             elif "nodes" in el_data:
-                n_i = str(el_data["nodes"][0])
-                n_j = str(el_data["nodes"][1])
+                n_i, n_j = str(el_data["nodes"][0]), str(el_data["nodes"][1])
             else:
-                print(f"      WARNING: Element {eid} data: {el_data}")
                 continue
-            
-            u_i = U_history.get(n_i, np.zeros((n_steps, 6)))
-            u_j = U_history.get(n_j, np.zeros((n_steps, 6)))
-            
-            u_global = np.hstack((u_i, u_j))
-            
-            # NOTE: LTHA has no member loads (no fef) — it's driven purely by
-            # ground acceleration via modal superposition. `k`/`t` are pure
-            # geometry/section properties so borrowing them from any static
-            # case's matrices file is harmless, but `fef` is case-specific
-            # fixed-end-force data and must NOT be added here — doing so was
-            # bleeding in an unrelated static case's load offset into every
-            # timestep of the recovered internal force.
+
+            idx_i = node_id_to_idx[n_i] * 6
+            idx_j = node_id_to_idx[n_j] * 6
+
+            u_global = np.hstack((U_full_hist[:, idx_i: idx_i + 6], U_full_hist[:, idx_j: idx_j + 6]))
+
             k_mat = np.array(matrices_data[eid]["k"])
             t_mat = np.array(matrices_data[eid]["t"])
-            
+
             kT = k_mat @ t_mat
-            f_local = (kT @ u_global.T).T
-            
-            F_history[eid] = f_local
+            F_history[eid] = u_global @ kT.T
 
     def _get_envelopes(hist_dict):
         v_min, v_max, v_abs = {}, {}, {}
@@ -282,7 +294,7 @@ def run_ltha_analysis(input_path, modal_results_path, model_data, output_path, c
         return v_min, v_max, v_abs
 
     peak_displacements = {nid: np.max(np.abs(hist), axis=0).tolist() for nid, hist in U_history.items()}
-    
+
     displacements_min, displacements_max, displacements_abs = _get_envelopes(U_history)
     velocities_min, velocities_max, velocities_abs = _get_envelopes(V_history)
     accelerations_min, accelerations_max, accelerations_abs = _get_envelopes(A_history)
@@ -291,25 +303,20 @@ def run_ltha_analysis(input_path, modal_results_path, model_data, output_path, c
         reactions_min, reactions_max, reactions_abs = _get_envelopes(R_history)
     else:
         reactions_min, reactions_max, reactions_abs = {}, {}, {}
-        
+
     forces_min, forces_max, forces_abs = _get_envelopes(F_history)
 
     base_reaction_history = np.zeros((n_steps, 6))
 
-    mx_term = np.zeros(n_steps)
-    cross_term = np.zeros(n_steps)
     for nid, hist in R_history.items():
         x, y, z = node_coords.get(nid, (0.0, 0.0, 0.0))
         fx, fy, fz = hist[:, 0], hist[:, 1], hist[:, 2]
         mx, my, mz = hist[:, 3], hist[:, 4], hist[:, 5]
 
-        mx_term += mx
-        cross_term += y * fz - z * fy
-
         base_reaction_history[:, 0] += fx
         base_reaction_history[:, 1] += fy
         base_reaction_history[:, 2] += fz
-        
+
         base_reaction_history[:, 3] += mx + (y * fz - z * fy)
         base_reaction_history[:, 4] += my + (z * fx - x * fz)
         base_reaction_history[:, 5] += mz + (x * fy - y * fx)
@@ -328,11 +335,10 @@ def run_ltha_analysis(input_path, modal_results_path, model_data, output_path, c
     npz_payload.update({"vel_node_" + str(nid): hist for nid, hist in V_history.items()})
     npz_payload.update({"acc_node_" + str(nid): hist for nid, hist in A_history.items()})
     npz_payload.update({"reac_node_" + str(nid): hist for nid, hist in R_history.items()})
-    
     npz_payload.update({"force_elem_" + str(eid): hist for eid, hist in F_history.items()})
-    
     npz_payload["base_reaction_history"] = base_reaction_history
-    np.savez_compressed(history_path, **npz_payload)
+
+    np.savez(history_path, **npz_payload)
 
     accel_history_dict = {}
     for direction, accel_raw, dt, scale in resolved_loads:
@@ -347,10 +353,10 @@ def run_ltha_analysis(input_path, modal_results_path, model_data, output_path, c
         "status": "SUCCESS",
         "info": {
             "type":       "Linear Time History Analysis",
-            "case":       case_name,
+            "case_name":  case_name,
             "directions": [d for d, _, _, _ in resolved_loads],
             "damping":    zeta,
-            "n_modes":    len(periods_table),
+            "n_modes":    n_modes,
             "n_steps":    n_steps,
             "dt":         dt_ref
         },
@@ -381,7 +387,7 @@ def run_ltha_analysis(input_path, modal_results_path, model_data, output_path, c
     with open(output_path, 'w') as f:
         json.dump(output_data, f, indent=4)
 
-    print("LTHA Complete.")
+    progress_callback("LTHA Complete.", 100)
     return True
 
 def _read_values_from_file(file_path, header_skip, accel_col):

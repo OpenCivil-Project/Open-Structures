@@ -39,6 +39,7 @@ class DisplayForcesDialog(QDialog):
         self.cb_case = QComboBox()
         
         valid_cases = []
+        self._case_types = {}          
         
         import os, glob
         if hasattr(self.model, 'file_path') and self.model.file_path:
@@ -53,30 +54,36 @@ class DisplayForcesDialog(QDialog):
                 base_case = case_name.rsplit(" (Max)", 1)[0].rsplit(" (Min)", 1)[0]
                 
                 is_valid = False
+                c_type = 'Linear Static'
                 if hasattr(self.model, 'load_cases') and base_case in self.model.load_cases:
                     c_type = getattr(self.model.load_cases[base_case], 'case_type', 'Linear Static')
                     if c_type not in ["Modal", "Buckling"]:
                         is_valid = True
                 elif hasattr(self.model, 'load_combos') and base_case in self.model.load_combos:
+                    c_type = 'Load Combination'
                     is_valid = True
                         
                 if is_valid and case_name not in valid_cases:
                     valid_cases.append(case_name)
+                    self._case_types[case_name] = c_type
                     
             valid_cases.sort()
         else:
                                                        
             for c_name in self.available_cases:
                 is_valid = False
+                c_type = 'Linear Static'
                 if hasattr(self.model, 'load_cases') and c_name in self.model.load_cases:
                     c_type = getattr(self.model.load_cases[c_name], 'case_type', 'Linear Static')
                     if c_type not in ["Modal", "Buckling"]:
                         is_valid = True
                 elif hasattr(self.model, 'load_combos') and c_name in self.model.load_combos:
+                    c_type = 'Load Combination'
                     is_valid = True
                     
                 if is_valid:
                     valid_cases.append(c_name)
+                    self._case_types[c_name] = c_type
                                                                                            
         self.cb_case.addItems(valid_cases)
         
@@ -89,12 +96,20 @@ class DisplayForcesDialog(QDialog):
         is_single_case = current_case in getattr(self.model, 'load_cases', {})
         if is_single_case:
             self.cb_case.setEnabled(False)
-            
+
+        self._results_base_path = None
+        if hasattr(self.model, 'file_path') and self.model.file_path:
+            self._results_base_path = self.model.file_path.replace(".mf", "")
+        elif self.base_path:
+            self._results_base_path = self.base_path
+
+        self.cb_case.currentTextChanged.connect(self._update_multivalued_box)
+
         layout_case.addWidget(self.cb_case)
         main_layout.addWidget(gb_case)
         
-        gb_multi = QGroupBox("Multivalued Options")
-        grid_multi = QGridLayout(gb_multi)
+        self.gb_multi = QGroupBox("Multivalued Options")
+        grid_multi = QGridLayout(self.gb_multi)
         
         self.rb_envelope = QRadioButton("Envelope (Max or Min)")
         self.rb_step = QRadioButton("Step")
@@ -102,13 +117,15 @@ class DisplayForcesDialog(QDialog):
         
         self.sb_step = QSpinBox()
         self.sb_step.setMinimum(1)
-        self.sb_step.setMaximum(100)
+        self.sb_step.setMaximum(1)          
         
         grid_multi.addWidget(self.rb_envelope, 0, 0)
         grid_multi.addWidget(self.rb_step, 1, 0)
         grid_multi.addWidget(self.sb_step, 1, 1)
         
-        main_layout.addWidget(gb_multi)
+        main_layout.addWidget(self.gb_multi)
+
+        self._update_multivalued_box(self.cb_case.currentText())
 
         gb_type = QGroupBox("Display Type")
         layout_type = QHBoxLayout(gb_type)
@@ -232,11 +249,34 @@ class DisplayForcesDialog(QDialog):
         self.btn_apply.clicked.connect(self.apply_settings)
         self.btn_ok.clicked.connect(self.on_ok)
 
+    def _update_multivalued_box(self, case_name):
+        """Envelope/Step selection only applies to LTHA — RSA's max/min already
+        shows up as separate ' (Max)'/' (Min)' entries in cb_case itself, and
+        static cases/combos have no such concept at all."""
+        c_type = self._case_types.get(case_name, 'Linear Static')
+        is_ltha = (c_type == 'LTHA')
+        self.gb_multi.setVisible(is_ltha)
+
+        if not is_ltha or not self._results_base_path:
+            return
+
+        results_path = f"{self._results_base_path}_{case_name}_results.json"
+        try:
+            import json
+            with open(results_path, 'r') as f:
+                data = json.load(f)
+            n_steps = data.get("info", {}).get("n_steps", 1)
+            self.sb_step.setMaximum(max(1, int(n_steps)))
+        except (OSError, ValueError, json.JSONDecodeError):
+                                                                            
+            self.sb_step.setMaximum(1)
+
     def get_current_settings(self):
         """Reads the UI and packages the user's choices into a dictionary."""
                                                   
         component = 'M3'          
         if self.rb_axial.isChecked(): component = 'P'
+        elif self.rb_torsion.isChecked(): component = 'T'
         elif self.rb_shear22.isChecked(): component = 'V2'
         elif self.rb_shear33.isChecked(): component = 'V3'
         elif self.rb_moment22.isChecked(): component = 'M2'
@@ -264,7 +304,7 @@ class DisplayForcesDialog(QDialog):
         load_case = self.cb_case.currentText()
 
         is_envelope = self.rb_envelope.isChecked()
-        step_number = self.sb_step.value() if self.rb_step.isChecked() else None
+        step_number = self.sb_step.value() if not is_envelope else None
 
         return {
             'component': component,
@@ -275,8 +315,8 @@ class DisplayForcesDialog(QDialog):
             'show_labels': show_labels,
             'show_labels_mode': show_labels_mode,
             'text_size': text_size,
-            'is_envelope': is_envelope, 
-            'step_number': step_number
+            'is_envelope': is_envelope,
+            'step_number': step_number,
         }
     
     def load_last_settings(self):
@@ -313,10 +353,19 @@ class DisplayForcesDialog(QDialog):
         else:
             self.rb_fill.setChecked(True)
 
+        if s.get("is_envelope"):
+            self.rb_envelope.setChecked(True)
+        else:
+            self.rb_step.setChecked(True)
+            if s.get("step_number") is not None:
+                self.sb_step.setValue(int(s["step_number"]))
+
         component = s.get("component", "M3")
 
         if component == "P":
             self.rb_axial.setChecked(True)
+        elif component == "T":                                   
+            self.rb_torsion.setChecked(True)
         elif component == "V2":
             self.rb_shear22.setChecked(True)
         elif component == "V3":

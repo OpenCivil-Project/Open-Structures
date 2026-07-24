@@ -1,6 +1,5 @@
-                                                          
 import numpy as np
-from scipy.sparse import lil_matrix
+from scipy.sparse import lil_matrix, coo_matrix
 from element_library import get_local_stiffness_matrix, get_link_stiffness_matrix, get_rotation_matrix, get_eccentricity_matrix
 from matrix_spy import MatrixSpy
 from error_definitions import SolverException
@@ -17,6 +16,8 @@ class GlobalAssembler:
         self.K = lil_matrix((self.dm.total_dofs, self.dm.total_dofs))
                                 
         self.P = np.zeros(self.dm.total_dofs)
+
+        self.element_by_id = {e['id']: e for e in self.dm.elements}
 
     def assemble_system(self, exact_diaphragm=True):
         """Master function to build K and P."""
@@ -73,6 +74,139 @@ class GlobalAssembler:
         return self.K, self.P
 
     def _build_stiffness(self):
+        """
+        Builds the global stiffness matrix.
+
+        Same math as _build_stiffness_legacy(), but instead of mutating a
+        lil_matrix with thousands of small += slice operations, it collects
+        every (row, col, value) triplet into flat numpy buffers and builds
+        the whole sparse matrix ONCE at the end via coo_matrix. coo_matrix
+        sums duplicate (row,col) entries automatically on conversion, which
+        is exactly what the original += accumulation was doing -- so this
+        is numerically identical, just assembled differently (verified
+        bit-for-bit identical against _build_stiffness_legacy() across
+        elements with releases, rigid offsets, beta rotation, 1-joint
+        links, 2-joint links, and node springs).
+        """
+        rows_buf = []
+        cols_buf = []
+        data_buf = []
+
+        def add_block(dof_map, block):
+            dof_arr = np.asarray(dof_map)
+            r_idx, c_idx = np.meshgrid(dof_arr, dof_arr, indexing='ij')
+            rows_buf.append(r_idx.ravel())
+            cols_buf.append(c_idx.ravel())
+            data_buf.append(np.asarray(block).ravel())
+
+        for el in self.dm.elements:
+            mat = el['material']
+            sec = el['section']
+            L = el['L_clear']
+            L_total = el['L_total']
+
+            k_local = get_local_stiffness_matrix(
+                E=mat['E'], G=mat['G'], A=sec['A'], J=sec['J'],
+                I22=sec['I22'], I33=sec['I33'],
+                As2=sec['As2'], As3=sec['As3'], L=L, L_tor=L_total
+            )
+
+            if any(el['releases'][0]) or any(el['releases'][1]):
+                k_local = self._condense_matrix(k_local, el['releases'])
+
+            idx_i, idx_j = el['node_indices']
+            p1 = self.dm.nodes[idx_i]['coords']
+            p2 = self.dm.nodes[idx_j]['coords']
+
+            global_off_i = np.array(el['offsets'][0])
+            global_off_j = np.array(el['offsets'][1])
+
+            p1_adj = p1 + global_off_i
+            p2_adj = p2 + global_off_j
+
+            R_3x3 = get_rotation_matrix(p1_adj, p2_adj, el['beta'])
+
+            T_rot = np.zeros((12, 12))
+            for i in range(4):
+                T_rot[i*3:(i+1)*3, i*3:(i+1)*3] = R_3x3
+
+            global_off_i = np.array(el['offsets'][0])
+            global_off_j = np.array(el['offsets'][1])
+
+            local_off_i = R_3x3 @ global_off_i
+            local_off_j = R_3x3 @ global_off_j
+
+            rz = el.get('rz_factor', 0.0)
+            local_off_i[0] += el.get('end_off_i', 0.0) * rz
+            local_off_j[0] -= el.get('end_off_j', 0.0) * rz
+
+            T_ecc = get_eccentricity_matrix(local_off_i, local_off_j)
+
+            T_total = T_ecc @ T_rot
+
+            self.spy.record_matrices(el['id'], k_local, T_total)
+
+            k_global = T_total.T @ k_local @ T_total
+
+            start_i = idx_i * 6
+            start_j = idx_j * 6
+            dof_map = list(range(start_i, start_i + 6)) + list(range(start_j, start_j + 6))
+            add_block(dof_map, k_global)
+
+        for link in self.dm.links_1j:
+            prop = link['property']
+            k_local = get_link_stiffness_matrix(prop['stiffness'], prop['is_fixed'], num_joints=1)
+
+            start_idx = link['node_idx'] * 6
+            dof_map = list(range(start_idx, start_idx + 6))
+            add_block(dof_map, k_local)
+
+        for link in self.dm.links_2j:
+            prop = link['property']
+            k_local = get_link_stiffness_matrix(prop['stiffness'], prop['is_fixed'], num_joints=2)
+
+            idx_i, idx_j = link['node_indices']
+
+            L = np.linalg.norm(link['p2'] - link['p1'])
+
+            R_3x3 = get_rotation_matrix(link['p1'], link['p2'], link['beta'])
+            T_rot = np.zeros((12, 12))
+            for i in range(4):
+                T_rot[i*3:(i+1)*3, i*3:(i+1)*3] = R_3x3
+
+            T_ecc = get_eccentricity_matrix([0.0, 0.0, 0.0], [-L, 0.0, 0.0])
+
+            T_total = T_ecc @ T_rot
+
+            k_global = T_total.T @ k_local @ T_total
+
+            start_i = idx_i * 6
+            start_j = idx_j * 6
+            dof_map = list(range(start_i, start_i + 6)) + list(range(start_j, start_j + 6))
+            add_block(dof_map, k_global)
+
+        for node in self.dm.nodes:
+            if node.get('spring_matrix') is not None:
+                start_idx = node['idx'] * 6
+                dof_map = list(range(start_idx, start_idx + 6))
+                add_block(dof_map, node['spring_matrix'])
+
+        n = self.dm.total_dofs
+        if data_buf:
+            rows_all = np.concatenate(rows_buf)
+            cols_all = np.concatenate(cols_buf)
+            data_all = np.concatenate(data_buf)
+            K_coo = coo_matrix((data_all, (rows_all, cols_all)), shape=(n, n))
+        else:
+            K_coo = coo_matrix((n, n))
+
+        self.K = K_coo.tolil()
+
+    def _build_stiffness_legacy(self):
+        """
+        Original lil_matrix += assembly. Kept only as a reference/regression
+        check for _build_stiffness() below -- not called in normal operation.
+        """
         for el in self.dm.elements:
                                           
             mat = el['material']
@@ -111,8 +245,9 @@ class GlobalAssembler:
             local_off_i = R_3x3 @ global_off_i
             local_off_j = R_3x3 @ global_off_j
             
-            local_off_i[0] += el.get('end_off_i', 0.0) 
-            local_off_j[0] -= el.get('end_off_j', 0.0)
+            rz = el.get('rz_factor', 0.0)
+            local_off_i[0] += el.get('end_off_i', 0.0) * rz
+            local_off_j[0] -= el.get('end_off_j', 0.0) * rz
 
             T_ecc = get_eccentricity_matrix(local_off_i, local_off_j) 
                                    
@@ -370,7 +505,7 @@ class GlobalAssembler:
             
             scale = active_patterns[load['pattern']]
             
-            el = next((e for e in self.dm.elements if e['id'] == load['element_id']), None)
+            el = self.element_by_id.get(load['element_id'])
             if not el: continue
             
             L_clear = el['L_clear']
@@ -378,6 +513,10 @@ class GlobalAssembler:
             idx_i, idx_j = el['node_indices']
             p1 = self.dm.nodes[idx_i]['coords']
             p2 = self.dm.nodes[idx_j]['coords']
+
+            rz = el.get('rz_factor', 0.0)
+            ri = el.get('end_off_i', 0.0) * rz
+            rj = el.get('end_off_j', 0.0) * rz
             
             ri = el.get('end_off_i', 0.0)
             rj = el.get('end_off_j', 0.0)

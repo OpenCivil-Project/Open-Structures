@@ -1,4 +1,3 @@
-                                                                
 import numpy as np
 
 def get_local_stiffness_matrix(E, G, A, J, I22, I33, As2, As3, L, L_tor=None):
@@ -109,11 +108,6 @@ def get_rotation_matrix(p1, p2, beta_deg):
     vz_final = -vy * s + vz * c
     
     R = np.array([vx, vy_final, vz_final])
-    
-    print(f"Rotation Matrix for element from {p1} to {p2}:")
-    print(f"  vx (local X): {vx}")
-    print(f"  vy (local Y): {vy_final}")
-    print(f"  vz (local Z): {vz_final}")
     
     return R
 

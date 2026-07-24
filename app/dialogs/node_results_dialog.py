@@ -138,6 +138,14 @@ class NodeResultsDialog(QDialog):
     def on_case_changed(self, index):
         import json
         if index < 0: return
+        
+        canvas = getattr(self, 'canvas', None)
+        if canvas:
+            if hasattr(canvas, 'clear_force_diagrams'):
+                canvas.clear_force_diagrams()
+            if hasattr(canvas, 'clear_reaction_diagram'):
+                canvas.clear_reaction_diagram(self.model)
+
         data_info = self.combo_cases.currentData()
         if not isinstance(data_info, dict): return
         

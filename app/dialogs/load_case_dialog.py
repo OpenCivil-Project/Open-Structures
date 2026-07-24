@@ -139,8 +139,27 @@ class LoadCaseDetailDialog(QDialog):
         h_modal_main.addLayout(v_mod_right)
         layout.addWidget(self.group_modal)
 
+        modal_cases = []
+        if hasattr(self.model, 'load_cases'):
+            for name, c_obj in self.model.load_cases.items():
+                c_t = c_obj.get("type", "Linear Static") if isinstance(c_obj, dict) else getattr(c_obj, 'case_type', 'Linear Static')
+                if c_t == "Modal":
+                    modal_cases.append(name)
+        if not modal_cases:
+            modal_cases = ["MODAL"]                         
+
         self.group_rsa = QGroupBox("Response Spectrum Parameters")
         layout_rsa = QVBoxLayout(self.group_rsa)
+
+        h_rsa_modal = QHBoxLayout()
+        h_rsa_modal.addWidget(QLabel("Modal Case to Use:"))
+        self.combo_modal_rsa = QComboBox()
+        self.combo_modal_rsa.addItems(modal_cases)
+        if hasattr(self.case, 'modal_case') and self.case.modal_case:
+            self.combo_modal_rsa.setCurrentText(self.case.modal_case)
+        h_rsa_modal.addWidget(self.combo_modal_rsa)
+        h_rsa_modal.addStretch()
+        layout_rsa.addLayout(h_rsa_modal)
 
         h_rsa_top = QHBoxLayout()
 
@@ -227,6 +246,16 @@ class LoadCaseDetailDialog(QDialog):
         self.group_ltha = QGroupBox("Linear Time History Parameters")
         v_ltha = QVBoxLayout(self.group_ltha)
 
+        h_ltha_modal = QHBoxLayout()
+        h_ltha_modal.addWidget(QLabel("Modal Case to Use:"))
+        self.combo_modal_ltha = QComboBox()
+        self.combo_modal_ltha.addItems(modal_cases)
+        if hasattr(self.case, 'modal_case') and self.case.modal_case:
+            self.combo_modal_ltha.setCurrentText(self.case.modal_case)
+        h_ltha_modal.addWidget(self.combo_modal_ltha)
+        h_ltha_modal.addStretch()
+        v_ltha.addLayout(h_ltha_modal)
+                                             
         h_ltha_opts = QHBoxLayout()
         h_ltha_opts.addWidget(QLabel("Damping Ratio:"))
         self.input_ltha_damping = QLineEdit()
@@ -428,6 +457,7 @@ class LoadCaseDetailDialog(QDialog):
             c.modal_type  = "Ritz" if self.radio_ritz.isChecked() else "Eigen"
 
         elif c.case_type == "Response Spectrum":
+            c.modal_case = self.combo_modal_rsa.currentText()
             c.modal_comb = "CQC" if self.radio_cqc.isChecked() else "SRSS"
             c.dir_comb   = "SRSS" if self.radio_dir_srss.isChecked() else "Absolute"
             c.rsa_loads  = []
@@ -441,6 +471,7 @@ class LoadCaseDetailDialog(QDialog):
                     c.rsa_loads.append((cmb_name.currentText(), cmb_func.currentText(), val))
 
         elif c.case_type == "LTHA":
+            c.modal_case = self.combo_modal_ltha.currentText()
             try: c.damping = float(self.input_ltha_damping.text())
             except ValueError: c.damping = 0.05
             c.ltha_loads = []

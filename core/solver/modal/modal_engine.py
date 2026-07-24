@@ -174,27 +174,12 @@ def run_modal_analysis(input_json_path, output_json_path, target_case_name="MODA
         M_free = M_free + reg_full
 
     except Exception as e:
-                                                                   
-        progress_callback("Solving eigenvalue problem — this may take a moment...", 42)
-                             
-        vals, vecs = eigsh(K_free, M=M_free, k=req_modes, sigma=sigma_shift)
-        
-        print(f"      Converged. Found {len(vals)} modes.")
-
-        progress_callback("Eigenvalue solve complete. Extracting modes...", 65)
-        num_mass_dofs = int(np.sum(M_free.diagonal() > 1e-10))
-        progress_callback(f"NUMBER OF MASS DOFs                  = {num_mass_dofs:>10}", 65)
-        progress_callback(f"NUMBER OF MODES REQUESTED            = {req_modes:>10}", 65)
-        progress_callback(f"NUMBER OF MODES FOUND                = {len(vals):>10}", 65)
-        progress_callback("", 65)
-
-    except Exception as e:
         err_str = str(e)
         print(f"FATAL: Eigen Solver Error: {err_str}")
         if "-9999" in err_str or "Arnoldi" in err_str:
             return _write_error(output_json_path, "E304",
                 f"Requested {req_modes} modes but the solver could not converge. "
-                f"Your model has {n_free_dofs} free DOFs. "
+                f"Your model has {n_free_dofs_sys} free DOFs. "
                 f"Try reducing Number of Modes to {max(1, req_modes // 2)} or check for disconnected nodes.")
         else:
             return _write_error(output_json_path, "E303", f"ARPACK Error: {err_str}")
@@ -207,7 +192,8 @@ def run_modal_analysis(input_json_path, output_json_path, target_case_name="MODA
         "mode_shapes": {},
         "tables": {
             "periods": [],
-            "participation_mass": []
+            "participation_mass": [],
+            "participation_factors": []
         }
     }
 
@@ -301,6 +287,11 @@ def run_modal_analysis(input_json_path, output_json_path, target_case_name="MODA
         L_y = phi_free.T @ M_free @ r_y_free
         L_z = phi_free.T @ M_free @ r_z_free                                         
 
+        Mn_disp = float(Mn)                
+        Ux_disp = float(L_x)
+        Uy_disp = float(L_y)
+        Uz_disp = float(L_z)
+
         if i == 3 or i == 6:                             
             print(f"  DEBUG Mode {i+1}: L_x={L_x:.6f}, Mn={Mn:.6f}, Gamma={L_x/np.sqrt(total_mass_x * Mn):.6f}")
 
@@ -334,6 +325,16 @@ def run_modal_analysis(input_json_path, output_json_path, target_case_name="MODA
             "Uz": float(ratio_z), "SumUz": float(sum_ratio_z),                           
             "Gamma_x": gamma_x, "Gamma_y": gamma_y, "Gamma_z": gamma_z                            
         })
+
+        results["tables"]["participation_factors"].append({
+            "mode": i + 1,
+            "T": float(period),
+            "Ux": float(L_x), "Uy": float(L_y), "Uz": float(L_z),                                       
+            "ModalMass": float(Mn),                                             
+            "ModalStiff": float(w2),                                            
+            "Ux_disp": Ux_disp, "Uy_disp": Uy_disp, "Uz_disp": Uz_disp,                      
+            "ModalMass_disp": Mn_disp                                                    
+        })
         
         phi_full = np.zeros(dm.total_dofs)
         phi_full[is_free] = phi_free
@@ -354,6 +355,15 @@ def run_modal_analysis(input_json_path, output_json_path, target_case_name="MODA
         )
         for i, row in enumerate(results["tables"]["participation_mass"]):
             row.update(rot_results[i])
+        for i, row in enumerate(results["tables"]["participation_factors"]):
+            row.update({
+                "Rx": rot_results[i]["Lrx"],                                               
+                "Ry": rot_results[i]["Lry"],                       
+                "Rz": rot_results[i]["Lrz"],                       
+                "Rx_disp": rot_results[i]["Lrx_disp"],                      
+                "Ry_disp": rot_results[i]["Lry_disp"],       
+                "Rz_disp": rot_results[i]["Lrz_disp"]        
+            })
         results["total_mass"].update({
             "rx": total_mass_rot["Rx"],
             "ry": total_mass_rot["Ry"],
@@ -362,6 +372,58 @@ def run_modal_analysis(input_json_path, output_json_path, target_case_name="MODA
         print(f"      Rotational participation computed OK.")
     except Exception as e:
         print(f"WARNING: Rotational participation failed (non-fatal): {e}")
+
+    print("      Computing Static Load Participation (Missing-Mass Correction)...")
+    try:
+        from scipy.sparse.linalg import splu
+
+        r_x_sys_free = r_x[kept_dofs][is_free_sys] if has_T else r_x_free
+        r_y_sys_free = r_y[kept_dofs][is_free_sys] if has_T else r_y_free
+        r_z_sys_free = r_z[kept_dofs][is_free_sys] if has_T else r_z_free
+
+        try:
+            lu = splu(K_sys_free.tocsc())
+        except RuntimeError as e:
+            raise RuntimeError(f"Static stiffness matrix is singular — model may have an unrestrained rigid-body mode: {e}")
+
+        x_static_x = lu.solve(M_sys_free @ r_x_sys_free)
+        x_static_y = lu.solve(M_sys_free @ r_y_sys_free)
+        x_static_z = lu.solve(M_sys_free @ r_z_sys_free)
+
+        num_x = float(r_x_sys_free @ (M_sys_free @ x_static_x))
+        den_x = float(x_static_x @ (M_sys_free @ x_static_x))
+        static_mass_x = (num_x**2 / den_x) if den_x > 0 else 0.0
+
+        num_y = float(r_y_sys_free @ (M_sys_free @ x_static_y))
+        den_y = float(x_static_y @ (M_sys_free @ x_static_y))
+        static_mass_y = (num_y**2 / den_y) if den_y > 0 else 0.0
+
+        num_z = float(r_z_sys_free @ (M_sys_free @ x_static_z))
+        den_z = float(x_static_z @ (M_sys_free @ x_static_z))
+        static_mass_z = (num_z**2 / den_z) if den_z > 0 else 0.0
+
+        static_ratio_x = static_mass_x / total_mass_x if total_mass_x > 0 else 0.0
+        static_ratio_y = static_mass_y / total_mass_y if total_mass_y > 0 else 0.0
+        static_ratio_z = static_mass_z / total_mass_z if total_mass_z > 0 else 0.0
+
+        for label, s_ratio, d_ratio in [("UX", static_ratio_x, sum_ratio_x),
+                                         ("UY", static_ratio_y, sum_ratio_y),
+                                         ("UZ", static_ratio_z, sum_ratio_z)]:
+            if s_ratio < d_ratio - 1e-4 or s_ratio > 1.05:
+                print(f"WARNING: Static participation for {label} ({s_ratio*100:.2f}%) failed "
+                      f"sanity check against Dynamic ({d_ratio*100:.2f}%) - treat as unreliable.")
+
+        results["tables"]["load_participation_ratios"] = [
+            {"OutputCase": target_case_name, "ItemType": "Acceleration", "Item": "UX",
+             "Static": float(static_ratio_x), "Dynamic": float(sum_ratio_x)},
+            {"OutputCase": target_case_name, "ItemType": "Acceleration", "Item": "UY",
+             "Static": float(static_ratio_y), "Dynamic": float(sum_ratio_y)},
+            {"OutputCase": target_case_name, "ItemType": "Acceleration", "Item": "UZ",
+             "Static": float(static_ratio_z), "Dynamic": float(sum_ratio_z)},
+        ]
+        print(f"      Static Participation: UX={static_ratio_x*100:.2f}%  UY={static_ratio_y*100:.2f}%  UZ={static_ratio_z*100:.2f}%")
+    except Exception as e:
+        print(f"WARNING: Static load participation failed (non-fatal): {e}")
 
     progress_callback("", 89)
     progress_callback(f"{'MODE':<6} {'T(s)':>9} {'f(Hz)':>9} {'ω(rad/s)':>10} {'Ux%':>7} {'Uy%':>7} {'Uz%':>7} {'ΣUx%':>8} {'ΣUy%':>8} {'ΣUz%':>8}", 89)
@@ -479,6 +541,10 @@ def compute_rotational_participation(dm, M_full, M_free, is_free, vecs, vals):
         L_ry = float(phi.T @ M_free @ r_ry_free)
         L_rz = float(phi.T @ M_free @ r_rz_free)
 
+        L_rx_disp = float(L_rx)
+        L_ry_disp = float(L_ry)
+        L_rz_disp = float(L_rz)
+
         ratio_rx = (L_rx**2 / Mn) / total_mass_rx if total_mass_rx > 0 else 0.0
         ratio_ry = (L_ry**2 / Mn) / total_mass_ry if total_mass_ry > 0 else 0.0
         ratio_rz = (L_rz**2 / Mn) / total_mass_rz if total_mass_rz > 0 else 0.0
@@ -491,6 +557,8 @@ def compute_rotational_participation(dm, M_full, M_free, is_free, vecs, vals):
             "Rx": ratio_rx, "SumRx": sum_rx,
             "Ry": ratio_ry, "SumRy": sum_ry,
             "Rz": ratio_rz, "SumRz": sum_rz,
+            "Lrx": L_rx, "Lry": L_ry, "Lrz": L_rz,                 
+            "Lrx_disp": L_rx_disp, "Lry_disp": L_ry_disp, "Lrz_disp": L_rz_disp,                      
         })
 
     return rot_results, {"Rx": total_mass_rx, "Ry": total_mass_ry, "Rz": total_mass_rz}

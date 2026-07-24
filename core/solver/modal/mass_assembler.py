@@ -1,12 +1,19 @@
 import numpy as np
-from scipy.sparse import lil_matrix
+from scipy.sparse import coo_matrix, csc_matrix
 
 class GlobalMassAssembler:
     def __init__(self, data_manager):
         self.dm = data_manager
         self.total_dofs = self.dm.total_dofs
-        self.M = lil_matrix((self.total_dofs, self.total_dofs))
-        print(" [DEBUG] Initialized Mass Assembler (V4 - Net Force Method)")
+        
+        self.element_by_id = {el['id']: el for el in self.dm.elements}
+        
+        self.M_row = []
+        self.M_col = []
+        self.M_data = []
+        
+        self.M = None
+        print(" [DEBUG] Initialized Mass Assembler (V5 - Batched Net Force Method)")
 
     def build_mass_matrix(self, mass_source_name, progress_callback=None):
         print(f"Mass Assembler: Building M for source '{mass_source_name}'...")
@@ -14,6 +21,7 @@ class GlobalMassAssembler:
         ms_def = self._find_mass_source(mass_source_name)
         if not ms_def:
             print(f"Error: Mass Source '{mass_source_name}' not found. Using zero mass.")
+            self.M = csc_matrix((self.total_dofs, self.total_dofs))
             return self.M
 
         if ms_def.get("include_self_mass", True):
@@ -26,6 +34,12 @@ class GlobalMassAssembler:
             if progress_callback:
                 progress_callback("Adding load pattern mass...", 33)
             self._add_mass_from_net_loads(patterns)
+
+        if self.M_data:
+            M_coo = coo_matrix((self.M_data, (self.M_row, self.M_col)), shape=(self.total_dofs, self.total_dofs))
+            self.M = M_coo.tocsc()
+        else:
+            self.M = csc_matrix((self.total_dofs, self.total_dofs))
 
         print(f"Mass Assembler: Mass Matrix Assembled. Non-zeros: {self.M.nnz}")
         return self.M
@@ -47,6 +61,10 @@ class GlobalMassAssembler:
     def _add_element_self_mass(self, scale_factor=1.0):
         print(f"   -> Adding Element Self-Mass (Lumped, Scale={scale_factor:.2f})...")
         
+        r_app = self.M_row.append
+        c_app = self.M_col.append
+        d_app = self.M_data.append
+        
         for el in self.dm.elements:
             A = el['section']['A']
             rho = el['material']['rho'] 
@@ -60,9 +78,9 @@ class GlobalMassAssembler:
                 start_dof = n_idx * 6
                 half_mass = total_mass / 2.0
                 
-                self.M[start_dof + 0, start_dof + 0] += half_mass
-                self.M[start_dof + 1, start_dof + 1] += half_mass
-                self.M[start_dof + 2, start_dof + 2] += half_mass
+                r_app(start_dof + 0); c_app(start_dof + 0); d_app(half_mass)
+                r_app(start_dof + 1); c_app(start_dof + 1); d_app(half_mass)
+                r_app(start_dof + 2); c_app(start_dof + 2); d_app(half_mass)
 
         for link in self.dm.raw.get('links', []):
             prop = self.dm.link_properties.get(link['prop_name'])
@@ -90,13 +108,13 @@ class GlobalMassAssembler:
                 
                 start_dof = node_idx * 6
                 
-                self.M[start_dof + 0, start_dof + 0] += m_split
-                self.M[start_dof + 1, start_dof + 1] += m_split
-                self.M[start_dof + 2, start_dof + 2] += m_split
+                r_app(start_dof + 0); c_app(start_dof + 0); d_app(m_split)
+                r_app(start_dof + 1); c_app(start_dof + 1); d_app(m_split)
+                r_app(start_dof + 2); c_app(start_dof + 2); d_app(m_split)
                 
-                self.M[start_dof + 3, start_dof + 3] += r1_split
-                self.M[start_dof + 4, start_dof + 4] += r2_split
-                self.M[start_dof + 5, start_dof + 5] += r3_split
+                r_app(start_dof + 3); c_app(start_dof + 3); d_app(r1_split)
+                r_app(start_dof + 4); c_app(start_dof + 4); d_app(r2_split)
+                r_app(start_dof + 5); c_app(start_dof + 5); d_app(r3_split)
 
     def _add_mass_from_net_loads(self, pattern_list):
         print("   -> Calculating Net Nodal Forces (Algebraic Sum)...")
@@ -143,7 +161,8 @@ class GlobalMassAssembler:
                 F_accum[start_dof + 2] += load.get("fz", 0.0) * multiplier
 
             elif load["type"] == "member_dist":
-                el = next((e for e in self.dm.elements if e['id'] == load['element_id']), None)
+                                                     
+                el = self.element_by_id.get(load['element_id'])
                 if not el: continue
 
                 idx_i, idx_j = el['node_indices']
@@ -288,7 +307,7 @@ class GlobalMassAssembler:
                 if load.get("l_type", "Force") == "Moment":
                     continue 
                 
-                el = next((e for e in self.dm.elements if e['id'] == load['element_id']), None)
+                el = self.element_by_id.get(load['element_id'])
                 if not el: continue
                 
                 dir_str = str(load.get('dir', 'Gravity')).upper()
@@ -336,15 +355,20 @@ class GlobalMassAssembler:
         print("   -> Converting NET Gravity Forces to Mass...")
         mass_added_count = 0
 
+        r_app = self.M_row.append
+        c_app = self.M_col.append
+        d_app = self.M_data.append
+
         for i in range(2, self.total_dofs, 6):
             Fz_net = F_accum[i]
             
             mass_val = -Fz_net / g
             
             if abs(mass_val) > 1e-8:
-                self.M[i-2, i-2] += mass_val
-                self.M[i-1, i-1] += mass_val
-                self.M[i,   i]   += mass_val
+                                 
+                r_app(i-2); c_app(i-2); d_app(mass_val)
+                r_app(i-1); c_app(i-1); d_app(mass_val)
+                r_app(i);   c_app(i);   d_app(mass_val)
                 mass_added_count += 1
             
         print(f"   -> Added Net Mass to {mass_added_count} nodes.")

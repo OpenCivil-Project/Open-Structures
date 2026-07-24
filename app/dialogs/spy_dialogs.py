@@ -36,6 +36,7 @@ class MemberAnalyzer:
         self.stations = np.linspace(0, self.L_clear, num_stations)
         
         self.P  = np.zeros(num_stations)
+        self.T  = np.zeros(num_stations)
         self.V2 = np.zeros(num_stations)
         self.V3 = np.zeros(num_stations)
         self.M2 = np.zeros(num_stations)
@@ -497,7 +498,8 @@ class MemberAnalyzer:
                         M2_val += pl['F'][2] * dist_x + pl['M'][1]
                         
                 self.P[i] = P_val; self.V2[i] = V2_val; self.V3[i] = V3_val; self.M3[i] = M3_val; self.M2[i] = M2_val
-                
+                self.T[i] = Mx1
+
                 N1 = 1 - 3*xi**2 + 2*xi**3
                 N2 = x_c * (1 - 2*xi + xi**2)
                 N3 = 3*xi**2 - 2*xi**3
@@ -777,7 +779,8 @@ class FBDViewerDialog(QDialog):
                 
         self._nvm_cache = (
             analyzer.stations, analyzer.P, analyzer.V2, analyzer.V3, analyzer.M2, analyzer.M3,
-            analyzer.Defl_2_Rel, analyzer.Defl_3_Rel, analyzer.Defl_2_Abs, analyzer.Defl_3_Abs
+            analyzer.Defl_2_Rel, analyzer.Defl_3_Rel, analyzer.Defl_2_Abs, analyzer.Defl_3_Abs,
+            analyzer.T
         )
 
     def add_nvm_tab(self):
@@ -797,7 +800,7 @@ class FBDViewerDialog(QDialog):
         """
 
         self.nvm_combo = QComboBox()
-        self.nvm_combo.addItems(["Minor Axis (P, V3, M2, Deflection)", "Major Axis (P, V2, M3, Deflection)"])
+        self.nvm_combo.addItems(["Minor Axis (P, V3, M2, Deflection)", "Major Axis (P, V2, M3, Deflection)", "Torsion Axis (P, --, T, --)"])
         self.nvm_combo.setStyleSheet(_combo_style)
         
         self.defl_combo = QComboBox()
@@ -877,7 +880,7 @@ class FBDViewerDialog(QDialog):
 
         self.nvm_fig.subplots_adjust(right=0.95, left=0.1, hspace=0.45)
 
-        stations, P, V2, V3, M2, M3, Defl_2_Rel, Defl_3_Rel, Defl_2_Abs, Defl_3_Abs = self._nvm_cache
+        stations, P, V2, V3, M2, M3, Defl_2_Rel, Defl_3_Rel, Defl_2_Abs, Defl_3_Abs, T = self._nvm_cache
 
         L_scale = getattr(unit_registry, 'length_scale', 1.0)
         def to_F(v): return np.array([unit_registry.to_display_force(x) for x in v])
@@ -893,12 +896,21 @@ class FBDViewerDialog(QDialog):
             shear_lbl = f'Shear Force (V2) [{self.force_unit}]'
             mom_lbl   = f'Bending Moment (M3) [{self.moment_unit}]'
             defl_lbl  = f'{"Absolute" if is_absolute else "Relative"} Deflection (u2) [{self.length_unit}]'
-        else:
+
+        elif idx == 1:
             shear  = to_F(V3);  moment = to_M(M2)
             defl   = to_L(Defl_3_Abs) if is_absolute else to_L(Defl_3_Rel)
             shear_lbl = f'Shear Force (V2) [{self.force_unit}]'
             mom_lbl   = f'Bending Moment (M3) [{self.moment_unit}]'
             defl_lbl  = f'{"Absolute" if is_absolute else "Relative"} Deflection (u3) [{self.length_unit}]'
+
+        else:                                             
+            shear  = np.zeros_like(P)
+            moment = to_M(T)
+            defl   = np.zeros_like(P)
+            shear_lbl = f'Shear Force (--)'
+            mom_lbl   = f'Torsional Moment (Mx) [{self.moment_unit}]'
+            defl_lbl  = f'Twist (--)'
 
         axial  = to_F(P)
         x_disp = stations * L_scale
@@ -991,11 +1003,14 @@ class FBDViewerDialog(QDialog):
         m_val = moment[station_idx]
         d_val = defl[station_idx]
 
+        idx = self.nvm_combo.currentIndex()
+        mom_sym = "T" if idx == 2 else "M"
+
         self.nvm_val_label.setText(
             f"x = {x_val:.3f} {self.length_unit}  │  "
             f"P = {p_val:+.4f} {self.force_unit}  │  "
             f"V = {v_val:+.4f} {self.force_unit}  │  "
-            f"M = {m_val:+.4f} {self.moment_unit}  │  "
+            f"{mom_sym} = {m_val:+.4f} {self.moment_unit}  │  "
             f"δ = {d_val:+.6f} {self.length_unit}"
         )
 

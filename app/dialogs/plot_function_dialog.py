@@ -34,9 +34,10 @@ import pyqtgraph as pg
 
 from core.units import unit_registry, UnitConverter
 from app.ui.theme import apply_dialog_style, COLORS
-from plot_function_sources import (
+from core.solver.LTHA.plot_function_sources import (
     LTHACaseData, PLOT_FUNCTION_TYPES, DOF_LABELS,
     JointResponseSource, ReactionSource, BaseReactionSource, GroundMotionSource,
+    ElementForceSource                                
 )
 
 UNIT_SYSTEMS = [
@@ -173,6 +174,17 @@ class AddPlotFunctionDialog(QDialog):
             if w:
                 w.deleteLater()
 
+    def _make_element_id_row(self):
+        """Element ID field. Can be wired to a 3D picker later if needed."""
+        row = QWidget()
+        row_layout = QHBoxLayout(row)
+        row_layout.setContentsMargins(0, 0, 0, 0)
+
+        self.element_id_edit = QLineEdit()
+        self.element_id_edit.setPlaceholderText("e.g. 1, 5, 12")
+        row_layout.addWidget(self.element_id_edit, 1)
+        return row
+
     def _rebuild_fields(self, type_name):
         self._clear_fields()
 
@@ -216,6 +228,17 @@ class AddPlotFunctionDialog(QDialog):
             directions = self.case_data.directions if self.case_data else ["X", "Y", "Z"]
             self.direction_combo.addItems(directions)
             self.fields_layout.addRow("Direction", self.direction_combo)
+
+        elif type_name == "Element Force":
+            self.fields_layout.addRow("Element ID(s)", self._make_element_id_row())
+            
+            self.station_combo = QComboBox()
+            self.station_combo.addItems(["End I", "End J"])
+            self.fields_layout.addRow("Station", self.station_combo)
+            
+            self.component_combo = QComboBox()
+            self.component_combo.addItems(["P", "V2", "V3", "T", "M2", "M3"])
+            self.fields_layout.addRow("Component", self.component_combo)
 
     def _on_vector_type_changed(self, button):
                                                                             
@@ -273,6 +296,21 @@ class AddPlotFunctionDialog(QDialog):
                 sources.append(GroundMotionSource(
                     direction=self.direction_combo.currentText(), name=base_name
                 ))
+
+            elif type_name == "Element Force":
+                from plot_function_sources import ElementForceSource
+                element_ids = self._parse_joint_ids(self.element_id_edit.text())                         
+                if not element_ids:
+                    raise ValueError("Enter at least one Element ID.")
+                for eid in element_ids:
+                    name = f"{base_name} - {eid}" if (base_name and len(element_ids) > 1) else base_name
+                    sources.append(ElementForceSource(
+                        element_id=eid,
+                        station=self.station_combo.currentText(),
+                        component=self.component_combo.currentText(),
+                        name=name
+                    ))
+
             else:
                 raise ValueError("Unknown function type.")
         except ValueError as e:
@@ -438,6 +476,7 @@ class PlotFunctionDisplayDialog(QDialog):
         "ReactionSource": ("joint_id", "component"),
         "BaseReactionSource": ("component",),
         "GroundMotionSource": ("direction",),
+        "ElementForceSource": ("element_id", "station", "component"),               
     }
 
     def _serialize_functions(self):
@@ -448,6 +487,7 @@ class PlotFunctionDisplayDialog(QDialog):
             "ReactionSource": ReactionSource,
             "BaseReactionSource": BaseReactionSource,
             "GroundMotionSource": GroundMotionSource,
+            "ElementForceSource": ElementForceSource,
         }
         out = []
         for i in range(self.func_list.count()):
@@ -501,6 +541,11 @@ class PlotFunctionDisplayDialog(QDialog):
                     source = BaseReactionSource(component=d["component"], name=d.get("name"))
                 elif kind == "GroundMotionSource":
                     source = GroundMotionSource(direction=d["direction"], name=d.get("name"))
+                elif kind == "ElementForceSource":
+                    source = ElementForceSource(
+                        element_id=d["element_id"], station=d["station"], 
+                        component=d["component"], name=d.get("name")
+                    )
                 else:
                     continue
             except (KeyError, TypeError):
@@ -852,8 +897,19 @@ class PlotFunctionDisplayDialog(QDialog):
         
         self.btn_play.blockSignals(True)
         self.btn_play.setChecked(is_running)
-        self.btn_play.setText("⏸ Pause" if is_running else "▶ Play")
+        self.btn_play.setText("Pause" if is_running else "Play")
         self.btn_play.blockSignals(False)
+        
+        deformed_active = False
+        if hasattr(self.main_window, 'active_canvas') and getattr(self.main_window.active_canvas, 'view_deflected', False):
+            deformed_active = True
+            
+        if not deformed_active:
+            self.btn_play.setEnabled(False)
+            self.btn_play.setToolTip("Playback is only available for Deformed Shape.")
+        else:
+            self.btn_play.setEnabled(self._scrub_sync_available)
+            self.btn_play.setToolTip("")
 
     def _on_unit_changed(self, new_label):
         self.local_units.set_unit_system(new_label)
@@ -972,6 +1028,12 @@ class PlotFunctionDisplayDialog(QDialog):
 
         if isinstance(source, GroundMotionSource):
             return u.to_display_acceleration(values), u.acceleration_unit
+
+        if isinstance(source, ElementForceSource):
+            if source.component in ("P", "V2", "V3"):
+                return u.to_display_force(values), u.force_unit_name
+            else:
+                return values * u.force_scale * u.length_scale, f"{u.force_unit_name}\u00b7{u.length_unit_name}"
 
         return values, ""
 

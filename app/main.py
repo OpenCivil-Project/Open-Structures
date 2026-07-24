@@ -1040,19 +1040,22 @@ class MainWindow(QMainWindow):
 
     def _on_app_state_changed(self, state):
         if state == Qt.ApplicationState.ApplicationInactive:
-                                                                           
+                                                                               
             self._hidden_dialogs = []
             for widget in QApplication.topLevelWidgets():
                 if (isinstance(widget, QDialog) 
                         and widget.isVisible() 
                         and not widget.isModal()):
+                                                              
+                    self._hidden_dialogs.append((widget, widget.geometry()))
                     widget.hide()
-                    self._hidden_dialogs.append(widget)
 
         elif state == Qt.ApplicationState.ApplicationActive:
-                                               
-            for dlg in getattr(self, '_hidden_dialogs', []):
+                                                      
+            for dlg, geom in getattr(self, '_hidden_dialogs', []):
                 if dlg is not None and not dlg.isModal():
+                                                                           
+                    dlg.setGeometry(geom)
                     dlg.show()
             self._hidden_dialogs = []
 
@@ -3472,7 +3475,7 @@ class MainWindow(QMainWindow):
                     dy = max(n.y for n in nodes) - min(n.y for n in nodes)
                     dz = max(n.z for n in nodes) - min(n.z for n in nodes)
                     diag = (dx**2 + dy**2 + dz**2)**0.5
-                    auto_scale = (diag * 0.05 / max_disp) if diag > 1e-6 else (2.0 / max_disp)
+                    auto_scale = (diag * 0.02 / max_disp) if diag > 1e-6 else (2.0 / max_disp)
                 else:
                     auto_scale = 2.0
                 self.canvas.auto_deflection_scale  = auto_scale
@@ -3731,6 +3734,14 @@ class MainWindow(QMainWindow):
             if not hasattr(self, '_last_force_diagram_settings'):
                 self._last_force_diagram_settings = {}
             self._last_force_diagram_settings[self.active_canvas] = settings
+            
+            if not getattr(self, '_is_syncing_forces', False):
+                if not settings.get('is_envelope', True) and settings.get('step_number') is not None:
+                    step_idx = settings['step_number'] - 1
+                    if hasattr(self.active_canvas, 'animation_manager') and getattr(self.active_canvas, 'ltha_mode', False):
+                        self._is_syncing_forces = True
+                        self.active_canvas.animation_manager.scrub_to_step(step_idx)
+                        self._is_syncing_forces = False
                                           
         else:
             self.statusBar().showMessage("No diagram generated. Check that analysis results exist.")
@@ -3987,6 +3998,9 @@ class MainWindow(QMainWindow):
         state_msg = "ON" if is_visible else "OFF"
         contour_msg = f", Contour: {contour_component}" if cvs.contour_active else ""
         self.status.showMessage(f"Deformed Shape: {state_msg} (Scale: {scale_factor}x{contour_msg})")
+        
+        if hasattr(self, '_plot_functions_dlg') and self._plot_functions_dlg and self._plot_functions_dlg.isVisible():
+            self._plot_functions_dlg._sync_play_button_state()
 
     def toggle_animation(self, start, play_sound):
         """Called by DeformedShapeDialog."""
@@ -4041,9 +4055,48 @@ class MainWindow(QMainWindow):
         Called every animation tick in LTHA mode.
         Keeps the scrubber slider and time label in sync with playback.
         """
+                                                                                
         if hasattr(self, '_deformed_dlg') and self._deformed_dlg is not None:
-            self._deformed_dlg.update_scrubber(t_index)
+            try:
+                if self._deformed_dlg.isVisible():
+                    self._deformed_dlg.update_scrubber(t_index)
+            except RuntimeError:
+                self._deformed_dlg = None
+                
+        if getattr(self, '_is_syncing_forces', False):
+            return
+            
+        mgr = getattr(self.active_canvas, 'animation_manager', None)
+        if getattr(mgr, 'is_running', False):
+            return
 
+        cvs = self.active_canvas
+        forces_active = getattr(cvs, 'force_diagram_active', False)
+        last_settings = getattr(self, '_last_force_diagram_settings', {}).get(cvs)
+        
+        if forces_active and last_settings:
+            if not last_settings.get('is_envelope', True):
+                if last_settings.get('step_number') != t_index + 1:
+                    self._is_syncing_forces = True
+                    
+                    last_settings['step_number'] = t_index + 1
+                    
+                    if hasattr(self, 'forces_dialog') and self.forces_dialog:
+                        try:
+                                                                                                    
+                            self.forces_dialog.__class__.last_settings['step_number'] = t_index + 1
+                            
+                            if self.forces_dialog.isVisible():
+                                self.forces_dialog.sb_step.blockSignals(True)
+                                self.forces_dialog.sb_step.setValue(t_index + 1)
+                                self.forces_dialog.sb_step.blockSignals(False)
+                        except RuntimeError:
+                            self.forces_dialog = None
+
+                    self.apply_force_diagrams_from_dialog(last_settings)
+                    
+                    self._is_syncing_forces = False
+                            
     def set_animation_speed(self, speed_factor):
         """Called by speed toggle buttons to change animation speed live."""
         if hasattr(self.active_canvas, 'animation_manager'):
@@ -4264,7 +4317,7 @@ class MainWindow(QMainWindow):
                     auto_scale = 2.0 / max_disp
                 else:
                                                                                                
-                    target_visual_size = diag_length * 0.05
+                    target_visual_size = diag_length * 0.02
                     auto_scale = target_visual_size / max_disp
             else:
                 auto_scale = 2.0

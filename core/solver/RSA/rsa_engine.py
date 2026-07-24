@@ -260,42 +260,39 @@ class RSAEngine:
         progress_callback(f"Performing {modal_comb} Combination...", 85)
 
         if modal_comb == "CQC" and n_modes > 0:
-            shear_total = 0.0
-            mx_total = 0.0
-            my_total = 0.0
-            mz_total = 0.0
+                                                                
+            RHO = np.zeros((n_modes, n_modes))
             for i in range(n_modes):
                 for j in range(n_modes):
-                    rho = self._cqc_rho(per_mode_omega[i], per_mode_omega[j], zeta)
-                    shear_total += per_mode_shear[i] * rho * per_mode_shear[j]
-                    mx_total += per_mode_mx[i] * rho * per_mode_mx[j]        
-                    my_total += per_mode_my[i] * rho * per_mode_my[j]        
-                    mz_total += per_mode_mz[i] * rho * per_mode_mz[j]
-            final_base_shear = np.sqrt(abs(shear_total))
-            final_Mx = np.sqrt(abs(mx_total))        
-            final_My = np.sqrt(abs(my_total))        
-            final_Mz = np.sqrt(abs(mz_total))        
+                    RHO[i, j] = self._cqc_rho(per_mode_omega[i], per_mode_omega[j], zeta)
+
+            v_shear = np.array(per_mode_shear)
+            v_mx = np.array(per_mode_mx); v_my = np.array(per_mode_my); v_mz = np.array(per_mode_mz)
+
+            final_base_shear = np.sqrt(abs(v_shear.T @ RHO @ v_shear))
+            final_Mx = np.sqrt(abs(v_mx.T @ RHO @ v_mx))        
+            final_My = np.sqrt(abs(v_my.T @ RHO @ v_my))        
+            final_Mz = np.sqrt(abs(v_mz.T @ RHO @ v_mz))        
 
             final_displacements = {}
             for nid, vecs in per_mode_u.items():
                 if len(vecs) != n_modes: continue
-                dof_total = np.zeros(6)
-                for i in range(n_modes):
-                    for j in range(n_modes):
-                        rho = self._cqc_rho(per_mode_omega[i], per_mode_omega[j], zeta)
-                        dof_total += vecs[i] * vecs[j] * rho
+                                                                                                                          
+                U_node = np.array(vecs)
+                dof_total = np.einsum('ic,ij,jc->c', U_node, RHO, U_node)
                 final_displacements[nid] = np.sqrt(np.abs(dof_total)).tolist()
 
         else:
+                                
             final_base_shear = np.sqrt(sum(v**2 for v in per_mode_shear))
             final_Mx = np.sqrt(sum(v**2 for v in per_mode_mx))        
             final_My = np.sqrt(sum(v**2 for v in per_mode_my))        
             final_Mz = np.sqrt(sum(v**2 for v in per_mode_mz))        
+
             final_displacements = {}
             for nid, vecs in per_mode_u.items():
-                sq_sum = np.zeros(6)
-                for v in vecs:
-                    sq_sum += v**2
+                U_node = np.array(vecs)
+                sq_sum = np.sum(U_node**2, axis=0)
                 final_displacements[nid] = np.sqrt(sq_sum).tolist()
 
         final_cross_force = np.sqrt(sum(v**2 for v in per_mode_cross_force)) if per_mode_cross_force else 0.0

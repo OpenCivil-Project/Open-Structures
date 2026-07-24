@@ -97,8 +97,12 @@ def run_buckling_analysis(input_json_path, output_json_path, results_path, matri
         progress_callback("Extracting internal forces from static results...", 32)
 
         extractor = ForceExtractor(input_json_path, results_path, matrices_path)
-        KG_full = lil_matrix((dm.total_dofs, dm.total_dofs))
-        
+
+        kg_row = []
+        kg_col = []
+        kg_data = []
+        r_app, c_app, d_app = kg_row.append, kg_col.append, kg_data.append
+
         elements_in_compression = 0
 
         for el in dm.elements:
@@ -155,14 +159,21 @@ def run_buckling_analysis(input_json_path, output_json_path, results_path, matri
             start_i = idx_i * 6
             start_j = idx_j * 6
             
-            KG_full[start_i:start_i+6, start_i:start_i+6] += kg_global[0:6, 0:6]
-            KG_full[start_i:start_i+6, start_j:start_j+6] += kg_global[0:6, 6:12]
-            KG_full[start_j:start_j+6, start_i:start_i+6] += kg_global[6:12, 0:6]
-            KG_full[start_j:start_j+6, start_j:start_j+6] += kg_global[6:12, 6:12]
+            global_indices = [start_i + x for x in range(6)] + [start_j + x for x in range(6)]
+            for r_idx in range(12):
+                for c_idx in range(12):
+                    val = kg_global[r_idx, c_idx]
+                    if val != 0.0:                                                                      
+                        r_app(global_indices[r_idx])
+                        c_app(global_indices[c_idx])
+                        d_app(val)
 
         print(f"      Extracted forces from previous static run.")
         print(f"      Elements in compression: {elements_in_compression}/{len(dm.elements)}")
 
+        from scipy.sparse import coo_matrix
+        KG_coo = coo_matrix((kg_data, (kg_row, kg_col)), shape=(dm.total_dofs, dm.total_dofs))
+        KG_full = KG_coo.tocsc()
         kg_nnz = KG_full.nnz
         elements_in_tension = len(dm.elements) - elements_in_compression
 
