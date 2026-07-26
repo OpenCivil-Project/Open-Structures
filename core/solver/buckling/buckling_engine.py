@@ -21,7 +21,7 @@ from linear_static.data_manager import DataManager
 from linear_static.assembler import GlobalAssembler
 from linear_static.element_forces import ForceExtractor
 from linear_static.error_definitions import SolverException
-from linear_static.element_library import get_geometric_stiffness_matrix, get_rotation_matrix, get_eccentricity_matrix
+from linear_static.element_library import get_geometric_stiffness_matrix, get_rotation_matrix, get_eccentricity_matrix, get_local_stiffness_matrix
 
 def _write_error(out_path, error_code, extra=""):
     ex = SolverException(error_code, extra)
@@ -135,26 +135,68 @@ def run_buckling_analysis(input_json_path, output_json_path, results_path, matri
                 A=sec_props['A'], I22=sec_props['I22'], I33=sec_props['I33']
             )
             
+            releases = el.get('releases', [[False]*6, [False]*6])
+            rel_vec = releases[0] + releases[1]
+            
+            if any(rel_vec):
+                kE_local = get_local_stiffness_matrix(
+                    E=E, G=G, A=sec_props['A'], J=sec_props['J'],
+                    I22=I22, I33=I33, As2=As2, As3=As3, L=L_geom, L_tor=el['L_total']
+                )
+                idx_c = [i for i, r in enumerate(rel_vec) if r]
+                idx_k = [i for i, r in enumerate(rel_vec) if not r]
+                
+                K_cc = kE_local[np.ix_(idx_c, idx_c)]
+                K_cr = kE_local[np.ix_(idx_c, idx_k)]
+                try:
+                    K_cc_inv = np.linalg.inv(K_cc)
+                    T_cr = -K_cc_inv @ K_cr
+                    Tc = np.eye(12)
+                    Tc[idx_c, :] = 0.0
+                    for i_c, orig_c in enumerate(idx_c):
+                        for i_r, orig_r in enumerate(idx_k):
+                            Tc[orig_c, orig_r] = T_cr[i_c, i_r]
+                    kg_local = Tc.T @ kg_local @ Tc
+                except np.linalg.LinAlgError:
+                    pass
+
             idx_i, idx_j = el['node_indices']
             p1 = dm.nodes[idx_i]['coords']
             p2 = dm.nodes[idx_j]['coords']
             
-            offsets_i = el['offsets'][0]
-            offsets_j = el['offsets'][1]
+            global_off_i = np.array(el['offsets'][0])
+            global_off_j = np.array(el['offsets'][1])
             
-            p1_adj = p1 + np.array(offsets_i)
-            p2_adj = p2 + np.array(offsets_j)
+            p1_adj = p1 + global_off_i
+            p2_adj = p2 + global_off_j
             
             R_3x3 = get_rotation_matrix(p1_adj, p2_adj, el.get('beta', 0.0))
             T_rot = np.zeros((12, 12))
             for i in range(4): 
                 T_rot[i*3:(i+1)*3, i*3:(i+1)*3] = R_3x3
                 
-            T_ecc = get_eccentricity_matrix(offsets_i, offsets_j)
+            local_off_i = R_3x3 @ global_off_i
+            local_off_j = R_3x3 @ global_off_j
             
-            T_total = T_ecc @ T_rot
+            rz_factor = el.get('rz_factor', 0.0)
+            ri = el.get('end_off_i', 0.0) * rz_factor
+            rj = el.get('end_off_j', 0.0) * rz_factor
             
-            kg_global = T_total.T @ kg_local @ T_total
+            local_off_i[0] += ri
+            local_off_j[0] -= rj
+            
+            T_ecc = get_eccentricity_matrix(local_off_i, local_off_j)
+            kg_local_node = T_ecc.T @ kg_local @ T_ecc
+            
+            P_c = -N_axial                               
+            if ri > 0:
+                kg_local_node[4, 4] += P_c * ri               
+                kg_local_node[5, 5] += P_c * ri               
+            if rj > 0:
+                kg_local_node[10, 10] += P_c * rj             
+                kg_local_node[11, 11] += P_c * rj             
+                
+            kg_global = T_rot.T @ kg_local_node @ T_rot
             
             start_i = idx_i * 6
             start_j = idx_j * 6

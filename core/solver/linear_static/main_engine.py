@@ -11,7 +11,8 @@ from data_manager import DataManager
 from assembler import GlobalAssembler
 from solver_kernel import LinearSolver
 from result_writer import ResultWriter
-
+from core.units import unit_registry        
+                                     
 def run_linear_static_analysis(input_json_path, output_json_path, target_case_name="DEAD", progress_callback=None):
     """
     Main execution pipeline for the Absolute Linear Static Solver.
@@ -69,8 +70,8 @@ def run_linear_static_analysis(input_json_path, output_json_path, target_case_na
         if active_dia:
             for dname, dnodes in active_dia.items():
                 progress_callback(f"DIAPHRAGM '{dname}'                   = {len(dnodes):>6}  nodes", 8)
-        progress_callback(f"GRAVITATIONAL ACCELERATION           = {'9.80665':>10}", 8)
-        progress_callback(f"UNITS (FORCE, LENGTH)                = {'kN, m':>10}", 8)
+        progress_callback(f"GRAVITATIONAL ACCELERATION           = {'9.80665':>10}  m/s\u00b2  (SI, solver-internal)", 8)
+        progress_callback(f"UNITS (FORCE, LENGTH)                = {unit_registry.current_unit_label:>10}", 8)
         progress_callback("", 8)
 
     except SolverException as se:
@@ -132,7 +133,8 @@ def run_linear_static_analysis(input_json_path, output_json_path, target_case_na
         solver = LinearSolver(K, P, dm, T=assembler.T, kept_dofs=assembler.kept_dofs)
         U, R = solver.solve()
         
-        max_u = max(abs(U)) if len(U) > 0 else 0
+        max_u = max(abs(U)) if len(U) > 0 else 0                                                   
+        max_u_disp = unit_registry.to_display_length(max_u)
         print(f"      Solution Converged.")
         print(f"      Max Displacement: {max_u:.6f} m")
 
@@ -151,7 +153,7 @@ def run_linear_static_analysis(input_json_path, output_json_path, target_case_na
         progress_callback("BASIC STABILITY CHECK:", 60)
         progress_callback(f"  NUMBER OF NEGATIVE STIFFNESS DIAGONALS  = {stability_note}", 60)
         progress_callback("", 60)
-        progress_callback(f"MAX DISPLACEMENT                     = {max_u:>14.6f}  m", 65)
+        progress_callback(f"MAX DISPLACEMENT                     = {max_u_disp:>14.6f}  {unit_registry.length_unit_name}", 65)
         progress_callback("", 65)
         
     except Exception as e:
@@ -196,15 +198,21 @@ def run_linear_static_analysis(input_json_path, output_json_path, target_case_na
         }
         writer.write_results(results, meta_info, assembled_mass=assembled_mass)
 
-        br = results.get("base_reaction", {})
+        br = results.get("base_reaction", {})                                                     
+                                                                                                     
+        fu = unit_registry.force_unit_name
+        mu = f"{fu}\u00b7{unit_registry.length_unit_name}"                
+        f_disp = lambda v: unit_registry.to_display_force(v)                                       
+        m_disp = lambda v: unit_registry.to_display_force(v) * unit_registry.length_scale          
+
         progress_callback(f"CASE: {target_case_name}", 80)
         progress_callback("", 80)
-        progress_callback(f"BASE REACTION  Fx = {br.get('Fx', 0.0):>14.4f}  kN", 85)
-        progress_callback(f"BASE REACTION  Fy = {br.get('Fy', 0.0):>14.4f}  kN", 85)
-        progress_callback(f"BASE REACTION  Fz = {br.get('Fz', 0.0):>14.4f}  kN", 85)
-        progress_callback(f"BASE REACTION  Mx = {br.get('Mx', 0.0):>14.4f}  kN·m", 85)
-        progress_callback(f"BASE REACTION  My = {br.get('My', 0.0):>14.4f}  kN·m", 85)
-        progress_callback(f"BASE REACTION  Mz = {br.get('Mz', 0.0):>14.4f}  kN·m", 85)
+        progress_callback(f"BASE REACTION  Fx = {f_disp(br.get('Fx', 0.0)):>14.4f}  {fu}", 85)
+        progress_callback(f"BASE REACTION  Fy = {f_disp(br.get('Fy', 0.0)):>14.4f}  {fu}", 85)
+        progress_callback(f"BASE REACTION  Fz = {f_disp(br.get('Fz', 0.0)):>14.4f}  {fu}", 85)
+        progress_callback(f"BASE REACTION  Mx = {m_disp(br.get('Mx', 0.0)):>14.4f}  {mu}", 85)
+        progress_callback(f"BASE REACTION  My = {m_disp(br.get('My', 0.0)):>14.4f}  {mu}", 85)
+        progress_callback(f"BASE REACTION  Mz = {m_disp(br.get('Mz', 0.0)):>14.4f}  {mu}", 85)
         progress_callback("", 90)
         progress_callback("Writing results to disk...", 95)
         progress_callback("", 95)

@@ -15,6 +15,17 @@ NOTICES = [
 
 RELEASE_NOTES = [
     {
+        "version": "v0.7.85",
+        "date": "July 26, 2026",
+        "items": [
+            ("fix", "Geometric Stiffness (K_G) Moment Releases — implemented exact static condensation to eliminate zero-energy phantom buckling modes."),
+            ("fix", "Rigid Zone P-Delta Correction — injected exact rotational overturning stiffness (windshield wiper effect) for asymmetric end offsets."),
+            ("validated", "LTHA Base Reactions (Fy/Fz/Mx under single-direction excitation) — confirmed via per-node force inspection that near-zero global Fy/Fz/Mx values under X-only ground motion are genuine overturning/rocking cancellation (large, real, opposite-signed forces at individual supports summing to ~zero), not a computation error. No code change required."),
+            ("fix", "Joint Reaction Output Filter — filtered out internal rigid diaphragm constraint forces from the output tables to strictly report true external ground reactions (fixed supports and springs)."),
+            ("validated", "Link Element Boundary Conditions — confirmed 1-joint link reactions evaluate perfectly through the global matrix, utilizing automated phantom nodes to safely bypass internal constraint noise."),
+        ]
+    },
+    {
         "version": "v0.7.80",
         "date": "June 17, 2026",
         "items": [
@@ -53,7 +64,7 @@ RELEASE_NOTES = [
         "date": "April 2026",
         "items": [
             ("new", "Embedded CLI terminal with bidirectional GUI sync"),
-            ("new", "Parametric Python API (import opencivil as oc)"),
+            ("new", "Parametric Python API (import opencivil as oc (Beta))"),
             ("new", "Multi-instance window architecture"),
             ("new", "Analysis progress dialog with callback-based solver integration"),
             ("fix", "PyInstaller packaging fixes"),

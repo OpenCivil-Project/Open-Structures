@@ -143,6 +143,7 @@ class SolverWorker(QThread):
                         if c_type == "Response Spectrum":
                             engine = RSAEngine(modal_output_path, temp_model.__dict__)
                             shear_results, disp_results, summary_items = [], [], []
+                            reac_results = []
                             rsa_detailed_tables = {}
                             fx_results, fy_results, fz_results = [], [], []
                             mx_results, my_results, mz_results = [], [], []
@@ -167,6 +168,9 @@ class SolverWorker(QThread):
                                         
                                         shear_results.append(res_dict["base_shear_coeff"])
                                         disp_results.append(res_dict["displacements"])
+                                        
+                                        if "reactions_max" in res_dict:
+                                            reac_results.append(res_dict["reactions_max"])
                                         
                                         if "detailed_table" in res_dict: 
                                             rsa_detailed_tables[direction] = res_dict["detailed_table"]
@@ -217,6 +221,19 @@ class SolverWorker(QThread):
                                                 combined_dofs = np.sqrt(combined_dofs)
                                             final_displacements[nid] = combined_dofs.tolist()
 
+                                    final_reactions = {}
+                                    if reac_results:
+                                        ref_reacs = reac_results[0]
+                                        for nid in ref_reacs.keys():
+                                            combined_dofs = np.zeros(6)
+                                            for r_dict in reac_results:
+                                                if nid in r_dict:
+                                                    vals = np.array(r_dict[nid])
+                                                    combined_dofs += vals**2 if method == "SRSS" else np.abs(vals)
+                                            if method == "SRSS":
+                                                combined_dofs = np.sqrt(combined_dofs)
+                                            final_reactions[nid] = combined_dofs.tolist()
+
                                     full_data = {
                                         "status": "SUCCESS",
                                         "info": {"type": "Response Spectrum", "case_name": base_case_name},
@@ -224,6 +241,8 @@ class SolverWorker(QThread):
                                         "base_shear_coeff": final_base_shear,
                                         "displacements": final_displacements,
                                         "base_reaction": {"Fx": final_Fx, "Fy": final_Fy, "Fz": final_Fz, "Mx": final_Mx, "My": final_My, "Mz": final_Mz},
+                                        "reactions_max": final_reactions,
+                                        "restrained_nodes": list(final_reactions.keys()),
                                         "rsa_detailed": rsa_detailed_tables,
                                         "rsa_summary": summary_items
                                     }
@@ -495,6 +514,7 @@ class SolverWorker(QThread):
                     
                     shear_results = [] 
                     disp_results = []
+                    reac_results = []
                     rsa_detailed_tables = {} 
                     summary_items = []
                                                                 
@@ -506,6 +526,7 @@ class SolverWorker(QThread):
                     
                     shear_results = [] 
                     disp_results = []
+                    reac_results = []
                     rsa_detailed_tables = {} 
                     summary_items = []
 
@@ -546,6 +567,9 @@ class SolverWorker(QThread):
 
                                 shear_results.append(res_dict["base_shear_coeff"])
                                 disp_results.append(res_dict["displacements"])
+                                
+                                if "reactions_max" in res_dict:
+                                    reac_results.append(res_dict["reactions_max"])
                                 
                                 if "detailed_table" in res_dict:
                                     rsa_detailed_tables[direction] = res_dict["detailed_table"]
@@ -605,6 +629,19 @@ class SolverWorker(QThread):
                                         
                                     final_displacements[nid] = combined_dofs.tolist()
 
+                            final_reactions = {}
+                            if reac_results:
+                                ref_reacs = reac_results[0]
+                                for nid in ref_reacs.keys():
+                                    combined_dofs = np.zeros(6)
+                                    for r_dict in reac_results:
+                                        if nid in r_dict:
+                                            vals = np.array(r_dict[nid])
+                                            combined_dofs += vals**2 if method == "SRSS" else np.abs(vals)
+                                    if method == "SRSS":
+                                        combined_dofs = np.sqrt(combined_dofs)
+                                    final_reactions[nid] = combined_dofs.tolist()
+
                             try:
                                 with open(self.output_path, 'r') as f:
                                     full_data = json.load(f)
@@ -632,6 +669,8 @@ class SolverWorker(QThread):
                             }
                             full_data["rsa_detailed"] = rsa_detailed_tables
                             full_data["rsa_summary"] = summary_items
+                            full_data["reactions_max"] = final_reactions
+                            full_data["restrained_nodes"] = list(final_reactions.keys())
                             
                             with open(self.output_path, 'w') as f:
                                 json.dump(full_data, f, indent=4)

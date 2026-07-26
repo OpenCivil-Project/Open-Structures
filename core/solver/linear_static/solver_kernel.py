@@ -183,24 +183,40 @@ class LinearSolver:
             idx = node['idx'] * 6
             coords = node['coords']            
             
-            disp = self.U_full[idx : idx+6].tolist()
-            reac = self.Reactions[idx : idx+6].tolist()
+            disp = self.U_full[idx : idx+6]
+            reac = self.Reactions[idx : idx+6]
             
-            results["displacements"][n_id] = disp
-            results["reactions"][n_id] = reac
+            spring_force = np.zeros(6)
+            has_spring = node.get('spring_matrix') is not None
             
-            if any(node['restraints']):
-                fx, fy, fz, mx, my, mz = reac
+            if has_spring:
+                                                                    
+                K_spring = node['spring_matrix']
+                spring_force = -(K_spring @ disp)
                 
-                sum_fx += fx
-                sum_fy += fy
-                sum_fz += fz
-                
-                x, y, z = coords
-                
-                sum_mx += mx + (y * fz - z * fy)
-                sum_my += my + (z * fx - x * fz)
-                sum_mz += mz + (x * fy - y * fx)
+            output_reac = np.zeros(6)
+            for i in range(6):
+                if node['restraints'][i]:
+                                                                                   
+                    output_reac[i] = reac[i]
+                else:
+                                                                              
+                    output_reac[i] = spring_force[i]
+            
+            results["displacements"][n_id] = disp.tolist()
+            results["reactions"][n_id] = output_reac.tolist()
+            
+            fx, fy, fz, mx, my, mz = output_reac
+            
+            sum_fx += fx
+            sum_fy += fy
+            sum_fz += fz
+            
+            x, y, z = coords
+            
+            sum_mx += mx + (y * fz - z * fy)
+            sum_my += my + (z * fx - x * fz)
+            sum_mz += mz + (x * fy - y * fx)
 
         results["base_reaction"] = {
             "Fx": sum_fx, "Fy": sum_fy, "Fz": sum_fz,
@@ -208,7 +224,7 @@ class LinearSolver:
         }
 
         results["restrained_nodes"] = [
-            str(n['id']) for n in self.dm.nodes if any(n['restraints'])
+            str(n['id']) for n in self.dm.nodes if any(n['restraints']) or n.get('spring_matrix') is not None
         ]
 
-        return results
+        return results  

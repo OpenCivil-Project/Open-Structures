@@ -94,6 +94,11 @@ class UserSeismicDialog(QDialog):
         layout.addLayout(bottom_layout)
 
         btn_layout = QHBoxLayout()
+        
+        self.btn_clear_ghosts = QPushButton("Clear Unassigned/Deleted")
+        self.btn_clear_ghosts.clicked.connect(self.clear_ghost_loads)
+        btn_layout.addWidget(self.btn_clear_ghosts)
+        
         btn_layout.addStretch()
         btn_ok = QPushButton("OK")
         btn_ok.setObjectName("primary")
@@ -171,7 +176,30 @@ class UserSeismicDialog(QDialog):
             self.table.setItem(row, 1, QTableWidgetItem(f"{fx_disp:.4g}"))
             self.table.setItem(row, 2, QTableWidgetItem(f"{fy_disp:.4g}"))
             self.table.setItem(row, 3, QTableWidgetItem(f"{mz_disp:.4g}"))
+
+    def clear_ghost_loads(self):
+        """Removes saved loads for diaphragms that are deleted or unassigned."""
+                                                          
+        active_diaphs = set()
+        for node in self.model.nodes.values():
+            d_name = getattr(node, 'diaphragm_name', None)
+            if d_name: active_diaphs.add(d_name)
+        
+        defined_diaphs = set(self.model.constraints.keys())
+        
+        keys_to_remove = []
+        for dia_name in self.seismic_data.diaphragm_loads.keys():
+            is_deleted = dia_name not in defined_diaphs
+            is_unassigned = dia_name not in active_diaphs
             
+            if is_deleted or is_unassigned:
+                keys_to_remove.append(dia_name)
+                
+        for k in keys_to_remove:
+            del self.seismic_data.diaphragm_loads[k]
+            
+        self.populate_table()
+        
     def _on_unit_changed(self):
         """Live-updates the table values when the user toggles a dropdown."""
         old_f_scale = self._f_scale

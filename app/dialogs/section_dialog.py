@@ -806,7 +806,7 @@ class SectionManagerDialog(QDialog):
         self.btn_add = QPushButton("Add New Property...")
         self.btn_add.clicked.connect(self.add_section)
         
-        self.btn_import = QPushButton("Import Section...")
+        self.btn_import = QPushButton("Import AISC Steel Section...")
         self.btn_import.clicked.connect(self.import_aisc_section)
         self.btn_import.setStyleSheet("background-color: #e0f0ff;")
         

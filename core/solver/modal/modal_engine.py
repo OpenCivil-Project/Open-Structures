@@ -190,6 +190,7 @@ def run_modal_analysis(input_json_path, output_json_path, target_case_name="MODA
         "status": "SUCCESS",
         "info": {"type": "Modal Analysis"},
         "mode_shapes": {},
+        "mode_reactions": {},
         "tables": {
             "periods": [],
             "participation_mass": [],
@@ -347,6 +348,34 @@ def run_modal_analysis(input_json_path, output_json_path, target_case_name="MODA
             shape_data[nid] = node_dofs
             
         results["mode_shapes"][f"Mode {i+1}"] = shape_data
+
+        react_full = K_full.dot(phi_full)
+
+        react_data = {}
+        for node in dm.nodes:
+            nid = str(node['id'])
+            idx = node['idx'] * 6
+
+            disp = phi_full[idx: idx+6]
+            restraints = node['restraints']
+            has_spring = node.get('spring_matrix') is not None
+
+            if not (any(restraints) or has_spring):
+                continue                                                                          
+
+            spring_force = np.zeros(6)
+            if has_spring:
+                K_spring = node['spring_matrix']
+                spring_force = -(K_spring @ disp)
+
+            node_react_residual = react_full[idx: idx+6]
+            output_reac = np.zeros(6)
+            for k in range(6):
+                output_reac[k] = node_react_residual[k] if restraints[k] else spring_force[k]
+
+            react_data[nid] = output_reac.tolist()
+
+        results["mode_reactions"][f"Mode {i+1}"] = react_data
 
     try:
         progress_callback("Computing rotational participation...", 88)

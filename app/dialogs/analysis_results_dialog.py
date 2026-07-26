@@ -476,20 +476,21 @@ class AnalysisResultsDialog(QDialog):
         if "tables" in self.results and "participation_factors" in self.results["tables"]:
             pf_data = []
             import math
-            sqrt_sm = math.sqrt(sm) if sm > 0 else 1.0
+            
+            sqrt_sf = math.sqrt(sf) if sf > 0 else 1.0
 
             for row in self.results["tables"]["participation_factors"]:
                 pf_data.append({
                     "mode": row.get("mode", 0),
                     "T": row.get("T", 0.0),
-                    "Ux": row.get("Ux_disp", 0.0) * sqrt_sm, 
-                    "Uy": row.get("Uy_disp", 0.0) * sqrt_sm, 
-                    "Uz": row.get("Uz_disp", 0.0) * sqrt_sm,
-                    "Rx": row.get("Rx_disp", 0.0) * sqrt_sm * sl, 
-                    "Ry": row.get("Ry_disp", 0.0) * sqrt_sm * sl, 
-                    "Rz": row.get("Rz_disp", 0.0) * sqrt_sm * sl,
-                    "ModalMass": row.get("ModalMass_disp", 1.0),                                   
-                    "ModalStiff": row.get("ModalStiff", 0.0)
+                    "Ux": row.get("Ux_disp", 0.0) * sqrt_sf * sl, 
+                    "Uy": row.get("Uy_disp", 0.0) * sqrt_sf * sl, 
+                    "Uz": row.get("Uz_disp", 0.0) * sqrt_sf * sl,
+                    "Rx": row.get("Rx_disp", 0.0) * sqrt_sf * sl, 
+                    "Ry": row.get("Ry_disp", 0.0) * sqrt_sf * sl, 
+                    "Rz": row.get("Rz_disp", 0.0) * sqrt_sf * sl,
+                    "ModalMass": row.get("ModalMass_disp", 1.0) * sl,                                   
+                    "ModalStiff": row.get("ModalStiff", 0.0) * sl
                 })
 
             self.tab_pf = self.create_table(

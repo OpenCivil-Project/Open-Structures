@@ -90,7 +90,7 @@ class TSC2018SpectrumGenerator:
         t_curr = 0.2
         while t_curr <= 2.01:
                                                                              
-            if t_curr > key_points[2] + 0.001: 
+            if t_curr > key_points[2] + 0.1: 
                 final_list.append(t_curr)
             t_curr += 0.2
             

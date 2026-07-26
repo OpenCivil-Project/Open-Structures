@@ -1361,7 +1361,7 @@ class MCanvas3D(gl.GLViewWidget):
             sp = gl.GLScatterPlotItem(
                 pos=np.array(sel_pos),
                 size=size,
-                color=(1, 1, 0, 1),
+                color=(1, 0, 0, 1),
                 pxMode=True
             )
             sp.setGLOptions({
@@ -4347,7 +4347,9 @@ class MCanvas3D(gl.GLViewWidget):
             
             if self.drag_start:
                 drag_dist = (event.pos() - self.drag_start).manhattanLength()
-                
+
+                self._last_selection_was_click = (drag_dist <= 5)
+
                 if drag_dist > 5: 
                     self.process_box_selection(self.drag_start, event.pos())
                 else:

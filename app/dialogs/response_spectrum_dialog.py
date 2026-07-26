@@ -236,7 +236,7 @@ class ResponseSpectrumDialog(QDialog):
         
         for r, (t, sa) in enumerate(zip(periods, accels)):
                                                              
-            self.table.setItem(r, 0, QTableWidgetItem(f"{t:.3f}"))
+            self.table.setItem(r, 0, QTableWidgetItem(f"{t:.4f}"))
             self.table.setItem(r, 1, QTableWidgetItem(f"{sa:.4f}"))
             
 if __name__ == "__main__":

@@ -139,9 +139,9 @@ def build_boundary_visuals(nodes_dict, links_dict=None, link_props=None, scale=1
         line_colors.append(color); line_colors.append(color)
 
     def add_axis_spring(base_pt, axis_vec, color, is_rotational=False, attach_pt=None):
-        length = (10 * scale) if is_rotational else (22 * scale)
+        length = (22 * scale) if is_rotational else (22 * scale)
         
-        radius = (2.5 * scale) if is_rotational else (3.0 * scale) 
+        radius = (3 * scale) if is_rotational else (3.0 * scale) 
         
         end_pt = base_pt + axis_vec * length
         start_pt = attach_pt if attach_pt is not None else base_pt
@@ -233,8 +233,8 @@ def build_boundary_visuals(nodes_dict, links_dict=None, link_props=None, scale=1
                 
                 if abs(k[2, 2]) > 1e-6: add_axis_spring(base_pt, np.array([0.0, 0.0, -1.0]), c_z, attach_pt=struct_pt)
                 
-                if abs(k[3, 3]) > 1e-6: add_axis_spring(base_pt, np.array([1.0, 0.0, 0.0]), c_rot, is_rotational=True, attach_pt=struct_pt)
-                if abs(k[4, 4]) > 1e-6: add_axis_spring(base_pt, np.array([0.0, 1.0, 0.0]), c_rot, is_rotational=True, attach_pt=struct_pt)
+                if abs(k[3, 3]) > 1e-6: add_axis_spring(base_pt, np.array([-1.0, 0.0, 0.0]), c_rot, is_rotational=True, attach_pt=struct_pt)
+                if abs(k[4, 4]) > 1e-6: add_axis_spring(base_pt, np.array([0.0, -1.0, 0.0]), c_rot, is_rotational=True, attach_pt=struct_pt)
                 if abs(k[5, 5]) > 1e-6: add_axis_spring(base_pt, np.array([0.0, 0.0, 1.0]), c_rot, is_rotational=True, attach_pt=struct_pt)
 
     if links_dict is None: links_dict = {}

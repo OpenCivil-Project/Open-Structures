@@ -149,6 +149,13 @@ def run_ltha_analysis(input_path, modal_results_path, model_data, output_path, c
     else:
         R_modal = np.zeros((0, n_modes))
 
+    z_rows = [k for k, (nid, dof) in enumerate(restrained_node_dof) if dof == 2]
+    print(f"DEBUG: {len(z_rows)} Z-restrained rows found")
+    if z_rows:
+        row0 = z_rows[0]
+        print(f"DEBUG: K_restrained_rows nonzero cols for first Z row: {K_restrained_rows[row0, :].nnz}")
+        print(f"DEBUG: R_modal for that Z row, modes 12-16: {R_modal[row0, 12:16]}")
+
     Q_global = np.zeros((n_steps, n_modes))
     V_global = np.zeros((n_steps, n_modes))
     A_global = np.zeros((n_steps, n_modes))
@@ -207,6 +214,9 @@ def run_ltha_analysis(input_path, modal_results_path, model_data, output_path, c
             else:
                 ratio, raw_g = pm.get("Uz", 0.0), pm.get("Gamma_z", 0.0)
                 Gamma = np.sign(raw_g) * np.sqrt(ratio * m_total_z) if m_total_z > 0 else 0.0
+
+            if i in [12, 13, 14, 15]:
+                print(f"DEBUG Mode {i+1}: ratio={ratio!r}, raw_g={raw_g!r}, Gamma={Gamma!r}")
 
             accel_eff = Gamma * accel_scaled
             q_n, v_n, a_n = exact_analytical_sdof(accel_eff, dt, T, zeta, m=1.0)
@@ -320,6 +330,18 @@ def run_ltha_analysis(input_path, modal_results_path, model_data, output_path, c
         base_reaction_history[:, 3] += mx + (y * fz - z * fy)
         base_reaction_history[:, 4] += my + (z * fx - x * fz)
         base_reaction_history[:, 5] += mz + (x * fy - y * fx)
+
+    z_forces_per_node = {nid: hist[:, 2] for nid, hist in R_history.items()}
+
+    peak_step = np.argmax(np.abs(base_reaction_history[:, 0]))
+
+    signed_sum = sum(arr[peak_step] for arr in z_forces_per_node.values())
+    abs_sum    = sum(abs(arr[peak_step]) for arr in z_forces_per_node.values())
+
+    print(f"DEBUG @ step {peak_step} (peak FX):")
+    print(f"  Signed sum of Fz across all base nodes: {signed_sum:.4f} kN")
+    print(f"  Sum of |Fz| across all base nodes:       {abs_sum:.4f} kN")
+    print(f"  Individual node Fz values: {[f'{v[peak_step]:.2f}' for v in z_forces_per_node.values()]}")
 
     br_min = np.min(base_reaction_history, axis=0)
     br_max = np.max(base_reaction_history, axis=0)

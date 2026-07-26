@@ -45,6 +45,7 @@ from app.dialogs.draw_beam_column_dialog import DrawBeamColumnDialog
 from app.dialogs.view_options_dialog import ViewOptionsDialog
 from app.dialogs.graphics_dialog import GraphicsOptionsDialog
 from core.units import unit_registry
+from core.model_s2k import export_sap2000
 from app.dialogs.assign_frame_point_load_dialog import AssignFramePointLoadDialog
 from app.dialogs.analysis_dialog import AnalysisDialog
 from app.solver_worker import SolverWorker
@@ -324,7 +325,7 @@ class MainWindow(QMainWindow):
         self.action_save.setShortcut("Ctrl+S")
         self.action_save.triggered.connect(self.on_save_model)
         file_menu.addAction(self.action_save)
-        
+
         file_menu.addSeparator()
 
         self.menu_edit = menubar.addMenu("Edit")
@@ -493,15 +494,19 @@ class MainWindow(QMainWindow):
                 border-radius: 4px;
                 padding: 3px;
             }
-            QToolButton:hover {
+            QToolButton:hover:!disabled {
                 background-color: #e9ecef; /* Soft grey on hover */
             }
-            QToolButton:checked {
+            QToolButton:checked:!disabled {
                 background-color: #d6e4f0; /* Professional light blue when toggled ON */
                 border: 1px solid #b3cce6;
             }
-            QToolButton:pressed {
+            QToolButton:pressed:!disabled {
                 background-color: #ced4da;
+            }
+            QToolButton:disabled {
+                background-color: transparent;
+                border: none;
             }
         """)
 
@@ -701,7 +706,7 @@ class MainWindow(QMainWindow):
         self.draw_action_group = QActionGroup(self)
         self.draw_action_group.setExclusive(True)
 
-        self.act_select = QAction(qta.icon('fa5s.mouse-pointer', color='#6c757d'), "Select Mode", self)
+        self.act_select = QAction(qta.icon('fa5s.mouse-pointer', color='#6c757d', disabled_color='#cccccc'), "Select Mode", self)
         self.act_select.setToolTip("Select Objects (Esc)")
         self.act_select.setCheckable(True)
         self.act_select.setChecked(True)                
@@ -711,35 +716,35 @@ class MainWindow(QMainWindow):
 
         self.sidebar.addSeparator()
 
-        self.act_draw_frame = QAction(qta.icon('fa5s.pencil-alt', color='#6c757d'), "Draw Frame", self)
+        self.act_draw_frame = QAction(qta.icon('fa5s.pencil-alt', color='#6c757d', disabled_color='#cccccc'), "Draw Frame", self)
         self.act_draw_frame.setToolTip("Draw Frame/Cable")
         self.act_draw_frame.setCheckable(True)
         self.act_draw_frame.triggered.connect(self.on_draw_frame)
         self.draw_action_group.addAction(self.act_draw_frame)
         self.sidebar.addAction(self.act_draw_frame)
 
-        self.act_quick_beam = QAction(qta.icon('fa5s.i-cursor', color='#6c757d'), "Quick Beam/Column", self)
+        self.act_quick_beam = QAction(qta.icon('fa5s.i-cursor', color='#6c757d', disabled_color='#cccccc'), "Quick Beam/Column", self)
         self.act_quick_beam.setToolTip("Quick Draw Beam/Column")
         self.act_quick_beam.setCheckable(True)
         self.act_quick_beam.triggered.connect(self.on_draw_beam_column)
         self.draw_action_group.addAction(self.act_quick_beam)
         self.sidebar.addAction(self.act_quick_beam)
 
-        self.act_quick_brace = QAction(qta.icon('fa5s.times', color='#6c757d'), "Quick Cross Brace", self)
+        self.act_quick_brace = QAction(qta.icon('fa5s.times', color='#6c757d', disabled_color='#cccccc'), "Quick Cross Brace", self)
         self.act_quick_brace.setToolTip("Quick Draw Cross Brace")
         self.act_quick_brace.setCheckable(True)
         self.act_quick_brace.triggered.connect(self.on_draw_cross_brace)
         self.draw_action_group.addAction(self.act_quick_brace)
         self.sidebar.addAction(self.act_quick_brace)
 
-        self.act_draw_link2 = QAction(qta.icon('fa5s.expand-alt', color='#6c757d'), "Draw 2-Joint Link", self)
+        self.act_draw_link2 = QAction(qta.icon('fa5s.expand-alt', color='#6c757d', disabled_color='#cccccc'), "Draw 2-Joint Link", self)
         self.act_draw_link2.setToolTip("Draw 2-Joint Link")
         self.act_draw_link2.setCheckable(True)
         self.act_draw_link2.triggered.connect(self.on_draw_link2)
         self.draw_action_group.addAction(self.act_draw_link2)
         self.sidebar.addAction(self.act_draw_link2)
 
-        self.act_draw_link1 = QAction(qta.icon('fa5s.thumbtack', color='#6c757d'), "Draw 1-Joint Link", self)
+        self.act_draw_link1 = QAction(qta.icon('fa5s.thumbtack', color='#6c757d', disabled_color='#cccccc'), "Draw 1-Joint Link", self)
         self.act_draw_link1.setToolTip("Draw 1-Joint (Grounded) Link")
         self.act_draw_link1.setCheckable(True)
         self.act_draw_link1.triggered.connect(self.on_draw_link1)
@@ -1435,6 +1440,16 @@ class MainWindow(QMainWindow):
         self.res_action.setEnabled(not editable)
         self.menu_analyze.setEnabled(editable or self.model is not None)
 
+        if hasattr(self, 'sidebar'):
+            self.sidebar.setEnabled(editable)
+            
+            if hasattr(self, 'draw_action_group'):
+                self.draw_action_group.setEnabled(editable)
+                
+            if not editable:
+                                                                                                
+                self._on_sidebar_select_mode()
+
         if hasattr(self, 'btn_deform'):
             self.btn_deform.setEnabled(not editable)
         if hasattr(self, 'btn_play_anim'):
@@ -1610,8 +1625,8 @@ class MainWindow(QMainWindow):
             if cvs is not None:
                 if hasattr(cvs, 'clear_force_diagrams'):
                     cvs.clear_force_diagrams()
-                if hasattr(self.active_canvas, 'clear_reaction_diagram'):
-                    self.active_canvas.clear_reaction_diagram()
+                if hasattr(cvs, 'clear_reaction_diagram'):
+                    cvs.clear_reaction_diagram(self.model)
                 cvs.view_deflected = False
                 cvs.anim_factor = 0.0
                 cvs.invalidate_animation_cache()
@@ -1757,6 +1772,67 @@ class MainWindow(QMainWindow):
             dlg.stage(f"Error: {str(e)[:80]}")
             dlg.finish(success=False)
             QMessageBox.critical(self, "Save Error", str(e))
+            return False
+
+    def on_export_sap2000(self):
+        if not self.model:
+            return False
+
+        from PyQt6.QtWidgets import QInputDialog
+
+        sap_version_map = {
+            "24": "24.0.0",
+            "23": "23.0.0",
+            "22": "22.2.0",
+            "21": "21.2.0",
+            "20": "20.2.0",
+        }
+        version_choice, ok = QInputDialog.getItem(
+            self, "Export to SAP2000", "SAP2000 version:", list(sap_version_map.keys()), 0, False
+        )
+        if not ok or not version_choice:
+            return False
+        version = sap_version_map[version_choice]
+
+        filename, selected_filter = QFileDialog.getSaveFileName(
+            self, "Export to SAP2000", "",
+            "SAP2000 Text File (*.s2k);;SAP2000 Interactive Database (*.$2k)"
+        )
+        if not filename:
+            return False
+
+        ext = ".$2k" if "$2k" in selected_filter else ".s2k"
+        if not (filename.endswith(".s2k") or filename.endswith(".$2k")):
+            filename += ext
+
+        dlg = ModelIODialog("Exporting to SAP2000...", filename, parent=self)
+        dlg.show()
+        QApplication.processEvents()
+
+        try:
+            dlg.stage("Writing SAP2000 tables...")
+            QApplication.processEvents()
+
+            export_sap2000(
+                self.model,
+                filepath=filename,
+                sap_version=version,
+                target_units=unit_registry.current_unit_label,
+                project_info={"Model Name": getattr(self.model, "name", "")},
+            )
+
+            dlg.stage("Finalizing...")
+            self.status.showMessage(f"Exported to SAP2000: {filename}")
+            QApplication.processEvents()
+
+            dlg.finish(success=True)
+            return True
+
+        except Exception as e:
+            dlg.keep_open()
+            dlg.stage(f"Error: {str(e)[:80]}")
+            dlg.finish(success=False)
+            QMessageBox.critical(self, "Export Error", str(e))
             return False
 
     def on_open_model(self):
@@ -2262,7 +2338,16 @@ class MainWindow(QMainWindow):
                     self.status.showMessage(f"2-Joint Link Drawn. Next Start Node selected...")
             return                
         
-        if not self.draw_mode_active: return
+        if not self.draw_mode_active:
+                                                                              
+            n_selected = (
+                len(self.selected_node_ids) + len(self.selected_ids)
+                + len(getattr(self, 'selected_area_ids', []))
+                + len(getattr(self, 'selected_link_ids', []))
+            )
+            if n_selected == 1:
+                self.on_mouse_moved(x, y, z)
+            return
         clicked_node = self.model.get_or_create_node(x, y, z)
 
         if getattr(self, 'draw_link1_mode_active', False):
@@ -2444,7 +2529,7 @@ class MainWindow(QMainWindow):
                 if hasattr(self, 'solver_output_path') and self.solver_output_path:
                     base = self.solver_output_path.replace("_results.json", "_matrices.json")
                     from app.dialogs.spy_dialogs import MatrixSpyDialog
-                    dlg = MatrixSpyDialog(eid, base, self)
+                    dlg = MatrixSpyDialog(eid, self.model, base, self)
                     dlg.exec()
             spy_action.triggered.connect(show_spy)
 
@@ -2498,6 +2583,69 @@ class MainWindow(QMainWindow):
             self.canvas.draw_model(self.model)
             if getattr(self, 'canvas2_visible', False):
                 self.canvas2.draw_model(self.model, list(self.selected_ids), list(self.selected_node_ids))
+
+    def _update_coord_for_single_selection(self):
+        """Update the status-bar coordinate after a selection.
+
+        A single click always shows a coordinate — even if it happened to
+        sweep in a node plus its connected elements, since that's really
+        just one clicked point. A deliberate drag-box selection only shows
+        a coordinate if it nets exactly one item; genuine multi-selects
+        leave the label alone.
+        """
+        if not self.model:
+            return
+
+        was_click = getattr(self.active_canvas, '_last_selection_was_click', False)
+
+        n_nodes  = len(self.selected_node_ids)
+        n_frames = len(self.selected_ids)
+        n_areas  = len(getattr(self, 'selected_area_ids', []))
+        n_links  = len(getattr(self, 'selected_link_ids', []))
+        total    = n_nodes + n_frames + n_areas + n_links
+
+        if not was_click and total != 1:
+            return
+        if total == 0:
+            return
+
+        try:
+            if n_nodes > 0:
+                n = self.model.nodes[self.selected_node_ids[0]]
+                x, y, z = n.x, n.y, n.z
+            elif n_frames > 0:
+                el = self.model.elements[self.selected_ids[0]]
+                x = (el.node_i.x + el.node_j.x) / 2.0
+                y = (el.node_i.y + el.node_j.y) / 2.0
+                z = (el.node_i.z + el.node_j.z) / 2.0
+            elif n_areas > 0:
+                ae = self.model.area_elements[self.selected_area_ids[0]]
+                xs = [nd.x for nd in ae.nodes]
+                ys = [nd.y for nd in ae.nodes]
+                zs = [nd.z for nd in ae.nodes]
+                x, y, z = sum(xs) / len(xs), sum(ys) / len(ys), sum(zs) / len(zs)
+            else:
+                link = self.model.links[self.selected_link_ids[0]]
+                pts = []
+                for nid in link['nodes']:
+                    nd = self.model.nodes.get(nid)
+                    if nd is None:
+                        try:
+                            nd = self.model.nodes.get(int(nid))
+                        except (TypeError, ValueError):
+                            nd = None
+                    if nd is None:
+                        nd = self.model.nodes.get(str(nid))
+                    if nd:
+                        pts.append((nd.x, nd.y, nd.z))
+                if not pts:
+                    return
+                x = sum(p[0] for p in pts) / len(pts)
+                y = sum(p[1] for p in pts) / len(pts)
+                z = sum(p[2] for p in pts) / len(pts)
+            self.on_mouse_moved(x, y, z)
+        except (KeyError, AttributeError, IndexError, TypeError):
+            pass
 
     def _handle_box_selection_canvas2(self, node_ids, elem_ids, link_ids, is_additive, is_deselect):
         """Route canvas2 box-selection only when canvas2 is the active canvas."""
@@ -2559,7 +2707,9 @@ class MainWindow(QMainWindow):
 
         for cvs in [self.canvas, self.canvas2]:
             cvs.update_selection_overlay(self.selected_ids, self.selected_node_ids, self.selected_area_ids, getattr(self, 'selected_link_ids', []))
-            
+
+        self._update_coord_for_single_selection()
+
     def handle_box_selection(self, node_ids, elem_ids, link_ids, is_additive, is_deselect):
         if not hasattr(self, 'selected_link_ids'): 
             self.selected_link_ids = []
@@ -2585,6 +2735,8 @@ class MainWindow(QMainWindow):
                 cvs.update_selection_overlay(self.selected_ids, self.selected_node_ids, getattr(self, 'selected_area_ids', []), self.selected_link_ids)
 
         self.status.showMessage(f"Selected: {len(self.selected_ids)} Frames, {len(self.selected_node_ids)} Joints, {len(self.selected_link_ids)} Links")
+
+        self._update_coord_for_single_selection()
 
         modifiers = QApplication.keyboardModifiers()
         is_focus_requested = (modifiers == Qt.KeyboardModifier.AltModifier)
@@ -3765,8 +3917,13 @@ class MainWindow(QMainWindow):
                                                              
         if hasattr(self.canvas, 'clear_force_diagrams'):
             self.canvas.clear_force_diagrams()
-        if hasattr(self.active_canvas, 'clear_reaction_diagram'):
-            self.active_canvas.clear_reaction_diagram()
+        if hasattr(self, 'canvas2') and hasattr(self.canvas2, 'clear_force_diagrams'):
+            self.canvas2.clear_force_diagrams()
+            
+        if hasattr(self.canvas, 'clear_reaction_diagram'):
+            self.canvas.clear_reaction_diagram(self.model)
+        if hasattr(self, 'canvas2') and hasattr(self.canvas2, 'clear_reaction_diagram'):
+            self.canvas2.clear_reaction_diagram(self.model)
         self.canvas.view_deflected = False  
 
         self.view_shadow = True

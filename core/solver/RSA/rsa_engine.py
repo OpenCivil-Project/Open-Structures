@@ -70,16 +70,24 @@ class RSAEngine:
         per_mode_shear = []          
         per_mode_omega = []          
         per_mode_u     = {}
+        per_mode_reac  = {}
         per_mode_cross_force = []      
 
         per_mode_mx = []
         per_mode_my = []
-        per_mode_mz = []     
+        per_mode_mz = []
+        per_mode_fz = []     
 
         if mode_shapes:
             first_mode = list(mode_shapes.values())[0]
             for nid in first_mode.keys():
                 per_mode_u[nid] = []
+
+        mode_reactions = modal_data.get("mode_reactions", {})
+        if mode_reactions:
+            first_mode_r = list(mode_reactions.values())[0]
+            for nid in first_mode_r.keys():
+                per_mode_reac[nid] = []
 
         if zeta == 0.05:
             eta = 1.0
@@ -198,6 +206,7 @@ class RSAEngine:
             mode_mx = 0.0
             mode_my = 0.0
             mode_mz = 0.0
+            mode_fz = 0.0
 
             if omega > 0 and mode_shapes:
                 scale_factor = gamma * sd
@@ -206,9 +215,13 @@ class RSAEngine:
                 mode_key = f"Mode {i+1}"
                 if mode_key in mode_shapes:
                     shape_data = mode_shapes[mode_key]
+                    reac_this_mode = mode_reactions.get(mode_key, {})
                     for nid, dofs in shape_data.items():
                         if nid in per_mode_u:
                             per_mode_u[nid].append(np.array(dofs) * scale_factor)
+
+                        if nid in reac_this_mode and nid in per_mode_reac:
+                            per_mode_reac[nid].append(np.array(reac_this_mode[nid]) * scale_factor)
 
                         real_nid = int(nid) if str(nid).isdigit() else nid
                         node = self.model_data.get("nodes", {}).get(real_nid)
@@ -244,16 +257,22 @@ class RSAEngine:
                         mode_mx += M_xx + (Y * F_z) - (Z * F_y)
                         mode_my += M_yy + (Z * F_x) - (X * F_z)
                         mode_mz += M_zz + (X * F_y) - (Y * F_x)
+                        mode_fz += F_z
                 else:
                     for nid in per_mode_u:
                         per_mode_u[nid].append(np.zeros(6))
+                    for nid in per_mode_reac:
+                        per_mode_reac[nid].append(np.zeros(6))
             else:
                 for nid in per_mode_u:
                     per_mode_u[nid].append(np.zeros(6))
+                for nid in per_mode_reac:
+                    per_mode_reac[nid].append(np.zeros(6))
                     
             per_mode_mx.append(mode_mx)
             per_mode_my.append(mode_my)
             per_mode_mz.append(mode_mz)
+            per_mode_fz.append(mode_fz)
 
         n_modes = len(per_mode_shear)
 
@@ -268,11 +287,13 @@ class RSAEngine:
 
             v_shear = np.array(per_mode_shear)
             v_mx = np.array(per_mode_mx); v_my = np.array(per_mode_my); v_mz = np.array(per_mode_mz)
+            v_fz = np.array(per_mode_fz)
 
             final_base_shear = np.sqrt(abs(v_shear.T @ RHO @ v_shear))
             final_Mx = np.sqrt(abs(v_mx.T @ RHO @ v_mx))        
             final_My = np.sqrt(abs(v_my.T @ RHO @ v_my))        
             final_Mz = np.sqrt(abs(v_mz.T @ RHO @ v_mz))        
+            final_Fz = np.sqrt(abs(v_fz.T @ RHO @ v_fz))        
 
             final_displacements = {}
             for nid, vecs in per_mode_u.items():
@@ -282,18 +303,32 @@ class RSAEngine:
                 dof_total = np.einsum('ic,ij,jc->c', U_node, RHO, U_node)
                 final_displacements[nid] = np.sqrt(np.abs(dof_total)).tolist()
 
+            final_reactions = {}
+            for nid, vecs in per_mode_reac.items():
+                if len(vecs) != n_modes: continue
+                R_node = np.array(vecs)
+                dof_total = np.einsum('ic,ij,jc->c', R_node, RHO, R_node)
+                final_reactions[nid] = np.sqrt(np.abs(dof_total)).tolist()
+
         else:
                                 
             final_base_shear = np.sqrt(sum(v**2 for v in per_mode_shear))
             final_Mx = np.sqrt(sum(v**2 for v in per_mode_mx))        
             final_My = np.sqrt(sum(v**2 for v in per_mode_my))        
             final_Mz = np.sqrt(sum(v**2 for v in per_mode_mz))        
+            final_Fz = np.sqrt(sum(v**2 for v in per_mode_fz))        
 
             final_displacements = {}
             for nid, vecs in per_mode_u.items():
                 U_node = np.array(vecs)
                 sq_sum = np.sum(U_node**2, axis=0)
                 final_displacements[nid] = np.sqrt(sq_sum).tolist()
+
+            final_reactions = {}
+            for nid, vecs in per_mode_reac.items():
+                R_node = np.array(vecs)
+                sq_sum = np.sum(R_node**2, axis=0)
+                final_reactions[nid] = np.sqrt(sq_sum).tolist()
 
         final_cross_force = np.sqrt(sum(v**2 for v in per_mode_cross_force)) if per_mode_cross_force else 0.0
 
@@ -372,12 +407,14 @@ class RSAEngine:
             "base_reaction": {
                 "Fx": base_shear_force if direction == "X" else final_cross_force,
                 "Fy": final_cross_force if direction == "X" else (base_shear_force if direction == "Y" else 0.0),
-                "Fz": base_shear_force if direction == "Z" else 0.0,
+                "Fz": base_shear_force if direction == "Z" else final_Fz,
                 "Mx": final_Mx,            
                 "My": final_My,            
                 "Mz": final_Mz             
             },
             "displacements": final_displacements,
+            "reactions_max": final_reactions,                                              
+            "restrained_nodes": list(final_reactions.keys()),
             "rsa_info": {                          
                 "method": modal_comb,              
                 "zeta": zeta,                      

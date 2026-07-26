@@ -130,23 +130,17 @@ class GlobalMassAssembler:
 
         if not active_patterns: return
 
-        raw_patterns = self.dm.raw.get("load_patterns", []) 
+        original_patterns = self.dm.load_case.get('patterns', [])
         
-        for pat_name, multiplier in active_patterns.items():
-            sw_mult = 0.0
+        if 'loads' in self.dm.raw:
+            self.dm.raw['loads'] = [L for L in self.dm.raw['loads'] if not L.get('_is_sw', False)]
             
-            for rp in raw_patterns:
-                if rp.get("name") == pat_name:
-                    sw_mult = rp.get("sw_mult", 0.0) 
-                    break
-            
-            total_sw_factor = multiplier * sw_mult
-            if total_sw_factor > 1e-6:
-                print(f"   -> Load Pattern '{pat_name}' has self-weight ({sw_mult}). Adding to mass matrix...")
-                self._add_element_self_mass(scale_factor=total_sw_factor)
-                
+        self.dm.load_case['patterns'] = pattern_list
+        self.dm._generate_self_weight()
+        
+        self.dm.load_case['patterns'] = original_patterns
+                                                                   
         for load in self.dm.raw.get("loads", []):
-            if load.get('_is_sw', False): continue
             pat = load["pattern"]
             if pat not in active_patterns: continue
             
