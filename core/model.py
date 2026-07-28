@@ -100,6 +100,8 @@ class StructuralModel:
     def __init__(self, name="New Model"):
         self.name = name
 
+        self.active_dofs = [True, True, True, True, True, True]
+
         self.graphics_settings = {}                        
         
         self.nodes = {}                        
@@ -381,7 +383,8 @@ class StructuralModel:
         data = {
             "info": {
                 "name": self.name,
-                "units": unit_registry.current_unit_label 
+                "units": unit_registry.current_unit_label,
+                "active_dofs": getattr(self, 'active_dofs', [True, True, True, True, True, True])                    
             },
             "graphics": self.graphics_settings,
             "load_cases": [],
@@ -736,6 +739,8 @@ class StructuralModel:
         _p("Loading project info & grid...")
         self.name = data["info"]["name"]
         self.saved_unit_system = data["info"].get("units", "kN, m, C")
+
+        self.active_dofs = data["info"].get("active_dofs", [True, True, True, True, True, True])
         
         grid_data = data["grid"]
 

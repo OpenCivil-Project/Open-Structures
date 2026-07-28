@@ -5,6 +5,30 @@ import json
 import numpy as np
 import copy
 from PyQt6.QtCore import QThread, pyqtSignal
+import os
+import glob
+
+def purge_old_project_files(input_path):
+    """
+    Wipes old analysis files to prevent ghost load cases in UI dialogs.
+    Only targets files sharing the exact base name of the current .mf file.
+    """
+    base_path = input_path.replace(".mf", "")
+    
+    search_patterns = [
+        f"{base_path}_*_results.json",
+        f"{base_path}_*_matrices.json"
+    ]
+    
+    for pattern in search_patterns:
+        for file_to_delete in glob.glob(pattern):
+            try:
+                os.remove(file_to_delete)
+                print(f"Purged old result: {file_to_delete}")
+            except PermissionError:
+                print(f"Warning: Could not delete {file_to_delete}. It might be open in Excel or a text editor.")
+            except Exception as e:
+                print(f"Warning: Error deleting {file_to_delete}: {e}")
 
 current_dir = os.path.dirname(os.path.abspath(__file__))
 root_dir = os.path.dirname(current_dir)
@@ -36,6 +60,9 @@ class SolverWorker(QThread):
                 from progress import make_callback
                 cb = make_callback(self.signal_progress.emit)
                 cb("Worker: Initializing Global Batch Runner...", 5)
+
+                cb("Worker: Deleting old analysis files...", 5)
+                purge_old_project_files(self.input_path)
                 
                 temp_model = StructuralModel("Temp")
                 try:
@@ -403,6 +430,9 @@ class SolverWorker(QThread):
                                     
                                     is_rsa = res.get("info", {}).get("type") in ["Response Spectrum", "Response Spectrum Combined"]
                                     if is_rsa: has_rsa = True
+
+                                    if is_rsa and "reactions_max" in res:
+                                        res["reactions"] = res.pop("reactions_max")
                                     
                                     for key, value in res.items():
                                         if key in math_keys:

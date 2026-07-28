@@ -320,7 +320,9 @@ class AnalysisResultsDialog(QDialog):
 
         case_name = self.results.get("info", {}).get("case_name", "\u2014")
 
-        if "displacements" in self.results:
+        is_ltha = "displacements_max" in self.results and "displacements_min" in self.results
+
+        if "displacements" in self.results and not is_ltha:
             disp_data = []
             for nid, dofs in sorted(self.results["displacements"].items(), key=lambda x: (int(str(x[0]).split('~')[0]), str(x[0])) if str(x[0]).split('~')[0].isdigit() else (float('inf'), str(x[0]))):
                 disp_data.append({
@@ -342,35 +344,46 @@ class AnalysisResultsDialog(QDialog):
                 f"U1 ({u_len})", f"U2 ({u_len})", f"U3 ({u_len})",
                 "R1 (rad)",     "R2 (rad)",     "R3 (rad)"
             ]
-            is_ltha = "displacements_min_abs" in self.results
             self.tab_displacements = self.create_table(
                 disp_headers, disp_data,
                 ["joint", "case", "u1", "u2", "u3", "r1", "r2", "r3"]
             )
-            self.tabs.addTab(self.tab_displacements, "Joint Displacements (Max |U|)" if is_ltha else "Joint Displacements")
+            self.tabs.addTab(self.tab_displacements, "Joint Displacements")
 
         disp_headers = ["Joint", "Load Case", f"U1 ({u_len})", f"U2 ({u_len})", f"U3 ({u_len})", "R1 (rad)", "R2 (rad)", "R3 (rad)"]
-        for key, tab_name in [("displacements_max", "Joint Displacements (Max)"),
-                              ("displacements_min", "Joint Displacements (Min)"),
-                              ("displacements_abs", "Joint Displacements (Abs Max)")]:
+        for key, tab_name in [("displacements_max", "Joint Displacements (Rel, Max)"),
+                              ("displacements_min", "Joint Displacements (Rel, Min)"),
+                              ("displacements_abs", "Joint Displacements (Rel, Abs Max)")]:
             if key in self.results:
                 self._add_envelope_table(self.results[key], case_name, col_scales=[sl, sl, sl, 1.0, 1.0, 1.0], headers=disp_headers, tab_title=tab_name)
 
         u_vel = f"{u_len}/s"
         vel_headers = ["Joint", "Load Case", f"V1 ({u_vel})", f"V2 ({u_vel})", f"V3 ({u_vel})", "RV1 (rad/s)", "RV2 (rad/s)", "RV3 (rad/s)"]
-        for key, tab_name in [("velocities_max", "Joint Velocities (Max)"),
-                              ("velocities_min", "Joint Velocities (Min)"),
-                              ("velocities_abs", "Joint Velocities (Abs Max)")]:
+        for key, tab_name in [("velocities_max", "Joint Velocities (Total, Max)"),
+                              ("velocities_min", "Joint Velocities (Total, Min)"),
+                              ("velocities_abs", "Joint Velocities (Total, Abs Max)")]:
+            if key in self.results:
+                self._add_envelope_table(self.results[key], case_name, col_scales=[sl, sl, sl, 1.0, 1.0, 1.0], headers=vel_headers, tab_title=tab_name)
+
+        for key, tab_name in [("velocities_rel_max", "Joint Velocities (Rel, Max)"),
+                              ("velocities_rel_min", "Joint Velocities (Rel, Min)"),
+                              ("velocities_rel_abs", "Joint Velocities (Rel, Abs Max)")]:
             if key in self.results:
                 self._add_envelope_table(self.results[key], case_name, col_scales=[sl, sl, sl, 1.0, 1.0, 1.0], headers=vel_headers, tab_title=tab_name)
 
         acc_headers = ["Joint", "Load Case", f"A1 ({u_acc})", f"A2 ({u_acc})", f"A3 ({u_acc})", "RA1 (rad/s\u00b2)", "RA2 (rad/s\u00b2)", "RA3 (rad/s\u00b2)"]
-        for key, tab_name in [("accelerations_max", "Joint Accelerations (Max)"),
-                              ("accelerations_min", "Joint Accelerations (Min)"),
-                              ("accelerations_abs", "Joint Accelerations (Abs Max)")]:
+        for key, tab_name in [("accelerations_max", "Joint Accelerations (Total, Max)"),
+                              ("accelerations_min", "Joint Accelerations (Total, Min)"),
+                              ("accelerations_abs", "Joint Accelerations (Total, Abs Max)")]:
             if key in self.results:
                 self._add_envelope_table(self.results[key], case_name, col_scales=[sl, sl, sl, 1.0, 1.0, 1.0], headers=acc_headers, tab_title=tab_name)
 
+        for key, tab_name in [("accelerations_rel_max", "Joint Accelerations (Rel, Max)"),
+                              ("accelerations_rel_min", "Joint Accelerations (Rel, Min)"),
+                              ("accelerations_rel_abs", "Joint Accelerations (Rel, Abs Max)")]:
+            if key in self.results:
+                self._add_envelope_table(self.results[key], case_name, col_scales=[sl, sl, sl, 1.0, 1.0, 1.0], headers=acc_headers, tab_title=tab_name)
+                
         reac_headers = ["Joint", "Load Case", f"F1 ({u_force})", f"F2 ({u_force})", f"F3 ({u_force})", f"M1 ({u_force}-{u_len})", f"M2 ({u_force}-{u_len})", f"M3 ({u_force}-{u_len})"]
         
         restrained_nodes = set(self.results.get("restrained_nodes", []))

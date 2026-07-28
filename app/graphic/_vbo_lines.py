@@ -125,3 +125,84 @@ class LineMixin:
         glBindBuffer(GL_ARRAY_BUFFER, self.line_vbo)
         glBufferSubData(GL_ARRAY_BUFFER, 0, self.persistent_line_buffer.nbytes, self.persistent_line_buffer)
         glBindVertexArray(0)
+
+    def upload_spring_geometry(self, vertices, colors):
+        if not self.is_initialized:
+            return
+
+        if len(vertices) == 0:
+            self.spring_vertex_count = 0
+            self.persistent_spring_buffer = None
+            return
+
+        displacements = np.zeros((len(vertices), 3), dtype=np.float32)
+        interleaved_data = np.hstack((vertices, displacements, colors)).astype(np.float32).flatten()
+        self.spring_vertex_count = len(vertices)
+        self.persistent_spring_buffer = np.zeros(len(vertices) * 10, dtype=np.float32)
+
+        glBindVertexArray(self.spring_vao)
+        glBindBuffer(GL_ARRAY_BUFFER, self.spring_vbo)
+        glBufferData(GL_ARRAY_BUFFER, interleaved_data.nbytes, interleaved_data, GL_DYNAMIC_DRAW)
+
+        stride = 10 * 4
+        glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, stride, ctypes.c_void_p(0))
+        glEnableVertexAttribArray(0)
+        glVertexAttribPointer(1, 4, GL_FLOAT, GL_FALSE, stride, ctypes.c_void_p(24))
+        glEnableVertexAttribArray(1)
+        glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, stride, ctypes.c_void_p(12))
+        glEnableVertexAttribArray(2)
+        glBindVertexArray(0)
+
+    def update_spring_geometry_inplace(self, vertices, colors):
+        """Zero-allocation per-frame update when vertex count is unchanged
+        (the normal LTHA-playback case, since spring/link topology is fixed
+        for a given model). Falls back to a full re-upload if the count
+        changes (structure edit, or first frame)."""
+        if not self.is_initialized or len(vertices) == 0:
+            return
+
+        if self.persistent_spring_buffer is not None and len(vertices) == self.spring_vertex_count:
+            vertices_flat = vertices.flatten() if vertices.ndim > 1 else vertices
+            colors_flat = colors.flatten() if colors.ndim > 1 else colors
+            self.fast_update_springs(vertices_flat, colors_flat)
+            return
+
+        self.upload_spring_geometry(vertices, colors)
+
+    def fast_update_springs(self, vertices_flat, colors_flat):
+        if not self.is_initialized or self.persistent_spring_buffer is None or len(vertices_flat) == 0:
+            return
+
+        self.persistent_spring_buffer[0::10] = vertices_flat[0::3]
+        self.persistent_spring_buffer[1::10] = vertices_flat[1::3]
+        self.persistent_spring_buffer[2::10] = vertices_flat[2::3]
+
+        self.persistent_spring_buffer[6::10] = colors_flat[0::4]
+        self.persistent_spring_buffer[7::10] = colors_flat[1::4]
+        self.persistent_spring_buffer[8::10] = colors_flat[2::4]
+        self.persistent_spring_buffer[9::10] = colors_flat[3::4]
+
+        glBindVertexArray(self.spring_vao)
+        glBindBuffer(GL_ARRAY_BUFFER, self.spring_vbo)
+        glBufferSubData(GL_ARRAY_BUFFER, 0, self.persistent_spring_buffer.nbytes, self.persistent_spring_buffer)
+        glBindVertexArray(0)
+
+    def draw_springs(self, view_matrix, proj_matrix, line_width=1.75, alpha_mult=1.0):
+        """Always a plain single-pass draw -- no silhouette double-pass,
+        no anim_factor displacement (spring vertex positions already carry
+        the current displaced coordinates baked in from the engine)."""
+        if not self.is_initialized or self.spring_vertex_count == 0:
+            return
+        glUseProgram(self.shader_program)
+        glUniformMatrix4fv(self.loc_view, 1, GL_FALSE, view_matrix)
+        glUniformMatrix4fv(self.loc_proj, 1, GL_FALSE, proj_matrix)
+        glUniform1f(self.loc_alpha, alpha_mult)
+        glUniform1f(self.loc_anim, 0.0)
+        glEnable(GL_DEPTH_TEST)
+        glEnable(GL_BLEND)
+        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA)
+        glLineWidth(float(line_width))
+        glBindVertexArray(self.spring_vao)
+        glDrawArrays(GL_LINES, 0, self.spring_vertex_count)
+        glBindVertexArray(0)
+        glUseProgram(0)

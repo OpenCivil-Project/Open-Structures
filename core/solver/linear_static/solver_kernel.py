@@ -60,7 +60,8 @@ class LinearSolver:
             restraints = node['restraints']                           
             
             for i in range(6):
-                if restraints[i]:                  
+                                                                                           
+                if restraints[i] or not self.dm.active_dofs[i]:                  
                     is_free[start_idx + i] = False
 
         U_imp, has_imposed = self._build_imposed_displacements(is_free)
@@ -80,6 +81,8 @@ class LinearSolver:
 
         if K_ff.shape[0] == 0:
             print("Warning: Structure is fully constrained (0 free DOFs).")
+            self.num_free_dofs = 0
+            self.K_ff_nnz = 0
             self.U_full[~is_free] = U_imp[~is_free]                                    
             self.Reactions = self.K.dot(self.U_full) - self.P
             return self.U_full, self.Reactions
@@ -135,7 +138,9 @@ class LinearSolver:
         K_ff = K_red[is_free_red, :][:, is_free_red]
         P_f = P_red_eff[is_free_red]                                
 
-        if K_ff.shape[0] == 0:
+        self.num_free_dofs = K_ff.shape[0]
+
+        if self.num_free_dofs == 0:
             print("Warning: Structure is fully constrained (0 free DOFs).")
             U_red = np.zeros(K_red.shape[0])
             U_red[~is_free_red] = U_imp_red[~is_free_red]

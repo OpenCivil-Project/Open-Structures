@@ -232,12 +232,16 @@ def run_ltha_analysis(input_path, modal_results_path, model_data, output_path, c
     U_history = {}
     V_history = {}
     A_history = {}
+    V_abs_history = {}
+    A_abs_history = {}
 
     for nid in node_ids:
         n_idx = node_id_to_idx[nid] * 6
         U_history[nid] = U_full_hist[:, n_idx: n_idx + 6]
-        V_history[nid] = V_full_hist[:, n_idx: n_idx + 6] + total_ground_v[nid]
-        A_history[nid] = A_full_hist[:, n_idx: n_idx + 6] + total_ground_a[nid]
+        V_history[nid] = V_full_hist[:, n_idx: n_idx + 6]
+        A_history[nid] = A_full_hist[:, n_idx: n_idx + 6]
+        V_abs_history[nid] = V_history[nid] + total_ground_v[nid]
+        A_abs_history[nid] = A_history[nid] + total_ground_a[nid]
 
     R_history = {nid: np.zeros((n_steps, 6)) for nid in restrained_node_ids}
     if has_restraints:
@@ -306,9 +310,11 @@ def run_ltha_analysis(input_path, modal_results_path, model_data, output_path, c
     peak_displacements = {nid: np.max(np.abs(hist), axis=0).tolist() for nid, hist in U_history.items()}
 
     displacements_min, displacements_max, displacements_abs = _get_envelopes(U_history)
-    velocities_min, velocities_max, velocities_abs = _get_envelopes(V_history)
-    accelerations_min, accelerations_max, accelerations_abs = _get_envelopes(A_history)
-
+    velocities_rel_min, velocities_rel_max, velocities_rel_abs = _get_envelopes(V_history)
+    accelerations_rel_min, accelerations_rel_max, accelerations_rel_abs = _get_envelopes(A_history)
+    velocities_min, velocities_max, velocities_abs = _get_envelopes(V_abs_history)
+    accelerations_min, accelerations_max, accelerations_abs = _get_envelopes(A_abs_history)
+    
     if has_restraints:
         reactions_min, reactions_max, reactions_abs = _get_envelopes(R_history)
     else:
@@ -389,9 +395,15 @@ def run_ltha_analysis(input_path, modal_results_path, model_data, output_path, c
         "velocities_min":         velocities_min,
         "velocities_max":         velocities_max,
         "velocities_abs":         velocities_abs,
+        "velocities_rel_min":     velocities_rel_min,
+        "velocities_rel_max":     velocities_rel_max,
+        "velocities_rel_abs":     velocities_rel_abs,
         "accelerations_min":      accelerations_min,
         "accelerations_max":      accelerations_max,
         "accelerations_abs":      accelerations_abs,
+        "accelerations_rel_min":  accelerations_rel_min,
+        "accelerations_rel_max":  accelerations_rel_max,
+        "accelerations_rel_abs":  accelerations_rel_abs,
         "restrained_nodes":       restrained_node_ids,
         "reactions_min":          reactions_min,
         "reactions_max":          reactions_max,

@@ -14,7 +14,7 @@ from core.properties import RectangularSection, CircularSection, TrapezoidalSect
 from PyQt6.QtWidgets import QLabel        
 from graphic.vbo_engine import VBORenderManager, VectorizedLTHAEngine                               
 from graphic.sdf_text import SDFTextBuilder
-from graphic._vbo_supports import build_boundary_visuals
+from graphic._vbo_supports import build_boundary_visuals, build_ltha_spring_plates
 from core.ForceComputationWorker import ForceComputationWorker
 
 class MCanvas3D(gl.GLViewWidget):
@@ -119,6 +119,7 @@ class MCanvas3D(gl.GLViewWidget):
         self.ltha_dt = 0.01
         self.ltha_mode = False                                            
         self.ltha_highlight = None  
+        self._selection_ltha_live = False
 
         self.force_diagram_active = False
 
@@ -1003,6 +1004,74 @@ class MCanvas3D(gl.GLViewWidget):
         self._rebuild_selection_overlay()
         self.update()
 
+    def _get_active_displacements(self):
+        """
+        Returns (lookup_fn, is_ltha) where lookup_fn(nid) -> [dx,dy,dz,rx,ry,rz]
+        or None.
+
+        Selection overlays used to always read model.results["displacements"]
+        -- the static peak/envelope -- even while an LTHA history was loaded
+        and playing/paused at some other timestep. That's a different data
+        source than the one driving the vibrating ghost structure itself
+        (ltha_tensor, sliced at ltha_current_step), so a selection made
+        mid-playback or while paused would render at the peak position
+        instead of the actual current timestep.
+
+        NOTE: this deliberately does NOT key off self.ltha_mode. ltha_mode
+        just means "an LTHA history is loaded in memory" -- it stays True
+        forever once playback has started, even after the results dialog
+        switches its case combo over to a static envelope/mode shape. What
+        we actually need here is "is the thing on screen right now the live
+        timestep or a static case", which is a different question -- that's
+        what self._selection_ltha_live tracks, set explicitly by whoever
+        owns the results-case combo (see set_selection_ltha_live()).
+
+        This only ever gets called for however many nodes/elements are
+        selected (selection changes, not every playback frame), so there's
+        no need to vectorize or cache across the whole model -- a plain
+        per-node dict/tensor lookup is already effectively instant regardless
+        of structure size.
+        """
+        ltha_active = (getattr(self, '_selection_ltha_live', False)
+                       and getattr(self, 'ltha_tensor', None) is not None
+                       and getattr(self, 'ltha_node_map', None) is not None)
+
+        if ltha_active:
+            t = getattr(self, 'ltha_current_step', 0)
+            node_map = self.ltha_node_map
+            tensor = self.ltha_tensor
+
+            def lookup(nid):
+                idx = node_map.get(str(nid))
+                if idx is None:
+                    return None
+                return tensor[idx, t, :]
+
+            return lookup, True
+
+        model = self.current_model
+        disp_dict = (model.results.get("displacements", {})
+                     if (model is not None and getattr(model, 'results', None)) else {})
+
+        def lookup(nid):
+            return disp_dict.get(str(nid))
+
+        return lookup, False
+
+    def set_selection_ltha_live(self, active):
+        """
+        Called by whoever owns the results-case combo (e.g.
+        NodeResultsDialog.on_case_changed) whenever the displayed case
+        switches between the live LTHA timestep and a static case
+        (envelope, modal, buckling). Tells _get_active_displacements()
+        which source selection overlays should actually read from right
+        now -- independent of whether ltha_mode (an LTHA history being
+        loaded at all) happens to still be True.
+        """
+        self._selection_ltha_live = bool(active)
+        self._rebuild_selection_overlay()
+        self.update()
+
     def _rebuild_selection_overlay(self):
         """Dispatches to wireframe or extruded overlay builder, then nodes."""
         if self.view_extruded:
@@ -1047,12 +1116,12 @@ class MCanvas3D(gl.GLViewWidget):
         sel_color = np.array([1.0, 1.0, 0.0, 1.0])
         width = self.display_config.get("line_width", 2.0)
 
-        can_deflect = (self.view_deflected and
-                       hasattr(model, 'has_results') and
-                       model.has_results and
-                       model.results is not None)
+        lookup, is_ltha = self._get_active_displacements()
 
-        displacements = model.results.get("displacements", {}) if can_deflect else {}
+        can_deflect = (self.view_deflected and
+                       (is_ltha or (hasattr(model, 'has_results') and
+                                    model.has_results and
+                                    model.results is not None)))
 
         if can_deflect:
             curved_pos = []
@@ -1069,37 +1138,46 @@ class MCanvas3D(gl.GLViewWidget):
                 p1 = np.array([n1.x, n1.y, n1.z])
                 p2 = np.array([n2.x, n2.y, n2.z])
                 
-                res_i = displacements.get(str(n1.id))
-                res_j = displacements.get(str(n2.id))
+                res_i = lookup(n1.id)
+                res_j = lookup(n2.id)
                 
-                if res_i and res_j:
-                    if eid not in self.deflection_cache:
-                        v1_orig, v2_orig, v3_orig = self._get_consistent_axes(el)
+                if res_i is not None and res_j is not None:
+                    v1_orig, v2_orig, v3_orig = self._get_consistent_axes(el)
 
-                        curve_data = get_deflected_shape(
+                    if is_ltha:
+                                                                           
+                        curve_data_full = get_deflected_shape(
                             [n1.x, n1.y, n1.z], [n2.x, n2.y, n2.z],
                             res_i, res_j, v1_orig, v2_orig, v3_orig,
                             scale=self.deflection_scale, num_points=11
                         )
-                        self.deflection_cache[eid] = {
-                            'curve_data': curve_data,
-                            'p1_orig': p1.copy(),
-                            'p2_orig': p2.copy()
-                        }
-                    
-                    cached = self.deflection_cache[eid]
-                    curve_data_full = cached['curve_data']
-                    p1_orig = cached['p1_orig']
-                    p2_orig = cached['p2_orig']
+                        curve_pts = np.array([cd[0] for cd in curve_data_full], dtype=np.float64)
+                    else:
+                        if eid not in self.deflection_cache:
+                            curve_data = get_deflected_shape(
+                                [n1.x, n1.y, n1.z], [n2.x, n2.y, n2.z],
+                                res_i, res_j, v1_orig, v2_orig, v3_orig,
+                                scale=self.deflection_scale, num_points=11
+                            )
+                            self.deflection_cache[eid] = {
+                                'curve_data': curve_data,
+                                'p1_orig': p1.copy(),
+                                'p2_orig': p2.copy()
+                            }
 
-                    p1_flex, p2_flex = p1_orig, p2_orig
+                        cached = self.deflection_cache[eid]
+                        curve_data_full = cached['curve_data']
+                        p1_orig = cached['p1_orig']
+                        p2_orig = cached['p2_orig']
 
-                    K = len(curve_data_full)
-                    pos_full_arr = np.array([cd[0] for cd in curve_data_full], dtype=np.float64)
-                    s_arr = (np.arange(K) / (K - 1))[:, None] if K > 1 else np.zeros((K, 1))
-                    pos_orig_arr = p1_flex + s_arr * (p2_flex - p1_flex)
-                    curve_pts = pos_orig_arr + (pos_full_arr - pos_orig_arr) * self.anim_factor
-                                                                                         
+                        p1_flex, p2_flex = p1_orig, p2_orig
+
+                        K = len(curve_data_full)
+                        pos_full_arr = np.array([cd[0] for cd in curve_data_full], dtype=np.float64)
+                        s_arr = (np.arange(K) / (K - 1))[:, None] if K > 1 else np.zeros((K, 1))
+                        pos_orig_arr = p1_flex + s_arr * (p2_flex - p1_flex)
+                        curve_pts = pos_orig_arr + (pos_full_arr - pos_orig_arr) * self.anim_factor
+
                     dash, gap = 0.4, 0.25
                     dist_accum, on = 0.0, True
                     for k in range(len(curve_pts) - 1):
@@ -1211,12 +1289,12 @@ class MCanvas3D(gl.GLViewWidget):
         model = self.current_model
         color_sel = np.array([1.0, 1.0, 0.0, 1.0])
 
-        can_deflect = (self.view_deflected and
-                       hasattr(model, 'has_results') and
-                       model.has_results and
-                       model.results is not None)
+        lookup, is_ltha = self._get_active_displacements()
 
-        displacements = model.results.get("displacements", {}) if can_deflect else {}
+        can_deflect = (self.view_deflected and
+                       (is_ltha or (hasattr(model, 'has_results') and
+                                    model.has_results and
+                                    model.results is not None)))
 
         dash_lines = []
         dash_colors_ext = []
@@ -1236,39 +1314,48 @@ class MCanvas3D(gl.GLViewWidget):
 
             if can_deflect:
                                        
-                res_i = displacements.get(str(n1.id))
-                res_j = displacements.get(str(n2.id))
+                res_i = lookup(n1.id)
+                res_j = lookup(n2.id)
 
-                if res_i and res_j:
-                    if eid not in self.deflection_cache:
-                        v1_orig, v2_orig, v3_orig = self._get_consistent_axes(el)
+                if res_i is not None and res_j is not None:
+                    v1_orig, v2_orig, v3_orig = self._get_consistent_axes(el)
 
-                        off_i = getattr(el, 'end_offset_i', 0.0)
-                        off_j = getattr(el, 'end_offset_j', 0.0)
-
-                        curve_data = get_deflected_shape(
+                    if is_ltha:
+                                                                    
+                        curve_data_full = get_deflected_shape(
                             [n1.x, n1.y, n1.z], [n2.x, n2.y, n2.z],
                             res_i, res_j, v1_orig, v2_orig, v3_orig,
                             scale=self.deflection_scale, num_points=11
                         )
-                        self.deflection_cache[eid] = {
-                            'curve_data': curve_data,
-                            'p1_orig': p1.copy(),
-                            'p2_orig': p2.copy()
-                        }
+                        curve_pts = np.array([cd[0] for cd in curve_data_full], dtype=np.float64)
+                    else:
+                        if eid not in self.deflection_cache:
+                            off_i = getattr(el, 'end_offset_i', 0.0)
+                            off_j = getattr(el, 'end_offset_j', 0.0)
 
-                    cached = self.deflection_cache[eid]
-                    curve_data_full = cached['curve_data']
-                    p1_orig = cached['p1_orig']
-                    p2_orig = cached['p2_orig']
+                            curve_data = get_deflected_shape(
+                                [n1.x, n1.y, n1.z], [n2.x, n2.y, n2.z],
+                                res_i, res_j, v1_orig, v2_orig, v3_orig,
+                                scale=self.deflection_scale, num_points=11
+                            )
+                            self.deflection_cache[eid] = {
+                                'curve_data': curve_data,
+                                'p1_orig': p1.copy(),
+                                'p2_orig': p2.copy()
+                            }
 
-                    p1_flex, p2_flex = p1_orig, p2_orig
+                        cached = self.deflection_cache[eid]
+                        curve_data_full = cached['curve_data']
+                        p1_orig = cached['p1_orig']
+                        p2_orig = cached['p2_orig']
 
-                    K = len(curve_data_full)
-                    pos_full_arr = np.array([cd[0] for cd in curve_data_full], dtype=np.float64)
-                    s_arr = (np.arange(K) / (K - 1))[:, None] if K > 1 else np.zeros((K, 1))
-                    pos_orig_arr = p1_flex + s_arr * (p2_flex - p1_flex)
-                    curve_pts = pos_orig_arr + (pos_full_arr - pos_orig_arr) * self.anim_factor
+                        p1_flex, p2_flex = p1_orig, p2_orig
+
+                        K = len(curve_data_full)
+                        pos_full_arr = np.array([cd[0] for cd in curve_data_full], dtype=np.float64)
+                        s_arr = (np.arange(K) / (K - 1))[:, None] if K > 1 else np.zeros((K, 1))
+                        pos_orig_arr = p1_flex + s_arr * (p2_flex - p1_flex)
+                        curve_pts = pos_orig_arr + (pos_full_arr - pos_orig_arr) * self.anim_factor
 
                     dist_accum, on = 0.0, True
                     for k in range(len(curve_pts) - 1):
@@ -1295,10 +1382,11 @@ class MCanvas3D(gl.GLViewWidget):
                                 on = not on
                     continue
 
-                if res_i:
-                    p1 = p1 + np.array(res_i[:3]) * self.deflection_scale * self.anim_factor
-                if res_j:
-                    p2 = p2 + np.array(res_j[:3]) * self.deflection_scale * self.anim_factor
+                factor = 1.0 if is_ltha else self.anim_factor
+                if res_i is not None:
+                    p1 = p1 + np.array(res_i[:3]) * self.deflection_scale * factor
+                if res_j is not None:
+                    p2 = p2 + np.array(res_j[:3]) * self.deflection_scale * factor
 
             vec = p2 - p1
             seg_len = np.linalg.norm(vec)
@@ -1334,10 +1422,12 @@ class MCanvas3D(gl.GLViewWidget):
         model = self.current_model
         size = self.display_config.get("node_size", 6)
 
+        lookup, is_ltha = self._get_active_displacements()
+
         can_deflect = (self.view_deflected and
-                       hasattr(model, 'has_results') and
-                       model.has_results and
-                       model.results is not None)
+                       (is_ltha or (hasattr(model, 'has_results') and
+                                    model.has_results and
+                                    model.results is not None)))
 
         sel_pos = []
         for nid in self.selected_node_ids:
@@ -1350,11 +1440,12 @@ class MCanvas3D(gl.GLViewWidget):
 
             nx, ny, nz = n.x, n.y, n.z
             if can_deflect:
-                disp = model.results.get("displacements", {}).get(str(nid))
-                if disp:
-                    nx += disp[0] * self.deflection_scale * self.anim_factor
-                    ny += disp[1] * self.deflection_scale * self.anim_factor
-                    nz += disp[2] * self.deflection_scale * self.anim_factor
+                disp = lookup(nid)
+                if disp is not None:
+                    factor = 1.0 if is_ltha else self.anim_factor
+                    nx += disp[0] * self.deflection_scale * factor
+                    ny += disp[1] * self.deflection_scale * factor
+                    nz += disp[2] * self.deflection_scale * factor
             sel_pos.append([nx, ny, nz])
 
         if sel_pos:
@@ -1390,6 +1481,10 @@ class MCanvas3D(gl.GLViewWidget):
           results" case, since geometry is undeformed anyway.
         """
         in_analysis_mode = hasattr(model, 'has_results') and model.has_results
+
+        if getattr(self, 'ltha_mode', False):
+                                                                      
+            return dict(show_1joint_links=False, show_2joint_links=False, show_support_glyphs=False)
 
         if not in_analysis_mode:
             return dict(show_1joint_links=True, show_2joint_links=True, show_support_glyphs=True)
@@ -1463,7 +1558,7 @@ class MCanvas3D(gl.GLViewWidget):
             self.addItem(item)
             self.node_items.append(item)
 
-        if self.show_supports:
+        if self.show_supports and not getattr(self, 'ltha_mode', False):
                                                                                          
             visible_nodes = {nid: n for nid, n in model.nodes.items() if self._get_visibility_state(n.x, n.y, n.z) == 2}
             
@@ -2411,6 +2506,10 @@ class MCanvas3D(gl.GLViewWidget):
 
     def _rebuild_support_items(self):
         """Rebuild support meshes with current zoom level — keeps symbols screen-size-stable."""
+        if getattr(self, 'ltha_mode', False):
+                                                                      
+            return
+
         for item in self._support_items:
             try: self.removeItem(item)
             except Exception: pass
@@ -3486,9 +3585,22 @@ class MCanvas3D(gl.GLViewWidget):
         self.ltha_mode = False
         self.ltha_accel = None
         self.ltha_highlight = None
+        self._selection_ltha_live = False
         self.invalidate_animation_cache()
         self._anim_vbo_built = False
         self._ltha_vbo_built = False
+
+        if getattr(self, '_ltha_spring_plate_item', None) is not None:
+            try:
+                self.removeItem(self._ltha_spring_plate_item)
+            except Exception:
+                pass
+            if self._ltha_spring_plate_item in self._support_items:
+                self._support_items.remove(self._ltha_spring_plate_item)
+            self._ltha_spring_plate_item = None
+
+        if hasattr(self, 'vbo_manager') and self.vbo_manager.is_initialized:
+            self.vbo_manager.upload_spring_geometry(np.array([]), np.array([]))
 
     def _on_ltha_frame(self, t_index):
         """
@@ -3565,8 +3677,88 @@ class MCanvas3D(gl.GLViewWidget):
         self.ltha_engine.set_contour(getattr(self, "contour_active", False), self.contour_component, c_min, c_max, self.display_config.get("extrude_opacity", 0.35), getattr(self, "contour_absolute", False))
 
         self._build_ltha_extruded_metadata()
-        
+
+        scale = self._screen_scale()
+        s = scale * 6.0
+        links_dict = getattr(self.current_model, 'links', {}) or {}
+        link_props = getattr(self.current_model, 'link_properties', {}) or {}
+
+        nodal_springs = []
+        axis_defs = [
+            (0, (1.0, 0.0, 0.0), [0.90, 0.45, 0.45, 1.0]),
+            (1, (0.0, 1.0, 0.0), [0.45, 0.75, 0.50, 1.0]),
+            (2, (0.0, 0.0, -1.0), [0.45, 0.60, 0.90, 1.0]),
+            (3, (-1.0, 0.0, 0.0), [0.95, 0.75, 0.40, 1.0]),
+            (4, (0.0, -1.0, 0.0), [0.95, 0.75, 0.40, 1.0]),
+            (5, (0.0, 0.0, 1.0), [0.95, 0.75, 0.40, 1.0]),
+        ]
+        for nid, node in self.current_model.nodes.items():
+            k = getattr(node, 'spring_matrix', None)
+            if k is None:
+                continue
+            off_diag = k - np.diag(np.diag(k))
+            if np.any(np.abs(off_diag) > 1e-6):
+                continue                                                                               
+            idx = self.ltha_node_map.get(str(nid), dummy_idx)
+            base_pt = (node.x, node.y, node.z)
+            for dof, axis_vec, color in axis_defs:
+                if abs(k[dof, dof]) > 1e-6:
+                    nodal_springs.append({
+                        'idx': idx, 'base_pt': base_pt, 'axis_vec': axis_vec,
+                        'length': 22 * scale, 'radius': 3 * scale, 'color': color,
+                    })
+        self.ltha_engine.set_nodal_spring_mapping(nodal_springs)
+
+        link1_springs, link2_springs = [], []
+        c_link = [0.0, 0.0, 0.0, 1.0]
+        for lid, link in links_dict.items():
+            prop = link_props.get(link['prop_name'])
+            if not prop:
+                continue
+            nodes = link['nodes']
+            if len(nodes) == 1:
+                nid = nodes[0]
+                n = self.current_model.nodes.get(nid) or self.current_model.nodes.get(str(nid))
+                if not n:
+                    continue
+                idx = self.ltha_node_map.get(str(nid), dummy_idx)
+                ground_z = n.z - s * 2.2
+                link1_springs.append({
+                    'idx': idx, 'base_pt': (n.x, n.y, n.z),
+                    'ground_pt': (n.x, n.y, ground_z),
+                    'radius': s * 0.5, 'color': c_link,
+                })
+            elif len(nodes) == 2:
+                nid_i, nid_j = nodes
+                n_i = self.current_model.nodes.get(nid_i) or self.current_model.nodes.get(str(nid_i))
+                n_j = self.current_model.nodes.get(nid_j) or self.current_model.nodes.get(str(nid_j))
+                if not (n_i and n_j):
+                    continue
+                idx_i = self.ltha_node_map.get(str(nid_i), dummy_idx)
+                idx_j = self.ltha_node_map.get(str(nid_j), dummy_idx)
+                link2_springs.append({
+                    'idx_i': idx_i, 'idx_j': idx_j,
+                    'base_i': (n_i.x, n_i.y, n_i.z), 'base_j': (n_j.x, n_j.y, n_j.z),
+                    'radius': s * 0.6, 'color': c_link,
+                })
+        self.ltha_engine.set_link1_mapping(link1_springs)
+        self.ltha_engine.set_link2_mapping(link2_springs)
+
         self._clear_static_elements()
+
+        if getattr(self, '_ltha_spring_plate_item', None) is not None:
+            try:
+                self.removeItem(self._ltha_spring_plate_item)
+            except Exception:
+                pass
+            self._ltha_spring_plate_item = None
+
+        plate_mesh = build_ltha_spring_plates(self.current_model.nodes, links_dict, link_props, scale=scale)
+        self._ltha_spring_plate_item = plate_mesh
+        if plate_mesh:
+            self.addItem(plate_mesh)
+            self._support_items.append(plate_mesh)
+
         self._ltha_vbo_built = True
         return True
     
@@ -3623,6 +3815,23 @@ class MCanvas3D(gl.GLViewWidget):
                 )
             else:
                 self.vbo_manager.fast_update_lines(edge_verts_flat, self.ltha_engine.edge_colors_flat)
+
+    def _build_ltha_spring_frame(self, t):
+        """
+        Per-frame spring/link coil update. Same tensor, same zero-Python-loop
+        approach as the beam wireframe -- just a different (smaller) VBO so
+        it never gets pulled into the extruded-mode silhouette double-pass.
+        """
+        if not hasattr(self, 'ltha_engine') or not hasattr(self, 'ltha_tensor'):
+            return
+
+        U_current = self.ltha_tensor[:, t, :]
+        verts, colors = self.ltha_engine.compute_all_springs(U_current, self.deflection_scale)
+
+        if len(verts) == 0:
+            return
+
+        self.vbo_manager.update_spring_geometry_inplace(verts, colors)
 
     def invalidate_animation_cache(self):
         """
@@ -5969,6 +6178,7 @@ class MCanvas3D(gl.GLViewWidget):
                     self._build_ltha_extruded_frame(t)
                 else:
                     self._build_ltha_line_frame(t)
+                self._build_ltha_spring_frame(t)
 
             if self.view_extruded:
                 edge_w = float(self.display_config.get("edge_width", 1.5))
@@ -5985,6 +6195,8 @@ class MCanvas3D(gl.GLViewWidget):
             else:
                 line_w = float(self.display_config.get("line_width", 2.0))
                 self.vbo_manager.draw_lines(m_view, m_proj, line_width=line_w, alpha_mult=1.0, write_depth=True)
+
+            self.vbo_manager.draw_springs(m_view, m_proj, line_width=1.75, alpha_mult=1.0)
 
             if getattr(self, 'show_slabs', True):
                 edge_w = float(self.display_config.get("edge_width", 1.5))

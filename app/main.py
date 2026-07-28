@@ -944,6 +944,11 @@ class MainWindow(QMainWindow):
 
         self.menu_analyze = menubar.addMenu("Analyze")
 
+        self.action_analysis_opts = QAction(qta.icon('fa5s.sliders-h', color='#6c757d'), "Analysis Options...", self)
+        self.action_analysis_opts.triggered.connect(self.on_analysis_options)
+        self.menu_analyze.addAction(self.action_analysis_opts)
+        self.menu_analyze.addSeparator()
+
         self.menu_analyze.addAction(self.run_action)
         self.menu_analyze.addSeparator()
 
@@ -1912,6 +1917,14 @@ class MainWindow(QMainWindow):
                 if hasattr(self, 'canvas_2d'): 
                     self.canvas_2d.setUpdatesEnabled(True)
                     self.canvas_2d.update()
+
+    def on_analysis_options(self):
+        if not self.model: return
+        
+        from app.dialogs.analysis_options_dialog import AnalysisOptionsDialog
+        
+        dlg = AnalysisOptionsDialog(self)
+        dlg.exec()
 
     def on_define_materials(self):
         if not self.model: return

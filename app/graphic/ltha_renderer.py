@@ -45,6 +45,68 @@ def _contour_scalar_batch(u_global, component, absolute=False):
         return np.abs(val) if absolute else val
     return np.linalg.norm(u_global, axis=-1)
 
+def _make_coil_template(turns, lead_frac, pts_per_turn=12):
+    """
+    Builds a unit coil path ONCE: point(t) = p1 + axial*L*u + rc*R*v + rs*R*w,
+    where L=actual length, R=actual radius, u/v/w=actual per-spring frame.
+    Sample sequence matches the original add_line_spring exactly (p1 -> lead-in
+    -> coil turns -> lead-out -> p2), so a zero-displacement frame renders
+    pixel-identical to the old static geometry.
+    """
+    total_pts = turns * pts_per_turn
+    coil_len_frac = 1.0 - 2.0 * lead_frac
+
+    axial = [0.0, lead_frac]
+    rc = [0.0, 0.0]
+    rs = [0.0, 0.0]
+    for i in range(1, total_pts + 1):
+        t = i / total_pts
+        angle = t * turns * 2 * np.pi
+        axial.append(lead_frac + coil_len_frac * t)
+        rc.append(np.cos(angle))
+        rs.append(np.sin(angle))
+    axial += [1.0 - lead_frac, 1.0]
+    rc += [0.0, 0.0]
+    rs += [0.0, 0.0]
+
+    return (np.array(axial, dtype=np.float32),
+            np.array(rc, dtype=np.float32),
+            np.array(rs, dtype=np.float32))
+
+def _coil_batch(p1, p2, v, w, radius, axial_frac, radial_cos, radial_sin):
+    """
+    Vectorized coil polyline for N springs at once. p1/p2/v/w: (N,3),
+    radius: (N,1). Zero Python loops, zero trig -- trig is baked into the
+    template already. Returns flat (2*(M-1)*N, 3) line-segment vertex array
+    (pairs, mode='lines').
+    """
+    vec = p2 - p1
+    L = np.maximum(np.linalg.norm(vec, axis=1, keepdims=True), 1e-6)
+    u = vec / L
+
+    axial = axial_frac[None, :] * L
+    rc = radial_cos[None, :] * radius
+    rs = radial_sin[None, :] * radius
+
+    pts = (p1[:, None, :]
+           + axial[:, :, None] * u[:, None, :]
+           + rc[:, :, None] * v[:, None, :]
+           + rs[:, :, None] * w[:, None, :])
+
+    start = pts[:, :-1, :]
+    end = pts[:, 1:, :]
+    return np.stack([start, end], axis=2).reshape(-1, 3)
+
+def _perp_frame(axis):
+    """Given (N,3) unit axis vectors, returns (v, w) perpendicular frame."""
+    up = np.tile(np.array([0.0, 0.0, 1.0], dtype=np.float32), (axis.shape[0], 1))
+    parallel = np.abs(np.sum(axis * up, axis=1)) > 0.99
+    up[parallel] = np.array([0.0, 1.0, 0.0], dtype=np.float32)
+    v = np.cross(axis, up)
+    v /= np.maximum(np.linalg.norm(v, axis=1, keepdims=True), 1e-9)
+    w = np.cross(axis, v)
+    return v, w
+
 class VectorizedLTHAEngine:
     """
     High-performance vectorized engine for LTHA animation.
@@ -72,6 +134,14 @@ class VectorizedLTHAEngine:
         self.contour_c_max = 1.0
         self.contour_opacity = 1.0
         self.contour_absolute = False
+
+        self._tmpl_axis = _make_coil_template(turns=3, lead_frac=0.20)
+        self._tmpl_link1 = _make_coil_template(turns=4, lead_frac=0.15)
+        self._tmpl_link2 = _make_coil_template(turns=5, lead_frac=0.40)
+
+        self.n_nodal_springs = 0
+        self.n_link1_springs = 0
+        self.n_link2_springs = 0
         
         s = np.linspace(0, 1, self.num_points).reshape(1, self.num_points).astype(np.float32)
         s2 = s * s
@@ -286,3 +356,115 @@ class VectorizedLTHAEngine:
             colors_flat = self.ext_colors_flat
         
         return verts.flatten(), colors_flat
+
+    def set_nodal_spring_mapping(self, springs):
+        """
+        springs: list of dicts, one per active DOF spring:
+          {'node_id': str, 'base_pt': (x,y,z), 'axis_vec': (ax,ay,az) unit,
+           'length': float, 'radius': float, 'color': (r,g,b,a)}
+        node_map / dummy_idx resolve node_id -> row in the displacement tensor.
+        axis_vec is world-fixed (it's the DOF direction, not the node's
+        orientation), so the coil's (v,w) roll frame is exact, not
+        approximate -- it never needs to be recomputed.
+        """
+        self.n_nodal_springs = len(springs)
+        if not springs:
+            return
+        self.ns_idx = np.array([s['idx'] for s in springs], dtype=np.int32)
+        base = np.array([s['base_pt'] for s in springs], dtype=np.float32)
+        axis = np.array([s['axis_vec'] for s in springs], dtype=np.float32)
+        length = np.array([s['length'] for s in springs], dtype=np.float32).reshape(-1, 1)
+        self.ns_radius = np.array([s['radius'] for s in springs], dtype=np.float32).reshape(-1, 1)
+        self.ns_colors = np.array([s['color'] for s in springs], dtype=np.float32)
+
+        self.ns_p_orig = base                                                
+        self.ns_p_anchor = base + axis * length                          
+        self.ns_v, self.ns_w = _perp_frame(axis)
+
+    def compute_nodal_springs(self, U_nodes, scale):
+        if not self.n_nodal_springs:
+            return np.array([]), np.array([])
+        p_moving = self.ns_p_orig + U_nodes[self.ns_idx][:, :3] * scale
+        lines = _coil_batch(p_moving, self.ns_p_anchor, self.ns_v, self.ns_w,
+                             self.ns_radius, *self._tmpl_axis)
+        segs = self._tmpl_axis[0].shape[0] - 1
+        colors = np.repeat(self.ns_colors, 2 * segs, axis=0)
+        return lines, colors
+
+    def set_link1_mapping(self, links):
+        """
+        links: list of dicts:
+          {'idx': int, 'base_pt': (x,y,z), 'ground_pt': (x,y,z),
+           'radius': float, 'color': (r,g,b,a)}
+        ground_pt is fixed forever. The (v,w) roll frame is derived once from
+        the ORIGINAL base_pt->ground_pt direction and reused every frame --
+        this is the one approximation in the whole system: the coil's twist
+        doesn't re-orient for transverse displacement, only its true
+        start/end points and length do (those are exact, every frame).
+        """
+        self.n_link1_springs = len(links)
+        if not links:
+            return
+        self.l1_idx = np.array([l['idx'] for l in links], dtype=np.int32)
+        self.l1_p_orig = np.array([l['base_pt'] for l in links], dtype=np.float32)
+        self.l1_p_ground = np.array([l['ground_pt'] for l in links], dtype=np.float32)
+        self.l1_radius = np.array([l['radius'] for l in links], dtype=np.float32).reshape(-1, 1)
+        self.l1_colors = np.array([l['color'] for l in links], dtype=np.float32)
+
+        vec0 = self.l1_p_ground - self.l1_p_orig
+        u0 = vec0 / np.maximum(np.linalg.norm(vec0, axis=1, keepdims=True), 1e-9)
+        self.l1_v, self.l1_w = _perp_frame(u0)
+
+    def compute_link1_springs(self, U_nodes, scale):
+        if not self.n_link1_springs:
+            return np.array([]), np.array([])
+        p_moving = self.l1_p_orig + U_nodes[self.l1_idx][:, :3] * scale
+        lines = _coil_batch(p_moving, self.l1_p_ground, self.l1_v, self.l1_w,
+                             self.l1_radius, *self._tmpl_link1)
+        segs = self._tmpl_link1[0].shape[0] - 1
+        colors = np.repeat(self.l1_colors, 2 * segs, axis=0)
+        return lines, colors
+
+    def set_link2_mapping(self, links):
+        """
+        links: list of dicts:
+          {'idx_i': int, 'idx_j': int, 'base_i': (x,y,z), 'base_j': (x,y,z),
+           'radius': float, 'color': (r,g,b,a)}
+        Same roll-frame approximation as link1, from original geometry.
+        """
+        self.n_link2_springs = len(links)
+        if not links:
+            return
+        self.l2_idx_i = np.array([l['idx_i'] for l in links], dtype=np.int32)
+        self.l2_idx_j = np.array([l['idx_j'] for l in links], dtype=np.int32)
+        self.l2_p_orig_i = np.array([l['base_i'] for l in links], dtype=np.float32)
+        self.l2_p_orig_j = np.array([l['base_j'] for l in links], dtype=np.float32)
+        self.l2_radius = np.array([l['radius'] for l in links], dtype=np.float32).reshape(-1, 1)
+        self.l2_colors = np.array([l['color'] for l in links], dtype=np.float32)
+
+        vec0 = self.l2_p_orig_j - self.l2_p_orig_i
+        u0 = vec0 / np.maximum(np.linalg.norm(vec0, axis=1, keepdims=True), 1e-9)
+        self.l2_v, self.l2_w = _perp_frame(u0)
+
+    def compute_link2_springs(self, U_nodes, scale):
+        if not self.n_link2_springs:
+            return np.array([]), np.array([])
+        p_i = self.l2_p_orig_i + U_nodes[self.l2_idx_i][:, :3] * scale
+        p_j = self.l2_p_orig_j + U_nodes[self.l2_idx_j][:, :3] * scale
+        lines = _coil_batch(p_i, p_j, self.l2_v, self.l2_w,
+                             self.l2_radius, *self._tmpl_link2)
+        segs = self._tmpl_link2[0].shape[0] - 1
+        colors = np.repeat(self.l2_colors, 2 * segs, axis=0)
+        return lines, colors
+
+    def compute_all_springs(self, U_nodes, scale):
+        parts_v, parts_c = [], []
+        for fn in (self.compute_nodal_springs, self.compute_link1_springs,
+                   self.compute_link2_springs):
+            v, c = fn(U_nodes, scale)
+            if len(v):
+                parts_v.append(v)
+                parts_c.append(c)
+        if not parts_v:
+            return np.array([]), np.array([])
+        return np.concatenate(parts_v, axis=0), np.concatenate(parts_c, axis=0)

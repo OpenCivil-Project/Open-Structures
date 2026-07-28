@@ -1,6 +1,87 @@
 import numpy as np
 import pyqtgraph.opengl as gl
 
+def build_ltha_spring_plates(nodes_dict, links_dict=None, link_props=None, scale=1.0):
+    """
+    LTHA-mode companion to build_boundary_visuals(): emits ONLY the fixed
+    anchor/ground plate meshes for nodal springs and 1-joint links (the ends
+    that never move). Build this once when LTHA playback starts and never
+    touch it again -- VectorizedLTHAEngine.compute_all_springs() handles the
+    moving coil lines every frame. 2-joint links have no fixed end, so they
+    contribute nothing here.
+    """
+    mesh_verts, mesh_faces, mesh_colors = [], [], []
+    mesh_idx_offset = 0
+    s = scale * 6.0
+    c_link = [0.0, 0.0, 0.0, 1.0]
+
+    def add_box(cx, cy, cz, wx, wy, wz, color):
+        nonlocal mesh_idx_offset
+        v = [
+            [cx-wx, cy-wy, cz-wz], [cx+wx, cy-wy, cz-wz], [cx+wx, cy+wy, cz-wz], [cx-wx, cy+wy, cz-wz],
+            [cx-wx, cy-wy, cz+wz], [cx+wx, cy-wy, cz+wz], [cx+wx, cy+wy, cz+wz], [cx-wx, cy+wy, cz+wz]
+        ]
+        f = [
+            [0, 1, 2], [0, 2, 3], [4, 5, 6], [4, 6, 7],
+            [0, 1, 5], [0, 5, 4], [2, 3, 7], [2, 7, 6],
+            [0, 3, 7], [0, 7, 4], [1, 2, 6], [1, 6, 5]
+        ]
+        mesh_verts.extend(v)
+        mesh_faces.extend([[i + mesh_idx_offset for i in face] for face in f])
+        for _ in range(8): mesh_colors.append(color)
+        mesh_idx_offset += 8
+
+    for n_id, node in nodes_dict.items():
+        x, y, z = node.x, node.y, node.z
+        k = getattr(node, 'spring_matrix', None)
+        if k is not None:
+            diag = np.diag(np.diag(k))
+            off_diag = k - diag
+            if not np.any(np.abs(off_diag) > 1e-6):
+                axes = [
+                    (k[0, 0], np.array([1.0, 0.0, 0.0]), [0.90, 0.45, 0.45, 1.0]),
+                    (k[1, 1], np.array([0.0, 1.0, 0.0]), [0.45, 0.75, 0.50, 1.0]),
+                    (k[2, 2], np.array([0.0, 0.0, -1.0]), [0.45, 0.60, 0.90, 1.0]),
+                    (k[3, 3], np.array([-1.0, 0.0, 0.0]), [0.95, 0.75, 0.40, 1.0]),
+                    (k[4, 4], np.array([0.0, -1.0, 0.0]), [0.95, 0.75, 0.40, 1.0]),
+                    (k[5, 5], np.array([0.0, 0.0, 1.0]), [0.95, 0.75, 0.40, 1.0]),
+                ]
+                length = 22 * scale
+                radius = 3 * scale
+                for kval, axis_vec, color in axes:
+                    if abs(kval) > 1e-6:
+                        end_pt = np.array([x, y, z]) + axis_vec * length
+                        plate_half = radius * 1.15
+                        thin = s * 0.15
+                        wx = thin if abs(axis_vec[0]) > 0.5 else plate_half
+                        wy = thin if abs(axis_vec[1]) > 0.5 else plate_half
+                        wz = thin if abs(axis_vec[2]) > 0.5 else plate_half
+                        add_box(end_pt[0], end_pt[1], end_pt[2], wx, wy, wz, color)
+
+    if links_dict:
+        link_props = link_props or {}
+        for lid, link in links_dict.items():
+            prop = link_props.get(link['prop_name'])
+            if not prop:
+                continue
+            nodes = link['nodes']
+            if len(nodes) == 1:
+                nid = nodes[0]
+                n = nodes_dict.get(nid) or nodes_dict.get(str(nid))
+                if n:
+                    ground_z = n.z - s * 2.2
+                    add_box(n.x, n.y, ground_z - s*0.1, s*1.0, s*1.0, s*0.1, c_link)
+
+    mesh_item = None
+    if mesh_verts:
+        mesh_item = gl.GLMeshItem(
+            vertexes=np.array(mesh_verts, dtype=np.float32),
+            faces=np.array(mesh_faces, dtype=np.int32),
+            vertexColors=np.array(mesh_colors, dtype=np.float32),
+            smooth=False, shader='balloon', glOptions='opaque'
+        )
+    return mesh_item
+
 def build_boundary_visuals(nodes_dict, links_dict=None, link_props=None, scale=1.0,
                             show_1joint_links=True, show_2joint_links=True,
                             show_support_glyphs=True,

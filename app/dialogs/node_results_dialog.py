@@ -148,6 +148,9 @@ class NodeResultsDialog(QDialog):
 
         data_info = self.combo_cases.currentData()
         if not isinstance(data_info, dict): return
+
+        if canvas and hasattr(canvas, 'set_selection_ltha_live'):
+            canvas.set_selection_ltha_live(data_info["mode"] == "LTHA_LIVE")
         
         try:
             with open(data_info["path"], 'r') as f:

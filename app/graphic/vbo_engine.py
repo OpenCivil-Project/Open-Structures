@@ -1,4 +1,3 @@
-                           
 import numpy as np
 from OpenGL.GL import *
 from OpenGL.GL import shaders
@@ -26,7 +25,12 @@ class VBORenderManager(AreaMixin, LineMixin, ExtrudedMixin, ForceLoadMixin, Text
         self.line_vao = None
         self.line_vbo = None
         self.line_vertex_count = 0
-        self.persistent_line_buffer = None                           
+        self.persistent_line_buffer = None
+
+        self.spring_vao = None
+        self.spring_vbo = None
+        self.spring_vertex_count = 0
+        self.persistent_spring_buffer = None
 
         self.area_vao = None
         self.area_vbo = None
@@ -140,6 +144,9 @@ class VBORenderManager(AreaMixin, LineMixin, ExtrudedMixin, ForceLoadMixin, Text
 
             self.line_vao = glGenVertexArrays(1)
             self.line_vbo = glGenBuffers(1)
+
+            self.spring_vao = glGenVertexArrays(1)
+            self.spring_vbo = glGenBuffers(1)
 
             self.area_vao = glGenVertexArrays(1)
             self.area_vbo = glGenBuffers(1)

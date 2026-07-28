@@ -11,6 +11,8 @@ class DataManager:
             raise SolverException("E101", f"Path: {json_path}")
         except json.JSONDecodeError:
             raise SolverException("E102", f"File: {json_path}")
+
+        self.active_dofs = self.raw.get("info", {}).get("active_dofs", [True, True, True, True, True, True])
         
         self.node_id_to_idx = {}                         
         self.materials = {}                              
