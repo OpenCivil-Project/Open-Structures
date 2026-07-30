@@ -26,6 +26,7 @@ LENGTH_SCALES = {
 
 _STEEL_SI    = dict(E=2.0e11, nu=0.30, gamma=78_500.0, fy=2.75e8, fu=4.1e8)
 _CONCRETE_SI = dict(E=3.0e10, nu=0.20, gamma=25_000.0, fy=3.0e7,  fu=0.0)
+_TENDON_SI   = dict(E=1.965e11, nu=0.30, gamma=78_500.0, fy=1.69e9, fu=1.86e9)
 
 def _divider():
     """Thin horizontal separator line."""
@@ -65,7 +66,7 @@ class MaterialEditor(QDialog):
         id_form.addRow("Name:", self.name_edit)
 
         self.type_combo = QComboBox()
-        self.type_combo.addItems(["Steel", "Concrete", "Other"])
+        self.type_combo.addItems(["Steel", "Concrete", "Tendon", "Other"])
         id_form.addRow("Type:", self.type_combo)
 
         color_row = QHBoxLayout()
@@ -222,6 +223,8 @@ class MaterialEditor(QDialog):
             si = _STEEL_SI
         elif text == "Concrete":
             si = _CONCRETE_SI
+        elif text == "Tendon":
+            si = _TENDON_SI
         else:
             return                                
 

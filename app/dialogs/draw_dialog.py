@@ -9,23 +9,44 @@ class DrawFrameDialog(QDialog):
     def __init__(self, model, parent=None):
         super().__init__(parent)
         self.model = model
-        self.setWindowTitle("Draw Frame Object")
+        self.setWindowTitle("Draw Frame/Tendon Object")
         
         self.setWindowFlags(Qt.WindowType.Tool | Qt.WindowType.WindowStaysOnTopHint) 
         self.setMinimumWidth(280)
         
         main_layout = QVBoxLayout(self)
-        
+
+        type_group = QGroupBox("Object Type")
+        type_layout = QFormLayout()
+        self.object_type_combo = QComboBox()
+        self.object_type_combo.addItems(["Frame", "Tendon"])
+        self.object_type_combo.currentTextChanged.connect(self._on_object_type_changed)
+        type_layout.addRow("Draw:", self.object_type_combo)
+        type_group.setLayout(type_layout)
+        main_layout.addWidget(type_group)
+
         prop_group = QGroupBox("Line Object Parameters")
         form_layout = QFormLayout()
         
         self.section_combo = QComboBox()
         self.refresh_sections()
-        form_layout.addRow("Section Property:", self.section_combo)
+        self.section_label = QLabel("Section Property:")
+        form_layout.addRow(self.section_label, self.section_combo)
         
         self.release_combo = QComboBox()
         self.release_combo.addItems(["Continuous", "Pinned"])
-        form_layout.addRow("Moment Releases:", self.release_combo)
+        self.release_label = QLabel("Moment Releases:")
+        form_layout.addRow(self.release_label, self.release_combo)
+
+        self.tendon_note = QLabel(
+            "Tendon must be drawn over an existing, continuous, straight run "
+            "of frame elements. Geometry (layout, local axis) is defined in "
+            "the dialog that opens after the second click."
+        )
+        self.tendon_note.setWordWrap(True)
+        self.tendon_note.setStyleSheet("color: #555; font-size: 11px;")
+        self.tendon_note.setVisible(False)
+        form_layout.addRow(self.tendon_note)
         
         prop_group.setLayout(form_layout)
         main_layout.addWidget(prop_group)
@@ -49,6 +70,24 @@ class DrawFrameDialog(QDialog):
         
         main_layout.addLayout(btn_layout)
 
+    def _on_object_type_changed(self, mode):
+        is_tendon = (mode == "Tendon")
+
+        self.release_combo.setVisible(not is_tendon)
+        self.release_label.setVisible(not is_tendon)
+        self.tendon_note.setVisible(is_tendon)
+
+        self.section_label.setText("Tendon Section:" if is_tendon else "Section Property:")
+
+        if is_tendon:
+            self.refresh_tendon_sections()
+        else:
+            self.refresh_sections()
+
+    def get_draw_mode(self):
+        """Returns 'Frame' or 'Tendon' — main.py branches its click handler on this."""
+        return self.object_type_combo.currentText()
+
     def refresh_sections(self):
         current = self.section_combo.currentText()
         self.section_combo.clear()
@@ -59,10 +98,26 @@ class DrawFrameDialog(QDialog):
         idx = self.section_combo.findText(current)
         if idx >= 0: self.section_combo.setCurrentIndex(idx)
 
+    def refresh_tendon_sections(self):
+        current = self.section_combo.currentText()
+        self.section_combo.clear()
+        if not self.model.tendon_sections:
+            self.section_combo.addItem("(Define a Tendon Section first)")
+        else:
+            self.section_combo.addItems(list(self.model.tendon_sections.keys()))
+        idx = self.section_combo.findText(current)
+        if idx >= 0: self.section_combo.setCurrentIndex(idx)
+
     def get_selected_section(self):
         name = self.section_combo.currentText()
         if name in self.model.sections:
             return self.model.sections[name]
+        return None
+
+    def get_selected_tendon_section(self):
+        name = self.section_combo.currentText()
+        if name in self.model.tendon_sections:
+            return self.model.tendon_sections[name]
         return None
 
     def get_release_arrays(self):

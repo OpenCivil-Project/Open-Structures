@@ -546,3 +546,22 @@ class AsolidSection(AreaSection):
         self.incompatible_modes = bool(incompatible_modes)
         self.coord_system       = str(coord_system)
         self.arc_degrees        = float(arc_degrees)
+
+class TendonSection:
+    """Stores geometric and modeling properties for a Tendon."""
+    def __init__(self, name, material, modeling_option="Loads", prestress_type="Prestress",
+                 is_dia=False, dia=0.0, area=0.0, J=0.0, I=0.0, As=0.0, color=None):
+        self.name = name
+        self.material = material
+        self.modeling_option = modeling_option                         
+        self.prestress_type = prestress_type                                   
+        self.is_dia = is_dia
+        self.dia = float(dia)
+        self.area = float(area)
+        self.J = float(J)
+        self.I = float(I)
+        self.As = float(As)
+        self.color = color if color else (0.0, 1.0, 1.0, 1.0)
+
+    def __repr__(self):
+        return f"TendonSection({self.name})"

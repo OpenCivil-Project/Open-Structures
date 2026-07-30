@@ -1,5 +1,6 @@
 import numpy as np
 import math
+import time
 import pyqtgraph.opengl as gl
 from PyQt6.QtWidgets import QApplication
 from PyQt6.QtCore import Qt, pyqtSignal, QRect, QTimer
@@ -20,7 +21,7 @@ from core.ForceComputationWorker import ForceComputationWorker
 class MCanvas3D(gl.GLViewWidget):
     signal_canvas_clicked = pyqtSignal(float, float, float)
     signal_right_clicked = pyqtSignal()
-    signal_box_selection = pyqtSignal(list, list, list, bool, bool)
+    signal_box_selection = pyqtSignal(list, list, list, list, bool, bool)
     signal_area_box_selection = pyqtSignal(list, bool, bool)                                   
     signal_element_selected = pyqtSignal(int)
     signal_mouse_moved = pyqtSignal(float, float, float)
@@ -105,6 +106,8 @@ class MCanvas3D(gl.GLViewWidget):
         self.current_hover_data = None
         self.hovered_node_id = None
         self.hovered_elem_id = None
+        self.hovered_tendon_id = None
+        self.selected_tendon_ids = []
 
         self.deflection_cache = {}
         self.cache_valid = False
@@ -143,6 +146,8 @@ class MCanvas3D(gl.GLViewWidget):
         self.node_items = []         
         self.element_items = []
         self._axis_items = []                                                          
+        self._pending_static_line_pos = []
+        self._pending_static_line_colors = []
         self.load_items = []
         self._support_items = []
         self._support_positions = {'fixed': [], 'pinned': [], 'roller': [], 'custom': []}
@@ -549,6 +554,7 @@ class MCanvas3D(gl.GLViewWidget):
         self.selected_element_ids = []
         self.selected_node_ids    = []
         self.selected_area_ids    = []
+        self.selected_tendon_ids  = []
         self.selected_link_ids    = []
         self._rebuild_selection_overlay()
         self._rebuild_area_interior_lines()                                        
@@ -805,6 +811,7 @@ class MCanvas3D(gl.GLViewWidget):
         self.hovered_node_id = None
         self.hovered_elem_id = None
         self.hovered_area_id = None
+        self.hovered_tendon_id = None
         self.update()
 
     def _force_draw_model(self, model, sel_elems=None, sel_nodes=None, progress=None):
@@ -836,6 +843,8 @@ class MCanvas3D(gl.GLViewWidget):
 
         self.grid_labels = [] 
         if hasattr(self, 'static_items'): self.static_items.clear()
+        self._pending_static_line_pos = []
+        self._pending_static_line_colors = []
 
         if hasattr(self, 'load_items'): self.load_items.clear()
 
@@ -864,9 +873,11 @@ class MCanvas3D(gl.GLViewWidget):
         if self.view_extruded:
             _p("Extruding 3D frame elements to VBO...")
             self._draw_elements_extruded(model)
+            self._draw_tendons_extruded(model)
         else:
             _p("Generating wireframe elements...")
             self._draw_elements_wireframe(model)
+            self._draw_tendons_wireframe(model)
 
         if self.show_loads and not in_analysis_mode:
             _p("Generating applied load geometries...")
@@ -908,6 +919,9 @@ class MCanvas3D(gl.GLViewWidget):
             _p("Generating local coordinate triads...")
             self._draw_local_axes(model)
 
+        _p("Pushing static overlay geometry to GPU...")
+        self._upload_static_geometry()
+
         _p("Finalizing viewport overlay...")
         
         if self.snap_ring not in self.items: self.addItem(self.snap_ring)
@@ -937,7 +951,7 @@ class MCanvas3D(gl.GLViewWidget):
                 self.opts['center'] = center
                 self.camera.animate_to(target_center=center, target_dist=needed_dist)
 
-    def update_selection_overlay(self, sel_elems, sel_nodes, sel_areas=None, sel_links=None, progress=None):
+    def update_selection_overlay(self, sel_elems, sel_nodes, sel_areas=None, sel_links=None, sel_tendons=None, progress=None):
 
         def _p(msg):
             if progress: progress(msg)
@@ -950,6 +964,7 @@ class MCanvas3D(gl.GLViewWidget):
         self.selected_node_ids    = list(sel_nodes)  if sel_nodes  is not None else []
         self.selected_area_ids    = list(sel_areas)  if sel_areas  is not None else []
         self.selected_link_ids    = list(sel_links)  if sel_links  is not None else []
+        self.selected_tendon_ids  = list(sel_tendons) if sel_tendons is not None else []
         current_model = self.current_model
         in_analysis_mode = hasattr(current_model, 'has_results') and current_model.has_results if current_model else False
         
@@ -1080,6 +1095,53 @@ class MCanvas3D(gl.GLViewWidget):
             self._rebuild_wireframe_selection_overlay()
         self._rebuild_node_selection_overlay()
         self._rebuild_link_selection_overlay()
+        self._rebuild_tendon_selection_overlay()                
+
+    def _rebuild_tendon_selection_overlay(self):
+        if not getattr(self, 'selected_tendon_ids', None) or not self.current_model: return
+        model = self.current_model
+        sel_color = np.array([1.0, 1.0, 0.0, 1.0])
+        tendons = getattr(model, 'tendons', {})
+        if not tendons: return
+
+        dash_pos = []
+        dash_colors = []
+
+        for tid in self.selected_tendon_ids:
+            if tid not in tendons: continue
+            tendon = tendons[tid]
+            pts = self._get_tendon_world_points(tendon)
+            if pts is None or len(pts) < 2: continue
+            
+            dash, gap = 0.4, 0.25
+            dist_accum, on = 0.0, True
+            for k in range(len(pts) - 1):
+                seg_start = pts[k]
+                seg_end = pts[k + 1]
+                seg_vec = seg_end - seg_start
+                seg_len = np.linalg.norm(seg_vec)
+                if seg_len < 1e-6: continue
+                seg_u = seg_vec / seg_len
+                walked = 0.0
+                while walked < seg_len:
+                    interval = dash if on else gap
+                    remaining = interval - dist_accum
+                    can_walk = min(remaining, seg_len - walked)
+                    if on:
+                        dash_pos.extend([seg_start + seg_u * walked,
+                                         seg_start + seg_u * (walked + can_walk)])
+                        dash_colors.extend([sel_color, sel_color])
+                    walked += can_walk
+                    dist_accum += can_walk
+                    if dist_accum >= interval:
+                        dist_accum = 0.0
+                        on = not on
+
+        if dash_pos:
+            item = gl.GLLinePlotItem(pos=np.array(dash_pos), color=np.array(dash_colors), mode='lines', width=3.5, antialias=True)
+            item.setGLOptions({'glEnable': (GL_BLEND,), 'glBlendFunc': (GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA), 'glDisable': (GL_DEPTH_TEST,)})
+            self.addItem(item)
+            self._sel_overlay_items.append(item)
 
     def _rebuild_link_selection_overlay(self):
         if not getattr(self, 'selected_link_ids', None) or not self.current_model: return
@@ -2484,6 +2546,157 @@ class MCanvas3D(gl.GLViewWidget):
             full_colors.append(color)
             full_colors.append(color)
 
+    def _get_tendon_world_points(self, tendon):
+        """
+        Tessellates a TendonObject's layout_points (local coord1/2/3 table) into
+        a world-space (N,3) polyline.
+
+        segment_type "Linear" -> straight interpolation.
+        segment_type "Parabolic"/"Circular" -> cubic Bezier using each point's
+        own `slope` as tangent, control points offset by dx/3 — this is the
+        exact same formula tendon_geometry_dialog.py's 2D profile preview
+        uses, so the 3D curve matches what the geometry dialog already shows.
+
+        The tendon's `plane` ("1-2" or "1-3") selects which of coord2/coord3
+        is the slope-driven "active" profile axis; the other axis has no
+        slope data and is simply linearly interpolated.
+        """
+        pts = tendon.layout_points
+        if len(pts) < 2:
+            return None
+
+        v_x, v_y_raw, v_z_raw = tendon.get_local_axes()
+                                                                             
+        v_2 = v_z_raw
+        v_3 = v_y_raw
+        origin = tendon.node_i.get_coords()
+        active_is_coord2 = (tendon.plane == "1-2")
+        max_len = max(getattr(tendon, 'max_discretization_length', 1.0), 0.05)
+
+        world_pts = []
+        for i in range(len(pts) - 1):
+            p0, p1 = pts[i], pts[i + 1]
+            c1_0, c1_1 = p0["coord1"], p1["coord1"]
+            seg_len = abs(c1_1 - c1_0)
+            is_curved = p1.get("segment_type", "Linear") in ("Parabolic", "Circular")
+            n_sub = max(8, int(math.ceil(seg_len / max_len))) if is_curved else max(1, int(math.ceil(seg_len / max_len)))
+
+            act0 = p0["coord2"] if active_is_coord2 else p0["coord3"]
+            act1 = p1["coord2"] if active_is_coord2 else p1["coord3"]
+            m0, m1 = p0.get("slope", 0.0), p1.get("slope", 0.0)
+            inact0 = p0["coord3"] if active_is_coord2 else p0["coord2"]
+            inact1 = p1["coord3"] if active_is_coord2 else p1["coord2"]
+
+            dx = c1_1 - c1_0
+            cp0_c1, cp0_a = c1_0 + dx / 3.0, act0 + m0 * dx / 3.0
+            cp1_c1, cp1_a = c1_1 - dx / 3.0, act1 - m1 * dx / 3.0
+
+            start_k = 0 if i == 0 else 1
+            for k in range(start_k, n_sub + 1):
+                t = k / n_sub
+                if is_curved:
+                    mt = 1 - t
+                    c1  = (mt**3)*c1_0 + 3*(mt**2)*t*cp0_c1 + 3*mt*(t**2)*cp1_c1 + (t**3)*c1_1
+                    act = (mt**3)*act0 + 3*(mt**2)*t*cp0_a  + 3*mt*(t**2)*cp1_a  + (t**3)*act1
+                else:
+                    c1, act = c1_0 + t * dx, act0 + t * (act1 - act0)
+                inact = inact0 + t * (inact1 - inact0)
+                c2 = act if active_is_coord2 else inact
+                c3 = inact if active_is_coord2 else act
+                world_pts.append(origin + c1 * v_x + c2 * v_2 + c3 * v_3)
+
+        return np.array(world_pts, dtype=np.float64)
+
+    def _draw_tendons_wireframe(self, model):
+        """Draw/geometry-definition only (per TendonObject docstring) — this is
+        the first actual rendering pass: one GLLinePlotItem per tendon, same
+        per-item pattern already used for ghost dashes / release dots above,
+        since tendons are few compared to bulk frame elements (no VBO batching
+        needed)."""
+        tendons = getattr(model, 'tendons', {})
+        if not tendons or not getattr(self, 'show_tendons', True):
+            return
+        for tid, tendon in tendons.items():
+            pts = self._get_tendon_world_points(tendon)
+            if pts is None or len(pts) < 2:
+                continue
+            sec = getattr(tendon, 'tendon_section', None)
+            c = getattr(sec, 'color', (0, 1, 1, 1)) if sec else (0, 1, 1, 1)
+            
+            if len(c) == 3: c = (*c, 1.0)
+            item = gl.GLLinePlotItem(pos=pts, color=tuple(c), width=2.5,
+                                      mode='line_strip', antialias=True)
+            
+            item.setGLOptions('opaque')
+            self.addItem(item)
+            self.element_items.append(item)
+
+    def _draw_tendons_extruded(self, model):
+        """Sweeps a circular cross-section (radius from TendonSection.dia or
+        .area) along the tessellated tendon polyline. A circle is rotation-
+        symmetric, so a simple parallel-transport side-vector is sufficient —
+        no twist tracking is needed the way frame-element extrusion needs it
+        for arbitrary (asymmetric) section shapes."""
+        tendons = getattr(model, 'tendons', {})
+        if not tendons or not getattr(self, 'show_tendons', True):
+            return
+        sides = 10
+        for tid, tendon in tendons.items():
+            pts = self._get_tendon_world_points(tendon)
+            if pts is None or len(pts) < 2:
+                continue
+            sec = tendon.tendon_section
+            sec = tendon.tendon_section
+            radius = (sec.dia / 2.0) if getattr(sec, 'is_dia', False) else math.sqrt(max(sec.area, 1e-8) / math.pi)
+            
+            c = getattr(sec, 'color', (0, 1, 1, 1))
+            if len(c) == 3: c = (*c, 1.0)
+            face_color = np.array(c, dtype=np.float32)
+
+            tangents = []
+            for i in range(len(pts) - 1):
+                d = pts[i + 1] - pts[i]
+                L = np.linalg.norm(d)
+                tangents.append(d / L if L > 1e-9 else np.array([1.0, 0.0, 0.0]))
+            tangents.append(tangents[-1])
+
+            v_x0, v_y0, _ = tendon.get_local_axes()
+            side = v_y0 - np.dot(v_y0, tangents[0]) * tangents[0]
+            if np.linalg.norm(side) < 1e-6:
+                ref = np.array([0.0, 0.0, 1.0])
+                side = ref - np.dot(ref, tangents[0]) * tangents[0]
+            side = side / np.linalg.norm(side)
+
+            rings = []
+            for i, p in enumerate(pts):
+                t = tangents[i]
+                side = side - np.dot(side, t) * t
+                n_side = np.linalg.norm(side)
+                side = side / n_side if n_side > 1e-6 else side
+                up = np.cross(t, side)
+                rings.append([p + radius * (math.cos(a) * side + math.sin(a) * up)
+                              for a in np.linspace(0, 2 * math.pi, sides, endpoint=False)])
+
+            verts, faces, colors = [], [], []
+            for i in range(len(rings) - 1):
+                base = len(verts)
+                verts.extend(rings[i]); verts.extend(rings[i + 1])
+                for s in range(sides):
+                    s2 = (s + 1) % sides
+                    a, b, c_, d_ = base + s, base + s2, base + sides + s, base + sides + s2
+                    faces.append([a, b, c_]); faces.append([b, d_, c_])
+                colors.extend([face_color] * (2 * sides))
+
+            if not verts:
+                continue
+            mesh = gl.GLMeshItem(vertexes=np.array(verts, dtype=np.float32),
+                                  faces=np.array(faces, dtype=np.int32),
+                                  vertexColors=np.array(colors, dtype=np.float32),
+                                  smooth=True,
+                                  glOptions='translucent' if face_color[3] < 0.999 else 'opaque')
+            self.addItem(mesh)
+            self.element_items.append(mesh)
+
     def _draw_slabs(self, model):
                                                                                                 
         pass
@@ -2833,288 +3046,6 @@ class MCanvas3D(gl.GLViewWidget):
             painter.setPen(color)
             painter.drawText(int(ex) + LABEL_PAD, int(ey) + LABEL_PAD, label)
 
-    def _draw_reference_grids(self, model):
-        grid = model.grid
-        if not grid: return
-
-        def get_vis(lines_attr, fallback):
-            if not lines_attr: return fallback
-            if isinstance(lines_attr[0], dict): return [i['ord'] for i in lines_attr if i.get('visible', True)]
-            return lines_attr
-
-        def get_full_data(lines_attr, fallback):
-            if not lines_attr: return [{'id': str(i+1), 'ord': v, 'bubble': 'End'} for i, v in enumerate(fallback)]
-            if isinstance(lines_attr[0], dict): return [i for i in lines_attr if i.get('visible', True)]
-            return [{'id': str(i+1), 'ord': v, 'bubble': 'End'} for i, v in enumerate(lines_attr)]
-
-        vis_x = get_vis(getattr(grid, 'x_lines', []), getattr(grid, 'x_grids', []))
-        vis_y = get_vis(getattr(grid, 'y_lines', []), getattr(grid, 'y_grids', []))
-        vis_z = get_vis(getattr(grid, 'z_lines', []), getattr(grid, 'z_grids', []))
-
-        if not vis_x or not vis_y or not vis_z: return
-
-        z_min, z_max = min(vis_z), max(vis_z)
-        x_min, x_max = min(vis_x), max(vis_x)
-        y_min, y_max = min(vis_y), max(vis_y)
-
-        bright_pos, dim_pos = [], []
-        
-        is_3d = self.active_view_plane is None
-        active_axis = self.active_view_plane['axis'] if not is_3d else 'z'
-        active_val = self.active_view_plane['value'] if not is_3d else z_min
-
-        def is_on_active_plane(p1, p2):
-            if is_3d: return False 
-            axis = self.active_view_plane['axis']
-            val = self.active_view_plane['value']
-            tol = 0.001
-            if axis == 'x': return abs(p1[0] - val) < tol and abs(p2[0] - val) < tol
-            if axis == 'y': return abs(p1[1] - val) < tol and abs(p2[1] - val) < tol
-            if axis == 'z': return abs(p1[2] - val) < tol and abs(p2[2] - val) < tol
-            return False
-
-        for x in vis_x:
-            for y in vis_y:
-                p1 = [x, y, z_min]; p2 = [x, y, z_max]
-                if is_on_active_plane(p1, p2): bright_pos.extend([p1, p2])
-                else: dim_pos.extend([p1, p2])
-        for z in vis_z:
-            for y in vis_y:
-                p1 = [x_min, y, z]; p2 = [x_max, y, z]
-                if is_on_active_plane(p1, p2): bright_pos.extend([p1, p2])
-                else: dim_pos.extend([p1, p2])
-        for z in vis_z:
-            for x in vis_x:
-                p1 = [x, y_min, z]; p2 = [x, y_max, z]
-                if is_on_active_plane(p1, p2): bright_pos.extend([p1, p2])
-                else: dim_pos.extend([p1, p2])
-
-        graph_paper_pos = []
-        if active_axis == 'z':
-            span_x = max(30.0, (x_max - x_min) * 1.5)
-            span_y = max(30.0, (y_max - y_min) * 1.5)
-            cx, cy = (x_max + x_min)/2.0, (y_max + y_min)/2.0
-            
-            u_name = unit_registry.length_unit_name
-            if u_name in ['mm']: step = unit_registry.from_display_length(1000.0)
-            elif u_name in ['cm', 'in']: step = unit_registry.from_display_length(100.0)
-            else: step = unit_registry.from_display_length(1.0)
-            if step < 0.1: step = 1.0                
-            
-            gx_start, gx_end = math.floor((cx - span_x)/step)*step, math.ceil((cx + span_x)/step)*step
-            gy_start, gy_end = math.floor((cy - span_y)/step)*step, math.ceil((cy + span_y)/step)*step
-
-            for gx in np.arange(gx_start, gx_end + step, step):
-                graph_paper_pos.extend([[gx, gy_start, active_val], [gx, gy_end, active_val]])
-            for gy in np.arange(gy_start, gy_end + step, step):
-                graph_paper_pos.extend([[gx_start, gy, active_val], [gx_end, gy, active_val]])
-
-        bubble_circ_pos, bubble_lines, dim_lines = [], [], []
-        self.grid_labels = []
-        
-        x_data = get_full_data(getattr(grid, 'x_lines', []), getattr(grid, 'x_grids', []))
-        y_data = get_full_data(getattr(grid, 'y_lines', []), getattr(grid, 'y_grids', []))
-        
-        b_scale = getattr(grid, 'bubble_size', 1.25)
-        bubble_radius = b_scale * 0.45
-        ext = b_scale * 2.5
-        tick = bubble_radius * 0.25
-        
-        def format_dist(d):
-                                                                        
-            disp_d = unit_registry.to_display_length(d)
-            
-            u_str = unit_registry.length_unit_name
-            if not u_str: u_str = "m"                
-            
-            if abs(disp_d - round(disp_d)) < 1e-4:
-                return f"{int(round(disp_d))} {u_str}"
-            else:
-                return f"{disp_d:.2f} {u_str}"
-            
-        if active_axis == 'z':
-            for i, d in enumerate(x_data):
-                x = d['ord']
-                bub_loc = d.get('bubble', 'End')
-                
-                if bub_loc in ['End', 'Both']:
-                    bubble_lines.extend([[x, y_max, active_val], [x, y_max + ext, active_val]])
-                    center = np.array([x, y_max + ext + bubble_radius, active_val])
-                    bubble_circ_pos.extend(self._generate_circle_pts(center, bubble_radius, 'z'))
-                    self._add_grid_bubble(center, bubble_radius, d['id'], 'z')
-                    
-                    if i < len(x_data) - 1:
-                        next_x = x_data[i+1]['ord']
-                        dist = abs(next_x - x)
-                        dim_y = y_max + ext * 0.6
-                        dim_lines.extend([[x, dim_y, active_val], [next_x, dim_y, active_val]])
-                        dim_lines.extend([[x, dim_y-tick, active_val], [x, dim_y+tick, active_val]])
-                        dim_lines.extend([[next_x, dim_y-tick, active_val], [next_x, dim_y+tick, active_val]])
-                        
-                        dim_center = np.array([(x + next_x)/2.0, dim_y + bubble_radius*0.6, active_val])
-                        self._add_grid_dimension(dim_center, format_dist(dist), 'z', bubble_radius * 0.9, [1.0, 0.0, 0.0], [0.0, 1.0, 0.0])
-
-                if bub_loc in ['Start', 'Both']:
-                    bubble_lines.extend([[x, y_min, active_val], [x, y_min - ext, active_val]])
-                    center = np.array([x, y_min - ext - bubble_radius, active_val])
-                    bubble_circ_pos.extend(self._generate_circle_pts(center, bubble_radius, 'z'))
-                    self._add_grid_bubble(center, bubble_radius, d['id'], 'z')
-                    
-                    if i < len(x_data) - 1:
-                        next_x = x_data[i+1]['ord']
-                        dist = abs(next_x - x)
-                        dim_y = y_min - ext * 0.6
-                        dim_lines.extend([[x, dim_y, active_val], [next_x, dim_y, active_val]])
-                        dim_lines.extend([[x, dim_y-tick, active_val], [x, dim_y+tick, active_val]])
-                        dim_lines.extend([[next_x, dim_y-tick, active_val], [next_x, dim_y+tick, active_val]])
-                        
-                        dim_center = np.array([(x + next_x)/2.0, dim_y - bubble_radius*0.6, active_val])
-                        self._add_grid_dimension(dim_center, format_dist(dist), 'z', bubble_radius * 0.9, [1.0, 0.0, 0.0], [0.0, 1.0, 0.0])
-
-            for i, d in enumerate(y_data):
-                y = d['ord']
-                bub_loc = d.get('bubble', 'End')
-                
-                if bub_loc in ['End', 'Both']:
-                    bubble_lines.extend([[x_max, y, active_val], [x_max + ext, y, active_val]])
-                    center = np.array([x_max + ext + bubble_radius, y, active_val])
-                    bubble_circ_pos.extend(self._generate_circle_pts(center, bubble_radius, 'z'))
-                    self._add_grid_bubble(center, bubble_radius, d['id'], 'z')
-                    
-                    if i < len(y_data) - 1:
-                        next_y = y_data[i+1]['ord']
-                        dist = abs(next_y - y)
-                        dim_x = x_max + ext * 0.6
-                        dim_lines.extend([[dim_x, y, active_val], [dim_x, next_y, active_val]])
-                        dim_lines.extend([[dim_x-tick, y, active_val], [dim_x+tick, y, active_val]])
-                        dim_lines.extend([[dim_x-tick, next_y, active_val], [dim_x+tick, next_y, active_val]])
-                        
-                        dim_center = np.array([dim_x + bubble_radius*0.6, (y + next_y)/2.0, active_val])
-                        self._add_grid_dimension(dim_center, format_dist(dist), 'z', bubble_radius * 0.9, [0.0, 1.0, 0.0], [-1.0, 0.0, 0.0])
-
-                if bub_loc in ['Start', 'Both']:
-                    bubble_lines.extend([[x_min, y, active_val], [x_min - ext, y, active_val]])
-                    center = np.array([x_min - ext - bubble_radius, y, active_val])
-                    bubble_circ_pos.extend(self._generate_circle_pts(center, bubble_radius, 'z'))
-                    self._add_grid_bubble(center, bubble_radius, d['id'], 'z')
-                    
-                    if i < len(y_data) - 1:
-                        next_y = y_data[i+1]['ord']
-                        dist = abs(next_y - y)
-                        dim_x = x_min - ext * 0.6
-                        dim_lines.extend([[dim_x, y, active_val], [dim_x, next_y, active_val]])
-                        dim_lines.extend([[dim_x-tick, y, active_val], [dim_x+tick, y, active_val]])
-                        dim_lines.extend([[dim_x-tick, next_y, active_val], [dim_x+tick, next_y, active_val]])
-                        
-                        dim_center = np.array([dim_x - bubble_radius*0.6, (y + next_y)/2.0, active_val])
-                        self._add_grid_dimension(dim_center, format_dist(dist), 'z', bubble_radius * 0.9, [0.0, 1.0, 0.0], [-1.0, 0.0, 0.0])
-
-        if active_axis == 'z':
-            for i, d in enumerate(x_data):
-                x = d['ord']
-                bub_loc = d.get('bubble', 'End')
-                
-                if bub_loc in ['End', 'Both']:
-                    bubble_lines.extend([[x, y_max, active_val], [x, y_max + ext, active_val]])
-                    center = np.array([x, y_max + ext + bubble_radius, active_val])
-                    bubble_circ_pos.extend(self._generate_circle_pts(center, bubble_radius, 'z'))
-                    self._add_grid_bubble(center, bubble_radius, d['id'], 'z')
-                    
-                    if i < len(x_data) - 1:
-                        next_x = x_data[i+1]['ord']
-                        dist = abs(next_x - x)
-                        dim_y = y_max + ext * 0.6
-                        dim_lines.extend([[x, dim_y, active_val], [next_x, dim_y, active_val]])
-                        dim_lines.extend([[x, dim_y-tick, active_val], [x, dim_y+tick, active_val]])
-                        dim_lines.extend([[next_x, dim_y-tick, active_val], [next_x, dim_y+tick, active_val]])
-                        dim_center = np.array([(x + next_x)/2.0, dim_y + bubble_radius*0.3, active_val])
-                        self._add_grid_dimension(dim_center, format_dist(dist), 'z', bubble_radius * 0.8, [1.0, 0.0, 0.0], [0.0, 1.0, 0.0])
-
-                if bub_loc in ['Start', 'Both']:
-                    bubble_lines.extend([[x, y_min, active_val], [x, y_min - ext, active_val]])
-                    center = np.array([x, y_min - ext - bubble_radius, active_val])
-                    bubble_circ_pos.extend(self._generate_circle_pts(center, bubble_radius, 'z'))
-                    self._add_grid_bubble(center, bubble_radius, d['id'], 'z')
-                    
-                    if i < len(x_data) - 1:
-                        next_x = x_data[i+1]['ord']
-                        dist = abs(next_x - x)
-                        dim_y = y_min - ext * 0.6
-                        dim_lines.extend([[x, dim_y, active_val], [next_x, dim_y, active_val]])
-                        dim_lines.extend([[x, dim_y-tick, active_val], [x, dim_y+tick, active_val]])
-                        dim_lines.extend([[next_x, dim_y-tick, active_val], [next_x, dim_y+tick, active_val]])
-                        dim_center = np.array([(x + next_x)/2.0, dim_y + bubble_radius*0.3, active_val])
-                        self._add_grid_dimension(dim_center, format_dist(dist), 'z', bubble_radius * 0.8, [1.0, 0.0, 0.0], [0.0, 1.0, 0.0])
-
-            for i, d in enumerate(y_data):
-                y = d['ord']
-                bub_loc = d.get('bubble', 'End')
-                
-                if bub_loc in ['End', 'Both']:
-                    bubble_lines.extend([[x_max, y, active_val], [x_max + ext, y, active_val]])
-                    center = np.array([x_max + ext + bubble_radius, y, active_val])
-                    bubble_circ_pos.extend(self._generate_circle_pts(center, bubble_radius, 'z'))
-                    self._add_grid_bubble(center, bubble_radius, d['id'], 'z')
-                    
-                    if i < len(y_data) - 1:
-                        next_y = y_data[i+1]['ord']
-                        dist = abs(next_y - y)
-                        dim_x = x_max + ext * 0.6
-                        dim_lines.extend([[dim_x, y, active_val], [dim_x, next_y, active_val]])
-                        dim_lines.extend([[dim_x-tick, y, active_val], [dim_x+tick, y, active_val]])
-                        dim_lines.extend([[dim_x-tick, next_y, active_val], [dim_x+tick, next_y, active_val]])
-                        dim_center = np.array([dim_x - bubble_radius*0.2, (y + next_y)/2.0, active_val])
-                        self._add_grid_dimension(dim_center, format_dist(dist), 'z', bubble_radius * 0.8, [0.0, 1.0, 0.0], [-1.0, 0.0, 0.0])
-
-                if bub_loc in ['Start', 'Both']:
-                    bubble_lines.extend([[x_min, y, active_val], [x_min - ext, y, active_val]])
-                    center = np.array([x_min - ext - bubble_radius, y, active_val])
-                    bubble_circ_pos.extend(self._generate_circle_pts(center, bubble_radius, 'z'))
-                    self._add_grid_bubble(center, bubble_radius, d['id'], 'z')
-                    
-                    if i < len(y_data) - 1:
-                        next_y = y_data[i+1]['ord']
-                        dist = abs(next_y - y)
-                        dim_x = x_min - ext * 0.6
-                        dim_lines.extend([[dim_x, y, active_val], [dim_x, next_y, active_val]])
-                        dim_lines.extend([[dim_x-tick, y, active_val], [dim_x+tick, y, active_val]])
-                        dim_lines.extend([[dim_x-tick, next_y, active_val], [dim_x+tick, next_y, active_val]])
-                        dim_center = np.array([dim_x - bubble_radius*0.2, (y + next_y)/2.0, active_val])
-                        self._add_grid_dimension(dim_center, format_dist(dist), 'z', bubble_radius * 0.8, [0.0, 1.0, 0.0], [-1.0, 0.0, 0.0])
-
-        if graph_paper_pos:
-            item = gl.GLLinePlotItem(pos=np.array(graph_paper_pos), mode='lines', color=(0.7, 0.7, 0.7, 0.25), width=1.0, antialias=True)
-            self.addItem(item)
-            self.static_items.append(item)
-
-        if bright_pos:
-            item = gl.GLLinePlotItem(pos=np.array(bright_pos), mode='lines', color=(0.4, 0.4, 0.4, 0.8), width=2, antialias=True)
-            self.addItem(item)
-            self.static_items.append(item)
-            
-        if dim_pos:
-            alpha = 0.5 if is_3d else 0.15
-            item = gl.GLLinePlotItem(pos=np.array(dim_pos), mode='lines', color=(0.6, 0.6, 0.6, alpha), width=1.5, antialias=True)
-            self.addItem(item)
-            self.static_items.append(item)
-
-        if bubble_lines:
-            item = gl.GLLinePlotItem(pos=np.array(bubble_lines), mode='lines', color=(0.3, 0.6, 0.9, 0.9), width=2, antialias=True)
-            self.addItem(item)
-            self.static_items.append(item)
-            
-        if dim_lines:
-            item = gl.GLLinePlotItem(pos=np.array(dim_lines), mode='lines', color=(0.3, 0.5, 0.7, 0.8), width=1.0, antialias=True)
-            self.addItem(item)
-            self.static_items.append(item)
-
-        if bubble_circ_pos:
-            bub_item = gl.GLLinePlotItem(pos=np.array(bubble_circ_pos), mode='lines', color=(0.3, 0.6, 0.9, 1.0), width=2.0, antialias=True)
-            self.addItem(bub_item)
-            self.static_items.append(bub_item)
-
-        self._rebuild_axis_items()
-
     def _generate_circle_pts(self, center, radius, axis='z', segments=32):
         """Generates paired points for a perfect circle using GL_LINES."""
         pts = []
@@ -3367,36 +3298,12 @@ class MCanvas3D(gl.GLViewWidget):
                         dim_center = np.array([dim_x - bubble_radius*1.1, (y + next_y)/2.0, active_val])
                         self._add_grid_dimension(dim_center, format_dist(dist), 'z', bubble_radius * 0.8, [0.0, 1.0, 0.0], [-1.0, 0.0, 0.0])
 
-        if graph_paper_pos:
-            item = gl.GLLinePlotItem(pos=np.array(graph_paper_pos), mode='lines', color=(0.7, 0.7, 0.7, 0.25), width=1.0, antialias=True)
-            self.addItem(item)
-            self.static_items.append(item)
-
-        if bright_pos:
-            item = gl.GLLinePlotItem(pos=np.array(bright_pos), mode='lines', color=(0.4, 0.4, 0.4, 0.8), width=2, antialias=True)
-            self.addItem(item)
-            self.static_items.append(item)
-            
-        if dim_pos:
-            alpha = 0.5 if is_3d else 0.15
-            item = gl.GLLinePlotItem(pos=np.array(dim_pos), mode='lines', color=(0.6, 0.6, 0.6, alpha), width=1.5, antialias=True)
-            self.addItem(item)
-            self.static_items.append(item)
-
-        if bubble_lines:
-            item = gl.GLLinePlotItem(pos=np.array(bubble_lines), mode='lines', color=(0.3, 0.6, 0.9, 0.9), width=2, antialias=True)
-            self.addItem(item)
-            self.static_items.append(item)
-            
-        if dim_lines:
-            item = gl.GLLinePlotItem(pos=np.array(dim_lines), mode='lines', color=(0.3, 0.5, 0.7, 0.8), width=1.0, antialias=True)
-            self.addItem(item)
-            self.static_items.append(item)
-
-        if bubble_circ_pos:
-            bub_item = gl.GLLinePlotItem(pos=np.array(bubble_circ_pos), mode='lines', color=(0.3, 0.6, 0.9, 1.0), width=2.0, antialias=True)
-            self.addItem(bub_item)
-            self.static_items.append(bub_item)
+        self._push_static_lines(graph_paper_pos, (0.7, 0.7, 0.7, 0.25))
+        self._push_static_lines(bright_pos,       (0.4, 0.4, 0.4, 0.8))
+        self._push_static_lines(dim_pos,          (0.6, 0.6, 0.6, 0.5 if is_3d else 0.15))
+        self._push_static_lines(bubble_lines,     (0.3, 0.6, 0.9, 0.9))
+        self._push_static_lines(dim_lines,        (0.3, 0.5, 0.7, 0.8))
+        self._push_static_lines(bubble_circ_pos,  (0.3, 0.6, 0.9, 1.0))
 
         self._rebuild_axis_items()
         
@@ -4535,7 +4442,7 @@ class MCanvas3D(gl.GLViewWidget):
         self.update()
 
     def mouseReleaseEvent(self, event):
-                                           
+                                 
         if event.button() == Qt.MouseButton.LeftButton and getattr(self, 'single_use_pan_active', False):
             self.single_use_pan_active = False
             self.setCursor(Qt.CursorShape.ArrowCursor)
@@ -4553,18 +4460,20 @@ class MCanvas3D(gl.GLViewWidget):
             self.is_selecting = False
             self._is_navigating = False
             self.update() 
-            
+
+            suppress_selection = getattr(self, '_suppress_next_click_selection', False)
+            self._suppress_next_click_selection = False
+
             if self.drag_start:
                 drag_dist = (event.pos() - self.drag_start).manhattanLength()
+                self._last_selection_was_click = (drag_dist <= 8)
 
-                self._last_selection_was_click = (drag_dist <= 5)
-
-                if drag_dist > 5: 
-                    self.process_box_selection(self.drag_start, event.pos())
-                else:
-                    self.pick_single_object(event.pos())
-                                                                             
-                    self._handle_hover_tooltip(event.pos().x(), event.pos().y())
+                if not suppress_selection:
+                    if drag_dist > 8:
+                        self.process_box_selection(self.drag_start, event.pos(), is_single_click=False)
+                    else:
+                        self.process_box_selection(event.pos(), event.pos(), is_single_click=True)
+                        self._handle_hover_tooltip(event.pos().x(), event.pos().y())
 
             self.drag_start = None
             self.drag_current = None
@@ -4574,7 +4483,7 @@ class MCanvas3D(gl.GLViewWidget):
         self._mouse_pressed = False
         self.update()
         super().mouseReleaseEvent(event)
-        
+
     def pick_single_object(self, pos):
         """
         Picks the object nearest to pos.
@@ -4584,7 +4493,7 @@ class MCanvas3D(gl.GLViewWidget):
         """
         start_centered = type(pos)(pos.x() + 5, pos.y() - 5)
         end_centered   = type(pos)(pos.x() - 5, pos.y() + 5)
-        self.process_box_selection(start_centered, end_centered)
+        self.process_box_selection(start_centered, end_centered, is_single_click=True)
 
     def paintEvent(self, event):
         super().paintEvent(event)
@@ -4656,49 +4565,36 @@ class MCanvas3D(gl.GLViewWidget):
     def _is_moving(self):
         return getattr(self, '_mouse_pressed', False)        
 
-    def process_box_selection(self, p_start, p_end):
+    def process_box_selection(self, p_start, p_end, is_single_click=False):
         if not self.current_model:
             return
 
-        x_min = min(p_start.x(), p_end.x())
-        x_max = max(p_start.x(), p_end.x())
-        y_min = min(p_start.y(), p_end.y())
-        y_max = max(p_start.y(), p_end.y())
-
-        is_window_select = (p_end.x() > p_start.x())
-
         w = self.width()
         h = self.height()
-
         full_area = (0, 0, w, h)
         m_view = self.viewMatrix()
         m_proj = self.projectionMatrix(region=full_area, viewport=full_area)
         mvp = np.array((m_proj * m_view).data()).reshape(4, 4).T
 
+        model = self.current_model
         can_deflect = (
             self.view_deflected
-            and hasattr(self.current_model, 'has_results')
-            and self.current_model.has_results
-            and self.current_model.results is not None
+            and hasattr(model, 'has_results')
+            and model.has_results
+            and model.results is not None
         )
 
-        model = self.current_model
-
-        node_items = list(model.nodes.items())
-        found_nodes = []
         node_screens = {}
-
-        if node_items:
-            all_nids   = [nid for nid, _ in node_items]
-            all_nodes  = [n   for _, n  in node_items]
-
-            vis_mask  = [self._get_visibility_state(n.x, n.y, n.z) == 2 for n in all_nodes]
-            vis_nids  = [all_nids[i]  for i, v in enumerate(vis_mask) if v]
+        vis_nids = []
+        if model.nodes:
+            all_nids = list(model.nodes.keys())
+            all_nodes = list(model.nodes.values())
+            vis_mask = [self._get_visibility_state(n.x, n.y, n.z) == 2 for n in all_nodes]
+            vis_nids = [all_nids[i] for i, v in enumerate(vis_mask) if v]
             vis_nodes = [all_nodes[i] for i, v in enumerate(vis_mask) if v]
 
             if vis_nids:
                 positions = np.array([[n.x, n.y, n.z] for n in vis_nodes], dtype=np.float64)
-
                 if can_deflect:
                     displacements = model.results.get("displacements", {})
                     disp = np.zeros_like(positions)
@@ -4708,143 +4604,263 @@ class MCanvas3D(gl.GLViewWidget):
                             disp[i] = d[:3]
                     positions += disp * (self.deflection_scale * self.anim_factor)
 
-                N     = len(positions)
-                pos_h = np.hstack([positions, np.ones((N, 1))])          
-                clip  = pos_h @ mvp.T                                    
-
-                w_clip       = clip[:, 3]
+                N = len(positions)
+                pos_h = np.hstack([positions, np.ones((N, 1))])
+                clip = pos_h @ mvp.T
+                w_clip = clip[:, 3]
                 screen_valid = w_clip > 0
-                safe_w       = np.where(screen_valid, w_clip, 1.0)
-
+                safe_w = np.where(screen_valid, w_clip, 1.0)
                 sx = (clip[:, 0] / safe_w * 0.5 + 0.5) * w
                 sy = (1.0 - (clip[:, 1] / safe_w * 0.5 + 0.5)) * h
-
-                in_box = (screen_valid
-                        & (sx >= x_min) & (sx <= x_max)
-                        & (sy >= y_min) & (sy <= y_max))
 
                 for i, nid in enumerate(vis_nids):
                     if screen_valid[i]:
                         node_screens[nid] = (float(sx[i]), float(sy[i]))
-                        if in_box[i]:
-                            found_nodes.append(nid)
 
-        found_elems = []
-        e_ids, p1s, p2s = [], [], []
+        def pt_seg_dist(pt, a, b):
+            ax, ay = a; bx, by = b
+            l2 = (bx - ax) ** 2 + (by - ay) ** 2
+            if l2 == 0: return math.hypot(pt[0] - ax, pt[1] - ay)
+            t = max(0.0, min(1.0, ((pt[0] - ax) * (bx - ax) + (pt[1] - ay) * (by - ay)) / l2))
+            px, py = ax + t * (bx - ax), ay + t * (by - ay)
+            return math.hypot(pt[0] - px, pt[1] - py)
 
-        for eid, el in model.elements.items():
-            p1 = node_screens.get(el.node_i.id)
-            p2 = node_screens.get(el.node_j.id)
-            if p1 is None or p2 is None:
-                continue
-            e_ids.append(eid)
-            p1s.append(p1)
-            p2s.append(p2)
+        found_nodes, found_elems, found_links, found_tendons, found_area_elems = [], [], [], [], []
 
-        if e_ids:
-            if is_window_select:
-                p1_arr = np.array(p1s)
-                p2_arr = np.array(p2s)
-                p1_in  = ((p1_arr[:, 0] >= x_min) & (p1_arr[:, 0] <= x_max) &
-                        (p1_arr[:, 1] >= y_min) & (p1_arr[:, 1] <= y_max))
-                p2_in  = ((p2_arr[:, 0] >= x_min) & (p2_arr[:, 0] <= x_max) &
-                        (p2_arr[:, 1] >= y_min) & (p2_arr[:, 1] <= y_max))
-                found_elems = [e_ids[i] for i in np.where(p1_in & p2_in)[0]]
-            else:
-                rect = (x_min, y_min, x_max, y_max)
-                found_elems = [
-                    e_ids[i] for i in range(len(e_ids))
-                    if self._line_intersects_rect(p1s[i], p2s[i], rect)
-                ]
+        if is_single_click:
+            mx = (p_start.x() + p_end.x()) / 2.0
+            my = (p_start.y() + p_end.y()) / 2.0
+            candidates = []
 
-        found_links = []
-        l_ids, lp1s, lp2s = [], [], []
+            for nid, pos in node_screens.items():
+                d = math.hypot(pos[0] - mx, pos[1] - my)
+                if d <= 10: candidates.append((d, 1, 'node', nid))
 
-        if hasattr(model, 'links'):
-            for lid, link in model.links.items():
-                nodes = link['nodes']
-                if len(nodes) == 1:
-                    n0 = nodes[0]
-                                                                          
-                    real_node = model.nodes.get(n0) or model.nodes.get(int(n0)) or model.nodes.get(str(n0))
+            for eid, el in model.elements.items():
+                if can_deflect and eid in getattr(self, 'deflection_cache', {}):
+                    cached = self.deflection_cache[eid]
+                    curve_data_full = cached['curve_data']
+                    p1_orig = cached['p1_orig']
+                    p2_orig = cached['p2_orig']
+                    screen_pts = []
+                    for k in range(len(curve_data_full)):
+                        pos_full, _, _ = curve_data_full[k]
+                        s = k / (len(curve_data_full) - 1) if len(curve_data_full) > 1 else 0.0
+                        pos_orig = p1_orig + s * (p2_orig - p1_orig)
+                        displacement = pos_full - pos_orig
+                        pos_anim = pos_orig + displacement * self.anim_factor
+                        s_pos = self._project_to_screen(pos_anim[0], pos_anim[1], pos_anim[2], mvp, w, h)
+                        if s_pos: screen_pts.append(s_pos)
+                    min_d = float('inf')
+                    for k in range(len(screen_pts)-1):
+                        d = pt_seg_dist((mx, my), screen_pts[k], screen_pts[k+1])
+                        if d < min_d: min_d = d
+                    if min_d <= 10: candidates.append((min_d, 2, 'elem', eid))
+                else:
+                    p1 = node_screens.get(el.node_i.id)
+                    p2 = node_screens.get(el.node_j.id)
+                    if p1 and p2:
+                        d = pt_seg_dist((mx, my), p1, p2)
+                        if d <= 10: candidates.append((d, 2, 'elem', eid))
+
+            if getattr(model, 'tendons', None):
+                for tid, t in model.tendons.items():
+                    pts = self._get_tendon_world_points(t)
+                    if pts is not None and len(pts) >= 2:
+                        s_pts = []
+                        for p in pts:
+                            s_pos = self._project_to_screen(p[0], p[1], p[2], mvp, w, h)
+                            if s_pos: s_pts.append(s_pos)
+                        min_t_dist = float('inf')
+                        for k in range(len(s_pts)-1):
+                            d = pt_seg_dist((mx, my), s_pts[k], s_pts[k+1])
+                            if d < min_t_dist: min_t_dist = d
+                        if min_t_dist <= 10:
+                            candidates.append((min_t_dist, 3, 'tendon', tid))
+
+            if hasattr(model, 'links'):
+                for lid, link in model.links.items():
+                    nodes = link['nodes']
+                    if len(nodes) == 1:
+                        nid = nodes[0]
+                        real_node = model.nodes.get(nid) or model.nodes.get(int(nid)) or model.nodes.get(str(nid))
+                        if real_node:
+                            scale = getattr(self, 'cache_scale_used', 1.0)
+                            if scale is None:
+                                bounds = getattr(self, 'compute_model_bbox', lambda: None)()
+                                scale = bounds[1] * 0.05 if bounds and len(bounds)>=2 else 1.0
+                            ground_z = real_node.z - scale * 6.0 * 2.2
+                            s = self._project_to_screen(real_node.x, real_node.y, ground_z, mvp, w, h)
+                            if s:
+                                d = math.hypot(s[0] - mx, s[1] - my)
+                                if d <= 10: candidates.append((d, 4, 'link', lid))
+                    elif len(nodes) == 2:
+                        p1 = node_screens.get(nodes[0]) or node_screens.get(int(nodes[0])) or node_screens.get(str(nodes[0]))
+                        p2 = node_screens.get(nodes[1]) or node_screens.get(int(nodes[1])) or node_screens.get(str(nodes[1]))
+                        if p1 and p2:
+                            d = pt_seg_dist((mx, my), p1, p2)
+                            if d <= 10: candidates.append((d, 4, 'link', lid))
+
+            for aeid, ae in model.area_elements.items():
+                if getattr(self, 'view_deflected', False):
+                    if hasattr(ae.section, 'modeling_type') and ae.section.modeling_type == "Tributary Area":
+                        continue
+                corner_screens = []
+                for n in ae.nodes:
+                    s = node_screens.get(n.id) or self._project_to_screen(n.x, n.y, n.z, mvp, w, h)
+                    if s: corner_screens.append(s)
+                if len(corner_screens) >= 3:
+                    if self._point_in_polygon_2d(mx, my, corner_screens):
+                        candidates.append((10.0, 5, 'area', aeid))
+
+            if candidates:
+                                                                                                             
+                candidates.sort(key=lambda x: (x[0], x[1]))
+                min_d = candidates[0][0]
+                tied = [c for c in candidates if c[0] <= min_d + 2.0]
+                
+                now = time.monotonic()
+                if hasattr(self, '_click_cycle_pos'):
+                    dist_click = math.hypot(mx - self._click_cycle_pos[0], my - self._click_cycle_pos[1])
+                    if dist_click < 5.0 and (now - getattr(self, '_click_cycle_time', 0)) < 1.0:
+                        self._click_cycle_index = (getattr(self, '_click_cycle_index', -1) + 1) % len(tied)
+                    else:
+                        self._click_cycle_index = 0
+                else:
+                    self._click_cycle_index = 0
                     
-                    if real_node:
-                                                   
-                        if hasattr(self, 'cache_scale_used') and self.cache_scale_used is not None:
-                            scale = self.cache_scale_used
+                self._click_cycle_pos = (mx, my)
+                self._click_cycle_time = now
+
+                deselect_click = (QApplication.keyboardModifiers() == Qt.KeyboardModifier.ShiftModifier)
+                best = None
+                if deselect_click:
+                    selected_map = {
+                        'node':   getattr(self, 'selected_node_ids', []),
+                        'elem':   getattr(self, 'selected_element_ids', []),
+                        'tendon': getattr(self, 'selected_tendon_ids', []),
+                        'link':   getattr(self, 'selected_link_ids', []),
+                        'area':   getattr(self, 'selected_area_ids', []),
+                    }
+                    already_selected = [c for c in tied if c[3] in selected_map.get(c[2], [])]
+                    if already_selected:
+                        best = already_selected[0]
+                if best is None:
+                    best = tied[self._click_cycle_index]
+                ctype, cid = best[2], best[3]
+                
+                if ctype == 'node': found_nodes.append(cid)
+                elif ctype == 'elem': found_elems.append(cid)
+                elif ctype == 'tendon': found_tendons.append(cid)
+                elif ctype == 'link': found_links.append(cid)
+                elif ctype == 'area': found_area_elems.append(cid)
+
+        else:
+                                                       
+            self._click_cycle_key = None
+            self._click_cycle_index = -1
+
+            x_min, x_max = min(p_start.x(), p_end.x()), max(p_start.x(), p_end.x())
+            y_min, y_max = min(p_start.y(), p_end.y()), max(p_start.y(), p_end.y())
+            is_window_select = (p_end.x() > p_start.x())
+            rect = (x_min, y_min, x_max, y_max)
+
+            for nid, pos in node_screens.items():
+                if x_min <= pos[0] <= x_max and y_min <= pos[1] <= y_max:
+                    found_nodes.append(nid)
+
+            for eid, el in model.elements.items():
+                p1 = node_screens.get(el.node_i.id)
+                p2 = node_screens.get(el.node_j.id)
+                if p1 and p2:
+                    if is_window_select:
+                        if (x_min <= p1[0] <= x_max and y_min <= p1[1] <= y_max and
+                            x_min <= p2[0] <= x_max and y_min <= p2[1] <= y_max):
+                            found_elems.append(eid)
+                    else:
+                        if self._line_intersects_rect(p1, p2, rect):
+                            found_elems.append(eid)
+
+            if getattr(model, 'tendons', None):
+                for tid, t in model.tendons.items():
+                    pts = self._get_tendon_world_points(t)
+                    if pts is not None and len(pts) >= 2:
+                        s_pts = []
+                        for p in pts:
+                            s_pos = self._project_to_screen(p[0], p[1], p[2], mvp, w, h)
+                            if s_pos: s_pts.append(s_pos)
+                        if not s_pts: continue
+                        if is_window_select:
+                            if all(x_min <= p[0] <= x_max and y_min <= p[1] <= y_max for p in s_pts):
+                                found_tendons.append(tid)
                         else:
-                            bounds = getattr(self, 'compute_model_bbox', lambda: None)()
-                            if bounds and len(bounds) >= 2:
-                                                                        
-                                scale = bounds[1] * 0.05
+                            hit = False
+                            for k in range(len(s_pts)-1):
+                                if self._line_intersects_rect(s_pts[k], s_pts[k+1], rect):
+                                    hit = True
+                                    break
+                            if hit: found_tendons.append(tid)
+
+            if hasattr(model, 'links'):
+                for lid, link in model.links.items():
+                    nodes = link['nodes']
+                    if len(nodes) == 1:
+                        nid = nodes[0]
+                        real_node = model.nodes.get(nid) or model.nodes.get(int(nid)) or model.nodes.get(str(nid))
+                        if real_node:
+                            scale = getattr(self, 'cache_scale_used', 1.0)
+                            if scale is None:
+                                bounds = getattr(self, 'compute_model_bbox', lambda: None)()
+                                scale = bounds[1] * 0.05 if bounds and len(bounds)>=2 else 1.0
+                            ground_z = real_node.z - scale * 6.0 * 2.2
+                            s = self._project_to_screen(real_node.x, real_node.y, ground_z, mvp, w, h)
+                            if s and (x_min <= s[0] <= x_max) and (y_min <= s[1] <= y_max):
+                                found_links.append(lid)
+                    elif len(nodes) == 2:
+                        p1 = node_screens.get(nodes[0]) or node_screens.get(int(nodes[0])) or node_screens.get(str(nodes[0]))
+                        p2 = node_screens.get(nodes[1]) or node_screens.get(int(nodes[1])) or node_screens.get(str(nodes[1]))
+                        if p1 and p2:
+                            if is_window_select:
+                                if (x_min <= p1[0] <= x_max and y_min <= p1[1] <= y_max and
+                                    x_min <= p2[0] <= x_max and y_min <= p2[1] <= y_max):
+                                    found_links.append(lid)
                             else:
-                                scale = 1.0
+                                if self._line_intersects_rect(p1, p2, rect):
+                                    found_links.append(lid)
 
-                        ground_z = real_node.z - scale * 6.0 * 2.2
-                        
-                        s = self._project_to_screen(real_node.x, real_node.y, ground_z, mvp, w, h)
-                        
-                        if s and (x_min <= s[0] <= x_max) and (y_min <= s[1] <= y_max):
-                            found_links.append(lid)
-
-                elif len(nodes) == 2:
-                    n0, n1 = nodes[0], nodes[1]
-                    p1 = node_screens.get(n0) or node_screens.get(int(n0)) or node_screens.get(str(n0))
-                    p2 = node_screens.get(n1) or node_screens.get(int(n1)) or node_screens.get(str(n1))
-                    if p1 is None or p2 is None: continue
-                    l_ids.append(lid)
-                    lp1s.append(p1)
-                    lp2s.append(p2)
-
-            if l_ids:
-                if is_window_select:
-                    p1_arr = np.array(lp1s); p2_arr = np.array(lp2s)
-                    p1_in = ((p1_arr[:, 0] >= x_min) & (p1_arr[:, 0] <= x_max) & (p1_arr[:, 1] >= y_min) & (p1_arr[:, 1] <= y_max))
-                    p2_in = ((p2_arr[:, 0] >= x_min) & (p2_arr[:, 0] <= x_max) & (p2_arr[:, 1] >= y_min) & (p2_arr[:, 1] <= y_max))
-                    found_links.extend([l_ids[i] for i in np.where(p1_in & p2_in)[0]])
-                else:
-                    rect = (x_min, y_min, x_max, y_max)
-                    found_links.extend([l_ids[i] for i in range(len(l_ids)) if self._line_intersects_rect(lp1s[i], lp2s[i], rect)])   
-        found_area_elems = []
-        for aeid, ae in model.area_elements.items():
-            if getattr(self, 'view_deflected', False):
-                if hasattr(ae.section, 'modeling_type') and ae.section.modeling_type == "Tributary Area":
+            for aeid, ae in model.area_elements.items():
+                if getattr(self, 'view_deflected', False):
+                    if hasattr(ae.section, 'modeling_type') and ae.section.modeling_type == "Tributary Area":
+                        continue
+                corner_screens = []
+                for n in ae.nodes:
+                    s = node_screens.get(n.id) or self._project_to_screen(n.x, n.y, n.z, mvp, w, h)
+                    if s: corner_screens.append(s)
+                if len(corner_screens) < 3:
                     continue
-            corner_screens = []
-            for n in ae.nodes:
-                s = node_screens.get(n.id)
-                if s is None:
-                    s = self._project_to_screen(n.x, n.y, n.z, mvp, w, h)
-                if s:
-                    corner_screens.append(s)
-            if len(corner_screens) < 3:
-                continue
 
-            if is_window_select:
-                if all(x_min <= p[0] <= x_max and y_min <= p[1] <= y_max
-                    for p in corner_screens):
-                    found_area_elems.append(aeid)
-            else:
-                cx_pick = (x_min + x_max) / 2.0
-                cy_pick = (y_min + y_max) / 2.0
-                if self._point_in_polygon_2d(cx_pick, cy_pick, corner_screens):
-                    found_area_elems.append(aeid)
+                if is_window_select:
+                    if all(x_min <= p[0] <= x_max and y_min <= p[1] <= y_max for p in corner_screens):
+                        found_area_elems.append(aeid)
                 else:
-                    rect  = (x_min, y_min, x_max, y_max)
-                    n_pts = len(corner_screens)
-                    for i in range(n_pts):
-                        if self._line_intersects_rect(
-                            corner_screens[i], corner_screens[(i + 1) % n_pts], rect
-                        ):
-                            found_area_elems.append(aeid)
-                            break
+                    cx_pick = (x_min + x_max) / 2.0
+                    cy_pick = (y_min + y_max) / 2.0
+                    if self._point_in_polygon_2d(cx_pick, cy_pick, corner_screens):
+                        found_area_elems.append(aeid)
+                    else:
+                        n_pts = len(corner_screens)
+                        for i in range(n_pts):
+                            if self._line_intersects_rect(corner_screens[i], corner_screens[(i + 1) % n_pts], rect):
+                                found_area_elems.append(aeid)
+                                break
 
         modifiers   = QApplication.keyboardModifiers()
         is_additive = (modifiers == Qt.KeyboardModifier.ControlModifier)
         is_deselect = (modifiers == Qt.KeyboardModifier.ShiftModifier)
-        self.signal_box_selection.emit(found_nodes, found_elems, found_links, is_additive, is_deselect)
-        self.signal_area_box_selection.emit(found_area_elems, is_additive, is_deselect)
-
+        self.signal_box_selection.emit(found_nodes, found_elems, found_links, found_tendons, is_additive, is_deselect)
+        if found_area_elems or not is_single_click:
+            self.signal_area_box_selection.emit(found_area_elems, is_additive, is_deselect)
+    
     def _point_in_polygon_2d(self, px, py, pts):
         """Winding number test — works for convex and concave screen-space polygons."""
         winding = 0
@@ -5626,13 +5642,8 @@ class MCanvas3D(gl.GLViewWidget):
             colors.append((0, 0, 1, 1)); colors.append((0, 0, 1, 1))
             
         if lines:
-            self.addItem(gl.GLLinePlotItem(
-                pos=np.array(lines), 
-                color=np.array(colors), 
-                mode='lines', 
-                width=2.0, 
-                antialias=True
-            ))
+            self._pending_static_line_pos.extend(lines)
+            self._pending_static_line_colors.extend(colors)
 
     def _draw_constraints(self, model):
         """
@@ -5674,25 +5685,17 @@ class MCanvas3D(gl.GLViewWidget):
                     conn_lines.append(c_pt)
                     conn_lines.append([n.x, n.y, n.z])
 
-        if conn_lines:
-            self.addItem(gl.GLLinePlotItem(
-                pos=np.array(conn_lines),
-                color=(0, 1, 0, 0.85),                             
-                mode='lines',
-                width=0.7,                                  
-                antialias=True
-            ))
+        self._push_static_lines(conn_lines, (0, 1, 0, 0.85))
 
-        if master_pos:
-            master_item = gl.GLScatterPlotItem(
-                pos=np.array(master_pos), 
-                size=5,                                                      
-                color=(1.0, 0.85, 0.0, 1.0),                     
-                pxMode=True                                                            
-            )
-                                                                                          
-            master_item.setGLOptions('translucent')
-            self.addItem(master_item)
+        marker_r = 0.15
+        marker_lines = []
+        for cx, cy, cz in master_pos:
+            marker_lines.extend([
+                [cx - marker_r, cy, cz], [cx + marker_r, cy, cz],
+                [cx, cy - marker_r, cz], [cx, cy + marker_r, cz],
+                [cx, cy, cz - marker_r], [cx, cy, cz + marker_r],
+            ])
+        self._push_static_lines(marker_lines, (1.0, 0.85, 0.0, 1.0))
 
     def _area_load_sample_points(self, pts, centroid, n=5):
         """
@@ -6198,6 +6201,8 @@ class MCanvas3D(gl.GLViewWidget):
 
             self.vbo_manager.draw_springs(m_view, m_proj, line_width=1.75, alpha_mult=1.0)
 
+            self.vbo_manager.draw_static(m_view, m_proj, line_width=1.5, alpha_mult=1.0)
+
             if getattr(self, 'show_slabs', True):
                 edge_w = float(self.display_config.get("edge_width", 1.5))
                 
@@ -6483,6 +6488,7 @@ class MCanvas3D(gl.GLViewWidget):
         hovered_node = None
         hovered_elem = None
         hovered_area = None
+        hovered_tendon = None
         min_dist = 15.0
 
         for nid, s_pos in node_screens.items():
@@ -6546,7 +6552,33 @@ class MCanvas3D(gl.GLViewWidget):
                             min_dist_edge = dist
                             hovered_elem = eid
 
-        if hovered_node is None and hovered_elem is None and self.current_model.area_elements:
+        if hovered_node is None and hovered_elem is None and getattr(self.current_model, 'tendons', None):
+            min_dist_tendon = 10.0
+            for tid, tendon in self.current_model.tendons.items():
+                pts = self._get_tendon_world_points(tendon)
+                if pts is None or len(pts) < 2:
+                    continue
+                screen_pts = []
+                for p in pts:
+                    s_pos = self._project_to_screen(p[0], p[1], p[2], mvp, w, h)
+                    if s_pos:
+                        screen_pts.append(s_pos)
+                for i in range(len(screen_pts) - 1):
+                    x1, y1 = screen_pts[i]
+                    x2, y2 = screen_pts[i + 1]
+                    l2 = (x2 - x1)**2 + (y2 - y1)**2
+                    if l2 == 0:
+                        dist = ((px - x1)**2 + (py - y1)**2)**0.5
+                    else:
+                        t = max(0, min(1, ((px - x1) * (x2 - x1) + (py - y1) * (y2 - y1)) / l2))
+                        proj_x = x1 + t * (x2 - x1)
+                        proj_y = y1 + t * (y2 - y1)
+                        dist = ((px - proj_x)**2 + (py - proj_y)**2)**0.5
+                    if dist < min_dist_tendon:
+                        min_dist_tendon = dist
+                        hovered_tendon = tid
+
+        if hovered_node is None and hovered_elem is None and hovered_tendon is None and self.current_model.area_elements:
             for aeid, ae in self.current_model.area_elements.items():
                                                                                 
                 if getattr(self, 'view_deflected', False):
@@ -6600,6 +6632,11 @@ class MCanvas3D(gl.GLViewWidget):
             sec_name = el.section.name if el.section else "None"
             text = f"FRAME {hovered_elem}\nSection: {sec_name}"
 
+        elif hovered_tendon is not None:
+            td = self.current_model.tendons[hovered_tendon]
+            sec_name = td.tendon_section.name if td.tendon_section else "None"
+            text = f"TENDON {hovered_tendon}\nSection: {sec_name}"
+
         elif hovered_area is not None:
             ae  = self.current_model.area_elements[hovered_area]
             sec = ae.section
@@ -6614,14 +6651,20 @@ class MCanvas3D(gl.GLViewWidget):
 
         prev_nothing = (self.hovered_node_id is None and
                         self.hovered_elem_id is None and
+                        self.hovered_tendon_id is None and
                         self.current_hover_data is None)
         new_nothing  = (hovered_node is None and
                         hovered_elem is None and
+                        hovered_tendon is None and
                         new_hover_data is None)
 
+        prev_hov_tendon = self.hovered_tendon_id
         self.current_hover_data = new_hover_data
         self.hovered_node_id    = hovered_node
         self.hovered_elem_id    = hovered_elem
+        self.hovered_tendon_id  = hovered_tendon
+        if hovered_tendon != prev_hov_tendon:
+            self.update()
 
         prev_hov_area = getattr(self, 'hovered_area_id', None)
         self.hovered_area_id  = hovered_area
@@ -6719,6 +6762,40 @@ class MCanvas3D(gl.GLViewWidget):
         if show_edges and ex_edges:
             edge_verts_flat = verts_flat.reshape(-1, 3)[self.ltha_engine.edge_indices].flatten()
             self.vbo_manager.upload_line_geometry(edge_verts_flat.reshape(-1, 3), self.ltha_engine.edge_colors_flat.reshape(-1, 4))
+
+    def _push_static_lines(self, positions, color):
+        """
+        Accumulates a batch of line-segment endpoints (flat list of [x,y,z]
+        pairs) into the pending static-geometry buffers, tagging every vertex
+        with `color`. Used by the grid, local-axis, and constraint drawers so
+        all of that "drawn once, changes rarely" overlay geometry ends up in
+        one GPU buffer instead of one pyqtgraph item per call site.
+        """
+        if not positions:
+            return
+        self._pending_static_line_pos.extend(positions)
+        self._pending_static_line_colors.extend([color] * len(positions))
+
+    def _upload_static_geometry(self):
+        """
+        Flushes everything accumulated via _push_static_lines (reference
+        grid, dimension lines, bubbles, local-axis triads, diaphragm
+        constraint markers) into the dedicated static VBO in one call.
+        Must be called after _draw_reference_grids / _draw_local_axes /
+        _draw_constraints have populated the pending arrays for this rebuild.
+        """
+        if not hasattr(self, 'vbo_manager') or not self.vbo_manager.is_initialized:
+            return
+
+        self.makeCurrent()
+
+        pos = getattr(self, '_pending_static_line_pos', [])
+        col = getattr(self, '_pending_static_line_colors', [])
+
+        p = np.array(pos, dtype=np.float32) if pos else np.zeros((0, 3), dtype=np.float32)
+        c = np.array(col, dtype=np.float32) if col else np.zeros((0, 4), dtype=np.float32)
+
+        self.vbo_manager.upload_static_geometry(p, c)
 
     def _upload_loads_to_vbo(self):
         """

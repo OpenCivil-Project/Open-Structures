@@ -330,17 +330,25 @@ class MainWindow(QMainWindow):
 
         self.menu_edit = menubar.addMenu("Edit")
 
-        self.undo_action = self.undo_stack.createUndoAction(self, "Undo")
-        self.undo_action.setIcon(qta.icon('fa5s.undo', color='#6c757d', disabled_color='#cccccc'))
+        self.undo_action = QAction(qta.icon('fa5s.undo', color='#6c757d', disabled_color='#cccccc'), "Undo", self)
         self.undo_action.setShortcut("Ctrl+Z")
         self.undo_action.setToolTip("Undo (Ctrl+Z)")
+        self.undo_action.triggered.connect(self._perform_undo)
         self.menu_edit.addAction(self.undo_action)
 
-        self.redo_action = self.undo_stack.createRedoAction(self, "Redo")
-        self.redo_action.setIcon(qta.icon('fa5s.redo', color='#6c757d', disabled_color='#cccccc'))
+        self.redo_action = QAction(qta.icon('fa5s.redo', color='#6c757d', disabled_color='#cccccc'), "Redo", self)
         self.redo_action.setShortcut("Ctrl+Y")                                          
         self.redo_action.setToolTip("Redo (Ctrl+Y)")
+        self.redo_action.triggered.connect(self._perform_redo)
         self.menu_edit.addAction(self.redo_action)
+        
+        self.undo_stack.canUndoChanged.connect(self.undo_action.setEnabled)
+        self.undo_stack.canRedoChanged.connect(self.redo_action.setEnabled)
+        self.undo_action.setEnabled(False)
+        self.redo_action.setEnabled(False)
+        
+        self.undo_stack.undoTextChanged.connect(lambda t: self.undo_action.setText(f"Undo {t}" if t else "Undo"))
+        self.undo_stack.redoTextChanged.connect(lambda t: self.redo_action.setText(f"Redo {t}" if t else "Redo"))
         
         self.menu_edit.addSeparator()
 
@@ -406,6 +414,10 @@ class MainWindow(QMainWindow):
         sec_action.triggered.connect(self.on_define_sections) 
         self.menu_define.addAction(sec_action)
 
+        tendon_sec_action = QAction(qta.icon('fa5s.wave-square', color='#6c757d'), "Tendon Sections...", self)
+        tendon_sec_action.triggered.connect(self.on_define_tendon_sections)
+        self.menu_define.addAction(tendon_sec_action)
+
         area_sec_action = QAction(qta.icon('fa5s.vector-square', color='#6c757d'), "Area Sections...", self)
         area_sec_action.triggered.connect(self.on_define_area_sections)
         self.menu_define.addAction(area_sec_action)
@@ -452,7 +464,7 @@ class MainWindow(QMainWindow):
 
         self.menu_draw = menubar.addMenu("Draw")
         
-        draw_action = QAction(qta.icon('fa5s.pencil-alt', color='#6c757d'), "Draw Frame/Cable...", self)
+        draw_action = QAction(qta.icon('fa5s.pencil-alt', color='#6c757d'), "Draw Frame/Tendon...", self)
         draw_action.triggered.connect(self.on_draw_frame)
         self.menu_draw.addAction(draw_action)
 
@@ -942,6 +954,15 @@ class MainWindow(QMainWindow):
         local_axis_action.triggered.connect(self.on_assign_local_axis)
         frame_menu.addAction(local_axis_action)
 
+        self.menu_assign.addSeparator()
+
+        tendon_menu = self.menu_assign.addMenu("Tendon")
+        tendon_menu.setIcon(qta.icon('fa5s.wave-square', color='#6c757d'))
+
+        tendon_load_action = QAction(qta.icon('fa5s.arrow-down', color='#6c757d'), "Tendon Loads...", self)
+        tendon_load_action.triggered.connect(self.on_assign_tendon_load)
+        tendon_menu.addAction(tendon_load_action)
+
         self.menu_analyze = menubar.addMenu("Analyze")
 
         self.action_analysis_opts = QAction(qta.icon('fa5s.sliders-h', color='#6c757d'), "Analysis Options...", self)
@@ -1090,10 +1111,14 @@ class MainWindow(QMainWindow):
         self.selected_node_ids = []
         self.selected_area_ids = []
         self.selected_link_ids = []
-        
-        if hasattr(self, 'canvas'):                                                                                                 
+        self.selected_tendon_ids = []
+
+        if hasattr(self, 'canvas'):
             self.canvas.clear_hover_popup()
-                                                     
+            self.canvas.selected_tendon_ids = []
+        if getattr(self, 'canvas2', None):
+            self.canvas2.selected_tendon_ids = []
+
         self._refresh_selection_overlay()
         self.status.showMessage("Selection Cleared")
 
@@ -1117,7 +1142,7 @@ class MainWindow(QMainWindow):
 
     def _refresh_selection_overlay(self):
         for cvs in [self.canvas, self.canvas2]:
-            cvs.update_selection_overlay(self.selected_ids, self.selected_node_ids, self.selected_area_ids, getattr(self, 'selected_link_ids', []))
+            cvs.update_selection_overlay(self.selected_ids, self.selected_node_ids, self.selected_area_ids, getattr(self, 'selected_link_ids', []), getattr(self, 'selected_tendon_ids', []))
 
     def _toolbar_zoom_in(self):
         """Zoom in button — simulates a scroll-up at canvas centre."""
@@ -1938,6 +1963,15 @@ class MainWindow(QMainWindow):
         dialog.exec()
         self.draw_both_canvases()
 
+    def on_define_tendon_sections(self):
+        if not self.model: return
+                                                                                 
+        from app.dialogs.tendon_dialog import TendonManagerDialog
+        
+        dialog = TendonManagerDialog(self.model, self)
+        dialog.exec()
+        self.draw_both_canvases()                                               
+
     def on_define_area_sections(self):
         if not self.model: return
         from app.dialogs.area_section_dialog import AreaSectionsManagerDialog
@@ -2410,7 +2444,46 @@ class MainWindow(QMainWindow):
             dz = end_node.z - self.draw_start_node.z
             if (dx**2 + dy**2 + dz**2) < 0.001:
                 return
-            
+
+            if self.draw_dialog.get_draw_mode() == "Tendon":
+                tendon_section = self.draw_dialog.get_selected_tendon_section()
+                if not tendon_section:
+                    self.status.showMessage("Error: No Tendon Section Selected")
+                    return
+
+                from app.commands import CmdDrawTendon
+                cmd = CmdDrawTendon(self.model, self, self.draw_start_node, end_node, tendon_section)
+                self.add_command(cmd)
+
+                if cmd.error_message:
+                    self.status.showMessage(f"⚠️ {cmd.error_message}")
+                else:
+                    tendon = cmd.get_created_tendon()
+                    if tendon:
+                        from app.dialogs.tendon_geometry_dialog import TendonGeometryDialog
+
+                        print("Before hide:", self.draw_dialog.isVisible())
+                        self.draw_dialog.hide()
+                        print("After hide:", self.draw_dialog.isVisible())
+
+                        dlg = TendonGeometryDialog(tendon, self.model, self)
+                        dlg.exec()
+
+                        if self.draw_dialog:
+                            self.draw_dialog.show()
+                            self.draw_dialog.raise_()
+                            self.draw_dialog.activateWindow()
+
+                        self.canvas.draw_model(self.model)
+                        if getattr(self, 'canvas2', None):
+                            self.canvas2.draw_model(self.model)
+
+                self.draw_start_node = None
+                self.active_canvas._draw_start = None
+                if not cmd.error_message:
+                    self.status.showMessage("Ready to draw next Tendon...")
+                return
+                    
             section = self.draw_dialog.get_selected_section()
             rel_i, rel_j = self.draw_dialog.get_release_arrays()
             
@@ -2463,6 +2536,67 @@ class MainWindow(QMainWindow):
         target_link_id = getattr(self.canvas, 'hovered_link_id', None)
         if target_link_id is None and len(getattr(self, 'selected_link_ids', [])) == 1:
             target_link_id = self.selected_link_ids[0]
+
+        target_tendon_id = getattr(self.canvas, 'hovered_tendon_id', None)
+        if target_tendon_id is None and len(getattr(self, 'selected_tendon_ids', [])) == 1:
+            target_tendon_id = self.selected_tendon_ids[0]
+
+        tendons_here = []
+        if target_elem_id is not None:
+            tendons_here = [t for t in self.model.tendons.values()
+                             if target_elem_id in getattr(t, 'host_element_ids', [])]
+        elif target_tendon_id is not None:
+            t = self.model.tendons.get(target_tendon_id)
+            if t is not None:
+                tendons_here = [t]
+
+        if tendons_here:
+            for tendon in tendons_here:
+                tid = tendon.id
+                sub_menu = menu.addMenu(f"Tendon {tid}")
+
+                geom_action = sub_menu.addAction("Geometry...")
+
+                def show_tendon_geometry(checked=False, t=tendon):
+                    from app.dialogs.tendon_geometry_dialog import TendonGeometryDialog
+                    dlg = TendonGeometryDialog(t, self.model, self)
+                    dlg.exec()
+                    self.canvas.draw_model(self.model)
+                    if getattr(self, 'canvas2', None):
+                        self.canvas2.draw_model(self.model)
+
+                geom_action.triggered.connect(show_tendon_geometry)
+
+                select_action = sub_menu.addAction("Select Only This Tendon")
+
+                def select_this_tendon(checked=False, t_id=tid):
+                    self.selected_ids = []
+                    self.selected_node_ids = []
+                    self.selected_area_ids = []
+                    self.selected_link_ids = []
+                    self.selected_tendon_ids = [t_id]
+                    for cvs in [self.canvas, getattr(self, 'canvas2', None)]:
+                        if cvs:
+                            cvs.update_selection_overlay(
+                                self.selected_ids, self.selected_node_ids,
+                                getattr(self, 'selected_area_ids', []),
+                                self.selected_link_ids, self.selected_tendon_ids)
+                    self.status.showMessage(f"Selected: Tendon {t_id}")
+
+                select_action.triggered.connect(select_this_tendon)
+
+                delete_action = sub_menu.addAction("Delete This Tendon Only")
+
+                def delete_this_tendon(checked=False, t_id=tid):
+                    from app.commands import CmdDeleteSelection
+                    cmd = CmdDeleteSelection(self.model, self, [], [], tendon_ids=[t_id])
+                    self.add_command(cmd)
+                    self.status.showMessage(f"Deleted Tendon {t_id}. (Host beam kept.)")
+
+                delete_action.triggered.connect(delete_this_tendon)
+
+            menu.addSeparator()
+            hit_something = True
 
         if target_node_id is not None and hasattr(self.model, 'has_results') and self.model.has_results:
             res_action = menu.addAction(f"Joint {target_node_id} Results...")
@@ -2565,7 +2699,7 @@ class MainWindow(QMainWindow):
                     dlg.show()
             fbd_action.triggered.connect(show_fbd)
 
-        if self.selected_ids or self.selected_node_ids:
+        if self.selected_ids or self.selected_node_ids or getattr(self, 'selected_area_ids', []) or getattr(self, 'selected_link_ids', []) or getattr(self, 'selected_tendon_ids', []):
             menu.addSeparator()
             delete_action = menu.addAction("Delete Selection")
             delete_action.triggered.connect(self.delete_current_selection)
@@ -2660,11 +2794,11 @@ class MainWindow(QMainWindow):
         except (KeyError, AttributeError, IndexError, TypeError):
             pass
 
-    def _handle_box_selection_canvas2(self, node_ids, elem_ids, link_ids, is_additive, is_deselect):
+    def _handle_box_selection_canvas2(self, node_ids, elem_ids, link_ids, tendon_ids, is_additive, is_deselect):
         """Route canvas2 box-selection only when canvas2 is the active canvas."""
         if self.active_canvas is not self.canvas2:
             return
-        self.handle_box_selection(node_ids, elem_ids, link_ids, is_additive, is_deselect)
+        self.handle_box_selection(node_ids, elem_ids, link_ids, tendon_ids, is_additive, is_deselect)
 
     def handle_area_box_selection(self, area_ids, is_additive, is_deselect):
         """Handle selection/deselection of area elements from canvas signals."""
@@ -2702,52 +2836,67 @@ class MainWindow(QMainWindow):
             for aid in area_ids:
                 if aid in self.selected_area_ids:
                     self.selected_area_ids.remove(aid)
+        elif is_additive:
+            for aid in area_ids:
+                if aid not in self.selected_area_ids:
+                    self.selected_area_ids.append(aid)
         else:
             hit_something = len(area_ids) > 0
             if hit_something:
-                for aid in area_ids:
-                    if aid not in self.selected_area_ids:
-                        self.selected_area_ids.append(aid)
+                                                                                             
+                self.selected_area_ids = list(area_ids)
 
         n_areas = len(self.selected_area_ids)
         n_frames = len(self.selected_ids)
         n_joints = len(self.selected_node_ids)
+        n_tendons = len(getattr(self, 'selected_tendon_ids', []))
         parts = []
         if n_frames: parts.append(f"{n_frames} Frames")
         if n_joints: parts.append(f"{n_joints} Joints")
         if n_areas:  parts.append(f"{n_areas} Areas")
+        if n_tendons: parts.append(f"{n_tendons} Tendons")
         self.status.showMessage(f"Selected: {', '.join(parts)}" if parts else "Selection Cleared")
 
         for cvs in [self.canvas, self.canvas2]:
-            cvs.update_selection_overlay(self.selected_ids, self.selected_node_ids, self.selected_area_ids, getattr(self, 'selected_link_ids', []))
+            cvs.update_selection_overlay(self.selected_ids, self.selected_node_ids, self.selected_area_ids, getattr(self, 'selected_link_ids', []), getattr(self, 'selected_tendon_ids', []))
 
         self._update_coord_for_single_selection()
 
-    def handle_box_selection(self, node_ids, elem_ids, link_ids, is_additive, is_deselect):
-        if not hasattr(self, 'selected_link_ids'): 
-            self.selected_link_ids = []
+    def handle_box_selection(self, node_ids, elem_ids, link_ids, tendon_ids, is_additive, is_deselect):
+        if not hasattr(self, 'selected_link_ids'): self.selected_link_ids = []
+        if not hasattr(self, 'selected_tendon_ids'): self.selected_tendon_ids = []
+
+        node_ids = list(node_ids)
+        elem_ids = list(elem_ids)
+        link_ids = list(link_ids)
+        tendon_ids = list(tendon_ids)
 
         if is_additive:
             self.selected_node_ids = list(set(self.selected_node_ids + node_ids))
             self.selected_ids = list(set(self.selected_ids + elem_ids))
             self.selected_link_ids = list(set(getattr(self, 'selected_link_ids', []) + link_ids))
+            self.selected_tendon_ids = list(set(getattr(self, 'selected_tendon_ids', []) + tendon_ids))
         elif is_deselect:
             self.selected_node_ids = [n for n in self.selected_node_ids if n not in node_ids]
             self.selected_ids = [e for e in self.selected_ids if e not in elem_ids]
             self.selected_link_ids = [l for l in getattr(self, 'selected_link_ids', []) if l not in link_ids]
+            self.selected_tendon_ids = [t for t in getattr(self, 'selected_tendon_ids', []) if t not in tendon_ids]
         else:
-            hit_something = bool(node_ids or elem_ids or link_ids)
+            hit_something = bool(node_ids or elem_ids or link_ids or tendon_ids)
             if hit_something:
-                                                                                                    
-                self.selected_node_ids = list(set(self.selected_node_ids + node_ids))
-                self.selected_ids = list(set(self.selected_ids + elem_ids))
-                self.selected_link_ids = list(set(getattr(self, 'selected_link_ids', []) + link_ids))
-                                                                                              
+                                                                                                      
+                self.selected_node_ids = list(node_ids)
+                self.selected_ids = list(elem_ids)
+                self.selected_link_ids = list(link_ids)
+                self.selected_tendon_ids = list(tendon_ids)
+
         for cvs in [self.canvas, getattr(self, 'canvas2', None)]:
             if cvs:
-                cvs.update_selection_overlay(self.selected_ids, self.selected_node_ids, getattr(self, 'selected_area_ids', []), self.selected_link_ids)
+                cvs.update_selection_overlay(self.selected_ids, self.selected_node_ids, getattr(self, 'selected_area_ids', []), self.selected_link_ids, self.selected_tendon_ids)
 
-        self.status.showMessage(f"Selected: {len(self.selected_ids)} Frames, {len(self.selected_node_ids)} Joints, {len(self.selected_link_ids)} Links")
+        n_tendons = len(self.selected_tendon_ids)
+        tendon_str = f", {n_tendons} Tendons" if n_tendons else ""
+        self.status.showMessage(f"Selected: {len(self.selected_ids)} Frames, {len(self.selected_node_ids)} Joints, {len(self.selected_link_ids)} Links{tendon_str}")
 
         self._update_coord_for_single_selection()
 
@@ -2795,11 +2944,11 @@ class MainWindow(QMainWindow):
                     self.status.showMessage(
                         f"Focused on {len(elem_ids)} Frames, {len(node_ids)} Joints"
                     )
-
+                    
     def delete_current_selection(self):
         if not self.model: return
         
-        if not self.selected_ids and not self.selected_node_ids and not self.selected_area_ids and not getattr(self, 'selected_link_ids', []):
+        if not self.selected_ids and not self.selected_node_ids and not self.selected_area_ids and not getattr(self, 'selected_link_ids', []) and not getattr(self, 'selected_tendon_ids', []):
             return
 
         final_elem_ids = list(self.selected_ids)
@@ -2853,11 +3002,13 @@ class MainWindow(QMainWindow):
 
         deleted_area_count = len(self.selected_area_ids)
         deleted_link_count = len(auto_link_ids)
+        deleted_tendon_count = len(getattr(self, 'selected_tendon_ids', []))
 
         cmd = CmdDeleteSelection(
             self.model, self, final_node_ids, final_elem_ids,
             area_elem_ids=list(self.selected_area_ids),
-            link_ids=list(auto_link_ids)
+            link_ids=list(auto_link_ids),
+            tendon_ids=list(getattr(self, 'selected_tendon_ids', []))
         )
         self.add_command(cmd)
         
@@ -2865,12 +3016,14 @@ class MainWindow(QMainWindow):
         self.selected_node_ids = []
         self.selected_area_ids = []
         self.selected_link_ids = []          
+        self.selected_tendon_ids = []
         
         parts = []
         if final_elem_ids:     parts.append(f"{len(final_elem_ids)} Frames")
         if final_node_ids:     parts.append(f"{len(final_node_ids)} Joints")
         if deleted_area_count: parts.append(f"{deleted_area_count} Areas")
         if deleted_link_count: parts.append(f"{deleted_link_count} Links")          
+        if deleted_tendon_count: parts.append(f"{deleted_tendon_count} Tendons")
         
         msg = f"Deleted {', '.join(parts)}." if parts else "Nothing deleted."
         if skipped_shared_joints:
@@ -4055,6 +4208,16 @@ class MainWindow(QMainWindow):
 
         self.undo_stack.push(command)
 
+    def _perform_undo(self):
+        txt = self.undo_stack.undoText()
+        self.undo_stack.undo()
+        self.status.showMessage(f"Undid: {txt}")
+
+    def _perform_redo(self):
+        txt = self.undo_stack.redoText()
+        self.undo_stack.redo()
+        self.status.showMessage(f"Redid: {txt}")
+
     def on_display_plot_functions(self):
         """Opens the Plot Function Trace Display dialog (LTHA only, read-only)."""
         if not self.model or not getattr(self.canvas, 'ltha_mode', False):
@@ -4839,7 +5002,8 @@ class MainWindow(QMainWindow):
                 if obj != self.active_canvas:
                     if event.type() == QEvent.Type.MouseButtonPress:
                         self._set_active_canvas(obj)
-                                                                               
+                                                                            
+                        obj._suppress_next_click_selection = True
                         return False
                                                                                      
                     return True
@@ -4917,7 +5081,31 @@ class MainWindow(QMainWindow):
         else:
             self.canvas.clear_linked_view_plane()
             self.canvas2.clear_linked_view_plane()
-            
+
+    def on_assign_tendon_load(self):
+        if not hasattr(self.model, 'tendons') or not self.model.tendons:
+            QMessageBox.warning(
+                self, 
+                "SAP2000", 
+                "This command requires at least one tendon object to exist in the model. The command will be aborted."
+            )
+            return
+
+        selected_tendons = getattr(self, 'selected_tendon_ids', [])
+        if not selected_tendons:
+            QMessageBox.information(self, "Selection Required", "Please select at least one tendon to assign loads.")
+            return
+
+        from app.dialogs.tendon_load_dialog import TendonLoadDialog
+        from app.commands import CmdAssignTendonLoad
+
+        dlg = TendonLoadDialog(self.model, self)
+        if dlg.exec():
+            data = dlg.get_data()
+            cmd = CmdAssignTendonLoad(self.model, self, selected_tendons, data)
+            self.add_command(cmd)
+            self.status.showMessage(f"Assigned tendon loads to {len(selected_tendons)} tendon(s).")
+
 def main():
     if sys.platform == 'win32':
         myappid = 'metu.civil.Open//Structures.v03'

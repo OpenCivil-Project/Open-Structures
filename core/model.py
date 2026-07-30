@@ -1,8 +1,8 @@
 import json
-from core.mesh import Node, FrameElement
+from core.mesh import Node, FrameElement, TendonObject
 from core.properties import (Material, RectangularSection, ISection, GeneralSection,
                              CircularSection, PipeSection, TubeSection, TrapezoidalSection,
-                             ArbitrarySection, ShellSection, PlaneSection, AsolidSection, AreaSection)
+                             ArbitrarySection, ShellSection, PlaneSection, AsolidSection, AreaSection, TendonSection)
 from core.grid import GridLines
 from core.boundary import apply_restraint, Restraint
 from core.mesh import Slab, AreaElement 
@@ -107,7 +107,10 @@ class StructuralModel:
         self.nodes = {}                        
         self.elements = {}                             
         self.materials = {}                          
-        self.sections = {} 
+        self.sections = {}
+        self.tendon_sections = {}
+        self.tendons = {}
+        self._tendon_counter = 1
         self.link_properties = {}
         self.links = {}
         self._link_counter = 1                         
@@ -397,6 +400,8 @@ class StructuralModel:
             },
             "materials": [],
             "sections": [],
+            "tendon_sections": [],
+            "tendons": [],
             "nodes": [],
             "elements": [],
             "slabs": [],    
@@ -487,6 +492,22 @@ class StructuralModel:
             
             data["sections"].append(sec_data)
 
+        _p(f"Saving {len(self.tendon_sections)} tendon section(s)...")
+        for ts in self.tendon_sections.values():
+            data["tendon_sections"].append({
+                "name": ts.name,
+                "mat_name": ts.material.name if ts.material else None,
+                "modeling_option": ts.modeling_option,
+                "prestress_type": ts.prestress_type,
+                "is_dia": ts.is_dia,
+                "dia": ts.dia,
+                "area": ts.area,
+                "J": ts.J,
+                "I": ts.I,
+                "As": ts.As,
+                "color": ts.color
+            })
+
         _p(f"Saving {len(self.nodes)} nodes & boundary conditions...")
         for n_id in sorted(self.nodes.keys()):
             n = self.nodes[n_id]
@@ -541,6 +562,26 @@ class StructuralModel:
                 "end_off_i": el.end_offset_i,
                 "end_off_j": el.end_offset_j,
                 "rz_factor": el.rigid_zone_factor
+            })
+
+        _p(f"Saving {len(self.tendons)} tendon object(s)...")
+        for t_id in sorted(self.tendons.keys()):
+            t = self.tendons[t_id]
+            data["tendons"].append({
+                "id": t.id,
+                "n1_id": t.node_i.id,
+                "n2_id": t.node_j.id,
+                "sec_name": t.tendon_section.name,
+                "host_element_ids": t.host_element_ids,
+                "plane": t.plane,
+                "local_axis_angle": t.local_axis_angle,
+                "modeling_option": t.modeling_option,
+                "prestress_type": t.prestress_type,
+                "layout_points": t.layout_points,
+                "max_discretization_length": t.max_discretization_length,
+                "coordinate_system": t.coordinate_system,
+                "color": t.color,
+                "loads": getattr(t, "loads", [])
             })
 
         _p(f"Saving {len(self.slabs)} slab(s)...")
@@ -726,7 +767,8 @@ class StructuralModel:
             
         _p("Clearing current model data...")
         self.nodes.clear(); self.elements.clear(); self.materials.clear()
-        self.sections.clear(); self.area_sections.clear(); self.load_patterns.clear(); self.loads.clear()                                  
+        self.sections.clear(); self.area_sections.clear(); self.load_patterns.clear(); self.loads.clear()
+        self.tendon_sections.clear()                                  
         self.slabs.clear(); self.area_elements.clear(); self.constraints.clear()
         self.link_properties.clear(); self.links.clear()
         self._link_counter = 1
@@ -807,6 +849,26 @@ class StructuralModel:
                      "PlaneSection": PlaneSection,
                      "AsolidSection": AsolidSection}
         
+        _p(f"Loading {len(data.get('tendon_sections', []))} tendon section(s)...")
+        for ts_data in data.get("tendon_sections", []):
+            mat = self.materials.get(ts_data.get("mat_name"))
+            if not mat: continue                                               
+            
+            ts = TendonSection(
+                name=ts_data["name"],
+                material=mat,
+                modeling_option=ts_data.get("modeling_option", "Loads"),
+                prestress_type=ts_data.get("prestress_type", "Prestress"),
+                is_dia=ts_data.get("is_dia", False),
+                dia=ts_data.get("dia", 0.0),
+                area=ts_data.get("area", 0.0),
+                J=ts_data.get("J", 0.0),
+                I=ts_data.get("I", 0.0),
+                As=ts_data.get("As", 0.0),
+                color=tuple(ts_data.get("color", (0.0, 1.0, 1.0, 1.0)))
+            )
+            self.add_tendon_section(ts)
+
         _p("Loading area sections...")
         for d in data.get("area_sections", []):
             cls  = _AREA_CLS.get(d["type"])
@@ -918,6 +980,31 @@ class StructuralModel:
                 el.end_offset_i = el_data.get("end_off_i", 0.0)
                 el.end_offset_j = el_data.get("end_off_j", 0.0)
                 el.rigid_zone_factor = el_data.get("rz_factor", 0.0)
+
+        _p(f"Loading {len(data.get('tendons', []))} tendon object(s)...")
+        for t_data in data.get("tendons", []):
+            n1 = self.nodes.get(t_data["n1_id"])
+            n2 = self.nodes.get(t_data["n2_id"])
+            tsec = self.tendon_sections.get(t_data["sec_name"])
+
+            if n1 and n2 and tsec:
+                t = TendonObject(t_data["id"], n1, n2, tsec,
+                                  host_element_ids=t_data.get("host_element_ids", []),
+                                  local_axis_angle=t_data.get("local_axis_angle", 0.0),
+                                  plane=t_data.get("plane", "1-2"))
+
+                t.modeling_option = t_data.get("modeling_option", tsec.modeling_option)
+                t.prestress_type = t_data.get("prestress_type", tsec.prestress_type)
+                if "layout_points" in t_data:
+                    t.layout_points = t_data["layout_points"]
+                t.max_discretization_length = t_data.get("max_discretization_length", 1.524)
+                t.coordinate_system = t_data.get("coordinate_system", "Local")
+                if "color" in t_data:
+                    t.color = tuple(t_data["color"])
+                t.loads = t_data.get("loads", [])
+
+                self.tendons[t.id] = t
+                self._tendon_counter = max(self._tendon_counter, t.id + 1)
 
         _p("Loading link properties...")
         for lp_data in data.get("link_properties", []):
@@ -1731,6 +1818,105 @@ class StructuralModel:
 
         print(f"Orphan cleanup: removed {len(orphan_ids)} nodes.")
         return len(orphan_ids)
+
+    def add_tendon_section(self, section):
+        """Adds or updates a tendon section."""
+        self.tendon_sections[section.name] = section
+        return section
+
+    def get_frame_chain_between(self, node_i, node_j, tol=1e-4):
+        """
+        Finds a connected, collinear chain of frame elements running from
+        node_i to node_j (in that direction). Used to validate a tendon draw
+        and derive its host_element_ids.
+
+        Returns (host_element_ids, ordered_nodes) on success,
+        or (None, None) if no valid straight, connected chain exists
+        (gap in the chain, or an ambiguous branch).
+        """
+        if node_i.id == node_j.id:
+            return None, None
+
+        p_i = np.array([node_i.x, node_i.y, node_i.z])
+        p_j = np.array([node_j.x, node_j.y, node_j.z])
+        V = p_j - p_i
+        L = np.linalg.norm(V)
+        if L < tol:
+            return None, None
+        dir_overall = V / L
+
+        adjacency = {}
+        for el in self.elements.values():
+            adjacency.setdefault(el.node_i.id, []).append((el.node_j, el))
+            adjacency.setdefault(el.node_j.id, []).append((el.node_i, el))
+
+        current = node_i
+        visited_ids = {current.id}
+        host_ids = []
+        ordered_nodes = [current]
+
+        while current.id != node_j.id:
+            next_node, next_el = None, None
+            for other, el in adjacency.get(current.id, []):
+                if other.id in visited_ids:
+                    continue
+                seg_vec = np.array([other.x - current.x, other.y - current.y, other.z - current.z])
+                seg_len = np.linalg.norm(seg_vec)
+                if seg_len < tol:
+                    continue
+                seg_dir = seg_vec / seg_len
+
+                collinear = np.linalg.norm(np.cross(seg_dir, dir_overall)) < 1e-3
+                forward = np.dot(seg_dir, dir_overall) > 0.999
+                if collinear and forward:
+                    if next_node is not None:
+                        return None, None                                           
+                    next_node, next_el = other, el
+
+            if next_node is None:
+                return None, None                                                  
+
+            host_ids.append(next_el.id)
+            ordered_nodes.append(next_node)
+            visited_ids.add(next_node.id)
+            current = next_node
+
+            if len(host_ids) > len(self.elements) + 1:
+                return None, None                                       
+
+        return host_ids, ordered_nodes
+
+    def _get_next_tendon_id(self):
+        """Calculates the next available Tendon ID."""
+        if not self.tendons:
+            return 1
+        return max(self.tendons.keys()) + 1
+
+    def add_tendon(self, node_i, node_j, tendon_section, local_axis_angle=0.0, plane="1-2"):
+        """
+        Creates and adds a TendonObject with a guaranteed unique ID.
+        Runs host-chain-detection internally; raises ValueError if no valid
+        straight, connected run of frame elements exists between the two nodes.
+        """
+        host_ids, _ = self.get_frame_chain_between(node_i, node_j)
+        if host_ids is None:
+            raise ValueError(
+                "No continuous, straight frame element chain exists between "
+                "these two nodes. A tendon must be drawn over existing frame elements."
+            )
+
+        new_id = self._get_next_tendon_id()
+        new_tendon = TendonObject(new_id, node_i, node_j, tendon_section,
+                                   host_element_ids=host_ids,
+                                   local_axis_angle=local_axis_angle, plane=plane)
+        self.tendons[new_id] = new_tendon
+        self._tendon_counter = new_id + 1
+        return new_tendon
+
+    def remove_tendon(self, tendon_id):
+        """Removes a tendon object by id, if present."""
+        if tendon_id in self.tendons:
+            del self.tendons[tendon_id]
 
 class LoadCase:
     def __init__(self, name, case_type="Linear Static"):

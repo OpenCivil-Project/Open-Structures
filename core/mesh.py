@@ -203,6 +203,79 @@ class FrameElement:
         else:
             return "Brace"
     
+class TendonObject:
+    """
+    A placed Tendon line object, drawn between two nodes over one or more
+    existing (collinear, connected) FrameElements ("host" elements).
+
+    Mirrors FrameElement's local-axis pattern but is fully independent —
+    a tendon does not inherit the host frame's beta_angle or section.
+
+    NOTE: draw/geometry-definition only. No stiffness contribution, no
+    solver hookup, no canvas rendering yet — that's deliberately out of
+    scope for this pass.
+    """
+    def __init__(self, id: int, node_i: Node, node_j: Node, tendon_section,
+                 host_element_ids=None, local_axis_angle: float = 0.0, plane: str = "1-2"):
+        self.id = int(id)
+        self.label = f"T{self.id}"
+        self.node_i = node_i
+        self.node_j = node_j
+        self.tendon_section = tendon_section                                               
+
+        self.host_element_ids = host_element_ids or []                                               
+
+        self.plane = plane                                              
+        self.local_axis_angle = float(local_axis_angle)
+
+        self.modeling_option = tendon_section.modeling_option
+        self.prestress_type = tendon_section.prestress_type
+
+        L = math.sqrt((node_j.x - node_i.x)**2 + (node_j.y - node_i.y)**2 + (node_j.z - node_i.z)**2)
+        self.layout_points = [
+            {"id": 1, "segment_type": "Start of Tendon", "coord1": 0.0,
+             "coord2_type": "Specified", "coord2": 0.0,
+             "coord3_type": "Specified", "coord3": 0.0, "slope": 0.0},
+            {"id": 2, "segment_type": "Linear", "coord1": L,
+             "coord2_type": "Specified", "coord2": 0.0,
+             "coord3_type": "Specified", "coord3": 0.0, "slope": 0.0},
+        ]
+
+        self.max_discretization_length = 1.524                            
+        self.coordinate_system = "Local"                                                      
+        self.color = tendon_section.color
+
+    def length(self):
+        dx = self.node_j.x - self.node_i.x
+        dy = self.node_j.y - self.node_i.y
+        dz = self.node_j.z - self.node_i.z
+        return math.sqrt(dx**2 + dy**2 + dz**2)
+
+    def get_local_axes(self):
+        """Same algorithm as FrameElement.get_local_axes(), but fully independent:
+        uses this tendon's own node_i->node_j chord and its own local_axis_angle,
+        not the host frame's beta_angle."""
+        xi, yi, zi = self.node_i.x, self.node_i.y, self.node_i.z
+        xj, yj, zj = self.node_j.x, self.node_j.y, self.node_j.z
+
+        V_x = np.array([xj - xi, yj - yi, zj - zi])
+        L = np.linalg.norm(V_x)
+        if L == 0: return np.eye(3)
+        v_x = V_x / L
+
+        temp_vec = np.array([0.0, 1.0, 0.0]) if np.abs(v_x[2]) > 0.99 else np.array([0.0, 0.0, 1.0])
+        v_y = np.cross(temp_vec, v_x); v_y /= np.linalg.norm(v_y)
+        v_z = np.cross(v_x, v_y); v_z /= np.linalg.norm(v_z)
+
+        rad = math.radians(self.local_axis_angle)
+        c, s = math.cos(rad), math.sin(rad)
+        v_y_final = v_y * c + v_z * s
+        v_z_final = -v_y * s + v_z * c
+        return v_x, v_y_final, v_z_final
+
+    def __repr__(self):
+        return f"TendonObject({self.id}, sec={self.tendon_section.name})"
+
 class Slab:
     """
     Represents a visual area element (Floor/Wall).

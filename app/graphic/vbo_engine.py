@@ -8,10 +8,11 @@ from app.graphic._vbo_lines import LineMixin
 from app.graphic._vbo_extruded import ExtrudedMixin
 from app.graphic._vbo_force_load import ForceLoadMixin
 from app.graphic._vbo_text import TextMixin
+from app.graphic._vbo_static import StaticMixin
 
 from app.graphic.ltha_renderer import VectorizedLTHAEngine 
 
-class VBORenderManager(AreaMixin, LineMixin, ExtrudedMixin, ForceLoadMixin, TextMixin):
+class VBORenderManager(AreaMixin, LineMixin, ExtrudedMixin, ForceLoadMixin, TextMixin, StaticMixin):
     def __init__(self):
         self.shader_program = None
         self.is_initialized = False
@@ -58,6 +59,10 @@ class VBORenderManager(AreaMixin, LineMixin, ExtrudedMixin, ForceLoadMixin, Text
         self.load_line_vao = None
         self.load_line_vbo = None
         self.load_line_vertex_count = 0
+
+        self.static_line_vao = None
+        self.static_line_vbo = None
+        self.static_line_vertex_count = 0
         
         self.persistent_ext_buffer = None                            
 
@@ -168,6 +173,9 @@ class VBORenderManager(AreaMixin, LineMixin, ExtrudedMixin, ForceLoadMixin, Text
 
             self.load_line_vao = glGenVertexArrays(1)
             self.load_line_vbo = glGenBuffers(1)
+
+            self.static_line_vao = glGenVertexArrays(1)
+            self.static_line_vbo = glGenBuffers(1)
 
             sdf_vert = shaders.compileShader(self.sdf_vertex_shader_source, GL_VERTEX_SHADER)
             sdf_frag = shaders.compileShader(self.sdf_fragment_shader_source, GL_FRAGMENT_SHADER)

@@ -125,7 +125,7 @@ QGroupBox::title {{
 """
 
 _QSS_TABLE = f"""
-QTableWidget {{
+QTableWidget, QListWidget {{
     background-color: {_C["bg_panel"]};
     alternate-background-color: {_C["bg_table_alt"]};
     gridline-color: {_C["border"]};
@@ -134,7 +134,7 @@ QTableWidget {{
     border: 1px solid {_C["border"]};
     font-size: {_S["font_size_normal"]}pt;
 }}
-QTableWidget::item {{
+QTableWidget::item, QListWidget::item {{
     padding: 2px 6px;
     min-height: {_S["row_height"]}px;
 }}

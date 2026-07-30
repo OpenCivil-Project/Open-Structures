@@ -70,12 +70,60 @@ class CmdDrawFrame(QUndoCommand):
     def _refresh_view(self):
         self.main_window.draw_both_canvases()
         
+class CmdDrawTendon(QUndoCommand):
+    """
+    Command to draw a Tendon object between two existing nodes.
+    Unlike CmdDrawFrame, this does NOT create nodes — a tendon can only be
+    drawn where a continuous, straight, connected chain of frame elements
+    already exists (host_element_ids is derived by model.add_tendon()).
+    """
+    def __init__(self, model, main_window, node_i, node_j, tendon_section,
+                 local_axis_angle=0.0, plane="1-2", description="Draw Tendon"):
+        super().__init__(description)
+        self.model = model
+        self.main_window = main_window
+        self.node_i = node_i
+        self.node_j = node_j
+        self.tendon_section = tendon_section
+        self.local_axis_angle = local_axis_angle
+        self.plane = plane
+
+        self.created_tendon_id = None
+        self.error_message = None
+
+    def redo(self):
+        try:
+            t = self.model.add_tendon(self.node_i, self.node_j, self.tendon_section,
+                                       local_axis_angle=self.local_axis_angle, plane=self.plane)
+            self.created_tendon_id = t.id
+            self.error_message = None
+        except ValueError as e:
+            self.created_tendon_id = None
+            self.error_message = str(e)
+
+        self._refresh_view()
+
+    def undo(self):
+        if self.created_tendon_id:
+            self.model.remove_tendon(self.created_tendon_id)
+        self._refresh_view()
+
+    def get_created_tendon(self):
+        """Convenience for the caller (main.py) to grab the new object right
+        after pushing this command, e.g. to open the geometry dialog on it."""
+        if self.created_tendon_id:
+            return self.model.tendons.get(self.created_tendon_id)
+        return None
+
+    def _refresh_view(self):
+        self.main_window.draw_both_canvases()
+
 class CmdDeleteSelection(QUndoCommand):
     """
     Command to Delete Frames, Shells, Links, and/or Joints.
     Includes DOUBLE SAFETY CHECK to protect nodes still in use.
     """
-    def __init__(self, model, main_window, node_ids, elem_ids, area_elem_ids=None, link_ids=None):
+    def __init__(self, model, main_window, node_ids, elem_ids, area_elem_ids=None, link_ids=None, tendon_ids=None):
         super().__init__("Delete Selection")
         self.model = model
         self.main_window = main_window
@@ -83,6 +131,13 @@ class CmdDeleteSelection(QUndoCommand):
         ids_elements_to_delete = set(elem_ids)
         ids_area_elements_to_delete = set(area_elem_ids or [])
         ids_links_to_delete = set(link_ids or [])
+        ids_tendons_to_delete = set(tendon_ids or [])
+
+        if hasattr(model, 'tendons'):
+            for tid, t in model.tendons.items():
+                host_ids = getattr(t, 'host_element_ids', [])
+                if any(h in ids_elements_to_delete for h in host_ids):
+                    ids_tendons_to_delete.add(tid)
 
         if hasattr(model, 'links'):
             changed = True
@@ -105,6 +160,11 @@ class CmdDeleteSelection(QUndoCommand):
                 for lid in ids_links_to_delete:
                     if lid in model.links:
                         touched_nodes.update(model.links[lid]['nodes'])
+
+                for tid in ids_tendons_to_delete:
+                    if tid in getattr(model, 'tendons', {}):
+                        touched_nodes.add(model.tendons[tid].node_i.id)
+                        touched_nodes.add(model.tendons[tid].node_j.id)
 
                 for nid in touched_nodes:
                     if nid not in model.nodes:
@@ -172,11 +232,13 @@ class CmdDeleteSelection(QUndoCommand):
         self.elem_ids_to_del = list(ids_elements_to_delete)
         self.area_elem_ids_to_del = list(ids_area_elements_to_delete)
         self.link_ids_to_del = list(ids_links_to_delete)
+        self.tendon_ids_to_del = list(ids_tendons_to_delete)
 
         self.saved_nodes = {}
         self.saved_elems = {}
         self.saved_area_elems = {}
         self.saved_links = {}
+        self.saved_tendons = {}
         self.saved_loads = []
 
         for eid in self.elem_ids_to_del:
@@ -192,6 +254,11 @@ class CmdDeleteSelection(QUndoCommand):
             for lid in self.link_ids_to_del:
                 if lid in model.links:
                     self.saved_links[lid] = copy.deepcopy(model.links[lid])
+                    
+        if hasattr(model, 'tendons'):
+            for tid in self.tendon_ids_to_del:
+                if tid in model.tendons:
+                    self.saved_tendons[tid] = copy.deepcopy(model.tendons[tid])
         
         for nid in self.node_ids_to_del:
             if nid in model.nodes:
@@ -260,6 +327,11 @@ class CmdDeleteSelection(QUndoCommand):
             for lid in self.link_ids_to_del:
                 if lid in self.model.links:
                     del self.model.links[lid]
+
+        if hasattr(self.model, 'tendons'):
+            for tid in self.tendon_ids_to_del:
+                if tid in self.model.tendons:
+                    del self.model.tendons[tid]
         
         for nid in self.node_ids_to_del:
             if nid in self.model.nodes:
@@ -277,6 +349,8 @@ class CmdDeleteSelection(QUndoCommand):
             self.main_window.selected_area_ids = []
         if hasattr(self.main_window, 'selected_link_ids'):
             self.main_window.selected_link_ids = []
+        if hasattr(self.main_window, 'selected_tendon_ids'):                    
+            self.main_window.selected_tendon_ids = []
             
         self._refresh_view()
 
@@ -316,6 +390,16 @@ class CmdDeleteSelection(QUndoCommand):
             for lid, link_obj in self.saved_links.items():
                 self.model.links[lid] = link_obj
                 self.model._link_counter = max(getattr(self.model, '_link_counter', 1), lid + 1)
+
+        if hasattr(self.model, 'tendons'):
+            for tid, t_obj in self.saved_tendons.items():
+                                                  
+                if t_obj.node_i.id in self.model.nodes:
+                    t_obj.node_i = self.model.nodes[t_obj.node_i.id]
+                if t_obj.node_j.id in self.model.nodes:
+                    t_obj.node_j = self.model.nodes[t_obj.node_j.id]
+                self.model.tendons[tid] = t_obj
+                self.model._tendon_counter = max(getattr(self.model, '_tendon_counter', 1), tid + 1)
 
         for load in self.saved_loads:
             self.model.loads.append(copy.deepcopy(load))
@@ -1329,3 +1413,45 @@ class CmdDrawLink1J(QUndoCommand):
             del self.model.links[self.link_id]
         self.model._cleanup_orphan_node(self.n1_id)
         self.main_window.refresh_canvas()
+
+class CmdAssignTendonLoad(QUndoCommand):
+    """
+    Assigns tendon loads to a selection of tendons, handling Replace/Delete logic.
+    """
+    def __init__(self, model, main_window, tendon_ids, load_data, description="Assign Tendon Loads"):
+        super().__init__(description)
+        self.model = model
+        self.main_window = main_window
+        self.tendon_ids = tendon_ids
+        self.load_data = load_data
+        
+        self.previous_loads = {}
+        if hasattr(self.model, 'tendons'):
+            import copy
+            for tid in self.tendon_ids:
+                if tid in self.model.tendons:
+                    self.previous_loads[tid] = copy.deepcopy(getattr(self.model.tendons[tid], "loads", []))
+
+    def redo(self):
+        import copy
+        for tid in self.tendon_ids:
+            if tid not in self.model.tendons: continue
+            tendon = self.model.tendons[tid]
+            current_loads = getattr(tendon, "loads", [])
+            
+            current_loads = [ld for ld in current_loads if ld["pattern"] != self.load_data["pattern"]]
+            
+            if self.load_data["action"] == "Replace":
+                current_loads.append(copy.deepcopy(self.load_data))
+                
+            tendon.loads = current_loads
+            
+        self.main_window.draw_both_canvases()
+
+    def undo(self):
+        import copy
+        for tid, old_loads in self.previous_loads.items():
+            if tid in self.model.tendons:
+                self.model.tendons[tid].loads = copy.deepcopy(old_loads)
+                
+        self.main_window.draw_both_canvases()
