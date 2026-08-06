@@ -7,6 +7,7 @@ from PyQt6.QtCore import Qt
 from core.properties import Material
 from core.units import unit_registry
 from core.integrity_checks import check_material_in_use
+from app.ui.theme import apply_dialog_style
 
 FORCE_SCALES = {
     "N":    1.0,
@@ -46,6 +47,7 @@ class MaterialEditor(QDialog):
 
     def __init__(self, material: Material | None = None, parent=None):
         super().__init__(parent)
+        apply_dialog_style(self)
         self.setWindowTitle("Material Property Data")
         self.setFixedWidth(400)
         self.material_data: Material | None = None
@@ -309,6 +311,7 @@ class MaterialEditor(QDialog):
 class MaterialManagerDialog(QDialog):
     def __init__(self, model, parent=None):
         super().__init__(parent)
+        apply_dialog_style(self)
         self.model = model
         self.setWindowTitle("Define Materials")
         self.resize(400, 300)

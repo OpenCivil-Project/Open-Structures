@@ -7,6 +7,7 @@ from PyQt6.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, QLabel,
 from PyQt6.QtCore import Qt, QRectF, QPointF
 from PyQt6.QtGui import QPainter, QPen, QBrush, QColor, QFont
 from core.units import unit_registry
+from app.ui.theme import apply_dialog_style
 
 class GridPreviewWidget(QFrame):
     """
@@ -121,6 +122,7 @@ class GridPreviewWidget(QFrame):
 class GridEditorDialog(QDialog):
     def __init__(self, current_grid, parent=None):
         super().__init__(parent)
+        apply_dialog_style(self)
         self.setWindowTitle("Define Grid System Data")
         self.resize(1200, 700)                         
         

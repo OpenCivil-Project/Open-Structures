@@ -2614,7 +2614,7 @@ class MCanvas3D(gl.GLViewWidget):
         since tendons are few compared to bulk frame elements (no VBO batching
         needed)."""
         tendons = getattr(model, 'tendons', {})
-        if not tendons or not getattr(self, 'show_tendons', True):
+        if not tendons or not getattr(self, 'show_tendons', True) or self.view_deflected:
             return
         for tid, tendon in tendons.items():
             pts = self._get_tendon_world_points(tendon)
@@ -2638,7 +2638,7 @@ class MCanvas3D(gl.GLViewWidget):
         no twist tracking is needed the way frame-element extrusion needs it
         for arbitrary (asymmetric) section shapes."""
         tendons = getattr(model, 'tendons', {})
-        if not tendons or not getattr(self, 'show_tendons', True):
+        if not tendons or not getattr(self, 'show_tendons', True) or self.view_deflected:
             return
         sides = 10
         for tid, tendon in tendons.items():
@@ -5612,13 +5612,15 @@ class MCanvas3D(gl.GLViewWidget):
         self.trib_scatter.setData(pos=all_pts, color=grid_colors, size=2, pxMode=True)
 
     def _draw_local_axes(self, model):
-        """Draws RGB arrows at the center of each element representing local axes."""
+        """Draws RGB arrows with heads at the center of each element representing local axes."""
         if not model.elements: return
         
         lines = []
         colors = []
         
-        L = 0.5                                          
+        L = 0.6                          
+        H = 0.15                        
+        W = 0.06                       
         
         for el in model.elements.values():
             n1, n2 = el.node_i, el.node_j
@@ -5632,19 +5634,44 @@ class MCanvas3D(gl.GLViewWidget):
             
             v1, v2, v3 = self._get_consistent_axes(el)
             
-            lines.append(mid); lines.append(mid + v1 * L)
-            colors.append((1, 0, 0, 1)); colors.append((1, 0, 0, 1))
-            
-            lines.append(mid); lines.append(mid + v2 * L)
-            colors.append((0, 1, 0, 1)); colors.append((0, 1, 0, 1))
-            
-            lines.append(mid); lines.append(mid + v3 * L)
-            colors.append((0, 0, 1, 1)); colors.append((0, 0, 1, 1))
+            v2_draw = v3
+            v3_draw = -v2
+                                          
+            def add_arrow(direction, color):
+                tip = mid + direction * L
+                
+                lines.append(mid)
+                lines.append(tip)
+                colors.append(color)
+                colors.append(color)
+                
+                if abs(direction[2]) > 0.9: perp = np.array([1.0, 0.0, 0.0])
+                elif abs(direction[1]) > 0.9: perp = np.array([1.0, 0.0, 0.0])
+                else: perp = np.array([0.0, 0.0, 1.0])
+                
+                side = np.cross(direction, perp)
+                side_n = np.linalg.norm(side)
+                if side_n > 1e-9:
+                    side = (side / side_n) * W
+                
+                base = tip - (direction * H)
+                
+                lines.append(tip); lines.append(base + side)
+                colors.append(color); colors.append(color)
+                
+                lines.append(tip); lines.append(base - side)
+                colors.append(color); colors.append(color)
+
+            add_arrow(v1, (1.0, 0.0, 0.0, 1.0))
+                                              
+            add_arrow(v2_draw, (0.0, 1.0, 0.0, 1.0))
+                                             
+            add_arrow(v3_draw, (0.0, 0.0, 1.0, 1.0)) 
             
         if lines:
             self._pending_static_line_pos.extend(lines)
             self._pending_static_line_colors.extend(colors)
-
+            
     def _draw_constraints(self, model):
         """
         Draws the Calculated Center of Mass (Master Node) for Diaphragms.

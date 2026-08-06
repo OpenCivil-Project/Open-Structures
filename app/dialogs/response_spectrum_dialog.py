@@ -11,10 +11,12 @@ import numpy as np
 from PyQt6.QtWidgets import QFileDialog
                          
 from core.solver.RSA.tsc2018_generator import TSC2018SpectrumGenerator
+from app.ui.theme import apply_dialog_style
 
 class ResponseSpectrumDialog(QDialog):
     def __init__(self, parent=None):
         super().__init__(parent)
+        apply_dialog_style(self)
         self.setWindowTitle("Response Spectrum TSC-2018 Function Definition")
         self.resize(1100, 700)                              
         

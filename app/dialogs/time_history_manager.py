@@ -3,6 +3,7 @@ from PyQt6.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, QListWidget,
                              QAbstractItemView)
 
 from app.dialogs.time_history_function_dialog import TimeHistoryFunctionDialog
+from app.ui.theme import apply_dialog_style
 
 class TimeHistoryManagerDialog(QDialog):
     """
@@ -14,6 +15,7 @@ class TimeHistoryManagerDialog(QDialog):
 
     def __init__(self, model, parent=None):
         super().__init__(parent)
+        apply_dialog_style(self)
         self.model = model
 
         if not hasattr(self.model, 'th_functions'):

@@ -279,7 +279,7 @@ class DrawingCanvas(QWidget):
 
         p.fillRect(0, 0, w, h, _BG)
         self._draw_grid(p, gl)
-        self._draw_axes(p, gl['origin_px'])
+        self._draw_axes(p, gl['origin_px'])                                   
 
         if self._vertices:
             self._draw_polygon(p)
@@ -292,6 +292,8 @@ class DrawingCanvas(QWidget):
 
         if self._mode == DrawMode.DRAW and not self._is_closed:
             self._draw_snap_cursor(p)
+
+        self._draw_corner_axes(p)
 
         p.end()
 
@@ -504,23 +506,11 @@ class DrawingCanvas(QWidget):
         ox, oy = origin_px
         w, h   = self.width(), self.height()
 
-        p.setPen(QPen(_AXIS_Y, 1.5))
+        p.setPen(QPen(Qt.GlobalColor.black, 1.5))
+        
         p.drawLine(0, int(oy), w, int(oy))
 
-        p.setPen(QPen(_AXIS_Z, 1.5))
         p.drawLine(int(ox), 0, int(ox), h)
-
-        lbl_font = p.font()
-        lbl_font.setPointSize(9)
-        p.setFont(lbl_font)
-
-        if 0 < ox < w:
-            p.setPen(QPen(_AXIS_Z, 1))
-            p.drawText(int(ox) + 4, 14, "3")
-
-        if 0 < oy < h:
-            p.setPen(QPen(_AXIS_Y, 1))
-            p.drawText(w - 14, int(oy) - 4, "2")
 
     def _draw_polygon(self, p: QPainter):
         verts = self._vertices
@@ -597,29 +587,28 @@ class DrawingCanvas(QWidget):
 
         p.setPen(QPen(_CENTROID_COL, 2))
         p.setBrush(Qt.BrushStyle.NoBrush)
-        p.drawLine(int(cx) - r * 3, int(cy), int(cx) + r * 3, int(cy))
-        p.drawLine(int(cx), int(cy) - r * 3, int(cx), int(cy) + r * 3)
         p.drawEllipse(QPointF(cx, cy), float(r), float(r))
 
-        if self._principal_angle is not None:
-            a      = self._principal_angle
-            length = min(self.width(), self.height()) * 0.28
-            cos_a  = math.cos(a)
-            sin_a  = math.sin(a)
+        axis_len = 45
 
-            dx1, dy1 = cos_a * length, -sin_a * length
-            pen1 = QPen(_PRINCIPAL_1_COL, 1.5)
-            pen1.setStyle(Qt.PenStyle.DashLine)
-            p.setPen(pen1)
-            p.drawLine(QPointF(cx - dx1, cy - dy1),
-                       QPointF(cx + dx1, cy + dy1))
+        lbl_font = p.font()
+        lbl_font.setBold(True)
+        lbl_font.setPointSize(9)
+        p.setFont(lbl_font)
 
-            dx2, dy2 = sin_a * length, cos_a * length
-            pen2 = QPen(_PRINCIPAL_2_COL, 1.5)
-            pen2.setStyle(Qt.PenStyle.DashLine)
-            p.setPen(pen2)
-            p.drawLine(QPointF(cx - dx2, cy - dy2),
-                       QPointF(cx + dx2, cy + dy2))
+        p.setPen(QPen(QColor(30, 80, 220), 2))
+        p.drawLine(int(cx), int(cy), int(cx) - axis_len, int(cy))
+                   
+        p.drawLine(int(cx) - axis_len, int(cy), int(cx) - axis_len + 5, int(cy) - 4)
+        p.drawLine(int(cx) - axis_len, int(cy), int(cx) - axis_len + 5, int(cy) + 4)
+        p.drawText(int(cx) - axis_len - 14, int(cy) + 4, "3")
+
+        p.setPen(QPen(_AXIS_Y, 2))  
+        p.drawLine(int(cx), int(cy), int(cx), int(cy) - axis_len)
+                   
+        p.drawLine(int(cx), int(cy) - axis_len, int(cx) - 4, int(cy) - axis_len + 5)
+        p.drawLine(int(cx), int(cy) - axis_len, int(cx) + 4, int(cy) - axis_len + 5)
+        p.drawText(int(cx) + 8, int(cy) - axis_len + 4, "2")
 
     def _draw_snap_cursor(self, p: QPainter):
         """Small crosshair at snapped cursor position."""
@@ -628,3 +617,32 @@ class DrawingCanvas(QWidget):
         sz = 6
         p.drawLine(int(mx) - sz, int(my), int(mx) + sz, int(my))
         p.drawLine(int(mx), int(my) - sz, int(mx), int(my) + sz)
+
+    def _draw_corner_axes(self, p: QPainter):
+        """Fixed orientation indicator in the bottom-right corner (SAP2000 style)."""
+        w, h = self.width(), self.height()
+        
+        origin_x = w - 40
+        origin_y = h - 35
+        axis_len = 45
+
+        p.setPen(QPen(Qt.GlobalColor.black, 2))
+        
+        p.drawLine(origin_x, origin_y, origin_x - axis_len, origin_y)
+                         
+        p.drawLine(origin_x - axis_len, origin_y, origin_x - axis_len + 6, origin_y - 4)
+        p.drawLine(origin_x - axis_len, origin_y, origin_x - axis_len + 6, origin_y + 4)
+        
+        p.drawLine(origin_x, origin_y, origin_x, origin_y - axis_len)
+                         
+        p.drawLine(origin_x, origin_y - axis_len, origin_x - 4, origin_y - axis_len + 6)
+        p.drawLine(origin_x, origin_y - axis_len, origin_x + 4, origin_y - axis_len + 6)
+
+        lbl_font = p.font()
+        lbl_font.setBold(True)
+        lbl_font.setPointSize(10)
+        p.setFont(lbl_font)
+        
+        p.drawText(origin_x - axis_len - 16, origin_y + 4, "3")
+                                                      
+        p.drawText(origin_x - 4, origin_y - axis_len - 10, "2")

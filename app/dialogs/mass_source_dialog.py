@@ -4,7 +4,8 @@ from PyQt6.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, QListWidget,
                              QMessageBox, QHeaderView, QLineEdit, QWidget)
 from PyQt6.QtCore import Qt
                                                                  
-from core.model import MassSource 
+from core.model import MassSource
+from app.ui.theme import apply_dialog_style
 
 class MassSourceDataDialog(QDialog):
     """
@@ -13,6 +14,7 @@ class MassSourceDataDialog(QDialog):
     """
     def __init__(self, model, mass_source, parent=None):
         super().__init__(parent)
+        apply_dialog_style(self)
         self.model = model
         self.mass_source = mass_source
         self.original_name = mass_source.name
@@ -207,6 +209,7 @@ class MassSourceManagerDialog(QDialog):
     """
     def __init__(self, model, parent=None):
         super().__init__(parent)
+        apply_dialog_style(self)
         self.model = model
         
         if not hasattr(self.model, 'mass_sources'):

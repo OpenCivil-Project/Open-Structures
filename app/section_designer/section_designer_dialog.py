@@ -39,7 +39,7 @@ from PyQt6.QtWidgets import (
     QColorDialog, QSizePolicy, QGridLayout,
 )
 from PyQt6.QtWidgets import QMenuBar, QMenu
-from PyQt6.QtCore import Qt, pyqtSlot
+from PyQt6.QtCore import Qt, pyqtSlot, QThreadPool
 from PyQt6.QtGui  import QFont, QColor, QKeySequence, QShortcut, QAction
 import qtawesome as qta
 
@@ -48,6 +48,11 @@ from core.properties import ArbitrarySection
 
 from app.section_designer.drawing_canvas   import DrawingCanvas, DrawMode
 from app.section_designer.section_analyzer import SectionAnalyzer
+from app.section_designer.section_worker import SectionWorker
+from app.section_designer.section_viewer_dialogs import (
+    SectionPropertiesDialog, GeneratedFibersDialog, ElasticStressDialog,
+)
+from app.ui.theme import apply_dialog_style
 
 def _rect_verts(b: float, h: float) -> list:
     hb, hh = b / 2, h / 2
@@ -85,9 +90,105 @@ def _channel_verts(bf: float, d: float, tf: float, tw: float) -> list:
         (bf,  hd - tf), (bf,  hd), (0,   hd),
     ]
 
+def _precast_i_verts(B1: float, B2: float, B3: float, B4: float, 
+                     D1: float, D2: float, D3: float, D4: float, 
+                     D5: float, D6: float, D7: float, 
+                     T1: float, T2: float, C1: float) -> list:
+    z_top = D1 / 2.0
+    z_bot = -D1 / 2.0
+
+    pts = [
+        (0.0, z_top),
+        (B1 / 2.0, z_top),
+        (B1 / 2.0, z_top - D2),
+        (B1 / 2.0 - B3, z_top - D2),
+        (T1 / 2.0, z_top - D2 - D3),
+        (T1 / 2.0, z_top - D2 - D3 - D4),
+        (T2 / 2.0, z_bot + D5 + D6 + D7),
+        (T2 / 2.0, z_bot + D5 + D6),
+        (B2 / 2.0 - B4, z_bot + D5),
+        (B2 / 2.0, z_bot + D5),
+        (B2 / 2.0, z_bot + C1),
+        (B2 / 2.0 - C1, z_bot),
+        (0.0, z_bot)
+    ]
+    
+    right_half = []
+    for pt in pts:
+        if not right_half or (abs(pt[0] - right_half[-1][0]) > 1e-6 or abs(pt[1] - right_half[-1][1]) > 1e-6):
+            right_half.append(pt)
+            
+    left_half = [(-x, y) for (x, y) in reversed(right_half)]
+    
+    return right_half + left_half[1:-1]
+
+def _precast_u_verts(B1: float, B2: float, B3: float, B4: float, B5: float, B6: float,
+                     D1: float, D2: float, D3: float, D4: float, D5: float, D6: float, D7: float) -> list:
+    z_top = D1 / 2.0
+    z_bot = -D1 / 2.0
+
+    Z_top_web = z_top - D7
+    Z_bot_web = z_bot + D2
+    X_top_web = B1 / 2.0
+    X_bot_web = B2 / 2.0
+
+    def X_out(z):
+        if abs(Z_top_web - Z_bot_web) < 1e-6:
+            return X_top_web
+        return X_bot_web + (X_top_web - X_bot_web) * (z - Z_bot_web) / (Z_top_web - Z_bot_web)
+
+    Z_in_top_web = z_top - D6 - D5 - D4
+    X_in_top_web = X_out(Z_in_top_web) - B5
+
+    Z_in_bot_web = z_bot + B3 + D3
+    X_in_bot_web = X_out(Z_in_bot_web) - B4
+
+    X_inner_top = X_in_top_web - B6
+
+    pts = [
+        (B1 / 2.0, z_top),
+        (B1 / 2.0, z_top - D7),
+        (B2 / 2.0, z_bot + D2),
+        (B2 / 2.0 - D2, z_bot),
+        (0.0, z_bot),
+        (0.0, z_bot + B3),
+        (X_in_bot_web - D3, z_bot + B3),
+        (X_in_bot_web, z_bot + B3 + D3),
+        (X_in_top_web, z_top - D6 - D5 - D4),
+        (X_in_top_web, z_top - D6 - D5),
+        (X_inner_top, z_top - D6),
+        (X_inner_top, z_top)
+    ]
+
+    right_pts = []
+    for pt in pts:
+        if not right_pts or (abs(pt[0] - right_pts[-1][0]) > 1e-6 or abs(pt[1] - right_pts[-1][1]) > 1e-6):
+            right_pts.append(pt)
+
+    bot_out_idx = next(i for i, p in enumerate(right_pts) if abs(p[0]) < 1e-6 and abs(p[1] - z_bot) < 1e-6)
+    bot_in_idx = next(i for i, p in enumerate(right_pts) if abs(p[0]) < 1e-6 and abs(p[1] - (z_bot + B3)) < 1e-6)
+
+    outer_right = right_pts[:bot_out_idx + 1]
+    outer_left = [(-x, y) for (x, y) in reversed(right_pts[:bot_out_idx])]
+    inner_left = [(-x, y) for (x, y) in reversed(right_pts[bot_in_idx + 1:])]
+    inner_right = right_pts[bot_in_idx:]
+
+    full_pts = outer_right + outer_left + inner_left + inner_right
+
+    clean_pts = []
+    for pt in full_pts:
+        if not clean_pts or (abs(pt[0] - clean_pts[-1][0]) > 1e-6 or abs(pt[1] - clean_pts[-1][1]) > 1e-6):
+            clean_pts.append(pt)
+    
+    if clean_pts and (abs(clean_pts[0][0] - clean_pts[-1][0]) < 1e-6 and abs(clean_pts[0][1] - clean_pts[-1][1]) < 1e-6):
+        clean_pts.pop()
+
+    return clean_pts
+
 class _CoordInputDialog(QDialog):
     def __init__(self, y_init: float, z_init: float, parent=None):
         super().__init__(parent)
+        apply_dialog_style(self)
         self.setWindowTitle("Enter coordinates")
         self.setFixedSize(260, 130)
         scale = unit_registry.length_scale
@@ -116,6 +217,7 @@ class _CoordInputDialog(QDialog):
 class _DimDialog(QDialog):
     def __init__(self, title: str, fields: list, parent=None):
         super().__init__(parent)
+        apply_dialog_style(self)
         self.setWindowTitle(title)
         self.setFixedWidth(300)
         unit  = unit_registry.length_unit_name
@@ -142,6 +244,7 @@ class _DimDialog(QDialog):
 class _ModifiersDialog(QDialog):
     def __init__(self, current: dict, parent=None):
         super().__init__(parent)
+        apply_dialog_style(self)
         self.setWindowTitle("Property / Stiffness Modifiers")
         self.resize(320, 300)
         self.modifiers = current.copy()
@@ -227,8 +330,12 @@ class _LeftSidebar(QWidget):
         self.btn_isec    = self._tool(qta.icon("fa5s.grip-lines",         color=_C), "I-Section")
         self.btn_tsec    = self._tool(qta.icon("fa5s.grip-lines-vertical", color=_C), "T-Section")
         self.btn_channel = self._tool(qta.icon("fa5s.columns",            color=_C), "C-Channel")
+        self.btn_precast_i = self._tool(qta.icon("fa5s.shapes",           color=_C), "Precast I")
+        self.btn_precast_u = self._tool(qta.icon("fa5s.magnet",           color=_C), "Precast U")
+
         for btn in (self.btn_rect, self.btn_circle,
-                    self.btn_isec, self.btn_tsec, self.btn_channel):
+                    self.btn_isec, self.btn_tsec, self.btn_channel,
+                    self.btn_precast_i, self.btn_precast_u):
             layout.addWidget(btn)
 
         layout.addStretch()
@@ -338,6 +445,10 @@ class _RightPanel(QWidget):
             ("I33",     f"I₃₃  ({u}⁴)", "Strong axis MOI"),
             ("I22",     f"I₂₂  ({u}⁴)", "Weak axis MOI"),
             ("J",       f"J  ({u}⁴)",   "Torsion constant"),
+                                               
+            ("Asy",     f"AS2 ({u}²)",  "Shear area (local 2)"),
+            ("Asz",     f"AS3 ({u}²)",  "Shear area (local 3)"),
+                                               
             ("S33",     f"S₃₃  ({u}³)", "Elastic modulus (strong)"),
             ("S22",     f"S₂₂  ({u}³)", "Elastic modulus (weak)"),
             ("r33",     f"r₃₃  ({u})",  "Radius of gyration (strong)"),
@@ -380,6 +491,7 @@ class _RightPanel(QWidget):
         s2, s3, s4 = scale**2, scale**3, scale**4
         conv = {
             'A': s2, 'I33': s4, 'I22': s4, 'J': s4,
+            'Asy': s2, 'Asz': s2,
             'S33': s3, 'S22': s3,
             'r33': scale, 'r22': scale,
             'y_c': scale, 'z_c': scale,
@@ -416,9 +528,13 @@ class SectionDesignerDialog(QDialog):
 
     def __init__(self, model, section_data=None, parent=None):
         super().__init__(parent)
+        apply_dialog_style(self)
         self.setWindowTitle("Section Designer")
         self.resize(1080, 700)
         self.setMinimumSize(860, 560)
+
+        self.thread_pool = QThreadPool.globalInstance()
+        self._current_worker_id = 0
 
         self.model        = model
         self.section_data = section_data
@@ -428,6 +544,8 @@ class SectionDesignerDialog(QDialog):
             "A": 1.0, "As2": 1.0, "As3": 1.0, "J": 1.0,
             "I2": 1.0, "I3": 1.0, "Mass": 1.0, "Weight": 1.0,
         }
+                                                                       
+        self._mesh_settings = {"mesh_abs": 0.0, "mesh_rel": 0.05}
 
         self._build_ui()
         self._connect_signals()
@@ -538,6 +656,14 @@ class SectionDesignerDialog(QDialog):
             qta.icon("fa5s.grip-lines-vertical", color="#6c757d"), "C-Channel...")
         act_chan.triggered.connect(self._from_channel)
 
+        act_precast_i = m_draw.addAction(
+            qta.icon("fa5s.shapes", color="#6c757d"), "Precast I...")
+        act_precast_i.triggered.connect(self._from_precast_i)
+        
+        act_precast_u = m_draw.addAction(
+            qta.icon("fa5s.magnet", color="#6c757d"), "Precast U...")
+        act_precast_u.triggered.connect(self._from_precast_u)
+
         m_select = mb.addMenu("&Select")
         act_sel = m_select.addAction(
             qta.icon("fa5s.mouse-pointer", color="#6c757d"), "Select Mode\tQ")
@@ -549,7 +675,15 @@ class SectionDesignerDialog(QDialog):
         m_display = mb.addMenu("D&isplay")
         m_display.addAction(self._placeholder_action("fa5s.palette",    "Section Color..."))
         m_display.addSeparator()
-        m_display.addAction(self._placeholder_action("fa5s.list-alt",   "Section Properties..."))
+        act_props = m_display.addAction(
+            qta.icon("fa5s.list-alt", color="#6c757d"), "Section Properties...")
+        act_props.triggered.connect(self._open_section_properties)
+        act_fibers = m_display.addAction(
+            qta.icon("fa5s.braille", color="#6c757d"), "Generated Fibers...")
+        act_fibers.triggered.connect(self._open_generated_fibers)
+        act_stress = m_display.addAction(
+            qta.icon("fa5s.fire", color="#6c757d"), "Show Stresses (S11)...")
+        act_stress.triggered.connect(self._open_elastic_stress)
 
         m_opts = mb.addMenu("&Options")
         act_mods = m_opts.addAction(
@@ -644,13 +778,75 @@ class SectionDesignerDialog(QDialog):
 
         btn_axes     = _btn("fa5s.crosshairs",     "Show/hide axes  (placeholder)")
         btn_centroid = _btn("fa5s.dot-circle",     "Show/hide centroid  (placeholder)")
-        btn_props    = _btn("fa5s.list-alt",       "Section properties  (placeholder)")
+        btn_props    = _btn("fa5s.list-alt",       "Section properties")
+        btn_fibers   = _btn("fa5s.braille",        "Generated fibers")
+        btn_stress   = _btn("fa5s.fire",           "Elastic stress (S11)")
         btn_rebar    = _btn("fa5s.circle",         "Reinforcement  (placeholder)")
-        for b in (btn_axes, btn_centroid, btn_props, btn_rebar):
+        btn_props.clicked.connect(self._open_section_properties)
+        btn_fibers.clicked.connect(self._open_generated_fibers)
+        btn_stress.clicked.connect(self._open_elastic_stress)
+        for b in (btn_axes, btn_centroid, btn_props, btn_fibers, btn_stress, btn_rebar):
             layout.addWidget(b)
 
         layout.addStretch()
         return bar
+
+    def _from_precast_i(self):
+        dlg = _DimDialog("Precast Concrete I / Bulb Tee", [
+            ("B1", "Top Flange Width (B1)", 0.3048),
+            ("B2", "Bottom Flange Width (B2)", 0.4064),
+            ("B3", "Top Flange Taper Offset (B3)", 0.0),
+            ("B4", "Bot Flange Taper Offset (B4)", 0.0),
+            ("D1", "Total Depth (D1)", 0.7112),
+            ("D2", "Top Flange Edge Thick (D2)", 0.1016),
+            ("D3", "Top Flange Taper (D3)", 0.0762),
+            ("D4", "Top Web Root (D4)", 0.0),
+            ("D5", "Bot Flange Edge Thick (D5)", 0.1270),
+            ("D6", "Bot Flange Taper (D6)", 0.1270),
+            ("D7", "Bot Web Root (D7)", 0.0),
+            ("T1", "Top Web Thickness (T1)", 0.1524),
+            ("T2", "Bot Web Thickness (T2)", 0.1524),
+            ("C1", "Bottom Chamfer (C1)", 0.0)
+        ], self)
+        
+        if dlg.exec():
+            v = dlg.values_m()
+            self.canvas.push_shape(
+                _precast_i_verts(
+                    v['B1'], v['B2'], v['B3'], v['B4'], 
+                    v['D1'], v['D2'], v['D3'], v['D4'], 
+                    v['D5'], v['D6'], v['D7'], 
+                    v['T1'], v['T2'], v['C1']
+                ), "Precast I"
+            )
+            self.canvas.zoom_to_fit()
+
+    def _from_precast_u(self):
+        dlg = _DimDialog("Precast Concrete U Girder", [
+            ("B1", "Top Width (B1)", 2.1987),
+            ("B2", "Bottom Width (B2)", 1.4986),
+            ("B3", "Bottom Slab Thick (B3)", 0.2000),
+            ("B4", "Bot Web Thick (B4)", 0.0953),
+            ("B5", "Top Web Thick (B5)", 0.1447),
+            ("B6", "Top Flange Taper Width (B6)", 0.0),
+            ("D1", "Total Depth (D1)", 1.4002),
+            ("D2", "Bot Outer Chamfer (D2)", 0.1746),
+            ("D3", "Bot Inner Fillet (D3)", 0.0762),
+            ("D4", "Top Web Root (D4)", 0.0),
+            ("D5", "Top Flange Taper (D5)", 0.0),
+            ("D6", "Top Flange Inner Drop (D6)", 0.1238),
+            ("D7", "Top Flange Outer Drop (D7)", 0.1746)
+        ], self)
+        
+        if dlg.exec():
+            v = dlg.values_m()
+            self.canvas.push_shape(
+                _precast_u_verts(
+                    v['B1'], v['B2'], v['B3'], v['B4'], v['B5'], v['B6'],
+                    v['D1'], v['D2'], v['D3'], v['D4'], v['D5'], v['D6'], v['D7']
+                ), "Precast U"
+            )
+            self.canvas.zoom_to_fit()
 
     @staticmethod
     def _placeholder_action(icon_name: str, label: str) -> QAction:
@@ -736,6 +932,18 @@ class SectionDesignerDialog(QDialog):
         self.grid_combo.currentIndexChanged.connect(self._on_grid_step_changed)
         layout.addWidget(self.grid_combo)
 
+        layout.addWidget(self._v_sep())
+        
+        self.unit_combo = QComboBox()
+        self.unit_combo.addItems([
+            "kN, m, C", "N, m, C", "N, mm, C", "kN, mm, C",
+            "Tonf, m, C", "kgf, m, C", "kip, ft, F"
+        ])
+        self.unit_combo.setCurrentText(unit_registry.current_unit_label)
+        self.unit_combo.setFixedHeight(26)
+        self.unit_combo.currentIndexChanged.connect(self._on_unit_changed)
+        layout.addWidget(self.unit_combo)
+
         layout.addStretch()
 
         self.btn_accept = QPushButton("Accept")
@@ -775,6 +983,9 @@ class SectionDesignerDialog(QDialog):
         self.sidebar.btn_isec.clicked.connect(self._from_isection)
         self.sidebar.btn_tsec.clicked.connect(self._from_tsection)
         self.sidebar.btn_channel.clicked.connect(self._from_channel)
+
+        self.sidebar.btn_precast_i.clicked.connect(self._from_precast_i)
+        self.sidebar.btn_precast_u.clicked.connect(self._from_precast_u)
 
         self.right.btn_mods.clicked.connect(self._open_modifiers)
 
@@ -861,6 +1072,19 @@ class SectionDesignerDialog(QDialog):
             self.canvas.set_grid_step(
                 self._step_values_m[idx] * unit_registry.length_scale)
 
+    @pyqtSlot(int)
+    def _on_unit_changed(self, idx: int):
+                                       
+        unit_text = self.unit_combo.currentText()
+        unit_registry.set_unit_system(unit_text)
+        
+        self._populate_grid_steps()
+        
+        if self._computed_props:
+            self.right.update_props(self._computed_props)
+            
+        self.canvas.update()
+
     @pyqtSlot()
     def _on_reset(self):
         reply = QMessageBox.question(
@@ -883,13 +1107,53 @@ class SectionDesignerDialog(QDialog):
         verts = self.canvas.get_vertices()
         if len(verts) < 3:
             return
+            
         props = SectionAnalyzer.compute(verts)
         if props['A'] < 1e-12:
             return
+            
         self._computed_props = props
         self.right.update_props(props)
         self.canvas.set_centroid(props['y_c'], props['z_c'])
         self.canvas.set_principal_angle(props['theta_p'])
+        
+        self.btn_accept.setEnabled(False)
+        self.right._prop_fields['J'].setText("Solving FEM...")
+        self.right._prop_fields['Asy'].setText("Solving FEM...") 
+        self.right._prop_fields['Asz'].setText("Solving FEM...")
+        
+        self._current_worker_id += 1
+        self._current_worker_id += 1
+        worker_id = self._current_worker_id
+        
+        ys, zs = [v[0] for v in verts], [v[1] for v in verts]
+        max_dim = max(max(ys) - min(ys), max(zs) - min(zs))
+        
+        mesh_abs = self._mesh_settings.get("mesh_abs", 0.0)
+        mesh_rel = self._mesh_settings.get("mesh_rel", 0.05)
+        
+        if mesh_abs > 1e-12:
+            dynamic_mesh_size = mesh_abs
+        else:
+            dynamic_mesh_size = max(max_dim * mesh_rel, 1e-6)
+                                                      
+        worker = SectionWorker(section_id=worker_id, vertices=verts, mesh_size=dynamic_mesh_size)
+        worker.signals.finished.connect(self._on_fem_finished)
+        worker.signals.error.connect(lambda err: print(f"Section FEM Error: {err}"))
+        
+        self.thread_pool.start(worker)
+
+    @pyqtSlot(dict)
+    def _on_fem_finished(self, result: dict):
+                                                                                    
+        if result['section_id'] != self._current_worker_id:
+            return
+            
+        self._computed_props['J'] = result['J_exact']
+        self._computed_props['Asy'] = result['Asy']
+        self._computed_props['Asz'] = result['Asz']
+        
+        self.right.update_props(self._computed_props)
         self.btn_accept.setEnabled(True)
 
     def _from_rectangle(self):
@@ -977,12 +1241,14 @@ class SectionDesignerDialog(QDialog):
         props_dict = {
             'A': p['A'], 'J': p['J'], 'I33': p['I33'], 'I22': p['I22'],
             'As2': p['Asy'], 'As3': p['Asz'],
+            'theta_p': p['theta_p'],
         }
         y_c, z_c      = p['y_c'], p['z_c']
         shifted_verts  = [(y - y_c, z - z_c) for (y, z) in verts]
         section        = ArbitrarySection(name, mat, shifted_verts, props_dict)
         section.color     = self._color
         section.modifiers = self._modifiers.copy()
+        section.mesh_settings = self._mesh_settings.copy()
 
         self.result_section = section
         self.accept()
@@ -997,6 +1263,8 @@ class SectionDesignerDialog(QDialog):
             self._update_color_swatch()
         if hasattr(sec, 'modifiers') and sec.modifiers:
             self._modifiers = sec.modifiers.copy()
+        if hasattr(sec, 'mesh_settings') and sec.mesh_settings:
+            self._mesh_settings = sec.mesh_settings.copy()
         if sec.vertices:
             self.canvas.set_vertices(sec.vertices)
             self.canvas.zoom_to_fit()
@@ -1004,7 +1272,7 @@ class SectionDesignerDialog(QDialog):
                 'A': sec.A, 'J': sec.J, 'I33': sec.I33, 'I22': sec.I22,
                 'Asy': sec.Asy, 'Asz': sec.Asz, 'S33': sec.S33, 'S22': sec.S22,
                 'r33': sec.r33, 'r22': sec.r22,
-                'Iyz': 0.0, 'theta_p': 0.0, 'y_c': 0.0, 'z_c': 0.0,
+                'Iyz': 0.0, 'theta_p': getattr(sec, 'theta_p', 0.0), 'y_c': 0.0, 'z_c': 0.0,
             }
             self.right.update_props(self._computed_props)
             self.btn_accept.setEnabled(True)
@@ -1034,6 +1302,71 @@ class SectionDesignerDialog(QDialog):
         dlg = _ModifiersDialog(self._modifiers, self)
         if dlg.exec():
             self._modifiers = dlg.modifiers
+
+    def _material_nu(self, default: float = 0.2) -> float:
+        """Best-effort Poisson's ratio lookup — attribute name isn't fixed
+        across material model versions, so try the common spellings."""
+        mat_name = self.mat_combo.currentText()
+        mat = self.model.materials.get(mat_name)
+        if mat is None:
+            return default
+        for attr in ("nu", "poisson_ratio", "poissons_ratio", "U12", "v"):
+            val = getattr(mat, attr, None)
+            if isinstance(val, (int, float)):
+                return float(val)
+        return default
+
+    def _closed_vertices_or_warn(self):
+        if not self.canvas.is_closed or len(self.canvas.get_vertices()) < 3:
+            QMessageBox.information(
+                self, "No section", "Draw and close a polygon first.")
+            return None
+        return self.canvas.get_vertices()
+
+    def _open_section_properties(self):
+        verts = self._closed_vertices_or_warn()
+        if verts is None:
+            return
+        dlg = SectionPropertiesDialog(
+            verts, self.mat_combo.currentText(), self._material_nu(),
+            self._mesh_settings,
+            unit_registry.length_scale, unit_registry.length_unit_name, self)
+        dlg.mesh_settings_changed.connect(self._on_mesh_settings_changed)
+        
+        if dlg.exec() == QDialog.DialogCode.Accepted:
+            self._run_analysis_silent()
+
+    def _open_generated_fibers(self):
+        verts = self._closed_vertices_or_warn()
+        if verts is None:
+            return
+        dlg = GeneratedFibersDialog(
+            verts, self.mat_combo.currentText(), self._material_nu(),
+            self._mesh_settings,
+            unit_registry.length_scale, unit_registry.length_unit_name, self)
+        dlg.mesh_settings_changed.connect(self._on_mesh_settings_changed)
+        
+        if dlg.exec() == QDialog.DialogCode.Accepted:
+            self._run_analysis_silent()
+            
+    def _open_elastic_stress(self):
+        verts = self._closed_vertices_or_warn()
+        if verts is None:
+            return
+        dlg = ElasticStressDialog(
+            verts, self.mat_combo.currentText(), self._material_nu(),
+            self._mesh_settings,
+            length_unit_scale=unit_registry.length_scale,
+            length_unit_name=unit_registry.length_unit_name,
+            force_scale=unit_registry.force_scale,
+            force_unit_name=unit_registry.force_unit_name,
+            pressure_unit_name=unit_registry.pressure_unit,
+            parent=self)
+        dlg.mesh_settings_changed.connect(self._on_mesh_settings_changed)
+        dlg.exec()
+
+    def _on_mesh_settings_changed(self, settings: dict):
+        self._mesh_settings = dict(settings)
 
     def _populate_grid_steps(self):
         self.grid_combo.blockSignals(True)

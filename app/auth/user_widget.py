@@ -410,14 +410,18 @@ class UserProfileWidget(QWidget):
         ):
             self.reposition()
 
-        if self._dropdown and self._dropdown.isVisible():
-            if event.type() == QEvent.Type.MouseButtonPress:
-                gpos = event.globalPosition().toPoint()
-                dd_rect = QRect(self._dropdown.mapToGlobal(QPoint(0, 0)), self._dropdown.size())
-                my_rect = QRect(self.mapToGlobal(QPoint(0, 0)), self.size())
-                if not dd_rect.contains(gpos) and not my_rect.contains(gpos):
-                    self._dropdown.hide()
-                    self.lbl_chevron.setText("▾")
+        try:
+            if self._dropdown and self._dropdown.isVisible():
+                if event.type() == QEvent.Type.MouseButtonPress:
+                    gpos = event.globalPosition().toPoint()
+                    dd_rect = QRect(self._dropdown.mapToGlobal(QPoint(0, 0)), self._dropdown.size())
+                    my_rect = QRect(self.mapToGlobal(QPoint(0, 0)), self.size())
+                    if not dd_rect.contains(gpos) and not my_rect.contains(gpos):
+                        self._dropdown.hide()
+                        self.lbl_chevron.setText("▾")
+        except RuntimeError:
+                                                                                       
+            self._dropdown = None
 
         return False
     

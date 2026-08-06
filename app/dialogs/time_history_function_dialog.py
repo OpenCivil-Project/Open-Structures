@@ -6,6 +6,7 @@ from PyQt6.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, QLabel,
 from PyQt6.QtCore import Qt
 from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.figure import Figure
+from app.ui.theme import apply_dialog_style
 
 class TimeHistoryFunctionDialog(QDialog):
     """
@@ -26,6 +27,7 @@ class TimeHistoryFunctionDialog(QDialog):
 
     def __init__(self, parent=None):
         super().__init__(parent)
+        apply_dialog_style(self)
         self.setWindowTitle("Time History Function Definition")
         self.resize(1000, 600)
 

@@ -421,6 +421,8 @@ class GeneralSection(Section):
         self.Asy = float(props_dict.get('As2', props_dict.get('Asy', 0.0)))
         self.Asz = float(props_dict.get('As3', props_dict.get('Asz', 0.0)))
         
+        self.theta_p = float(props_dict.get('theta_p', 0.0))
+        
         self.S33 = 0.0; self.S22 = 0.0; self.Z33 = 0.0; self.Z22 = 0.0
         self.r33 = 0.0; self.r22 = 0.0
 

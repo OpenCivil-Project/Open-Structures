@@ -14,11 +14,14 @@ from core.properties import (RectangularSection, ISection, Material,
                              ArbitrarySection)
 from app.section_designer.section_designer_dialog import SectionDesignerDialog
 from core.integrity_checks import check_section_in_use
+from app.dialogs.section_manager_dialog import ShapeCard, AddFrameSectionPropertyDialog
+from app.ui.theme import apply_dialog_style
 
 class AISCSelectionDialog(QDialog):
     """Dialog to select a specific shape from the loaded AISC list."""
     def __init__(self, shape_list, parent=None):
         super().__init__(parent)
+        apply_dialog_style(self)
         self.setWindowTitle("Select AISC Section")
         self.resize(300, 500)
         self.selected_row = None
@@ -88,9 +91,31 @@ class SectionPreviewWidget(QFrame):
         for i in range(0, w, 20): painter.drawLine(i, 0, i, h)
         for i in range(0, h, 20): painter.drawLine(0, i, w, i)
         
-        painter.setPen(QPen(Qt.GlobalColor.green, 2)); painter.drawLine(int(cx), int(cy), int(cx)+30, int(cy)) 
+        origin_x = w - 15                                           
+        origin_y = h - 10
+        axis_len = 35
 
-        painter.setPen(QPen(Qt.GlobalColor.blue, 2)); painter.drawLine(int(cx), int(cy), int(cx), int(cy)-30)
+        painter.setPen(QPen(Qt.GlobalColor.black, 2))
+        
+        painter.drawLine(origin_x, origin_y, origin_x - axis_len, origin_y)
+                         
+        painter.drawLine(origin_x - axis_len, origin_y, origin_x - axis_len + 5, origin_y - 3)
+        painter.drawLine(origin_x - axis_len, origin_y, origin_x - axis_len + 5, origin_y + 3)
+        
+        painter.drawLine(origin_x, origin_y, origin_x, origin_y - axis_len)
+                         
+        painter.drawLine(origin_x, origin_y - axis_len, origin_x - 3, origin_y - axis_len + 5)
+        painter.drawLine(origin_x, origin_y - axis_len, origin_x + 3, origin_y - axis_len + 5)
+
+        font = painter.font()
+        font.setBold(True)
+        font.setPointSize(9)
+        painter.setFont(font)
+        
+        painter.drawText(origin_x - axis_len - 14, origin_y + 4, "3")
+                                                      
+        painter.drawText(origin_x - 4, origin_y - axis_len - 8, "2")
+        
         p = self.params
         if p["type"] == "general":
                                                 
@@ -227,6 +252,7 @@ class SectionPreviewWidget(QFrame):
 class SectionModifiersDialog(QDialog):
     def __init__(self, current_modifiers, parent=None):
         super().__init__(parent)
+        apply_dialog_style(self)
         self.setWindowTitle("Property/Stiffness Modifiers")
         self.resize(350, 350)
         self.modifiers = current_modifiers.copy()
@@ -273,6 +299,7 @@ class SectionModifiersDialog(QDialog):
 class SectionPropertiesInfoDialog(QDialog):
     def __init__(self, props, length_unit="m", parent=None):
         super().__init__(parent)
+        apply_dialog_style(self)
         self.setWindowTitle("Section Properties")
         self.resize(600, 400)
         
@@ -315,9 +342,12 @@ class SectionPropertiesInfoDialog(QDialog):
         layout.addWidget(btn)
         
 class AddSectionDialog(QDialog):
-    def __init__(self, model, parent=None, section_data=None):
+                                                                      
+    def __init__(self, model, parent=None, section_data=None, preselected_index=None):
         super().__init__(parent)
+        apply_dialog_style(self)
         self.setWindowTitle("Define Section")
+                                   
         self.resize(700, 500)
         
         self.model = model
@@ -328,6 +358,11 @@ class AddSectionDialog(QDialog):
 
         self.setup_ui()
         self.connect_signals()
+
+        if preselected_index is not None:
+            self.type_combo.setCurrentIndex(preselected_index)
+            self.stack.setCurrentIndex(preselected_index)
+            self.update_preview()
 
         if self.section_data:
             self.setWindowTitle("Modify Section Property")
@@ -792,6 +827,7 @@ class AddSectionDialog(QDialog):
 class SectionManagerDialog(QDialog):
     def __init__(self, model, parent=None):
         super().__init__(parent)
+        apply_dialog_style(self)
         self.setWindowTitle("Frame Sections")
         self.resize(350, 400)
         self.model = model
@@ -806,9 +842,8 @@ class SectionManagerDialog(QDialog):
         self.btn_add = QPushButton("Add New Property...")
         self.btn_add.clicked.connect(self.add_section)
         
-        self.btn_import = QPushButton("Import AISC Steel Section...")
-        self.btn_import.clicked.connect(self.import_aisc_section)
-        self.btn_import.setStyleSheet("background-color: #e0f0ff;")
+        self.btn_copy = QPushButton("Add Copy of Property...")
+        self.btn_copy.clicked.connect(self.copy_section)
         
         self.btn_mod = QPushButton("Modify/Show Property...")
         self.btn_mod.clicked.connect(self.modify_section)
@@ -817,7 +852,7 @@ class SectionManagerDialog(QDialog):
         self.btn_del.clicked.connect(self.delete_section)
         
         v_btns.addWidget(self.btn_add)
-        v_btns.addWidget(self.btn_import)
+        v_btns.addWidget(self.btn_copy)
         v_btns.addWidget(self.btn_mod)
         v_btns.addWidget(self.btn_del)
         v_btns.addStretch()
@@ -831,6 +866,29 @@ class SectionManagerDialog(QDialog):
         
         self.refresh_list()
 
+    def copy_section(self):
+        """Duplicates the selected section and opens the editor."""
+        item = self.list_widget.currentItem()
+        if not item: return
+        original_name = item.text()
+        
+        original_sec = self.model.sections.get(original_name)
+        if not original_sec: return
+        
+        import copy
+        new_sec = copy.deepcopy(original_sec)
+        
+        base_name = original_name + "_Copy"
+        idx = 1
+        test_name = base_name
+        while test_name in self.model.sections:
+            test_name = f"{base_name}{idx}"
+            idx += 1
+        new_sec.name = test_name
+        
+        if AddSectionDialog(self.model, parent=self, section_data=new_sec).exec():
+            self.refresh_list()
+
     def refresh_list(self):
         current_row = self.list_widget.currentRow()
         self.list_widget.clear()
@@ -843,8 +901,9 @@ class SectionManagerDialog(QDialog):
         if not self.model.materials:
             QMessageBox.warning(self, "No Materials", "You must define a Material before defining a Section.")
             return
-        if AddSectionDialog(self.model, parent=self).exec():
-            self.refresh_list()
+            
+        dlg = AddFrameSectionPropertyDialog(main_manager=self, parent=self)
+        dlg.exec()
 
     def import_aisc_section(self):
         import sys

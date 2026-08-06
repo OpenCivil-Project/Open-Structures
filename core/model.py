@@ -465,7 +465,8 @@ class StructuralModel:
                     "I33": sec.I33, 
                     "I22": sec.I22, 
                     "As2": sec.Asy, 
-                    "As3": sec.Asz
+                    "As3": sec.Asz,
+                    "theta_p": getattr(sec, 'theta_p', 0.0)
                 }
             }
             if isinstance(sec, RectangularSection):
@@ -827,6 +828,7 @@ class StructuralModel:
                                                                      
                     'As2': p.get("Asy", p.get("As2", 0.0)), 
                     'As3': p.get("Asz", p.get("As3", 0.0)),
+                    'theta_p': p.get("theta_p", 0.0),
                     'y_c': s_data.get("y_c", 0.0),
                     'z_c': s_data.get("z_c", 0.0),
                 }
@@ -836,7 +838,8 @@ class StructuralModel:
                 p = s_data["properties"]
                 props_dict = {
                     'A': p["A"], 'J': p["J"], 'I33': p["I33"], 'I22': p["I22"],
-                    'As2': p["As2"], 'As3': p["As3"]
+                    'As2': p["As2"], 'As3': p["As3"],
+                    'theta_p': p.get("theta_p", 0.0)
                 }
                 sec = GeneralSection(s_data["name"], mat, props_dict)
 

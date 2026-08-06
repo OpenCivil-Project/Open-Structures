@@ -5,10 +5,12 @@ from PyQt6.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, QListWidget,
 from PyQt6.QtCore import Qt
 
 from app.dialogs.response_spectrum_dialog import ResponseSpectrumDialog
+from app.ui.theme import apply_dialog_style
 
 class ResponseSpectrumManagerDialog(QDialog):
     def __init__(self, model, parent=None):
         super().__init__(parent)
+        apply_dialog_style(self)
         self.model = model
         
         if not hasattr(self.model, 'functions'):

@@ -165,7 +165,8 @@ class DataManager:
                 'I33': p.get('I33', 0.0),
                 'I22': p.get('I22', 0.0),
                 'As2': p.get('As2', 0.0),                                             
-                'As3': p.get('As3', 0.0)                                              
+                'As3': p.get('As3', 0.0),                                             
+                'theta_p': p.get('theta_p', 0.0)                                      
             }
                                                                                   
         for lp in self.raw.get('link_properties', []):

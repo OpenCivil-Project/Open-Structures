@@ -85,7 +85,6 @@ class SectionAnalyzer:
             cross = y0 * z1 - y1 * z0
             Ixx_O += (z0**2 + z0*z1 + z1**2) * cross
             Iyy_O += (y0**2 + y0*y1 + y1**2) * cross
-                                                                                       
             Iyz_O += (y0*z1 + y1*z0 + 2.0*y0*z0 + 2.0*y1*z1) * cross
 
         Ixx_O /= 12.0
@@ -95,8 +94,8 @@ class SectionAnalyzer:
         if A_signed < 0:
             Iyz_O = -Iyz_O
 
-        I33 = abs(Iyy_O) - A * Cy**2
-        I22 = abs(Ixx_O) - A * Cz**2
+        I33 = abs(Ixx_O) - A * Cz**2
+        I22 = abs(Iyy_O) - A * Cy**2
         Iyz = Iyz_O     - A * Cy * Cz
 
         I33 = max(I33, 0.0)
@@ -116,8 +115,8 @@ class SectionAnalyzer:
         z_top   = max(zs) - Cz
         z_bot   = Cz - min(zs)
 
-        c33 = max(y_right, y_left)
-        c22 = max(z_top, z_bot)
+        c33 = max(z_top, z_bot)
+        c22 = max(y_right, y_left)
 
         S33 = I33 / c33 if c33 > 1e-20 else 0.0
         S22 = I22 / c22 if c22 > 1e-20 else 0.0

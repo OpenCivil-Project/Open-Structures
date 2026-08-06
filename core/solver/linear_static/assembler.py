@@ -124,7 +124,8 @@ class GlobalAssembler:
             p1_adj = p1 + global_off_i
             p2_adj = p2 + global_off_j
 
-            R_3x3 = get_rotation_matrix(p1_adj, p2_adj, el['beta'])
+            beta_eff = el['beta'] - np.degrees(sec.get('theta_p', 0.0))
+            R_3x3 = get_rotation_matrix(p1_adj, p2_adj, beta_eff)
 
             T_rot = np.zeros((12, 12))
             for i in range(4):
@@ -531,7 +532,9 @@ class GlobalAssembler:
             )
 
             fef_local = np.zeros(12)
-            R_3x3 = get_rotation_matrix(p1, p2, el['beta'])
+                                                                          
+            beta_eff = el['beta'] - np.degrees(sec.get('theta_p', 0.0))
+            R_3x3 = get_rotation_matrix(p1, p2, beta_eff)
 
             w_vec_local_for_offset = np.zeros(3) 
 
