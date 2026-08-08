@@ -137,7 +137,7 @@ class VideoSplash(QWidget):
         self.player.errorOccurred.connect(self.finished.emit)
 
     def start(self):
-        self.player.setPlaybackRate(2.0)
+        self.player.setPlaybackRate(2.05817)
         self.player.play()
 
     def cleanup_player(self):
@@ -2703,6 +2703,18 @@ class MainWindow(QMainWindow):
             menu.addSeparator()
             delete_action = menu.addAction("Delete Selection")
             delete_action.triggered.connect(self.delete_current_selection)
+            hit_something = True
+
+        if self.selected_ids:
+            view_sec_action = menu.addAction("View Cross Section...")
+            def show_section_viewer():
+                from app.dialogs.section_viewer_dialog import CrossSectionViewerDialog
+                                                                                
+                elements = [self.model.elements[eid] for eid in self.selected_ids if eid in self.model.elements]
+                self._sec_viewer_dlg = CrossSectionViewerDialog(self.model, self.canvas, elements, self)
+                self._sec_viewer_dlg.show()
+            
+            view_sec_action.triggered.connect(show_section_viewer)
             hit_something = True
 
         if not hit_something:

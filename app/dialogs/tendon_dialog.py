@@ -1,3 +1,4 @@
+import math
 from PyQt6.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, QLabel,
                              QListWidget, QPushButton, QGroupBox, QFormLayout,
                              QLineEdit, QComboBox, QMessageBox, QColorDialog,
@@ -88,9 +89,9 @@ class TendonEditorDialog(QDialog):
         prop_layout.setSpacing(10)
 
         geom_toggle_layout = QHBoxLayout()
-        self.radio_dia = QRadioButton("By Diameter")
-        self.radio_area = QRadioButton("By Area")
-        self.radio_area.setChecked(True)
+        self.radio_dia = QRadioButton("Specify Tendon Diameter")
+        self.radio_area = QRadioButton("Specify Tendon Area")
+        self.radio_dia.setChecked(True)
         geom_toggle_layout.addWidget(self.radio_dia)
         geom_toggle_layout.addWidget(self.radio_area)
         prop_layout.addLayout(geom_toggle_layout)
@@ -135,11 +136,15 @@ class TendonEditorDialog(QDialog):
         self.input_i = QLineEdit(str(def_i))
         self.input_as = QLineEdit(str(def_as))
 
+        for derived_edit in (self.input_j, self.input_i, self.input_as):
+            derived_edit.setReadOnly(True)
+            derived_edit.setEnabled(False)
+
         geom_form.addRow("Diameter:", self.input_dia)
         geom_form.addRow("Area:", self.input_area)
-        geom_form.addRow("Torsional (J):", self.input_j)
-        geom_form.addRow("Inertia (I):", self.input_i)
-        geom_form.addRow("Shear Area (As):", self.input_as)
+        geom_form.addRow("Torsional Constant:", self.input_j)
+        geom_form.addRow("Moment of Inertia:", self.input_i)
+        geom_form.addRow("Shear Area:", self.input_as)
         
         prop_layout.addLayout(geom_form)
         right_col.addWidget(prop_group)
@@ -148,8 +153,12 @@ class TendonEditorDialog(QDialog):
         cols_layout.addLayout(right_col, stretch=1)
         root.addLayout(cols_layout)
 
+        self._updating_geometry = False
         self.radio_dia.toggled.connect(self._toggle_geometry_inputs)
+        self.input_dia.textChanged.connect(self._on_dia_changed)
+        self.input_area.textChanged.connect(self._on_area_changed)
         self._toggle_geometry_inputs()
+        self._recompute_circular_properties()
 
         bot_layout = QHBoxLayout()
         
@@ -194,6 +203,60 @@ class TendonEditorDialog(QDialog):
         is_dia = self.radio_dia.isChecked()
         self.input_dia.setEnabled(is_dia)
         self.input_area.setEnabled(not is_dia)
+        self._recompute_circular_properties()
+
+    def _on_dia_changed(self):
+        if self.radio_dia.isChecked():
+            self._recompute_circular_properties()
+
+    def _on_area_changed(self):
+        if self.radio_area.isChecked():
+            self._recompute_circular_properties()
+
+    def _recompute_circular_properties(self):
+        """
+        Solid circular tendon section properties, derived exactly the way
+        SAP2000 derives them (see 'Tendon Section Data' dialog):
+
+            A  = pi * D^2 / 4
+            I  = pi * D^4 / 64
+            J  = pi * D^4 / 32   (= 2*I, polar moment of inertia)
+            As = 0.9 * A         (shear correction factor for a solid
+                                   circular section)
+
+        Whichever of Diameter / Area is the active input (per the radio
+        buttons) drives the calculation; the other three fields (and the
+        inactive one of Diameter/Area) are recomputed and kept read-only.
+        """
+        if self._updating_geometry:
+            return
+        self._updating_geometry = True
+        try:
+            is_dia = self.radio_dia.isChecked()
+            if is_dia:
+                D = float(self.input_dia.text() or 0.0)
+                if D < 0:
+                    D = 0.0
+                A = math.pi * D**2 / 4.0
+                self.input_area.setText(f"{A:.6g}")
+            else:
+                A = float(self.input_area.text() or 0.0)
+                if A < 0:
+                    A = 0.0
+                D = math.sqrt(4.0 * A / math.pi) if A > 0 else 0.0
+                self.input_dia.setText(f"{D:.6g}")
+
+            I = math.pi * D**4 / 64.0
+            J = 2.0 * I
+            As = 0.9 * A
+
+            self.input_i.setText(f"{I:.6g}")
+            self.input_j.setText(f"{J:.6g}")
+            self.input_as.setText(f"{As:.6g}")
+        except ValueError:
+            pass
+        finally:
+            self._updating_geometry = False
 
     def _pick_color(self):
         r = int(self.selected_color[0] * 255)
@@ -237,13 +300,20 @@ class TendonEditorDialog(QDialog):
         new_scale = self._parse_length_scale(self.combo_units.currentText())
         ratio = new_scale / self.local_scale
         self.local_scale = new_scale
-        
-        for le, power in [(self.input_dia, 1), (self.input_area, 2), (self.input_j, 4), (self.input_i, 4), (self.input_as, 2)]:
+
+        self._updating_geometry = True
+        try:
+            driver = self.input_dia if self.radio_dia.isChecked() else self.input_area
+            power = 1 if driver is self.input_dia else 2
             try:
-                val = float(le.text()) * (ratio ** power)
-                le.setText(f"{val:.6g}")
+                val = float(driver.text()) * (ratio ** power)
+                driver.setText(f"{val:.6g}")
             except ValueError:
                 pass
+        finally:
+            self._updating_geometry = False
+
+        self._recompute_circular_properties()
 
     def _save_data(self):
         try:

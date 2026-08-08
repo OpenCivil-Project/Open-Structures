@@ -442,17 +442,20 @@ class _RightPanel(QWidget):
 
         fields = [
             ("A",       f"A  ({u}²)",    "Area"),
-            ("I33",     f"I₃₃  ({u}⁴)", "Strong axis MOI"),
-            ("I22",     f"I₂₂  ({u}⁴)", "Weak axis MOI"),
+            
+            ("I33",     f"I₂₂  ({u}⁴)", "Weak axis MOI"),
+            ("I22",     f"I₃₃  ({u}⁴)", "Strong axis MOI"),
+            
             ("J",       f"J  ({u}⁴)",   "Torsion constant"),
-                                               
-            ("Asy",     f"AS2 ({u}²)",  "Shear area (local 2)"),
-            ("Asz",     f"AS3 ({u}²)",  "Shear area (local 3)"),
-                                               
-            ("S33",     f"S₃₃  ({u}³)", "Elastic modulus (strong)"),
-            ("S22",     f"S₂₂  ({u}³)", "Elastic modulus (weak)"),
-            ("r33",     f"r₃₃  ({u})",  "Radius of gyration (strong)"),
-            ("r22",     f"r₂₂  ({u})",  "Radius of gyration (weak)"),
+            
+            ("Asy",     f"AS3 ({u}²)",  "Shear area (local 3)"),
+            ("Asz",     f"AS2 ({u}²)",  "Shear area (local 2)"),
+            
+            ("S33",     f"S₂₂  ({u}³)", "Elastic modulus (weak)"),
+            ("S22",     f"S₃₃  ({u}³)", "Elastic modulus (strong)"),
+            ("r33",     f"r₂₂  ({u})",  "Radius of gyration (weak)"),
+            ("r22",     f"r₃₃  ({u})",  "Radius of gyration (strong)"),
+            
             ("y_c",     f"ȳ  ({u})",    "Centroid Y"),
             ("z_c",     f"z̄  ({u})",    "Centroid Z"),
         ]
@@ -463,17 +466,18 @@ class _RightPanel(QWidget):
 
         for key, label, tip in fields:
             lbl = QLabel(label)
-            lbl.setStyleSheet("font-size: 10px; color: #444;")
+                                                         
+            lbl.setStyleSheet("font-size: 12px; color: #000000;")
             lbl.setToolTip(tip)
+            
             le = QLineEdit("—")
             le.setReadOnly(True)
-            le.setFixedHeight(22)
+            le.setFixedHeight(24)
             le.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
             le.setStyleSheet(
-                "background: #f5f5f5; font-size: 10px; "
-                "font-family: monospace; border: 1px solid #ddd; border-radius: 2px;"
+                "background: #ffffff; color: #000000; font-size: 12px; "
+                "font-family: monospace; border: 1px solid #aaa; border-radius: 2px;"
             )
-            le.setToolTip(tip)
             form.addRow(lbl, le)
             self._prop_fields[key] = le
 
@@ -1145,13 +1149,12 @@ class SectionDesignerDialog(QDialog):
 
     @pyqtSlot(dict)
     def _on_fem_finished(self, result: dict):
-                                                                                    
         if result['section_id'] != self._current_worker_id:
             return
             
         self._computed_props['J'] = result['J_exact']
-        self._computed_props['Asy'] = result['Asy']
-        self._computed_props['Asz'] = result['Asz']
+        self._computed_props['Asy'] = result['Asz']               
+        self._computed_props['Asz'] = result['Asy']               
         
         self.right.update_props(self._computed_props)
         self.btn_accept.setEnabled(True)

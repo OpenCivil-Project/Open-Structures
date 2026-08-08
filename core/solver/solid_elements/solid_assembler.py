@@ -14,20 +14,20 @@ Usage:
 """
 
 import numpy as np
-from scipy.sparse import lil_matrix
+from scipy.sparse import lil_matrix, coo_matrix
 import sys, os
 import numpy as np
-from scipy.sparse import lil_matrix
+from scipy.sparse import lil_matrix, coo_matrix
 from scipy.sparse.linalg import spsolve
 from error_definitions import SolverException 
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from solid_element_library import get_tet10_stiffness_matrix
+from solid_element_library import get_tet10_stiffness_matrix, get_tet10_stiffness_matrix_batch, _build_C_batch
                                                                                        
 class SolidAssembler:
     def __init__(self, solid_data_manager):
         self.dm = solid_data_manager
-        self.K  = lil_matrix((self.dm.total_dofs, self.dm.total_dofs))
+        self.K  = None                                                                 
         self.P  = np.zeros(self.dm.total_dofs)
         self._solver = None                                                  
 
@@ -37,13 +37,27 @@ class SolidAssembler:
               f"({len(self.dm.elements)} elements, "
               f"{self.dm.total_dofs} DOFs)...")
 
-        self._build_stiffness()
-        self._build_rigid_links()
+        rows_parts, cols_parts, data_parts = [], [], []
+
+        r, c, d = self._build_stiffness()
+        rows_parts.append(r); cols_parts.append(c); data_parts.append(d)
+
+        r, c, d = self._build_rigid_links()
+        if r is not None:
+            rows_parts.append(r); cols_parts.append(c); data_parts.append(d)
+
+        all_rows = np.concatenate(rows_parts)
+        all_cols = np.concatenate(cols_parts)
+        all_data = np.concatenate(data_parts)
+
+        n = self.dm.total_dofs
+                                                                             
+        self.K = coo_matrix((all_data, (all_rows, all_cols)), shape=(n, n)).tocsc()
 
         print("SolidAssembler: building load vector...")
         self.P += self.dm.build_load_vector()
 
-        K_csc = self.K.tocsc()
+        K_csc = self.K
         print(f"SolidAssembler: done. Non-zeros: {K_csc.nnz}")
         return K_csc, self.P
 
@@ -155,94 +169,185 @@ class SolidAssembler:
         return U_full, Reactions
     
     def _build_stiffness(self):
-        for el in self.dm.elements:
-            mat   = el['material']
-                                         
-            K_e, _ = get_tet10_stiffness_matrix(mat['E'], mat['nu'], el['coords'])
+        """
+        Same math as before (get_tet10_stiffness_matrix per element, summed
+        into K at [dofs[r], dofs[c]]) but vectorized:
+          1. all element stiffness matrices computed in one batched call
+             instead of a Python loop calling get_tet10_stiffness_matrix
+             element-by-element.
+          2. instead of 900 individual K[i,j] += val writes into a lil_matrix
+             per element (the actual bottleneck), we build flat (row, col,
+             data) triplet arrays for every element at once and let
+             coo_matrix sum duplicates in C code.
+        Returns (rows, cols, data) — 1D arrays ready to feed into coo_matrix.
+        """
+        n_elem = len(self.dm.elements)
+        if n_elem == 0:
+            return (np.array([], dtype=np.int64),
+                    np.array([], dtype=np.int64),
+                    np.array([], dtype=float))
 
-            dofs = []
-            for n_idx in el['node_indices']:                                
-                s = n_idx * 3
-                dofs += [s, s+1, s+2]
-            dofs = np.array(dofs)
+        node_indices = np.array([el['node_indices'] for el in self.dm.elements],
+                                 dtype=np.int64)                              
+        coords_arr = np.stack([el['coords'] for el in self.dm.elements])             
+        E_arr  = np.array([el['material']['E']  for el in self.dm.elements])
+        nu_arr = np.array([el['material']['nu'] for el in self.dm.elements])
 
-            for r in range(30):
-                for c in range(30):
-                    self.K[dofs[r], dofs[c]] += K_e[r, c]
+        K_all, _ = get_tet10_stiffness_matrix_batch(E_arr, nu_arr, coords_arr)             
+
+        dofs = (node_indices[:, :, None] * 3 + np.arange(3)[None, None, :]).reshape(n_elem, 30)
+
+        rows = np.repeat(dofs, 30, axis=1).reshape(-1)                                
+        cols = np.tile(dofs, (1, 30)).reshape(-1)                                     
+        data = K_all.reshape(-1)                                                                      
+
+        return rows, cols, data
 
     def compute_element_stresses(self, U_full):
-        results = []
+        """
+        Same math as before (C @ B @ u_e per Gauss point per element, then
+        the standard von Mises combination) but computed for every element
+        and every Gauss point in one batched pass instead of a Python loop
+        that rebuilds B and re-does the matrix products element-by-element.
+        """
+        n_elem = len(self.dm.elements)
+        if n_elem == 0:
+            return []
+
         a = (5.0 + 3.0*np.sqrt(5.0)) / 20.0
         b = (5.0 - np.sqrt(5.0)) / 20.0
-                                                           
-        gauss_L = [
-            (a, b, b), (b, a, b), (b, b, a), (b, b, b)
-        ]
+        gauss_L = [(a, b, b), (b, a, b), (b, b, a), (b, b, b)]
 
-        for el in self.dm.elements:
-            mat    = el['material']
-            C      = _build_C(mat['E'], mat['nu'])
-            coords = el['coords']
+        node_indices = np.array([el['node_indices'] for el in self.dm.elements], dtype=np.int64)          
+        coords_arr   = np.stack([el['coords'] for el in self.dm.elements])                                  
+        E_arr  = np.array([el['material']['E']  for el in self.dm.elements])
+        nu_arr = np.array([el['material']['nu'] for el in self.dm.elements])
 
-            dofs = []
-            for n_idx in el['node_indices']:
-                s = n_idx * 3
-                dofs += [s, s+1, s+2]
-            u_e = U_full[dofs]
+        C_arr = _build_C_batch(E_arr, nu_arr)            
 
-            elem_stresses = []
-            elem_vms = []
+        dofs = (node_indices[:, :, None] * 3 + np.arange(3)[None, None, :]).reshape(n_elem, 30)
+        u_e = U_full[dofs]                               
 
-            for L1, L2, L3 in gauss_L:
-                B = _build_B_tet10_node(coords, L1, L2, L3)
-                stress = C @ B @ u_e
-                
-                sxx, syy, szz, sxy, syz, sxz = stress
-                vm = np.sqrt(0.5 * ((sxx-syy)**2 + (syy-szz)**2 + (szz-sxx)**2 
-                                    + 6*(sxy**2 + syz**2 + sxz**2)))
-                
-                elem_stresses.append(stress.tolist())
-                elem_vms.append(float(vm))
+        stress_per_gauss = []                                                                      
+        vm_per_gauss = []                            
 
+        for (L1, L2, L3) in gauss_L:
+            B = _build_B_tet10_node_batch(coords_arr, L1, L2, L3)             
+            strain = np.einsum('nij,nj->ni', B, u_e)                       
+            stress = np.einsum('nab,nb->na', C_arr, strain)                
+
+            sxx, syy, szz, sxy, syz, sxz = (stress[:, 0], stress[:, 1], stress[:, 2],
+                                             stress[:, 3], stress[:, 4], stress[:, 5])
+            vm = np.sqrt(0.5 * ((sxx-syy)**2 + (syy-szz)**2 + (szz-sxx)**2
+                                 + 6*(sxy**2 + syz**2 + sxz**2)))
+
+            stress_per_gauss.append(stress)
+            vm_per_gauss.append(vm)
+
+        stress_all = np.stack(stress_per_gauss, axis=1).tolist()                            
+        vm_all     = np.stack(vm_per_gauss, axis=1).tolist()              
+
+        results = []
+        for i, el in enumerate(self.dm.elements):
             results.append({
                 'id':        el['id'],
-                'stress':    elem_stresses,                    
-                'von_mises': elem_vms,                         
+                'stress':    stress_all[i],
+                'von_mises': vm_all[i],
             })
         return results
     
     def _build_rigid_links(self):
-        if not hasattr(self.dm, 'rigid_links') or not self.dm.rigid_links: return
+        """
+        Same penalty-MPC math as before, vectorized: for every (rigid link,
+        slave node) pair we compute the same 9x9 K_pen = k_p * C^T C and,
+        instead of 81 individual K[i,j] += val writes per pair, emit flat
+        triplet arrays and let coo_matrix sum duplicates.
+        Returns (rows, cols, data) or (None, None, None) if there are no links.
+        """
+        if not hasattr(self.dm, 'rigid_links') or not self.dm.rigid_links:
+            return None, None, None
         print(f"SolidAssembler: building {len(self.dm.rigid_links)} rigid links (MPCs)...")
-        
-        k_p = 1e14                             
-        
+
+        k_p = 1e14
+
+        rows_parts, cols_parts, data_parts = [], [], []
+
         for rl in self.dm.rigid_links:
             m_coords = rl['master_coords']
             m_dof = rl['master_dof_start']
-            
-            for s_idx in rl['slave_indices']:
-                s_coords = self.dm.nodes[s_idx]['coords']
-                s_dof = s_idx * 3
-                
-                dx = s_coords[0] - m_coords[0]
-                dy = s_coords[1] - m_coords[1]
-                dz = s_coords[2] - m_coords[2]
-                
-                C = np.array([
-                    [1, 0, 0,  -1, 0, 0,   0,  dz, -dy],
-                    [0, 1, 0,   0,-1, 0, -dz,   0,  dx],
-                    [0, 0, 1,   0, 0,-1,  dy, -dx,   0]
-                ], dtype=float)
-                
-                K_pen = k_p * (C.T @ C)
-                
-                dofs = [s_dof, s_dof+1, s_dof+2, 
-                        m_dof, m_dof+1, m_dof+2, m_dof+3, m_dof+4, m_dof+5]
-                
-                for r in range(9):
-                    for c in range(9):
-                        self.K[dofs[r], dofs[c]] += K_pen[r, c]
+            slave_indices = np.array(rl['slave_indices'], dtype=np.int64)
+            n_slaves = slave_indices.shape[0]
+            if n_slaves == 0:
+                continue
+
+            s_coords = np.array([self.dm.nodes[s]['coords'] for s in slave_indices])         
+            s_dofs   = slave_indices * 3                                                    
+
+            delta = s_coords - np.asarray(m_coords)                              
+            dx, dy, dz = delta[:, 0], delta[:, 1], delta[:, 2]
+
+            n = n_slaves
+            C = np.zeros((n, 3, 9))
+            C[:, 0, 0] = 1; C[:, 0, 3] = -1; C[:, 0, 7] = dz;  C[:, 0, 8] = -dy
+            C[:, 1, 1] = 1; C[:, 1, 4] = -1; C[:, 1, 6] = -dz; C[:, 1, 8] = dx
+            C[:, 2, 2] = 1; C[:, 2, 5] = -1; C[:, 2, 6] = dy;  C[:, 2, 7] = -dx
+
+            K_pen = k_p * np.einsum('nai,naj->nij', C, C)
+
+            m_dofs = np.array([m_dof, m_dof+1, m_dof+2, m_dof+3, m_dof+4, m_dof+5])
+            dofs = np.concatenate([
+                s_dofs[:, None], (s_dofs+1)[:, None], (s_dofs+2)[:, None],
+                np.broadcast_to(m_dofs, (n, 6))
+            ], axis=1)                                                        
+
+            rows = np.repeat(dofs, 9, axis=1).reshape(-1)
+            cols = np.tile(dofs, (1, 9)).reshape(-1)
+            data = K_pen.reshape(-1)
+
+            rows_parts.append(rows); cols_parts.append(cols); data_parts.append(data)
+
+        if not rows_parts:
+            return None, None, None
+
+        return (np.concatenate(rows_parts),
+                np.concatenate(cols_parts),
+                np.concatenate(data_parts))
+
+def _build_B_tet10_node_batch(coords_arr, L1, L2, L3):
+    """
+    Vectorized version of _build_B_tet10_node — same formulas, computed for
+    all elements at once. coords_arr: (n,10,3) -> returns B: (n,6,30).
+    """
+    n_elem = coords_arr.shape[0]
+    L4 = 1.0 - L1 - L2 - L3
+    dN_dL = np.zeros((3, 10))
+
+    dN_dL[0, 0] = 4*L1 - 1; dN_dL[1, 0] = 0;        dN_dL[2, 0] = 0
+    dN_dL[0, 1] = 0;        dN_dL[1, 1] = 4*L2 - 1; dN_dL[2, 1] = 0
+    dN_dL[0, 2] = 0;        dN_dL[1, 2] = 0;        dN_dL[2, 2] = 4*L3 - 1
+    dN_dL[0, 3] = -(4*L4 - 1); dN_dL[1, 3] = -(4*L4 - 1); dN_dL[2, 3] = -(4*L4 - 1)
+
+    dN_dL[0, 4] = 4*L2;  dN_dL[1, 4] = 4*L1;  dN_dL[2, 4] = 0
+    dN_dL[0, 5] = 0;     dN_dL[1, 5] = 4*L3;  dN_dL[2, 5] = 4*L2
+    dN_dL[0, 6] = 4*L3;  dN_dL[1, 6] = 0;     dN_dL[2, 6] = 4*L1
+
+    dN_dL[0, 7] = 4*(L4 - L1); dN_dL[1, 7] = -4*L1;       dN_dL[2, 7] = -4*L1
+    dN_dL[0, 8] = -4*L2;       dN_dL[1, 8] = 4*(L4 - L2); dN_dL[2, 8] = -4*L2
+    dN_dL[0, 9] = -4*L3;       dN_dL[1, 9] = -4*L3;       dN_dL[2, 9] = 4*(L4 - L3)
+
+    J = np.einsum('ik,nkj->nij', dN_dL, coords_arr)              
+    J_inv = np.linalg.inv(J)
+    dN_dx = np.einsum('nij,jk->nik', J_inv, dN_dL)                 
+
+    B = np.zeros((n_elem, 6, 30))
+    B[:, 0, 0::3] = dN_dx[:, 0, :]
+    B[:, 1, 1::3] = dN_dx[:, 1, :]
+    B[:, 2, 2::3] = dN_dx[:, 2, :]
+    B[:, 3, 0::3] = dN_dx[:, 1, :]; B[:, 3, 1::3] = dN_dx[:, 0, :]
+    B[:, 4, 1::3] = dN_dx[:, 2, :]; B[:, 4, 2::3] = dN_dx[:, 1, :]
+    B[:, 5, 0::3] = dN_dx[:, 2, :]; B[:, 5, 2::3] = dN_dx[:, 0, :]
+
+    return B
 
 def _build_B_tet10_node(coords, L1, L2, L3):
     """6x30 strain-displacement matrix evaluated at specific natural coords."""

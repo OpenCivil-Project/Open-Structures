@@ -22,7 +22,7 @@ class ForceDiagramBuilder:
     """
 
     PERP_AXIS = {
-        'P':  'y',
+        'P':  'z',
         'V2': 'y',                                     
         'V3': 'z',                                       
         'M3': 'y',                                                 

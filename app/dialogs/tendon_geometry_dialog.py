@@ -1306,6 +1306,7 @@ class TendonGeometryDialog(QDialog):
         self.tendon.color = section.color
 
         self.tendon.loads = self.working_loads
+        self.model.generate_tendon_loads()
 
         self.accept()
 

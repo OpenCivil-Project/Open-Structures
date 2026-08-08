@@ -66,13 +66,14 @@ class GlobalMassAssembler:
         d_app = self.M_data.append
         
         for el in self.dm.elements:
-            A = el['section']['A']
+            A_gross = el['section'].get('A_gross', el['section']['A'])
             rho = el['material']['rho'] 
             L = el['L_total']
             g = 9.80665
             mass_density = rho / g
+            mass_mod = el['section'].get('mass_mod', 1.0)
                                           
-            total_mass = A * mass_density * L * scale_factor 
+            total_mass = A_gross * mass_density * L * mass_mod * scale_factor 
             
             for n_idx in el['node_indices']:
                 start_dof = n_idx * 6

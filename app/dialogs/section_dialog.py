@@ -616,9 +616,18 @@ class AddSectionDialog(QDialog):
             
         u_len = unit_registry.current_unit_label.split(',')[1]
         props = {
-            "A": sec.A, "J": sec.J, "I33": sec.I33, "I22": sec.I22,
-            "As2": sec.Asy, "As3": sec.Asz, "S33": sec.S33, "S22": sec.S22,
-            "Z33": sec.Z33, "Z22": sec.Z22, "r33": sec.r33, "r22": sec.r22
+            "A": sec.A, 
+            "J": sec.J, 
+            "I33": sec.I22,                       
+            "I22": sec.I33,                       
+            "As2": sec.Asz,                                    
+            "As3": sec.Asy,                                    
+            "S33": sec.S22,                       
+            "S22": sec.S33,                       
+            "Z33": sec.Z22,                       
+            "Z22": sec.Z33,                       
+            "r33": sec.r22,                       
+            "r22": sec.r33                        
         }
         SectionPropertiesInfoDialog(props, length_unit=u_len, parent=self).exec()
             
@@ -689,10 +698,11 @@ class AddSectionDialog(QDialog):
             scale = unit_registry.length_scale
             self.gen_a.setValue(getattr(self.section_data, 'A', 0.0) * (scale**2))
             self.gen_j.setValue(getattr(self.section_data, 'J', 0.0) * (scale**4))
-            self.gen_i33.setValue(getattr(self.section_data, 'I33', 0.0) * (scale**4))
-            self.gen_i22.setValue(getattr(self.section_data, 'I22', 0.0) * (scale**4))
-            self.gen_as2.setValue(getattr(self.section_data, 'Asy', 0.0) * (scale**2))
-            self.gen_as3.setValue(getattr(self.section_data, 'Asz', 0.0) * (scale**2))
+            
+            self.gen_i33.setValue(getattr(self.section_data, 'I22', 0.0) * (scale**4)) 
+            self.gen_i22.setValue(getattr(self.section_data, 'I33', 0.0) * (scale**4)) 
+            self.gen_as2.setValue(getattr(self.section_data, 'Asz', 0.0) * (scale**2)) 
+            self.gen_as3.setValue(getattr(self.section_data, 'Asy', 0.0) * (scale**2))
 
     def save(self):
         name = self.name_edit.text().strip()

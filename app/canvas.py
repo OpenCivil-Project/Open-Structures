@@ -238,6 +238,15 @@ class MCanvas3D(gl.GLViewWidget):
         self.preview_line.setVisible(False)
         self.addItem(self.preview_line)
 
+        self.section_locator = gl.GLLinePlotItem(pos=np.zeros((5,3)), mode='line_strip', color=(1.0, 0.55, 0.0, 1.0), width=3.0, antialias=True)
+        self.section_locator_mesh = gl.GLMeshItem(smooth=False, drawEdges=False, color=(1.0, 0.55, 0.0, 0.4))
+        self.section_locator.setGLOptions('translucent')
+        self.section_locator_mesh.setGLOptions('translucent')
+        self.section_locator.setVisible(False)
+        self.section_locator_mesh.setVisible(False)
+        self.addItem(self.section_locator)
+        self.addItem(self.section_locator_mesh)
+
         self.cross_brace_mode = False
         self._brace_hover_cell = None
 
@@ -2568,7 +2577,7 @@ class MCanvas3D(gl.GLViewWidget):
         v_x, v_y_raw, v_z_raw = tendon.get_local_axes()
                                                                              
         v_2 = v_z_raw
-        v_3 = v_y_raw
+        v_3 = -v_y_raw
         origin = tendon.node_i.get_coords()
         active_is_coord2 = (tendon.plane == "1-2")
         max_len = max(getattr(tendon, 'max_discretization_length', 1.0), 0.05)
@@ -6878,3 +6887,38 @@ class MCanvas3D(gl.GLViewWidget):
             self.vbo_manager.upload_text_geometry(verts, uvs, colors, indices)
         else:
             self.vbo_manager.upload_text_geometry(np.array([]), np.array([]), np.array([]), np.array([]))
+
+    def update_section_locator(self, element, ratio):
+        """Draws a 3D translucent plane mapping the cross-section location."""
+        if not element or not self.current_model: return
+
+        p1 = np.array([element.node_i.x, element.node_i.y, element.node_i.z])
+        p2 = np.array([element.node_j.x, element.node_j.y, element.node_j.z])
+        
+        center = p1 + ratio * (p2 - p1)
+        v1_ax, v2_ax, v3_ax = self._get_consistent_axes(element)
+        
+        shape_yz = element.section.get_shape_coords()
+        if not shape_yz: return
+        
+        corners = []
+        for y, z in shape_yz:
+            pt = center + (y * v2_ax) + (z * v3_ax)
+            corners.append(pt)
+        
+        corners_arr = np.array(corners, dtype=np.float32)
+        
+        border = np.vstack([corners_arr, corners_arr[0]])
+        self.section_locator.setData(pos=border)
+        self.section_locator.setVisible(True)
+        
+        if len(corners) >= 3:
+            faces = []
+            for i in range(1, len(corners) - 1):
+                faces.append([0, i, i + 1])
+            self.section_locator_mesh.setMeshData(vertexes=corners_arr, faces=np.array(faces, dtype=np.int32))
+            self.section_locator_mesh.setVisible(True)
+
+    def hide_section_locator(self):
+        self.section_locator.setVisible(False)
+        self.section_locator_mesh.setVisible(False)

@@ -586,19 +586,58 @@ class SolidMesher:
             
             target_nodes = mid_face_nodes if mid_face_nodes else face_nodes
             
+            mx = load.get('mx', 0.0)
+            my = load.get('my', 0.0)
+            mz = load.get('mz', 0.0)
+            moment_vec = np.array([mx, my, mz], dtype=float)
+
             n_face  = len(target_nodes)
             fx_each = fx / n_face
             fy_each = fy / n_face
             fz_each = fz / n_face
 
+            has_moment = np.linalg.norm(moment_vec) > 1e-12
+            omega = np.zeros(3)
+            centroid = np.zeros(3)
+            
+            if has_moment:
+                                                                
+                target_coords = []
+                for nid in target_nodes:
+                    idx = self.dm.node_id_to_idx[nid]
+                    target_coords.append(self.dm.nodes[idx]['coords'])
+                target_coords = np.array(target_coords)
+                centroid = np.mean(target_coords, axis=0)
+
+                J = np.zeros((3, 3))
+                for coords in target_coords:
+                    r = coords - centroid
+                    r2 = np.dot(r, r)
+                    J += r2 * np.eye(3) - np.outer(r, r)
+                
+                try:
+                    omega = np.linalg.solve(J, moment_vec)
+                except np.linalg.LinAlgError:
+                    omega = np.zeros(3)                                                    
+
             loads_to_remove.append(load)
-            for nid in target_nodes:                               
+            
+            for nid in target_nodes:
+                idx = self.dm.node_id_to_idx[nid]
+                
+                f_mom = np.zeros(3)
+                if has_moment:
+                    r = self.dm.nodes[idx]['coords'] - centroid
+                    f_mom = np.cross(omega, r)
+                
                 loads_to_add.append({
                     'type':    'nodal',
                     'pattern': load['pattern'],
                     'node_id': nid,
-                    'fx': fx_each, 'fy': fy_each, 'fz': fz_each,
-                    'mx': 0.0,     'my': 0.0,     'mz': 0.0,
+                    'fx': fx_each + f_mom[0], 
+                    'fy': fy_each + f_mom[1], 
+                    'fz': fz_each + f_mom[2],
+                    'mx': 0.0, 'my': 0.0, 'mz': 0.0,
                 })
 
             print(f"  _remap_loads: node {load['node_id']} → "
