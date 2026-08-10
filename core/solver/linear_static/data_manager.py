@@ -438,34 +438,43 @@ class DataManager:
                     if not host_el: continue
                     el_len = host_el['L_total']
                     
+                    idx_i, idx_j = host_el['node_indices']
+                    p1 = next(n['coords'] for n in self.nodes if n['idx'] == idx_i)
+                    p2 = next(n['coords'] for n in self.nodes if n['idx'] == idx_j)
+                    
+                    tendon_angle = t_data.get('local_axis_angle', 0.0)
+                    R_tendon = get_rotation_matrix(p1, p2, tendon_angle)
+                                                                      
                     num_samples = 5
                     dists = np.linspace(0, 1.0, num_samples)
-                    mags_2 = []                                                      
-                    mags_3 = []                                                        
+                    mags_X = []; mags_Y = []; mags_Z = []
                     
                     for d in dists:
                         local_x = current_x + (d * el_len)
                         P_x = evaluator.get_force(local_x)
-                        mags_2.append(1.0 * P_x * evaluator.get_curvature(local_x))
-                        mags_3.append(-1.0 * P_x * evaluator.get_curvature_z(local_x))
                         
-                    if any(abs(m) > 1e-9 for m in mags_2):
+                        f_vertical = 1.0 * P_x * evaluator.get_curvature(local_x)
+                        f_horizontal = -1.0 * P_x * evaluator.get_curvature_z(local_x)
+                        
+                        V_tendon = np.array([0.0, f_horizontal, f_vertical])
+                        
+                        V_global = R_tendon.T @ V_tendon
+                        
+                        mags_X.append(float(V_global[0]))
+                        mags_Y.append(float(V_global[1]))
+                        mags_Z.append(float(V_global[2]))
+                        
+                    if any(abs(m) > 1e-9 for m in mags_X):
                         if 'loads' not in self.raw: self.raw['loads'] = []
-                        self.raw['loads'].append({
-                            'type': 'member_dist', 'pattern': pat_name, 'element_id': host_id,
-                            'load_direction': 'Local-3', 'coord': 'Local', 'projected': False,
-                            'distances': dists.tolist(), 'magnitudes': mags_2, 'is_relative': True,
-                            '_is_tendon_auto': True
-                        })
+                        self.raw['loads'].append({'type': 'member_dist', 'pattern': pat_name, 'element_id': host_id, 'load_direction': 'X', 'coord': 'Global', 'projected': False, 'distances': dists.tolist(), 'magnitudes': mags_X, 'is_relative': True, '_is_tendon_auto': True})
                         count += 1
-                    if any(abs(m) > 1e-9 for m in mags_3):
+                    if any(abs(m) > 1e-9 for m in mags_Y):
                         if 'loads' not in self.raw: self.raw['loads'] = []
-                        self.raw['loads'].append({
-                            'type': 'member_dist', 'pattern': pat_name, 'element_id': host_id,
-                            'load_direction': 'Local-2', 'coord': 'Local', 'projected': False,
-                            'distances': dists.tolist(), 'magnitudes': mags_3, 'is_relative': True,
-                            '_is_tendon_auto': True
-                        })
+                        self.raw['loads'].append({'type': 'member_dist', 'pattern': pat_name, 'element_id': host_id, 'load_direction': 'Y', 'coord': 'Global', 'projected': False, 'distances': dists.tolist(), 'magnitudes': mags_Y, 'is_relative': True, '_is_tendon_auto': True})
+                        count += 1
+                    if any(abs(m) > 1e-9 for m in mags_Z):
+                        if 'loads' not in self.raw: self.raw['loads'] = []
+                        self.raw['loads'].append({'type': 'member_dist', 'pattern': pat_name, 'element_id': host_id, 'load_direction': 'Z', 'coord': 'Global', 'projected': False, 'distances': dists.tolist(), 'magnitudes': mags_Z, 'is_relative': True, '_is_tendon_auto': True})
                         count += 1
                     current_x += el_len
                 
@@ -495,21 +504,20 @@ class DataManager:
                     F_local = np.zeros(3)
                     M_local = np.zeros(3)
                     F_local[0] = Fx
-                    
-                    F_local[2] = f2
-                    F_local[1] = -f3
+                    F_local[2] = f2                         
+                    F_local[1] = -f3                          
                     ecc_vec = np.array([0.0, -e3, e2])
                     M_local = np.cross(ecc_vec, F_local)
                         
                     idx_i, idx_j = host_el['node_indices']
                     p1 = next(n['coords'] for n in self.nodes if n['idx'] == idx_i)
                     p2 = next(n['coords'] for n in self.nodes if n['idx'] == idx_j)
-                    theta_p = host_el['section'].get('theta_p', 0.0)
-                    beta_eff = host_el['beta'] - np.degrees(theta_p)
                     
-                    R_3x3 = get_rotation_matrix(p1, p2, beta_eff)
-                    F_global = R_3x3.T @ F_local
-                    M_global = R_3x3.T @ M_local
+                    tendon_angle = t_data.get('local_axis_angle', 0.0)
+                    R_tendon = get_rotation_matrix(p1, p2, tendon_angle)
+                    
+                    F_global = R_tendon.T @ F_local
+                    M_global = R_tendon.T @ M_local
                     
                     target_idx = idx_i if end_type == 'I-End' else idx_j
                     target_node_id = next(n['id'] for n in self.nodes if n['idx'] == target_idx)
@@ -532,11 +540,10 @@ class DataManager:
                     m3_before = evaluator.get_slope_z(x_kink - 1e-6)
                     m3_after = evaluator.get_slope_z(x_kink + 1e-6)
                     
-                    F_kink_2 = 1.0 * P_kink * (math.sin(math.atan(m2_after)) - math.sin(math.atan(m2_before)))
-                                                                                        
-                    F_kink_3 = -1.0 * P_kink * (math.sin(math.atan(m3_after)) - math.sin(math.atan(m3_before)))
+                    f_vertical = 1.0 * P_kink * (math.sin(math.atan(m2_after)) - math.sin(math.atan(m2_before)))
+                    f_horizontal = -1.0 * P_kink * (math.sin(math.atan(m3_after)) - math.sin(math.atan(m3_before)))
                     
-                    if abs(F_kink_2) > 1e-9 or abs(F_kink_3) > 1e-9:
+                    if abs(f_vertical) > 1e-9 or abs(f_horizontal) > 1e-9:
                         current_x = 0.0
                         for host_id in t_data.get('host_element_ids', []):
                             host_el = next((e for e in self.elements if e['id'] == host_id), None)
@@ -544,21 +551,31 @@ class DataManager:
                             el_len = host_el['L_total']
                             
                             if current_x - 1e-5 <= x_kink <= current_x + el_len + 1e-5:
+                                                                          
+                                idx_i, idx_j = host_el['node_indices']
+                                p1 = next(n['coords'] for n in self.nodes if n['idx'] == idx_i)
+                                p2 = next(n['coords'] for n in self.nodes if n['idx'] == idx_j)
+                                
+                                tendon_angle = t_data.get('local_axis_angle', 0.0)
+                                R_tendon = get_rotation_matrix(p1, p2, tendon_angle)
+                                
+                                V_kink_tendon = np.array([0.0, f_horizontal, f_vertical])
+                                V_kink_global = R_tendon.T @ V_kink_tendon
+                                
+                                Px = float(V_kink_global[0])
+                                Py = float(V_kink_global[1])
+                                Pz = float(V_kink_global[2])
+                                                                          
                                 rel_dist = max(0.0, min(1.0, (x_kink - current_x) / el_len)) 
                                 if 'loads' not in self.raw: self.raw['loads'] = []
-                                if abs(F_kink_2) > 1e-9:
-                                    self.raw['loads'].append({
-                                        'type': 'member_point', 'pattern': pat_name, 'element_id': host_id,
-                                        'dir': '3', 'force': F_kink_2, 'dist': rel_dist, 'is_rel': True,
-                                        'coord': 'Local', '_is_tendon_auto': True
-                                    })
+                                if abs(Px) > 1e-9:
+                                    self.raw['loads'].append({'type': 'member_point', 'pattern': pat_name, 'element_id': host_id, 'dir': 'X', 'force': Px, 'dist': rel_dist, 'is_rel': True, 'coord': 'Global', '_is_tendon_auto': True})
                                     count += 1
-                                if abs(F_kink_3) > 1e-9:
-                                    self.raw['loads'].append({
-                                        'type': 'member_point', 'pattern': pat_name, 'element_id': host_id,
-                                        'dir': '2', 'force': F_kink_3, 'dist': rel_dist, 'is_rel': True,
-                                        'coord': 'Local', '_is_tendon_auto': True
-                                    })
+                                if abs(Py) > 1e-9:
+                                    self.raw['loads'].append({'type': 'member_point', 'pattern': pat_name, 'element_id': host_id, 'dir': 'Y', 'force': Py, 'dist': rel_dist, 'is_rel': True, 'coord': 'Global', '_is_tendon_auto': True})
+                                    count += 1
+                                if abs(Pz) > 1e-9:
+                                    self.raw['loads'].append({'type': 'member_point', 'pattern': pat_name, 'element_id': host_id, 'dir': 'Z', 'force': Pz, 'dist': rel_dist, 'is_rel': True, 'coord': 'Global', '_is_tendon_auto': True})
                                     count += 1
                                 break 
                             current_x += el_len

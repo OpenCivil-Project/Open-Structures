@@ -232,7 +232,7 @@ class MainWindow(QMainWindow):
             except Exception:
                 pass
         
-        self.setWindowTitle("Open//Structures v0.7.82")
+        self.setWindowTitle("Open//Structures v0.7.85")
         self.resize(1200, 800)
 
         icon_path = os.path.join(root_dir, "app", "graphic", "logo.png") 
@@ -3554,6 +3554,8 @@ class MainWindow(QMainWindow):
             self.solver_output_path = f"{base_name}_{case_name}_results.json"
 
         try:
+            if hasattr(self.model, 'generate_tendon_loads'):
+                self.model.generate_tendon_loads()
             self.model.save_to_file(self.solver_input_path)
             print(f"Model saved to {self.solver_input_path}")
         except Exception as e:
@@ -4199,7 +4201,7 @@ class MainWindow(QMainWindow):
     def update_window_title(self):
         """Updates window title to show currently active filename and version."""
                                                               
-        base_title = "Open//Structures v0.7.82" 
+        base_title = "Open//Structures v0.7.85" 
         
         if self.model and getattr(self.model, 'file_path', None):
             short_name = os.path.basename(self.model.file_path)

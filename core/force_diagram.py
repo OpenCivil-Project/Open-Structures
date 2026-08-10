@@ -117,15 +117,10 @@ class ForceDiagramBuilder:
                 
             perp = np.asarray(perp, dtype=np.float64)
 
-            if self.component in ['V2', 'V3']:
-                                                                                     
-                dom_idx = np.argmax(np.abs(perp))
-                                                                                                 
-                if perp[dom_idx] < -0.001:
-                    perp = -perp                                  
-                    farr = -farr                                                           
+            if self.component == 'V2':
+                perp = -perp
 
-            if self.component in ['M2', 'M3']:
+            if self.component == 'M2':
                 perp = -perp
                                                                        
             p_i = el.node_i.get_coords().astype(np.float64)

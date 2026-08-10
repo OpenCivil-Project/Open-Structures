@@ -1374,6 +1374,12 @@ class StructuralModel:
                     F_kink_3 = -1.0 * P_kink * (math.sin(math.atan(m3_after)) - math.sin(math.atan(m3_before)))
 
                     if abs(F_kink_2) > 1e-9 or abs(F_kink_3) > 1e-9:
+                                                                                                     
+                        t_vx, t_vy, t_vz = t.get_local_axes()
+                        R_tendon = np.array([t_vx, t_vy, t_vz])
+                        F_kink_local_tendon = np.array([0.0, F_kink_3, F_kink_2])
+                        F_kink_global = R_tendon.T @ F_kink_local_tendon
+
                         current_x = 0.0
                         for host_id in t.host_element_ids:
                             host_el = self.elements.get(host_id)
@@ -1383,16 +1389,28 @@ class StructuralModel:
 
                             if current_x - 1e-5 <= x_kink <= current_x + el_len + 1e-5:
                                 rel_dist = max(0.0, min(1.0, (x_kink - current_x) / el_len))
-                                if abs(F_kink_2) > 1e-9:
+
+                                p1h = host_el.node_i.get_coords()
+                                p2h = host_el.node_j.get_coords()
+                                theta_p_h = getattr(host_el.section, 'theta_p', 0.0)
+                                beta_eff_h = host_el.beta_angle - np.degrees(theta_p_h)
+                                R_host = get_rotation_matrix(p1h, p2h, beta_eff_h)
+
+                                F_kink_host_local = R_host @ F_kink_global
+
+                                F_kink_2_host = F_kink_host_local[1]
+                                F_kink_3_host = F_kink_host_local[2]
+
+                                if abs(F_kink_2_host) > 1e-9:
                                     self.loads.append({
                                         'type': 'member_point', 'pattern': pat_name, 'element_id': host_id,
-                                        'dir': '3', 'force': F_kink_2, 'dist': rel_dist, 'is_rel': True,
+                                        'dir': '2', 'force': F_kink_2_host, 'dist': rel_dist, 'is_rel': True,
                                         'coord': 'Local', '_is_tendon_auto': True
                                     })
-                                if abs(F_kink_3) > 1e-9:
+                                if abs(F_kink_3_host) > 1e-9:
                                     self.loads.append({
                                         'type': 'member_point', 'pattern': pat_name, 'element_id': host_id,
-                                        'dir': '2', 'force': F_kink_3, 'dist': rel_dist, 'is_rel': True,
+                                        'dir': '3', 'force': F_kink_3_host, 'dist': rel_dist, 'is_rel': True,
                                         'coord': 'Local', '_is_tendon_auto': True
                                     })
                                 break
