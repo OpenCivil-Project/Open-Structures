@@ -1,7 +1,15 @@
 {
     "info": {
         "name": "New Project",
-        "units": "kN, mm, C"
+        "units": "kN, mm, C",
+        "active_dofs": [
+            true,
+            true,
+            true,
+            true,
+            true,
+            true
+        ]
     },
     "graphics": {
         "background_color": [
@@ -365,7 +373,8 @@
                 "I33": 0.0013499999999999996,
                 "I22": 0.0053999999999999986,
                 "As2": 0.15,
-                "As3": 0.15
+                "As3": 0.15,
+                "theta_p": 0.0
             },
             "type": "rectangular",
             "b": 0.3,
@@ -396,13 +405,16 @@
                 "I33": 0.0013499999999999996,
                 "I22": 0.0053999999999999986,
                 "As2": 0.15,
-                "As3": 0.15
+                "As3": 0.15,
+                "theta_p": 0.0
             },
             "type": "rectangular",
             "b": 0.3,
             "h": 0.6
         }
     ],
+    "tendon_sections": [],
+    "tendons": [],
     "nodes": [
         {
             "id": 1,
@@ -27919,5 +27931,6 @@
             ]
         }
     ],
+    "plot_functions": [],
     "load_combos": []
 }

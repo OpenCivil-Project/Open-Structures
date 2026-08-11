@@ -1586,60 +1586,37 @@ class DefineParabolicTendonDialog(QDialog):
         num_rows = self.table.rowCount()
         x = np.zeros(num_rows)
         y = np.zeros(num_rows)
+        slope_types = []
+        slopes = np.zeros(num_rows)
         
         for r in range(num_rows):
             try:
                 x[r] = float(self.table.item(r, 1).text())
                 y[r] = float(self.table.item(r, 3).text())
-            except ValueError:
+                stype = self.table.item(r, 4).text()
+                slope_types.append(stype)
+                
+                if stype == "Specified":
+                    slopes[r] = float(self.table.item(r, 5).text())
+            except (ValueError, AttributeError):
                 return 
                 
-        slopes = np.zeros(num_rows)
+        for r in range(num_rows - 1):
+            if slope_types[r] == "Prog Calc" and slope_types[r+1] == "Specified":
+                dx = x[r+1] - x[r]
+                dy = y[r+1] - y[r]
+                if dx != 0:
+                    slopes[r] = 2.0 * (dy / dx) - slopes[r+1]
 
-        if num_rows == 3:
-            A = np.array([
-                [x[0]**2, x[0], 1],
-                [x[1]**2, x[1], 1],
-                [x[2]**2, x[2], 1]
-            ])
-            try:
-                coeffs = np.linalg.solve(A, y)
-                a, b, _ = coeffs
-                slopes = 2 * a * x + b
-            except np.linalg.LinAlgError:
-                pass 
-
-        elif num_rows > 3:
-            dx = np.diff(x)
-            dy = np.diff(y)
-            
-            dx = np.where(dx == 0, 1e-9, dx)
-            
-            A = np.zeros((num_rows, num_rows))
-            B = np.zeros(num_rows)
-            
-            A[0, 0] = 2.0 / dx[0]
-            A[0, 1] = 1.0 / dx[0]
-            B[0] = 3.0 * (dy[0] / (dx[0]**2))
-            
-            for i in range(1, num_rows - 1):
-                A[i, i-1] = 1.0 / dx[i-1]
-                A[i, i]   = 2.0 * (1.0 / dx[i-1] + 1.0 / dx[i])
-                A[i, i+1] = 1.0 / dx[i]
-                B[i]      = 3.0 * (dy[i-1] / (dx[i-1]**2) + dy[i] / (dx[i]**2))
-                
-            A[-1, -2] = 1.0 / dx[-1]
-            A[-1, -1] = 2.0 / dx[-1]
-            B[-1] = 3.0 * (dy[-1] / (dx[-1]**2))
-            
-            try:
-                slopes = np.linalg.solve(A, B)
-            except np.linalg.LinAlgError:
-                pass
+        for r in range(1, num_rows):
+            if slope_types[r] == "Prog Calc" and slope_types[r-1] == "Specified":
+                dx = x[r] - x[r-1]
+                dy = y[r] - y[r-1]
+                if dx != 0:
+                    slopes[r] = 2.0 * (dy / dx) - slopes[r-1]
 
         for r in range(num_rows):
-            slope_type = self.table.item(r, 4).text()
-            if slope_type == "Prog Calc":
+            if slope_types[r] == "Prog Calc":
                 self.table.item(r, 5).setText(f"{slopes[r]:.4f}")
                 
         self._refresh_plot()

@@ -20,37 +20,41 @@ class LinearSegment:
         return 0.0                                      
 
 class ParabolicSegment:
-    """Evaluates a parabolic tendon segment using 3 control points, in one plane."""
-    def __init__(self, p0, p1, p2, ordinate_key="coord2"):
-        x_vals = np.array([p0['coord1'], p1['coord1'], p2['coord1']])
-        y_vals = np.array([p0.get(ordinate_key, 0.0), p1.get(ordinate_key, 0.0), p2.get(ordinate_key, 0.0)])
+    """Evaluates a parabolic tendon segment using start point, end point, and start slope."""
+    def __init__(self, p0, p1, ordinate_key="coord2", use_slope=True):
+        self.x0 = p0['coord1']
+        self.x1 = p1['coord1']
+        self.y0 = p0.get(ordinate_key, 0.0)
+        self.y1 = p1.get(ordinate_key, 0.0)
 
-        A = np.array([
-            [x_vals[0]**2, x_vals[0], 1],
-            [x_vals[1]**2, x_vals[1], 1],
-            [x_vals[2]**2, x_vals[2], 1]
-        ])
+        L = self.x1 - self.x0
+        if L <= 1e-9:
+            self.a, self.b, self.c = 0.0, 0.0, self.y0
+            return
 
-        try:
-            coeffs = np.linalg.solve(A, y_vals)
-            self.a, self.b, self.c = coeffs
-        except np.linalg.LinAlgError:
-                                                                     
-            self.a, self.b, self.c = 0.0, 0.0, y_vals[0]
+        if use_slope:
+            self.m0 = p0.get("slope", 0.0)
+        else:
+            self.m0 = (self.y1 - self.y0) / L
+
+        self.c = self.y0
+        self.b = self.m0
+                                                                
+        self.a = (self.y1 - self.y0 - self.m0 * L) / (L**2)
 
     def get_y(self, x):
-        return self.a * x**2 + self.b * x + self.c
+        dx = x - self.x0
+        return self.a * dx**2 + self.b * dx + self.c
 
     def get_slope(self, x):
-                                        
-        return 2 * self.a * x + self.b
+        dx = x - self.x0
+        return 2 * self.a * dx + self.b
 
     def get_curvature(self, x):
-                                                             
         y_prime = self.get_slope(x)
         y_double_prime = 2 * self.a
         return y_double_prime / (1 + y_prime**2)**1.5
-
+    
 class TendonEvaluator:
     """
     Parses UI layout points and computes continuous geometry and
@@ -94,8 +98,7 @@ class TendonEvaluator:
         self.constant_force_loss = constant_stress_loss * self.area
 
     def _build_segments(self):
-        """Constructs the piecewise mathematical models for the tendon layout,
-        for both the axis-2 (coord2) and axis-3 (coord3) profiles."""
+        """Constructs the piecewise mathematical models for the tendon layout."""
         n = len(self.points)
 
         for i in range(1, n):
@@ -112,22 +115,12 @@ class TendonEvaluator:
             self.segment_bounds.append((x_start, x_end))
 
             if seg_type == "Parabolic":
-                                                          
-                if i < n - 1:
-                    p_next = self.points[i+1]
-                    self.segments.append(ParabolicSegment(p_prev, p_curr, p_next, "coord2"))
-                    self.z_segments.append(ParabolicSegment(p_prev, p_curr, p_next, "coord3"))
-                elif i >= 2:
-                    p_prev2 = self.points[i-2]
-                    self.segments.append(ParabolicSegment(p_prev2, p_prev, p_curr, "coord2"))
-                    self.z_segments.append(ParabolicSegment(p_prev2, p_prev, p_curr, "coord3"))
-                else:
-                    self.segments.append(LinearSegment(p_prev, p_curr, "coord2"))
-                    self.z_segments.append(LinearSegment(p_prev, p_curr, "coord3"))
+                self.segments.append(ParabolicSegment(p_prev, p_curr, "coord2", use_slope=True))
+                self.z_segments.append(ParabolicSegment(p_prev, p_curr, "coord3", use_slope=False))
             else:
                 self.segments.append(LinearSegment(p_prev, p_curr, "coord2"))
                 self.z_segments.append(LinearSegment(p_prev, p_curr, "coord3"))
-
+                
     def _get_segment_index_at(self, x):
         """Finds the active segment index for a given local x."""
         for i, (x_start, x_end) in enumerate(self.segment_bounds):

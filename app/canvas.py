@@ -2597,18 +2597,17 @@ class MCanvas3D(gl.GLViewWidget):
             inact1 = p1["coord3"] if active_is_coord2 else p1["coord2"]
 
             dx = c1_1 - c1_0
-            cp0_c1, cp0_a = c1_0 + dx / 3.0, act0 + m0 * dx / 3.0
-            cp1_c1, cp1_a = c1_1 - dx / 3.0, act1 - m1 * dx / 3.0
+            dy = act1 - act0
 
             start_k = 0 if i == 0 else 1
             for k in range(start_k, n_sub + 1):
                 t = k / n_sub
                 if is_curved:
-                    mt = 1 - t
-                    c1  = (mt**3)*c1_0 + 3*(mt**2)*t*cp0_c1 + 3*mt*(t**2)*cp1_c1 + (t**3)*c1_1
-                    act = (mt**3)*act0 + 3*(mt**2)*t*cp0_a  + 3*mt*(t**2)*cp1_a  + (t**3)*act1
+                                                              
+                    c1 = c1_0 + t * dx
+                    act = act0 + (m0 * dx * t) + (dy - m0 * dx) * (t**2)
                 else:
-                    c1, act = c1_0 + t * dx, act0 + t * (act1 - act0)
+                    c1, act = c1_0 + t * dx, act0 + t * dy
                 inact = inact0 + t * (inact1 - inact0)
                 c2 = act if active_is_coord2 else inact
                 c3 = inact if active_is_coord2 else act

@@ -635,7 +635,7 @@ class StructuralModel:
         _p(f"Saving {len(self.loads)} load assignment(s)...")
         for load in self.loads:
             if isinstance(load, dict) and load.get('_is_tendon_auto'):
-                                                                            
+                data["loads"].append(load)                     
                 continue
 
             load_data = {"pattern": load.pattern_name}
@@ -1161,6 +1161,9 @@ class StructuralModel:
         _p(f"Loading {len(data.get('loads', []))} load assignment(s)...")
         if "loads" in data:
             for load_data in data["loads"]:
+                if load_data.get('_is_tendon_auto'):                      
+                    continue                                             
+                
                 pattern_name = load_data["pattern"]
                 l_type = load_data.get("type", "nodal")                         
                 
@@ -1284,16 +1287,30 @@ class StructuralModel:
                         continue
                     el_len = host_el.length()
 
-                    num_samples = 5
+                    import math
+                    
+                    max_disc = getattr(t, 'max_discretization_length', 1.524)
+                    if max_disc < 1e-3: max_disc = 1.524
+                    
+                    num_segments = math.ceil(el_len / max_disc)
+                    num_samples = int(num_segments) + 1
+                    
                     dists = np.linspace(0, 1.0, num_samples)
                     mags_2 = []                                      
                     mags_3 = []                                      
 
                     for d in dists:
                         local_x = current_x + (d * el_len)
-                        P_x = evaluator.get_force(local_x)
-                        mags_2.append(1.0 * P_x * evaluator.get_curvature(local_x))
-                        mags_3.append(-1.0 * P_x * evaluator.get_curvature_z(local_x))
+                        
+                        eval_x = local_x
+                        if d == 0.0:
+                            eval_x += 1e-6
+                        elif d == 1.0:
+                            eval_x -= 1e-6
+                            
+                        P_x = evaluator.get_force(eval_x)
+                        mags_2.append(1.0 * P_x * evaluator.get_curvature(eval_x))
+                        mags_3.append(-1.0 * P_x * evaluator.get_curvature_z(eval_x))
 
                     if any(abs(m) > 1e-9 for m in mags_2):
                         self.loads.append({
