@@ -17,6 +17,65 @@ from core.integrity_checks import check_section_in_use
 from app.dialogs.section_manager_dialog import ShapeCard, AddFrameSectionPropertyDialog
 from app.ui.theme import apply_dialog_style
 
+# Length scales for local dialog unit conversion
+LENGTH_SCALES = {
+    "m":  1.0,
+    "cm": 100.0,
+    "mm": 1_000.0,
+    "ft": 3.28084,
+    "in": 39.3701,
+}
+
+class SmartDoubleInput(QLineEdit):
+    """A unit-aware line edit that handles unit suffixes and scientific notation."""
+    def __init__(self, val=0.0, prop_type="length", current_unit="m", parent=None):
+        super().__init__(parent)
+        self.setProperty("prop_type", prop_type)
+        self.unit = current_unit
+        self._value = val
+        self.editingFinished.connect(self._sync_text)
+        self._render_text()
+        
+    def _get_suffix(self) -> str:
+        prop = self.property("prop_type")
+        if prop == "area": return f" {self.unit}²"
+        if prop == "inertia": return f" {self.unit}⁴"
+        if prop == "length": return f" {self.unit}"
+        return ""
+
+    def value(self) -> float:
+        """Strips the suffix to parse the clean number from user input."""
+        txt = self.text().replace(self._get_suffix(), "").strip()
+        try:
+            self._value = float(txt)
+        except ValueError:
+            pass
+        return self._value
+
+    def setValue(self, val: float):
+        """Programmatically sets the value without re-reading the UI text."""
+        self._value = val
+        self._render_text()
+
+    def setUnit(self, new_unit: str):
+        """Updates the unit suffix and re-renders."""
+        self.unit = new_unit
+        self._render_text()
+
+    def _sync_text(self):
+        """Called when the user finishes typing."""
+        self.value()
+        self._render_text()
+
+    def _render_text(self):
+        v = self._value
+        if abs(v) > 0 and (abs(v) < 1e-3 or abs(v) > 1e4):
+            txt = f"{v:.4e}"
+        else:
+            txt = f"{v:.4f}"
+        self.setText(txt + self._get_suffix())
+
+
 class AISCSelectionDialog(QDialog):
     """Dialog to select a specific shape from the loaded AISC list."""
     def __init__(self, shape_list, parent=None):
@@ -356,6 +415,9 @@ class AddSectionDialog(QDialog):
         self.selected_color = (0.259, 0.110, 0.749, 1.0)
         self.current_modifiers = {"A":1.0, "As2":1.0, "As3":1.0, "J":1.0, "I2":1.0, "I3":1.0, "Mass":1.0, "Weight":1.0}
 
+        self.all_inputs = [] 
+        self._l_scale = LENGTH_SCALES.get(unit_registry.length_unit_name, 1.0)
+
         self.setup_ui()
         self.connect_signals()
 
@@ -377,6 +439,7 @@ class AddSectionDialog(QDialog):
 
         self.update_color_button()
         self.update_preview()
+        
     def setup_ui(self):
         main_layout = QVBoxLayout(self)
         top = QHBoxLayout()
@@ -402,9 +465,32 @@ class AddSectionDialog(QDialog):
 
         self.btn_color = QPushButton()
         self.btn_color.setFixedSize(50, 25)
+        
         top.addLayout(form, 1)
-        top.addWidget(QLabel("Color:"))
-        top.addWidget(self.btn_color)
+        
+        unit_group = QGroupBox("Input Units")
+        unit_group.setToolTip("Dialog-only — project units are not affected")
+        unit_layout = QHBoxLayout(unit_group)
+        unit_layout.addWidget(QLabel("Length:"))
+        
+        self.combo_length = QComboBox()
+        self.combo_length.addItems(list(LENGTH_SCALES.keys()))
+        self.combo_length.setCurrentText(unit_registry.length_unit_name)
+        self.combo_length.currentTextChanged.connect(self._on_unit_changed)
+        
+        unit_layout.addWidget(self.combo_length)
+        unit_layout.addStretch()
+
+        right_top_layout = QVBoxLayout()
+        right_top_layout.addWidget(unit_group)
+        
+        color_layout = QHBoxLayout()
+        color_layout.addWidget(QLabel("Color:"))
+        color_layout.addWidget(self.btn_color)
+        color_layout.addStretch()
+        right_top_layout.addLayout(color_layout)
+        
+        top.addLayout(right_top_layout)
         main_layout.addLayout(top)
 
         mid = QHBoxLayout()
@@ -462,17 +548,22 @@ class AddSectionDialog(QDialog):
 
         pg_gen = QWidget()
         fg = QGridLayout()                                 
-        self.gen_a = self.mk_prop_spin();   fg.addWidget(QLabel("Area (A):"), 0, 0);   fg.addWidget(self.gen_a, 0, 1)
-        self.gen_j = self.mk_prop_spin();   fg.addWidget(QLabel("Torsion (J):"), 1, 0); fg.addWidget(self.gen_j, 1, 1)
-        self.gen_i33 = self.mk_prop_spin(); fg.addWidget(QLabel("I33 (Major):"), 2, 0); fg.addWidget(self.gen_i33, 2, 1)
-        self.gen_i22 = self.mk_prop_spin(); fg.addWidget(QLabel("I22 (Minor):"), 3, 0); fg.addWidget(self.gen_i22, 3, 1)
-        self.gen_as2 = self.mk_prop_spin(); fg.addWidget(QLabel("Shear Area 2:"), 4, 0); fg.addWidget(self.gen_as2, 4, 1)
-        self.gen_as3 = self.mk_prop_spin(); fg.addWidget(QLabel("Shear Area 3:"), 5, 0); fg.addWidget(self.gen_as3, 5, 1)
+        self.gen_a = self.mk_prop_spin("area");      fg.addWidget(QLabel("Area (A):"), 0, 0);   fg.addWidget(self.gen_a, 0, 1)
+        self.gen_j = self.mk_prop_spin("inertia");   fg.addWidget(QLabel("Torsion (J):"), 1, 0); fg.addWidget(self.gen_j, 1, 1)
+        self.gen_i33 = self.mk_prop_spin("inertia"); fg.addWidget(QLabel("I33 (Major):"), 2, 0); fg.addWidget(self.gen_i33, 2, 1)
+        self.gen_i22 = self.mk_prop_spin("inertia"); fg.addWidget(QLabel("I22 (Minor):"), 3, 0); fg.addWidget(self.gen_i22, 3, 1)
+        self.gen_as2 = self.mk_prop_spin("area");    fg.addWidget(QLabel("Shear Area 2:"), 4, 0); fg.addWidget(self.gen_as2, 4, 1)
+        self.gen_as3 = self.mk_prop_spin("area");    fg.addWidget(QLabel("Shear Area 3:"), 5, 0); fg.addWidget(self.gen_as3, 5, 1)
         pg_gen.setLayout(fg)
         self.stack.addWidget(pg_gen)    
         
         in_layout.addWidget(self.stack)
         input_grp.setLayout(in_layout)
+
+        note_lbl = QLabel("Note: Enter standard decimals (5000) or scientific notation (5e3). Values dynamically convert when units change.")
+        note_lbl.setStyleSheet("color: gray; font-size: 10px; font-style: italic;")
+        note_lbl.setWordWrap(True)
+        in_layout.addWidget(note_lbl)
         
         prev_layout = QVBoxLayout()
         self.preview_widget = SectionPreviewWidget()
@@ -495,15 +586,65 @@ class AddSectionDialog(QDialog):
         main_layout.addLayout(btns)
 
     def mk_spin(self, val_meters):
-        s = QDoubleSpinBox()
-        scale = unit_registry.length_scale
-        unit_label = unit_registry.current_unit_label.split(',')[1]
-        s.setRange(0.0, 100.0 * scale)
-        s.setSingleStep(0.001 * scale)
-        s.setValue(val_meters * scale)
-        s.setSuffix(f" {unit_label}")
-        s.setDecimals(6)
-        return s
+        return self.mk_prop_spin("length", val_meters)
+
+    def mk_prop_spin(self, prop_type="area", initial_si_val=0.0):
+        current_unit = self.combo_length.currentText()
+        
+        # Calculate initial display scale
+        if prop_type == "area":       scale = self._l_scale ** 2
+        elif prop_type == "inertia":  scale = self._l_scale ** 4
+        else:                         scale = self._l_scale
+            
+        inp = SmartDoubleInput(initial_si_val * scale, prop_type, current_unit)
+        self.all_inputs.append(inp)
+        return inp
+        
+    def mk_spin_length(self, val_meters):
+        return self.mk_spin(val_meters)
+
+    def _get_si(self, inp: SmartDoubleInput) -> float:
+        """Safely reads the widget's pure value and converts it strictly back to SI base (meters)."""
+        val = inp.value() # Use the widget's safe value parser
+            
+        prop = inp.property("prop_type")
+        if prop == "area":       
+            return val / (self._l_scale ** 2)
+        elif prop == "inertia":  
+            return val / (self._l_scale ** 4)
+        else:                    
+            return val / self._l_scale
+
+    def _on_unit_changed(self):
+        old_scale = self._l_scale
+        si_vals = {}
+        
+        # 1. Read current UI text and convert TO strict SI
+        for inp in self.all_inputs:
+            val = inp.value()
+                
+            prop = inp.property("prop_type")
+            if prop == "area":       si_vals[inp] = val / (old_scale ** 2)
+            elif prop == "inertia":  si_vals[inp] = val / (old_scale ** 4)
+            else:                    si_vals[inp] = val / old_scale
+            
+        # 2. Update to new unit scale
+        self._l_scale = LENGTH_SCALES[self.combo_length.currentText()]
+        new_unit = self.combo_length.currentText()
+        
+        # 3. Convert SI back to NEW unit and display
+        for inp in self.all_inputs:
+            prop = inp.property("prop_type")
+            si_val = si_vals[inp]
+            
+            if prop == "area":       new_val = si_val * (self._l_scale ** 2)
+            elif prop == "inertia":  new_val = si_val * (self._l_scale ** 4)
+            else:                    new_val = si_val * self._l_scale
+            
+            inp.setUnit(new_unit) # Update the unit string
+            inp.setValue(new_val) # Triggers the formatting with the new suffix
+            
+        self.update_preview()
 
     def connect_signals(self):
         self.type_combo.currentIndexChanged.connect(self.on_type_changed)
@@ -517,7 +658,7 @@ class AddSectionDialog(QDialog):
                   self.circ_d_spin, self.pipe_d_spin, self.pipe_t_spin, 
                   self.tube_d_spin, self.tube_b_spin, self.tube_tf_spin, self.tube_tw_spin,
                   self.trap_d_spin, self.trap_btop_spin, self.trap_bbot_spin]:
-            s.valueChanged.connect(self.update_preview)
+            s.editingFinished.connect(self.update_preview)
 
     def on_type_changed(self, idx):
         self.stack.setCurrentIndex(idx)
@@ -542,17 +683,25 @@ class AddSectionDialog(QDialog):
         
         p = {
             "type": st, "color": self.selected_color,
-            "b": self.b_spin.value(), "h": self.h_spin.value(),
-            "H": self.i_h_spin.value(), "w_top": self.i_wtop_spin.value(),
-            "t_top": self.i_ttop_spin.value(), "t_web": self.i_tw_spin.value(),
-            "w_bot": self.i_wbot_spin.value(), "t_bot": self.i_tbot_spin.value(),
+            "b": self._get_si(self.b_spin), 
+            "h": self._get_si(self.h_spin),
+            "H": self._get_si(self.i_h_spin), 
+            "w_top": self._get_si(self.i_wtop_spin),
+            "t_top": self._get_si(self.i_ttop_spin), 
+            "t_web": self._get_si(self.i_tw_spin),
+            "w_bot": self._get_si(self.i_wbot_spin), 
+            "t_bot": self._get_si(self.i_tbot_spin),
                                 
-            "circ_d": self.circ_d_spin.value(),
-            "pipe_d": self.pipe_d_spin.value(), "pipe_t": self.pipe_t_spin.value(),
-            "tube_d": self.tube_d_spin.value(), "tube_b": self.tube_b_spin.value(),
-            "tube_tf": self.tube_tf_spin.value(), "tube_tw": self.tube_tw_spin.value(),
-            "trap_d": self.trap_d_spin.value(), "trap_btop": self.trap_btop_spin.value(),
-            "trap_bbot": self.trap_bbot_spin.value()
+            "circ_d": self._get_si(self.circ_d_spin),
+            "pipe_d": self._get_si(self.pipe_d_spin), 
+            "pipe_t": self._get_si(self.pipe_t_spin),
+            "tube_d": self._get_si(self.tube_d_spin), 
+            "tube_b": self._get_si(self.tube_b_spin),
+            "tube_tf": self._get_si(self.tube_tf_spin), 
+            "tube_tw": self._get_si(self.tube_tw_spin),
+            "trap_d": self._get_si(self.trap_d_spin), 
+            "trap_btop": self._get_si(self.trap_btop_spin),
+            "trap_bbot": self._get_si(self.trap_bbot_spin)
         }
         self.preview_widget.update_params(p)
 
@@ -572,12 +721,121 @@ class AddSectionDialog(QDialog):
         d = SectionModifiersDialog(self.current_modifiers, self)
         if d.exec(): self.current_modifiers = d.modifiers
 
+    def save(self):
+        name = self.name_edit.text().strip()
+        if not name:
+            QMessageBox.warning(self, "Error", "Please enter a Section Name.")
+            return
+        
+        original_name = self.section_data.name if self.section_data else None
+        if name != original_name and name in self.model.sections:
+            reply = QMessageBox.question(
+                self, "Duplicate Name", 
+                f"A section named '{name}' already exists. Do you want to overwrite it?",
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
+            )
+            if reply == QMessageBox.StandardButton.No:
+                return
+
+        mat_name = self.mat_combo.currentText()
+        if not mat_name:
+            QMessageBox.critical(self, "Material Missing", "No Material Selected!")
+            return
+        
+        mat = self.model.materials[mat_name]
+        
+        exact_props = None
+        if self.section_data:
+            exact_props = {
+                'A': self.section_data.A,
+                'J': self.section_data.J,
+                'I22': self.section_data.I22,
+                'I33': self.section_data.I33,
+                'As2': self.section_data.Asy,
+                'As3': self.section_data.Asz
+            }
+
+        idx = self.type_combo.currentIndex()
+        
+        if idx == 0:               
+            sec = RectangularSection(
+                name, mat, 
+                self._get_si(self.b_spin), 
+                self._get_si(self.h_spin)
+            )
+        
+        elif idx == 1:             
+            sec = ISection(
+                name, mat, 
+                self._get_si(self.i_h_spin), 
+                self._get_si(self.i_wtop_spin), 
+                self._get_si(self.i_ttop_spin),
+                self._get_si(self.i_wbot_spin), 
+                self._get_si(self.i_tbot_spin), 
+                self._get_si(self.i_tw_spin),
+                props=exact_props
+            )
+
+        elif idx == 2:            
+            sec = CircularSection(
+                name, mat, 
+                self._get_si(self.circ_d_spin)
+            )
+            
+        elif idx == 3:        
+            sec = PipeSection(
+                name, mat, 
+                self._get_si(self.pipe_d_spin), 
+                self._get_si(self.pipe_t_spin)
+            )
+            
+        elif idx == 4:        
+            sec = TubeSection(
+                name, mat, 
+                self._get_si(self.tube_d_spin), 
+                self._get_si(self.tube_b_spin), 
+                self._get_si(self.tube_tf_spin), 
+                self._get_si(self.tube_tw_spin)
+            )
+            
+        elif idx == 5:               
+            sec = TrapezoidalSection(
+                name, mat, 
+                self._get_si(self.trap_d_spin), 
+                self._get_si(self.trap_btop_spin), 
+                self._get_si(self.trap_bbot_spin)
+            )
+
+        elif idx == 6:           
+            props = {
+                'A':   self._get_si(self.gen_a),
+                'J':   self._get_si(self.gen_j),
+                'I33': self._get_si(self.gen_i33),
+                'I22': self._get_si(self.gen_i22),
+                'Asy': self._get_si(self.gen_as2),
+                'Asz': self._get_si(self.gen_as3)
+            }
+            sec = GeneralSection(name, mat, props)
+            
+        sec.color = self.selected_color
+        sec.modifiers = self.current_modifiers.copy()
+        
+        self.model.add_section(sec)
+        
+        count = 0
+        for element in self.model.elements.values():
+            if element.section.name == name:
+                element.section = sec
+                count += 1
+        if count > 0: print(f"Updated {count} elements.")
+
+        self.accept()
+
     def show_properties(self):
         dummy_mat = Material("Temp", 1, 0.2, 7850, "steel")
         temp_name = self.name_edit.text() if self.name_edit.text() else "TempSec"
         
         idx = self.type_combo.currentIndex()
-        scale = unit_registry.length_scale
         
         exact_props = None
         if self.section_data:
@@ -591,46 +849,46 @@ class AddSectionDialog(QDialog):
             }
                                                          
         if idx == 0:
-            sec = RectangularSection(temp_name, dummy_mat, self.b_spin.value() / scale, self.h_spin.value() / scale)
+            sec = RectangularSection(temp_name, dummy_mat, self._get_si(self.b_spin), self._get_si(self.h_spin))
         elif idx == 1:
             sec = ISection(temp_name, dummy_mat, 
-                        self.i_h_spin.value() / scale, self.i_wtop_spin.value() / scale, 
-                        self.i_ttop_spin.value() / scale, self.i_wbot_spin.value() / scale, 
-                        self.i_tbot_spin.value() / scale, self.i_tw_spin.value() / scale,
+                        self._get_si(self.i_h_spin), self._get_si(self.i_wtop_spin), 
+                        self._get_si(self.i_ttop_spin), self._get_si(self.i_wbot_spin), 
+                        self._get_si(self.i_tbot_spin), self._get_si(self.i_tw_spin),
                         props=exact_props)   
         elif idx == 2:
-            sec = CircularSection(temp_name, dummy_mat, self.circ_d_spin.value() / scale)
+            sec = CircularSection(temp_name, dummy_mat, self._get_si(self.circ_d_spin))
         elif idx == 3:
-            sec = PipeSection(temp_name, dummy_mat, self.pipe_d_spin.value() / scale, self.pipe_t_spin.value() / scale)
+            sec = PipeSection(temp_name, dummy_mat, self._get_si(self.pipe_d_spin), self._get_si(self.pipe_t_spin))
         elif idx == 4:
-            sec = TubeSection(temp_name, dummy_mat, self.tube_d_spin.value() / scale, self.tube_b_spin.value() / scale, self.tube_tf_spin.value() / scale, self.tube_tw_spin.value() / scale)
+            sec = TubeSection(temp_name, dummy_mat, self._get_si(self.tube_d_spin), self._get_si(self.tube_b_spin), self._get_si(self.tube_tf_spin), self._get_si(self.tube_tw_spin))
         elif idx == 5:
-            sec = TrapezoidalSection(temp_name, dummy_mat, self.trap_d_spin.value() / scale, self.trap_btop_spin.value() / scale, self.trap_bbot_spin.value() / scale)
+            sec = TrapezoidalSection(temp_name, dummy_mat, self._get_si(self.trap_d_spin), self._get_si(self.trap_btop_spin), self._get_si(self.trap_bbot_spin))
         elif idx == 6:          
             props = {
-                'A': self.gen_a.value(), 'J': self.gen_j.value(),
-                'I33': self.gen_i33.value(), 'I22': self.gen_i22.value(),
-                'Asy': self.gen_as2.value(), 'Asz': self.gen_as3.value()
+                'A': self._get_si(self.gen_a), 'J': self._get_si(self.gen_j),
+                'I33': self._get_si(self.gen_i33), 'I22': self._get_si(self.gen_i22),
+                'Asy': self._get_si(self.gen_as2), 'Asz': self._get_si(self.gen_as3)
             }
             sec = GeneralSection(temp_name, dummy_mat, props)
             
-        u_len = unit_registry.current_unit_label.split(',')[1]
+        u_len = self.combo_length.currentText()
         props = {
             "A": sec.A, 
             "J": sec.J, 
-            "I33": sec.I22,                       
-            "I22": sec.I33,                       
-            "As2": sec.Asz,                                    
-            "As3": sec.Asy,                                    
-            "S33": sec.S22,                       
-            "S22": sec.S33,                       
-            "Z33": sec.Z22,                       
-            "Z22": sec.Z33,                       
-            "r33": sec.r22,                       
-            "r22": sec.r33                        
+            "I33": sec.I33,                       
+            "I22": sec.I22,                       
+            "As2": sec.Asy,                                    
+            "As3": sec.Asz,                                    
+            "S33": sec.S33,                       
+            "S22": sec.S22,                       
+            "Z33": sec.Z33,                       
+            "Z22": sec.Z22,                       
+            "r33": sec.r33,                       
+            "r22": sec.r22                        
         }
         SectionPropertiesInfoDialog(props, length_unit=u_len, parent=self).exec()
-            
+
     def load_section_data(self):
         self.name_edit.setText(self.section_data.name)
         self.selected_color = self.section_data.color
@@ -639,7 +897,7 @@ class AddSectionDialog(QDialog):
         idx = self.mat_combo.findText(self.section_data.material.name)
         if idx >= 0: self.mat_combo.setCurrentIndex(idx)
         
-        scale = unit_registry.length_scale
+        scale = self._l_scale
         
         if isinstance(self.section_data, RectangularSection):
             self.type_combo.setCurrentIndex(0)
@@ -678,14 +936,12 @@ class AddSectionDialog(QDialog):
             self.trap_bbot_spin.setValue(self.section_data.w_bot * scale)
         
         elif isinstance(self.section_data, ArbitrarySection):
-                                                                       
             self.type_combo.setEnabled(False)
             self.stack.setEnabled(False)
             self.mat_combo.setEnabled(False)
             self.name_edit.setEnabled(False)
             self.btn_ok.setEnabled(False)
             self.btn_designer.setText("Open in Section Designer…")
-                                                                    
             self.preview_widget.update_params({
                 "type": "arbitrary",
                 "color": self.selected_color,
@@ -695,144 +951,13 @@ class AddSectionDialog(QDialog):
 
         elif isinstance(self.section_data, GeneralSection):
             self.type_combo.setCurrentIndex(6)
-            scale = unit_registry.length_scale
             self.gen_a.setValue(getattr(self.section_data, 'A', 0.0) * (scale**2))
             self.gen_j.setValue(getattr(self.section_data, 'J', 0.0) * (scale**4))
             
-            self.gen_i33.setValue(getattr(self.section_data, 'I22', 0.0) * (scale**4)) 
-            self.gen_i22.setValue(getattr(self.section_data, 'I33', 0.0) * (scale**4)) 
-            self.gen_as2.setValue(getattr(self.section_data, 'Asz', 0.0) * (scale**2)) 
-            self.gen_as3.setValue(getattr(self.section_data, 'Asy', 0.0) * (scale**2))
-
-    def save(self):
-        name = self.name_edit.text().strip()
-        if not name:
-            QMessageBox.warning(self, "Error", "Please enter a Section Name.")
-            return
-        
-        original_name = self.section_data.name if self.section_data else None
-        if name != original_name and name in self.model.sections:
-            reply = QMessageBox.question(
-                self, "Duplicate Name", 
-                f"A section named '{name}' already exists. Do you want to overwrite it?",
-                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
-            )
-            if reply == QMessageBox.StandardButton.No:
-                return
-
-        mat_name = self.mat_combo.currentText()
-        if not mat_name:
-            QMessageBox.critical(self, "Material Missing", "No Material Selected!")
-            return
-        
-        mat = self.model.materials[mat_name]
-        scale = unit_registry.length_scale
-        
-        exact_props = None
-        if self.section_data:
-            exact_props = {
-                'A': self.section_data.A,
-                'J': self.section_data.J,
-                'I22': self.section_data.I22,
-                'I33': self.section_data.I33,
-                'As2': self.section_data.Asy,
-                'As3': self.section_data.Asz
-            }
-
-        idx = self.type_combo.currentIndex()
-        
-        if idx == 0:               
-            sec = RectangularSection(
-                name, mat, 
-                self.b_spin.value() / scale, 
-                self.h_spin.value() / scale
-            )
-        
-        elif idx == 1:             
-            sec = ISection(
-                name, mat, 
-                self.i_h_spin.value() / scale, 
-                self.i_wtop_spin.value() / scale, 
-                self.i_ttop_spin.value() / scale,
-                self.i_wbot_spin.value() / scale, 
-                self.i_tbot_spin.value() / scale, 
-                self.i_tw_spin.value() / scale,
-                props=exact_props
-            )
-
-        elif idx == 2:            
-            sec = CircularSection(
-                name, mat, 
-                self.circ_d_spin.value() / scale
-            )
-            
-        elif idx == 3:        
-            sec = PipeSection(
-                name, mat, 
-                self.pipe_d_spin.value() / scale, 
-                self.pipe_t_spin.value() / scale
-            )
-            
-        elif idx == 4:        
-            sec = TubeSection(
-                name, mat, 
-                self.tube_d_spin.value() / scale, 
-                self.tube_b_spin.value() / scale, 
-                self.tube_tf_spin.value() / scale, 
-                self.tube_tw_spin.value() / scale
-            )
-            
-        elif idx == 5:               
-            sec = TrapezoidalSection(
-                name, mat, 
-                self.trap_d_spin.value() / scale, 
-                self.trap_btop_spin.value() / scale, 
-                self.trap_bbot_spin.value() / scale
-            )
-
-        elif idx == 6:           
-            props = {
-                'A':   self.gen_a.value() / (scale**2),
-                'J':   self.gen_j.value() / (scale**4),
-                'I33': self.gen_i33.value() / (scale**4),
-                'I22': self.gen_i22.value() / (scale**4),
-                'Asy': self.gen_as2.value() / (scale**2),
-                'Asz': self.gen_as3.value() / (scale**2)
-            }
-            sec = GeneralSection(name, mat, props)
-            
-        sec.color = self.selected_color
-        sec.modifiers = self.current_modifiers.copy()
-        
-        self.model.add_section(sec)
-        
-        count = 0
-        for element in self.model.elements.values():
-            if element.section.name == name:
-                element.section = sec
-                count += 1
-        if count > 0: print(f"Updated {count} elements.")
-
-        self.accept()
-
-    def mk_prop_spin(self, prop_type="area"):
-        s = QDoubleSpinBox()
-        s.setRange(0.0, 1e15)
-        s.setDecimals(8)
-        u_len = unit_registry.length_unit_name
-        if prop_type == "area": s.setSuffix(f" {u_len}²")
-        elif prop_type == "inertia": s.setSuffix(f" {u_len}⁴")
-        elif prop_type == "length": s.setSuffix(f" {u_len}")
-        return s   
-    
-    def mk_spin_length(self, val_meters):
-        s = QDoubleSpinBox()
-        scale = unit_registry.length_scale
-        s.setRange(0.0, 100.0 * scale)
-        s.setValue(val_meters * scale)
-        s.setSuffix(f" {unit_registry.length_unit_name}")
-        s.setDecimals(3)
-        return s
+            self.gen_i33.setValue(getattr(self.section_data, 'I33', 0.0) * (scale**4)) 
+            self.gen_i22.setValue(getattr(self.section_data, 'I22', 0.0) * (scale**4)) 
+            self.gen_as2.setValue(getattr(self.section_data, 'Asy', 0.0) * (scale**2)) 
+            self.gen_as3.setValue(getattr(self.section_data, 'Asz', 0.0) * (scale**2))
 
 class SectionManagerDialog(QDialog):
     def __init__(self, model, parent=None):
@@ -958,17 +1083,11 @@ class SectionManagerDialog(QDialog):
                     }
 
                     props = {
-                              
                         'A': get_val(row, 'A.1') / 1e6,
-                        
                         'I22': get_val(row, 'Ix.1') * 1e-6, 
-                        
                         'I33': get_val(row, 'Iy.1') * 1e-6, 
-                        
                         'J': get_val(row, 'J.1') * 1e-9, 
-                        
                         'As3': (h * tw),
-                        
                         'As2': (5/6) * (2 * bf * tf) 
                     }
                     
@@ -1001,7 +1120,6 @@ class SectionManagerDialog(QDialog):
         if not sec: return
 
         if isinstance(sec, ArbitrarySection):
-                                                                       
             dlg = SectionDesignerDialog(self.model, section_data=sec, parent=self)
             if dlg.exec() == QDialog.DialogCode.Accepted:
                 result = dlg.result_section
