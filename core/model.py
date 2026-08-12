@@ -1241,105 +1241,69 @@ class StructuralModel:
     def generate_tendon_loads(self):
         """
         Live-model equivalent of DataManager._generate_tendon_loads().
-
-        Converts tendons modeled as 'Loads' into the same dict-shaped load
-        records the solver already generates, and injects them into
-        self.loads -- so the diagram/recovery path (MemberAnalyzer in
-        spy_dialogs.py) sees the same loads the solver saw when it baked
-        the FEF into matrices.json.
-
-        Call this after load_from_file() (done automatically above), and
-        again any time tendon geometry or tendon loads are edited
-        (tendon_geometry_dialog.py's save path) so self.loads stays in sync.
+        Discretizes the tendon into straight segments to match SAP2000's
+        exact approximations, applying concentrated deviation forces at the kinks.
         """
         from core.prestress.tendon_evaluator import TendonEvaluator
         from element_library import get_rotation_matrix
         import math
         import numpy as np
 
-        self.loads = [ld for ld in self.loads
-                      if not (isinstance(ld, dict) and ld.get('_is_tendon_auto'))]
-
+        # Clear existing auto tendon loads
+        self.loads = [ld for ld in self.loads if not (isinstance(ld, dict) and ld.get('_is_tendon_auto'))]
         active_pattern_names = set(self.load_patterns.keys())
 
         for t in self.tendons.values():
-            if getattr(t, 'modeling_option', 'Loads') != 'Loads':
-                continue
-
-            active_loads = [ld for ld in getattr(t, 'loads', [])
-                             if ld['pattern'] in active_pattern_names]
-            if not active_loads:
-                continue
+            if getattr(t, 'modeling_option', 'Loads') != 'Loads': continue
+            active_loads = [ld for ld in getattr(t, 'loads', []) if ld['pattern'] in active_pattern_names]
+            if not active_loads: continue
 
             layout_pts = t.layout_points
-            if not layout_pts:
-                continue
+            if not layout_pts: continue
             total_length = max(p['coord1'] for p in layout_pts)
 
+            # --- 1. Build Discretization Points ---
+            max_len = getattr(t, 'max_discretization_length', 1.524)
+            if max_len < 1e-3: max_len = 1.524
+            
+            discrete_x = set()
+            for p in layout_pts:
+                discrete_x.add(p['coord1'])
+                
+            for i in range(len(layout_pts) - 1):
+                x_start = layout_pts[i]['coord1']
+                x_end = layout_pts[i+1]['coord1']
+                seg_len = x_end - x_start
+                if seg_len > 1e-6:
+                    num_subs = max(1, math.ceil(seg_len / max_len))
+                    for j in range(1, num_subs):
+                        discrete_x.add(x_start + j * (seg_len / num_subs))
+            
+            discrete_x = sorted(list(discrete_x))
+
+            # --- 2. Evaluate and Apply Loads ---
             for load_data in active_loads:
                 pat_name = load_data['pattern']
                 evaluator = TendonEvaluator(layout_pts, t.tendon_section, load_data, total_length)
 
-                current_x = 0.0
-                for host_id in t.host_element_ids:
-                    host_el = self.elements.get(host_id)
-                    if not host_el:
-                        continue
-                    el_len = host_el.length()
+                # End Anchors
+                for end_type, host_id in [('I-End', t.host_element_ids[0]), ('J-End', t.host_element_ids[-1])]:
+                    if end_type == 'I-End':
+                        x_eval = 0.0
+                        mid_seg = (discrete_x[0] + discrete_x[1]) / 2.0
+                        force_val = evaluator.get_force(mid_seg)
+                        sign = 1.0
+                    else:
+                        x_eval = total_length
+                        mid_seg = (discrete_x[-2] + discrete_x[-1]) / 2.0
+                        force_val = evaluator.get_force(mid_seg)
+                        sign = -1.0
 
-                    import math
-                    
-                    max_disc = getattr(t, 'max_discretization_length', 1.524)
-                    if max_disc < 1e-3: max_disc = 1.524
-                    
-                    num_segments = math.ceil(el_len / max_disc)
-                    num_samples = int(num_segments) + 1
-                    
-                    dists = np.linspace(0, 1.0, num_samples)
-                    mags_2 = []                                      
-                    mags_3 = []                                      
-
-                    for d in dists:
-                        local_x = current_x + (d * el_len)
-                        
-                        eval_x = local_x
-                        if d == 0.0:
-                            eval_x += 1e-6
-                        elif d == 1.0:
-                            eval_x -= 1e-6
-                            
-                        P_x = evaluator.get_force(eval_x)
-                        mags_2.append(1.0 * P_x * evaluator.get_curvature(eval_x))
-                        mags_3.append(-1.0 * P_x * evaluator.get_curvature_z(eval_x))
-
-                    if any(abs(m) > 1e-9 for m in mags_2):
-                        self.loads.append({
-                            'type': 'member_dist', 'pattern': pat_name, 'element_id': host_id,
-                            'load_direction': 'Local-3', 'coord': 'Local', 'projected': False,
-                            'distances': dists.tolist(), 'magnitudes': mags_2, 'is_relative': True,
-                            '_is_tendon_auto': True
-                        })
-                    if any(abs(m) > 1e-9 for m in mags_3):
-                        self.loads.append({
-                            'type': 'member_dist', 'pattern': pat_name, 'element_id': host_id,
-                            'load_direction': 'Local-2', 'coord': 'Local', 'projected': False,
-                            'distances': dists.tolist(), 'magnitudes': mags_3, 'is_relative': True,
-                            '_is_tendon_auto': True
-                        })
-                    current_x += el_len
-
-                for end_type, force_val, host_id in [
-                    ('I-End', evaluator.get_force(0.0), t.host_element_ids[0]),
-                    ('J-End', evaluator.get_force(total_length), t.host_element_ids[-1])
-                ]:
-                    if force_val <= 1e-9:
-                        continue
+                    if force_val <= 1e-9: continue
 
                     host_el = self.elements.get(host_id)
-                    if not host_el:
-                        continue
+                    if not host_el: continue
 
-                    x_eval = 0.0 if end_type == 'I-End' else total_length
                     m2 = evaluator.get_slope(x_eval)
                     m3 = evaluator.get_slope_z(x_eval)
                     e2 = evaluator.get_eccentricity(x_eval)[1]
@@ -1348,29 +1312,24 @@ class StructuralModel:
                     t_vec = np.array([1.0, m2, m3])
                     t_vec = t_vec / np.linalg.norm(t_vec)
 
-                    sign = 1.0 if end_type == 'I-End' else -1.0
                     Fx = sign * force_val * t_vec[0]
                     f2 = sign * force_val * t_vec[1]
                     f3 = sign * force_val * t_vec[2]
 
-                    F_local = np.zeros(3)
-                    F_local[0] = Fx
-                    F_local[2] = f2
-                    F_local[1] = -f3
+                    # RESTORED AXIS MAPPING (Local 2 = Vertical, Local 3 = Horizontal)
+                    F_local = np.array([Fx, -f3, f2])
                     ecc_vec = np.array([0.0, -e3, e2])
                     M_local = np.cross(ecc_vec, F_local)
 
                     p1 = host_el.node_i.get_coords()
                     p2 = host_el.node_j.get_coords()
-                    theta_p = getattr(host_el.section, 'theta_p', 0.0)
-                    beta_eff = host_el.beta_angle - np.degrees(theta_p)
-
+                    beta_eff = host_el.beta_angle - np.degrees(getattr(host_el.section, 'theta_p', 0.0))
                     R_3x3 = get_rotation_matrix(p1, p2, beta_eff)
+
                     F_global = R_3x3.T @ F_local
                     M_global = R_3x3.T @ M_local
 
                     target_node = host_el.node_i if end_type == 'I-End' else host_el.node_j
-
                     self.loads.append({
                         'type': 'nodal', 'pattern': pat_name, 'node_id': target_node.id,
                         'fx': float(F_global[0]), 'fy': float(F_global[1]), 'fz': float(F_global[2]),
@@ -1378,30 +1337,48 @@ class StructuralModel:
                         '_is_tendon_auto': True
                     })
 
-                for i in range(1, len(layout_pts) - 1):
-                    x_kink = layout_pts[i]['coord1']
-                    P_kink = evaluator.get_force(x_kink)
+                # Internal Discretized Kinks
+                for i in range(1, len(discrete_x) - 1):
+                    x_kink = discrete_x[i]
+                    
+                    mid_prev = (discrete_x[i-1] + x_kink) / 2.0
+                    mid_next = (x_kink + discrete_x[i+1]) / 2.0
+
+                    P_before = evaluator.get_force(mid_prev)
+                    P_after  = evaluator.get_force(mid_next)
 
                     m2_before = evaluator.get_slope(x_kink - 1e-6)
                     m2_after  = evaluator.get_slope(x_kink + 1e-6)
                     m3_before = evaluator.get_slope_z(x_kink - 1e-6)
                     m3_after  = evaluator.get_slope_z(x_kink + 1e-6)
 
-                    F_kink_2 = 1.0 * P_kink * (math.sin(math.atan(m2_after)) - math.sin(math.atan(m2_before)))
-                    F_kink_3 = -1.0 * P_kink * (math.sin(math.atan(m3_after)) - math.sin(math.atan(m3_before)))
+                    u_before = np.array([1.0, m2_before, m3_before])
+                    u_before = u_before / np.linalg.norm(u_before)
 
-                    if abs(F_kink_2) > 1e-9 or abs(F_kink_3) > 1e-9:
-                                                                                                     
+                    u_after = np.array([1.0, m2_after, m3_after])
+                    u_after = u_after / np.linalg.norm(u_after)
+
+                    F_vec = P_after * u_after - P_before * u_before
+                    
+                    # RESTORED AXIS MAPPING (Local 2 = Vertical, Local 3 = Horizontal)
+                    F_kink_local_tendon = np.array([F_vec[0], -F_vec[2], F_vec[1]])
+
+                    e2 = evaluator.get_eccentricity(x_kink)[1]
+                    e3 = evaluator.get_eccentricity(x_kink)[2]
+                    ecc_vec = np.array([0.0, -e3, e2])
+                    M_kink_local_tendon = np.cross(ecc_vec, F_kink_local_tendon)
+
+                    if np.max(np.abs(F_kink_local_tendon)) > 1e-9 or np.max(np.abs(M_kink_local_tendon)) > 1e-9:
                         t_vx, t_vy, t_vz = t.get_local_axes()
                         R_tendon = np.array([t_vx, t_vy, t_vz])
-                        F_kink_local_tendon = np.array([0.0, F_kink_3, F_kink_2])
+                        
                         F_kink_global = R_tendon.T @ F_kink_local_tendon
+                        M_kink_global = R_tendon.T @ M_kink_local_tendon
 
                         current_x = 0.0
                         for host_id in t.host_element_ids:
                             host_el = self.elements.get(host_id)
-                            if not host_el:
-                                continue
+                            if not host_el: continue
                             el_len = host_el.length()
 
                             if current_x - 1e-5 <= x_kink <= current_x + el_len + 1e-5:
@@ -1409,30 +1386,28 @@ class StructuralModel:
 
                                 p1h = host_el.node_i.get_coords()
                                 p2h = host_el.node_j.get_coords()
-                                theta_p_h = getattr(host_el.section, 'theta_p', 0.0)
-                                beta_eff_h = host_el.beta_angle - np.degrees(theta_p_h)
+                                beta_eff_h = host_el.beta_angle - np.degrees(getattr(host_el.section, 'theta_p', 0.0))
                                 R_host = get_rotation_matrix(p1h, p2h, beta_eff_h)
 
-                                F_kink_host_local = R_host @ F_kink_global
+                                F_host_local = R_host @ F_kink_global
+                                M_host_local = R_host @ M_kink_global
 
-                                F_kink_2_host = F_kink_host_local[1]
-                                F_kink_3_host = F_kink_host_local[2]
-
-                                if abs(F_kink_2_host) > 1e-9:
-                                    self.loads.append({
-                                        'type': 'member_point', 'pattern': pat_name, 'element_id': host_id,
-                                        'dir': '2', 'force': F_kink_2_host, 'dist': rel_dist, 'is_rel': True,
-                                        'coord': 'Local', '_is_tendon_auto': True
-                                    })
-                                if abs(F_kink_3_host) > 1e-9:
-                                    self.loads.append({
-                                        'type': 'member_point', 'pattern': pat_name, 'element_id': host_id,
-                                        'dir': '3', 'force': F_kink_3_host, 'dist': rel_dist, 'is_rel': True,
-                                        'coord': 'Local', '_is_tendon_auto': True
-                                    })
+                                for dir_idx, dir_str in enumerate(['1', '2', '3']):
+                                    if abs(F_host_local[dir_idx]) > 1e-9:
+                                        self.loads.append({
+                                            'type': 'member_point', 'pattern': pat_name, 'element_id': host_id,
+                                            'dir': dir_str, 'force': float(F_host_local[dir_idx]), 'dist': rel_dist, 'is_rel': True,
+                                            'coord': 'Local', 'l_type': 'Force', '_is_tendon_auto': True
+                                        })
+                                    if abs(M_host_local[dir_idx]) > 1e-9:
+                                        self.loads.append({
+                                            'type': 'member_point', 'pattern': pat_name, 'element_id': host_id,
+                                            'dir': dir_str, 'force': float(M_host_local[dir_idx]), 'dist': rel_dist, 'is_rel': True,
+                                            'coord': 'Local', 'l_type': 'Moment', '_is_tendon_auto': True
+                                        })
                                 break
                             current_x += el_len
-
+                                               
     def add_constraint(self, name, axis="Z"):
         """Defines a new Rigid Diaphragm (e.g., 'D1')"""
 
