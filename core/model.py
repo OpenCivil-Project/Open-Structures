@@ -424,8 +424,24 @@ class StructuralModel:
                 "name": lc.name,
                 "type": lc.case_type,
                 "loads": lc.loads,                                                             
-                "p_delta": lc.p_delta,
                 "mass_source": lc.mass_source,
+                "geom_nonlin": getattr(lc, 'geom_nonlin', 'None'),
+                "nl_params": {
+                    "max_total_steps": getattr(lc, 'max_total_steps', 200),
+                    "max_null_steps": getattr(lc, 'max_null_steps', 50),
+                    "use_event_stepping": getattr(lc, 'use_event_stepping', True),
+                    "event_lumping_tol": getattr(lc, 'event_lumping_tol', 0.01),
+                    "max_events_per_step": getattr(lc, 'max_events_per_step', 24),
+                    "use_iteration": getattr(lc, 'use_iteration', True),
+                    "max_const_stiff_iter": getattr(lc, 'max_const_stiff_iter', 10),
+                    "max_nr_iter": getattr(lc, 'max_nr_iter', 40),
+                    "iter_conv_tol": getattr(lc, 'iter_conv_tol', 1e-4),
+                    "use_line_search": getattr(lc, 'use_line_search', False),
+                    "tf_max_iter": getattr(lc, 'tf_max_iter', 10),
+                    "tf_conv_tol": getattr(lc, 'tf_conv_tol', 0.01),
+                    "tf_accel_factor": getattr(lc, 'tf_accel_factor', 1.0),
+                    "continue_if_no_converge": getattr(lc, 'continue_if_no_converge', False)
+                },
                 "num_modes": getattr(lc, 'num_modes', 12),
                 "rsa_loads": getattr(lc, 'rsa_loads', []),
                 "modal_comb": getattr(lc, 'modal_comb', 'SRSS'),
@@ -1068,20 +1084,40 @@ class StructuralModel:
                 c_type = lc_data.get("type", "Linear Static")
                 
                 new_lc = LoadCase(name, c_type)
-                
+
                 raw_loads = lc_data.get("loads", [])
-                new_lc.loads = [tuple(item) for item in raw_loads] 
+                new_lc.loads = [tuple(item) for item in raw_loads]
+
+                new_lc.mass_source = lc_data.get("mass_source", "Default")
+                new_lc.geom_nonlin = lc_data.get("geom_nonlin", "None")
+
+                nl_params = lc_data.get("nl_params", {})
+                new_lc.max_total_steps = nl_params.get("max_total_steps", 200)
+                new_lc.max_null_steps = nl_params.get("max_null_steps", 50)
+                new_lc.use_event_stepping = nl_params.get("use_event_stepping", True)
+                new_lc.event_lumping_tol = nl_params.get("event_lumping_tol", 0.01)
+                new_lc.max_events_per_step = nl_params.get("max_events_per_step", 24)
+                new_lc.use_iteration = nl_params.get("use_iteration", True)
+                new_lc.max_const_stiff_iter = nl_params.get("max_const_stiff_iter", 10)
+                new_lc.max_nr_iter = nl_params.get("max_nr_iter", 40)
+                new_lc.iter_conv_tol = nl_params.get("iter_conv_tol", 1e-4)
+                new_lc.use_line_search = nl_params.get("use_line_search", False)
+                new_lc.tf_max_iter = nl_params.get("tf_max_iter", 10)
+                new_lc.tf_conv_tol = nl_params.get("tf_conv_tol", 0.01)
+                new_lc.tf_accel_factor = nl_params.get("tf_accel_factor", 1.0)
+                new_lc.continue_if_no_converge = nl_params.get("continue_if_no_converge", False)
+
                 raw_rsa = lc_data.get("rsa_loads", [])
                 new_lc.rsa_loads = [tuple(item) for item in raw_rsa]
+
                 new_lc.modal_comb = lc_data.get("modal_comb", "SRSS")
                 new_lc.dir_comb = lc_data.get("dir_comb", "SRSS")
                 new_lc.p_delta = lc_data.get("p_delta", False)
-                new_lc.mass_source = lc_data.get("mass_source", "Default")
                 new_lc.num_modes = lc_data.get("num_modes", 12)
                 new_lc.modal_damping = lc_data.get("modal_damping", 0.05)
-                new_lc.damping    = lc_data.get("ltha_damping", 0.05)
+                new_lc.damping = lc_data.get("ltha_damping", 0.05)
                 new_lc.ltha_loads = [tuple(x) for x in lc_data.get("ltha_loads", [])]
-                
+
                 self.load_cases[name] = new_lc
         else:
                                             
@@ -2133,8 +2169,28 @@ class LoadCase:
         
         self.loads = [] 
         
-        self.mass_source = "Default"                        
-        self.p_delta = False                                   
+        self.mass_source = "Default"       
+
+        self.geom_nonlin = "None"                                           
+        self.load_application = "Full Load"
+        self.results_saved = "Final State Only"
+        
+        self.max_total_steps = 200
+        self.max_null_steps = 50
+        self.use_event_stepping = True
+        self.event_lumping_tol = 0.01
+        self.max_events_per_step = 24
+        self.use_iteration = True
+        self.max_const_stiff_iter = 10
+        self.max_nr_iter = 40
+        self.iter_conv_tol = 1e-4
+        self.use_line_search = False
+        
+        self.tf_max_iter = 10
+        self.tf_conv_tol = 0.01
+        self.tf_accel_factor = 1.0
+        self.continue_if_no_converge = False
+
         self.modal_case = None                                                     
         self.num_modes = 12
         self.ltha_loads = []

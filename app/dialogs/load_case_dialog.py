@@ -7,7 +7,107 @@ from PyQt6.QtCore import Qt
 from core.model import LoadCase
 
 from app.ui.theme import apply_dialog_style      
-from core.units import unit_registry                                                                    
+from core.units import unit_registry        
+
+from PyQt6.QtWidgets import QFormLayout
+
+class NonlinearParametersDialog(QDialog):
+    """Sub-dialog for Nonlinear Solution Control and Target Force Iteration."""
+    def __init__(self, case, parent=None):
+        super().__init__(parent)
+        self.case = case
+        self.setWindowTitle("Nonlinear Parameters")
+        self.resize(450, 500)
+        apply_dialog_style(self)
+
+        layout = QVBoxLayout(self)
+
+        grp_sol = QGroupBox("Solution Control")
+        form_sol = QFormLayout(grp_sol)
+
+        self.in_total_steps = QSpinBox(); self.in_total_steps.setRange(1, 99999); self.in_total_steps.setValue(getattr(self.case, 'max_total_steps', 200))
+        self.in_null_steps = QSpinBox(); self.in_null_steps.setRange(1, 9999); self.in_null_steps.setValue(getattr(self.case, 'max_null_steps', 50))
+        
+        self.cmb_event_stepping = QComboBox(); self.cmb_event_stepping.addItems(["Yes", "No"])
+        self.cmb_event_stepping.setCurrentText("Yes" if getattr(self.case, 'use_event_stepping', True) else "No")
+        
+        self.in_event_tol = QLineEdit(f"{getattr(self.case, 'event_lumping_tol', 0.01):.2f}")
+        self.in_max_events = QSpinBox(); self.in_max_events.setRange(1, 999); self.in_max_events.setValue(getattr(self.case, 'max_events_per_step', 24))
+        
+        self.cmb_iteration = QComboBox(); self.cmb_iteration.addItems(["Yes", "No"])
+        self.cmb_iteration.setCurrentText("Yes" if getattr(self.case, 'use_iteration', True) else "No")
+        
+        self.in_const_iter = QSpinBox(); self.in_const_iter.setRange(0, 999); self.in_const_iter.setValue(getattr(self.case, 'max_const_stiff_iter', 10))
+        self.in_nr_iter = QSpinBox(); self.in_nr_iter.setRange(0, 999); self.in_nr_iter.setValue(getattr(self.case, 'max_nr_iter', 40))
+        
+        self.in_conv_tol = QLineEdit(f"{getattr(self.case, 'iter_conv_tol', 1e-4):.3E}")
+        
+        self.cmb_line_search = QComboBox(); self.cmb_line_search.addItems(["Yes", "No"])
+        self.cmb_line_search.setCurrentText("Yes" if getattr(self.case, 'use_line_search', False) else "No")
+
+        form_sol.addRow("Maximum Total Steps per Stage", self.in_total_steps)
+        form_sol.addRow("Maximum Null (Zero) Steps per Stage", self.in_null_steps)
+        form_sol.addRow("Use Event-to-event Stepping", self.cmb_event_stepping)
+        form_sol.addRow("Event Lumping Tolerance (Relative)", self.in_event_tol)
+        form_sol.addRow("Maximum Events per Step", self.in_max_events)
+        form_sol.addRow("Use Iteration", self.cmb_iteration)
+        form_sol.addRow("Maximum Constant-Stiff Iterations per Step", self.in_const_iter)
+        form_sol.addRow("Maximum Newton-Raphson Iter. per Step", self.in_nr_iter)
+        form_sol.addRow("Iteration Convergence Tolerance (Relative)", self.in_conv_tol)
+        form_sol.addRow("Use Line Search", self.cmb_line_search)
+        layout.addWidget(grp_sol)
+
+        grp_tf = QGroupBox("Target Force Iteration")
+        form_tf = QFormLayout(grp_tf)
+        
+        self.in_tf_iter = QSpinBox(); self.in_tf_iter.setRange(1, 999); self.in_tf_iter.setValue(getattr(self.case, 'tf_max_iter', 10))
+        self.in_tf_tol = QLineEdit(f"{getattr(self.case, 'tf_conv_tol', 0.01):.2f}")
+        self.in_tf_accel = QLineEdit(f"{getattr(self.case, 'tf_accel_factor', 1.0):.1f}")
+        
+        self.cmb_continue = QComboBox(); self.cmb_continue.addItems(["Yes", "No"])
+        self.cmb_continue.setCurrentText("Yes" if getattr(self.case, 'continue_if_no_converge', False) else "No")
+
+        form_tf.addRow("Maximum Iterations per Stage", self.in_tf_iter)
+        form_tf.addRow("Convergence Tolerance (Relative)", self.in_tf_tol)
+        form_tf.addRow("Acceleration Factor", self.in_tf_accel)
+        form_tf.addRow("Continue Analysis If No Convergence", self.cmb_continue)
+        layout.addWidget(grp_tf)
+
+        h_btns = QHBoxLayout()
+        h_btns.addStretch()
+        btn_ok = QPushButton("OK")
+        btn_ok.setObjectName("primary")
+        btn_ok.clicked.connect(self.accept)
+        btn_cancel = QPushButton("Cancel")
+        btn_cancel.clicked.connect(self.reject)
+        h_btns.addWidget(btn_ok)
+        h_btns.addWidget(btn_cancel)
+        layout.addLayout(h_btns)
+
+    def save_to_case(self):
+        """Writes values back to the LoadCase object."""
+        self.case.max_total_steps = self.in_total_steps.value()
+        self.case.max_null_steps = self.in_null_steps.value()
+        self.case.use_event_stepping = (self.cmb_event_stepping.currentText() == "Yes")
+        try: self.case.event_lumping_tol = float(self.in_event_tol.text())
+        except ValueError: pass
+        self.case.max_events_per_step = self.in_max_events.value()
+        self.case.use_iteration = (self.cmb_iteration.currentText() == "Yes")
+        self.case.max_const_stiff_iter = self.in_const_iter.value()
+        self.case.max_nr_iter = self.in_nr_iter.value()
+        
+        try: self.case.iter_conv_tol = float(self.in_conv_tol.text())
+        except ValueError: pass
+        
+        self.case.use_line_search = (self.cmb_line_search.currentText() == "Yes")
+        
+        self.case.tf_max_iter = self.in_tf_iter.value()
+        try: self.case.tf_conv_tol = float(self.in_tf_tol.text())
+        except ValueError: pass
+        try: self.case.tf_accel_factor = float(self.in_tf_accel.text())
+        except ValueError: pass
+        
+        self.case.continue_if_no_converge = (self.cmb_continue.currentText() == "Yes")
 
 class LoadCaseDetailDialog(QDialog):
     """The 'Modify/Show' window for a single load case."""
@@ -53,7 +153,7 @@ class LoadCaseDetailDialog(QDialog):
 
         h_top.addWidget(QLabel("Load Case Type:"))
         self.combo_type = QComboBox()
-        self.combo_type.addItems(["Linear Static", "Modal", "Response Spectrum", "LTHA", "Buckling"])
+        self.combo_type.addItems(["Linear Static", "Nonlinear Static", "Modal", "Response Spectrum", "LTHA", "Buckling"])
         self.combo_type.setCurrentText(self.case.case_type)
         self.combo_type.currentTextChanged.connect(self.on_type_changed)
         h_top.addWidget(self.combo_type)
@@ -285,23 +385,49 @@ class LoadCaseDetailDialog(QDialog):
 
         layout.addWidget(self.group_ltha)
 
-        self.group_settings = QGroupBox("Extra Settings")
-        v_set = QVBoxLayout(self.group_settings)
+        self.group_nonlinear = QGroupBox("Geometric Nonlinearity Parameters")
+        v_geom = QVBoxLayout(self.group_nonlinear)
+        self.radio_geom_none = QRadioButton("None")
+        self.radio_geom_pdelta = QRadioButton("P-Delta")
+        self.radio_geom_large = QRadioButton("P-Delta plus Large Displacements")
 
-        self.chk_pdelta = QCheckBox("Geometric Nonlinearity (P-Delta)")
-        self.chk_pdelta.setChecked(self.case.p_delta)
-        v_set.addWidget(self.chk_pdelta)
+        self.radio_geom_large.setEnabled(False)
+        self.radio_geom_large.setToolTip("Large Displacements are currently in development.")
+        
+        geom_val = getattr(self.case, 'geom_nonlin', 'None')
+        if geom_val == "P-Delta": self.radio_geom_pdelta.setChecked(True)
+        elif geom_val == "Large Displacements": self.radio_geom_large.setChecked(True)
+        else: self.radio_geom_none.setChecked(True)
 
+        v_geom.addWidget(self.radio_geom_none)
+        v_geom.addWidget(self.radio_geom_pdelta)
+        v_geom.addWidget(self.radio_geom_large)
+        layout.addWidget(self.group_nonlinear)
+
+        self.group_other_params = QGroupBox("Other Parameters")
+        form_other = QFormLayout(self.group_other_params)
+        
+        btn_mod_load = QPushButton("Modify/Show..."); btn_mod_load.setEnabled(False) 
+        btn_mod_results = QPushButton("Modify/Show..."); btn_mod_results.setEnabled(False) 
+        btn_mod_nl = QPushButton("Modify/Show...")
+        btn_mod_nl.clicked.connect(self.open_nonlinear_params)
+
+        form_other.addRow("Load Application (Full Load)", btn_mod_load)
+        form_other.addRow("Results Saved (Final State)", btn_mod_results)
+        form_other.addRow("Nonlinear Parameters (Default)", btn_mod_nl)
+        layout.addWidget(self.group_other_params)
+
+        self.group_damping = QGroupBox("Damping Settings")
+        v_damp = QVBoxLayout(self.group_damping)
         h_damp = QHBoxLayout()
-        self.lbl_damp    = QLabel("Constant Modal Damping:")
+        self.lbl_damp = QLabel("Constant Modal Damping:")
         self.input_damping = QLineEdit()
         self.input_damping.setText(str(getattr(self.case, 'modal_damping', 0.05)))
         self.input_damping.setPlaceholderText("e.g. 0.05")
         h_damp.addWidget(self.lbl_damp)
         h_damp.addWidget(self.input_damping)
-        v_set.addLayout(h_damp)
-
-        layout.addWidget(self.group_settings)
+        v_damp.addLayout(h_damp)
+        layout.addWidget(self.group_damping)
 
         h_btns = QHBoxLayout()
         h_btns.addStretch()
@@ -311,7 +437,6 @@ class LoadCaseDetailDialog(QDialog):
         btn_ok.clicked.connect(self.on_ok)
         btn_cancel = QPushButton("Cancel")
         btn_cancel.setFixedWidth(100)
-                                                 
         btn_cancel.clicked.connect(self.reject)
         h_btns.addWidget(btn_ok)
         h_btns.addWidget(btn_cancel)
@@ -347,10 +472,12 @@ class LoadCaseDetailDialog(QDialog):
         self.group_ltha.setVisible(is_ltha)
         self.group_buckling.setVisible(is_buckling)
         self.grp_stiffness.setVisible(True)
-        self.group_settings.setVisible(is_nonlinear or is_rsa)
-        self.chk_pdelta.setVisible(is_nonlinear)
-        self.lbl_damp.setVisible(is_rsa)
-        self.input_damping.setVisible(is_rsa)
+        
+        self.group_nonlinear.setVisible(is_nonlinear)
+        self.group_other_params.setVisible(is_nonlinear)
+        
+        self.group_damping.setVisible(is_rsa)
+        
         self.setWindowTitle("Load Case Data - " + text)
 
     def populate_loads(self):
@@ -444,9 +571,31 @@ class LoadCaseDetailDialog(QDialog):
 
     def get_data(self):
         c = LoadCase(self.input_name.text().strip(), self.combo_type.currentText())
-        c.p_delta = self.chk_pdelta.isChecked()
+        
+        if hasattr(self, 'radio_geom_large') and self.radio_geom_large.isChecked():
+            c.geom_nonlin = "Large Displacements"
+        elif hasattr(self, 'radio_geom_pdelta') and self.radio_geom_pdelta.isChecked():
+            c.geom_nonlin = "P-Delta"
+        else:
+            c.geom_nonlin = "None"
+        
+        c.max_total_steps = getattr(self.case, 'max_total_steps', 200)
+        c.max_null_steps = getattr(self.case, 'max_null_steps', 50)
+        c.use_event_stepping = getattr(self.case, 'use_event_stepping', True)
+        c.event_lumping_tol = getattr(self.case, 'event_lumping_tol', 0.01)
+        c.max_events_per_step = getattr(self.case, 'max_events_per_step', 24)
+        c.use_iteration = getattr(self.case, 'use_iteration', True)
+        c.max_const_stiff_iter = getattr(self.case, 'max_const_stiff_iter', 10)
+        c.max_nr_iter = getattr(self.case, 'max_nr_iter', 40)
+        c.iter_conv_tol = getattr(self.case, 'iter_conv_tol', 1e-4)
+        c.use_line_search = getattr(self.case, 'use_line_search', False)
+        c.tf_max_iter = getattr(self.case, 'tf_max_iter', 10)
+        c.tf_conv_tol = getattr(self.case, 'tf_conv_tol', 0.01)
+        c.tf_accel_factor = getattr(self.case, 'tf_accel_factor', 1.0)
+        c.continue_if_no_converge = getattr(self.case, 'continue_if_no_converge', False)
+                                                                                           
         try:
-            c.modal_damping = float(self.input_damping.text())
+            c.modal_damping = float(self.input_damping.text()) if hasattr(self, 'input_damping') else 0.05
         except ValueError:
             c.modal_damping = 0.05
 
@@ -498,6 +647,7 @@ class LoadCaseDetailDialog(QDialog):
                 c.loads.append((cmb.currentText(), scale))
 
         else:
+                                             
             for r in range(self.table.rowCount()):
                 cmb = self.table.cellWidget(r, 0)
                 if not cmb: continue
@@ -506,7 +656,7 @@ class LoadCaseDetailDialog(QDialog):
                 c.loads.append((cmb.currentText(), scale))
 
         return c
-
+    
     def validate_rsa_loads(self):
         warnings = []
         for r in range(self.table_rsa.rowCount()):
@@ -596,6 +746,11 @@ class LoadCaseDetailDialog(QDialog):
         dlg.btn_cancel.setVisible(False)
         dlg.update_graph()
         dlg.exec()
+
+    def open_nonlinear_params(self):
+        dlg = NonlinearParametersDialog(self.case, self)
+        if dlg.exec():
+            dlg.save_to_case()
 
 class LoadCaseManagerDialog(QDialog):
     """The Main List Window (Define Load Cases)"""

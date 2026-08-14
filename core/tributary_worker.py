@@ -49,7 +49,6 @@ class TributaryWorker(QRunnable):
 
         valid_pts = pts[inside]
 
-        # --- BACKGROUND PERIMETER SEARCH ---
         potential_beams = snap['beams']
         perimeter_beams = []
         edges = [(nodes_xy[i], nodes_xy[(i + 1) % n_nodes]) for i in range(n_nodes)]
@@ -73,7 +72,7 @@ class TributaryWorker(QRunnable):
                 dot2 = np.dot(b2-p1, p2-p1)
                 
                 if d1 < 1e-3 and d2 < 1e-3:
-                    if (0 - 1e-3 <= dot1 <= edge_length**2 + 1e-3) and \
+                    if (0 - 1e-3 <= dot1 <= edge_length**2 + 1e-3) and\
                        (0 - 1e-3 <= dot2 <= edge_length**2 + 1e-3):
                         is_perimeter = True
                         break
@@ -81,11 +80,9 @@ class TributaryWorker(QRunnable):
             if is_perimeter:
                 perimeter_beams.append(b)
                 
-        # Override the potential beams with ONLY the true perimeter beams
         beams = perimeter_beams
         snap['beams'] = beams
-        # -----------------------------------   
-
+                                                
         beam_hists = {}
         beam_lengths = {}
         beams = snap['beams']
@@ -187,7 +184,7 @@ class TributaryWorker(QRunnable):
         result = {
             'area_id': self.area_id,
             'sig': self.geom_sig,
-            'perimeter_beam_ids': [b['id'] for b in beams], # Added this line
+            'perimeter_beam_ids': [b['id'] for b in beams],                  
             'beam_hists': beam_hists,
             'beam_lengths': beam_lengths,
             'unit_point_force': unit_point_force,

@@ -7,7 +7,6 @@ from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QFont, QIcon
 from app.ui.theme import apply_dialog_style
 
-# Length scales for local dialog unit conversion
 LENGTH_SCALES = {
     "m":  1.0,
     "cm": 100.0,
@@ -65,7 +64,6 @@ class SmartDoubleInput(QLineEdit):
             txt = f"{v:.4f}"
         self.setText(txt + self._get_suffix())
 
-
 class NewModelDialog(QDialog):
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -110,7 +108,6 @@ class NewModelDialog(QDialog):
         unit_group.setLayout(unit_layout)
         right_layout.addWidget(unit_group)
 
-        # Initialize the active unit scaling based on default combobox selection
         current_len_unit = self._get_len_unit(self.unit_combo.currentText())
         self._l_scale = LENGTH_SCALES.get(current_len_unit, 1.0)
 
@@ -184,7 +181,6 @@ class NewModelDialog(QDialog):
         
         right_layout.addWidget(self.stack)
 
-        # Informational Note
         note_lbl = QLabel("Note: Enter standard decimals (5000) or scientific notation (5e3). Lengths automatically convert when project units change.")
         note_lbl.setStyleSheet("color: gray; font-size: 10px; font-style: italic;")
         note_lbl.setWordWrap(True)
@@ -205,7 +201,6 @@ class NewModelDialog(QDialog):
 
         main_layout.addLayout(right_layout)
         
-        # Connect signals last so initialization doesn't trigger it prematurely
         self.unit_combo.currentTextChanged.connect(self.on_unit_changed)
 
     def _get_len_unit(self, combo_text: str) -> str:

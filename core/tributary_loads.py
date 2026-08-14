@@ -17,10 +17,10 @@ class TributaryLoadGenerator(QObject):
     def __init__(self, model):
         super().__init__()
         self.model = model
-        # --- OPTIMIZED GRID ---
-        self.grid_density = 300     # Reduced from 2500 (90,000 points total instead of 6.25 million)
-        self.num_bins = 50          # Reduced from 250 (Gives a thick 6-to-1 point-to-bin ratio)
-        # ----------------------
+                                
+        self.grid_density = 300                                                                      
+        self.num_bins = 50                                                                      
+                                
         self.thread_pool = QThreadPool.globalInstance()
         self._pending_count = 0                                                                               
 
@@ -103,7 +103,6 @@ class TributaryLoadGenerator(QObject):
             if max(z_coords) - min(z_coords) > 0.01:
                 continue
 
-            # --- FAST MAIN-THREAD FILTER ---
             nodes_xy = np.array([[n.x, n.y] for n in area.nodes])
             min_x, min_y = np.min(nodes_xy, axis=0)
             max_x, max_y = np.max(nodes_xy, axis=0)
@@ -120,7 +119,6 @@ class TributaryLoadGenerator(QObject):
 
             live_area_ids.add(area.id)
 
-            # --- GENERATE SIGNATURE USING ONLY POTENTIAL BEAMS ---
             geom_sig = (
                 self.grid_density, self.num_bins,
                 tuple((round(n.x, 4), round(n.y, 4), round(n.z, 4)) for n in area.nodes),
@@ -167,14 +165,11 @@ class TributaryLoadGenerator(QObject):
         area_id = result['area_id']
         cache = self.model._tributary_cache
 
-        # Update the cache with the finished worker's data
         if area_id in cache and cache[area_id]['sig'] == result['sig']:
             cache[area_id] = result
 
-        # Safely decrement the pending count
         self._pending_count = max(0, self._pending_count - 1)                                                    
         
-        # --- THE FIX: Wait for ALL slabs to finish before applying and drawing ---
         if self._pending_count == 0:
             self._apply_cached_loads()
             self.signal_redraw_requested.emit()                                                                             
@@ -202,12 +197,11 @@ class TributaryLoadGenerator(QObject):
                 continue
 
             cached = cache[area.id]
-            # --- Read true perimeter beams straight from the worker's result ---
+                                                                                 
             perimeter_ids = cached.get('perimeter_beam_ids', [])
             beams = [self.model.elements[bid] for bid in perimeter_ids if bid in self.model.elements]
             if not beams: continue
-            # -------------------------------------------------------------------
-
+                                                                                 
             self.model.tributary_visuals['heatmap'][area.id] = cached['heatmap_entry']
             self.model.tributary_visuals['points'].append(cached['heat_points'])
             self.model.tributary_visuals['colors'].append(cached['heat_colors'])
@@ -241,21 +235,18 @@ class TributaryLoadGenerator(QObject):
             beam_id, pattern_name = key
             beam, L_total = beam_meta[key]
 
-            # --- NEW PIECEWISE LINEAR INTERPOLATION ---
             bin_length_rel = 1.0 / self.num_bins
             midpoints = [(i + 0.5) * bin_length_rel for i in range(self.num_bins)]
             y_vals = list(summed_magnitudes)
             
             if len(y_vals) >= 2:
-                # Extrapolate slope to d = 0.0 (Start of beam)
+                                                              
                 slope_start = (y_vals[1] - y_vals[0]) / (midpoints[1] - midpoints[0])
                 y_start = y_vals[0] - slope_start * midpoints[0]
                 
-                # Extrapolate slope to d = 1.0 (End of beam)
                 slope_end = (y_vals[-1] - y_vals[-2]) / (midpoints[-1] - midpoints[-2])
                 y_end = y_vals[-1] + slope_end * (1.0 - midpoints[-1])
                 
-                # Prevent extrapolation from flipping the load sign at extreme edges
                 if y_vals[0] >= 0 and y_start < 0: y_start = 0.0
                 if y_vals[0] <= 0 and y_start > 0: y_start = 0.0
                 if y_vals[-1] >= 0 and y_end < 0: y_end = 0.0
@@ -266,8 +257,7 @@ class TributaryLoadGenerator(QObject):
             else:
                 distances = [0.0, 0.5, 1.0]
                 magnitudes = [y_vals[0], y_vals[0], y_vals[0]]
-            # ------------------------------------------
-
+                                                        
             new_load = MemberLoad(
                 element_id=beam_id, pattern_name=pattern_name,
                 wx=0.0, wy=0.0, wz=0.0, projected=False,

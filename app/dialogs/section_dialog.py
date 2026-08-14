@@ -17,7 +17,6 @@ from core.integrity_checks import check_section_in_use
 from app.dialogs.section_manager_dialog import ShapeCard, AddFrameSectionPropertyDialog
 from app.ui.theme import apply_dialog_style
 
-# Length scales for local dialog unit conversion
 LENGTH_SCALES = {
     "m":  1.0,
     "cm": 100.0,
@@ -74,7 +73,6 @@ class SmartDoubleInput(QLineEdit):
         else:
             txt = f"{v:.4f}"
         self.setText(txt + self._get_suffix())
-
 
 class AISCSelectionDialog(QDialog):
     """Dialog to select a specific shape from the loaded AISC list."""
@@ -591,7 +589,6 @@ class AddSectionDialog(QDialog):
     def mk_prop_spin(self, prop_type="area", initial_si_val=0.0):
         current_unit = self.combo_length.currentText()
         
-        # Calculate initial display scale
         if prop_type == "area":       scale = self._l_scale ** 2
         elif prop_type == "inertia":  scale = self._l_scale ** 4
         else:                         scale = self._l_scale
@@ -605,7 +602,7 @@ class AddSectionDialog(QDialog):
 
     def _get_si(self, inp: SmartDoubleInput) -> float:
         """Safely reads the widget's pure value and converts it strictly back to SI base (meters)."""
-        val = inp.value() # Use the widget's safe value parser
+        val = inp.value()                                     
             
         prop = inp.property("prop_type")
         if prop == "area":       
@@ -619,7 +616,6 @@ class AddSectionDialog(QDialog):
         old_scale = self._l_scale
         si_vals = {}
         
-        # 1. Read current UI text and convert TO strict SI
         for inp in self.all_inputs:
             val = inp.value()
                 
@@ -628,11 +624,9 @@ class AddSectionDialog(QDialog):
             elif prop == "inertia":  si_vals[inp] = val / (old_scale ** 4)
             else:                    si_vals[inp] = val / old_scale
             
-        # 2. Update to new unit scale
         self._l_scale = LENGTH_SCALES[self.combo_length.currentText()]
         new_unit = self.combo_length.currentText()
         
-        # 3. Convert SI back to NEW unit and display
         for inp in self.all_inputs:
             prop = inp.property("prop_type")
             si_val = si_vals[inp]
@@ -641,8 +635,8 @@ class AddSectionDialog(QDialog):
             elif prop == "inertia":  new_val = si_val * (self._l_scale ** 4)
             else:                    new_val = si_val * self._l_scale
             
-            inp.setUnit(new_unit) # Update the unit string
-            inp.setValue(new_val) # Triggers the formatting with the new suffix
+            inp.setUnit(new_unit)                         
+            inp.setValue(new_val)                                              
             
         self.update_preview()
 

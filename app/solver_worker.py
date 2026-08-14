@@ -38,6 +38,7 @@ from core.solver.modal.modal_engine import run_modal_analysis
 from core.solver.RSA.rsa_engine import RSAEngine
 from core.solver.LTHA.ltha_engine import run_ltha_analysis
 from core.solver.buckling.buckling_engine import run_buckling_analysis
+from core.solver.linear_static.nonlinear_engine import run_nonlinear_analysis
 from core.model import StructuralModel
 
 class SolverWorker(QThread):
@@ -56,13 +57,13 @@ class SolverWorker(QThread):
             print(f"Worker: Starting {self.case_type} Engine on {self.input_path} (Case: {self.case_name})...")
             success = False
 
+            print("Worker: Deleting old analysis files...")
+            purge_old_project_files(self.input_path)
+
             if self.case_type == "Batch Run": 
                 from progress import make_callback
                 cb = make_callback(self.signal_progress.emit)
                 cb("Worker: Initializing Global Batch Runner...", 5)
-
-                cb("Worker: Deleting old analysis files...", 5)
-                purge_old_project_files(self.input_path)
                 
                 temp_model = StructuralModel("Temp")
                 try:
@@ -102,6 +103,9 @@ class SolverWorker(QThread):
                     
                     if c_type == "Linear Static":
                         run_linear_static_analysis(self.input_path, case_output_path, base_case_name, progress_callback=cb)
+                        
+                    elif c_type == "Nonlinear Static":
+                        run_nonlinear_analysis(self.input_path, case_output_path, base_case_name, progress_callback=cb)
                         
                     elif c_type == "Modal":
                         run_modal_analysis(self.input_path, case_output_path, progress_callback=cb)
@@ -516,6 +520,11 @@ class SolverWorker(QThread):
                 from progress import make_callback
                 cb = make_callback(self.signal_progress.emit)
                 success = run_modal_analysis(self.input_path, self.output_path, progress_callback=cb)
+
+            elif self.case_type == "Nonlinear Static":
+                from progress import make_callback
+                cb = make_callback(self.signal_progress.emit)
+                success = run_nonlinear_analysis(self.input_path, self.output_path, self.case_name, progress_callback=cb)
 
             elif self.case_type in ["Response Spectrum", "LTHA"]:
                 temp_model = StructuralModel("Temp")

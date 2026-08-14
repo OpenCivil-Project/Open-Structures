@@ -60,14 +60,12 @@ class TendonResponsePlot(QWidget):
             painter.drawText(self.rect(), Qt.AlignmentFlag.AlignCenter, "No Data Available")
             return
 
-        # Calculate bounds based on BOTH arrays
         y_min = min(min(self.prior_y), min(self.final_y))
         y_max = max(max(self.prior_y), max(self.final_y))
         y_range = max(1e-6, y_max - y_min)
         y_min_plot = y_min - (y_range * 0.1)
         y_max_plot = y_max + (y_range * 0.1)
         
-        # Draw Grid
         painter.setPen(QPen(QColor("#E0E0E0"), 1, Qt.PenStyle.SolidLine))
         grid_steps = 10
         for i in range(grid_steps + 1):
@@ -76,13 +74,11 @@ class TendonResponsePlot(QWidget):
             py = self.margin_t + (i / grid_steps) * plot_h
             painter.drawLine(self.margin_l, int(py), w - self.margin_r, int(py))
 
-        # Y-Axis Labels
         painter.setPen(QPen(QColor("black"), 1))
         fmt = "{:.0f}" if y_range > 10 else "{:.3f}"
         painter.drawText(5, self.margin_t + 5, fmt.format(y_max_plot))
         painter.drawText(5, h - self.margin_b, fmt.format(y_min_plot))
 
-        # 1. Draw Prior to Seating Curve (Magenta)
         painter.setPen(QPen(QColor("#9C27B0"), 2.5)) 
         for i in range(len(self.x_data) - 1):
             x1 = self.margin_l + (self.x_data[i] / self.total_length) * plot_w
@@ -91,7 +87,6 @@ class TendonResponsePlot(QWidget):
             y2 = h - self.margin_b - ((self.prior_y[i+1] - y_min_plot) / (y_max_plot - y_min_plot)) * plot_h
             painter.drawLine(int(x1), int(y1), int(x2), int(y2))
 
-        # 2. Draw Final Curve (Green)
         painter.setPen(QPen(QColor("#00E676"), 2.5)) 
         for i in range(len(self.x_data) - 1):
             x1 = self.margin_l + (self.x_data[i] / self.total_length) * plot_w
@@ -100,7 +95,6 @@ class TendonResponsePlot(QWidget):
             y2 = h - self.margin_b - ((self.final_y[i+1] - y_min_plot) / (y_max_plot - y_min_plot)) * plot_h
             painter.drawLine(int(x1), int(y1), int(x2), int(y2))
 
-        # Draw Cursor Dots
         cx = self.margin_l + (self.cursor_x / self.total_length) * plot_w
         
         cursor_y_prior = np.interp(self.cursor_x, self.x_data, self.prior_y)
@@ -113,7 +107,6 @@ class TendonResponsePlot(QWidget):
         painter.setPen(Qt.PenStyle.NoPen)
         painter.drawEllipse(int(cx) - 5, int(cy_prior) - 5, 10, 10)
         painter.drawEllipse(int(cx) - 5, int(cy_final) - 5, 10, 10)
-
 
 class TendonResponseDialog(QDialog):
     def __init__(self, model, initial_tendon_id=None, preview_load_data=None, parent=None):
@@ -141,7 +134,6 @@ class TendonResponseDialog(QDialog):
         
         top_grid = QGridLayout()
         
-        # Tendon Object
         t_group = QGroupBox("Tendon Line Object")
         t_layout = QVBoxLayout(t_group)
         self.combo_tendon = QComboBox()
@@ -150,7 +142,6 @@ class TendonResponseDialog(QDialog):
         t_layout.addWidget(self.combo_tendon)
         top_grid.addWidget(t_group, 0, 0)
         
-        # Load Pattern
         p_group = QGroupBox("Load Pattern")
         p_layout = QVBoxLayout(p_group)
         self.combo_pattern = QComboBox()
@@ -158,7 +149,6 @@ class TendonResponseDialog(QDialog):
         self.combo_pattern.currentTextChanged.connect(self._recalculate_arrays)
         top_grid.addWidget(p_group, 0, 1)
 
-        # Distance at Cursor
         d_group = QGroupBox("Distance at Cursor")
         d_layout = QHBoxLayout(d_group)
         d_layout.addWidget(QLabel("Distance"))
@@ -167,7 +157,6 @@ class TendonResponseDialog(QDialog):
         d_layout.addWidget(self.edit_distance)
         top_grid.addWidget(d_group, 0, 2)
 
-        # Result Type
         r_group = QGroupBox("Result Type")
         r_layout = QHBoxLayout(r_group)
         self.rb_force = QRadioButton("Force")
@@ -178,7 +167,6 @@ class TendonResponseDialog(QDialog):
         r_layout.addWidget(self.rb_stress)
         top_grid.addWidget(r_group, 1, 0)
 
-        # Load Case / Combos (Disabled per parity with loads-only modeling)
         lc_group = QGroupBox("Load Case/Combo")
         lc_layout = QVBoxLayout(lc_group)
         lc_combo = QComboBox()
@@ -193,7 +181,6 @@ class TendonResponseDialog(QDialog):
         lc_layout.addLayout(env_layout)
         top_grid.addWidget(lc_group, 1, 1, 2, 1)
 
-        # Readouts
         read_group = QGroupBox("Load Pattern at Cursor")
         read_layout = QGridLayout(read_group)
         
@@ -220,11 +207,10 @@ class TendonResponseDialog(QDialog):
         
         top_grid.addWidget(read_group, 1, 2)
 
-        # Units
         u_group = QGroupBox("Units")
         u_layout = QVBoxLayout(u_group)
         self.combo_units = QComboBox()
-        self.combo_units.addItems(["kN, m, C", "N, m, C", "N, mm, C"]) # Simplified for brevity
+        self.combo_units.addItems(["kN, m, C", "N, m, C", "N, mm, C"])                         
         self.combo_units.currentTextChanged.connect(self._on_unit_changed)
         u_layout.addWidget(self.combo_units)
         
@@ -239,7 +225,6 @@ class TendonResponseDialog(QDialog):
 
         root.addLayout(top_grid)
 
-        # Canvas
         plot_group = QGroupBox("Tendon Response Plot")
         plot_layout = QVBoxLayout(plot_group)
         self.canvas = TendonResponsePlot()
@@ -294,11 +279,9 @@ class TendonResponseDialog(QDialog):
         total_length = max(p['coord1'] for p in tendon.layout_points)
         self.tendon_area = tendon.tendon_section.area
         
-        # Pass the tendon's max discretization length to perfectly sync with model.py
         max_disc = getattr(tendon, 'max_discretization_length', 1.524)
         evaluator = TendonEvaluator(tendon.layout_points, tendon.tendon_section, load_data, total_length, max_disc)
 
-        # Hook directly into the evaluator's custom grid! No arbitrary looping.
         self.x_array = evaluator.discrete_x
         self.prior_array = []
         self.after_seat_array = []
@@ -327,7 +310,6 @@ class TendonResponseDialog(QDialog):
             
         display_x = [self.local_unit.to_display_length(x) for x in self.x_array]
         
-        # Send both lines to the canvas
         self.canvas.set_data(display_x, display_prior, display_final)
         self._on_canvas_cursor_moved(self.canvas.cursor_x)
 
@@ -338,7 +320,6 @@ class TendonResponseDialog(QDialog):
         self.edit_distance.setText(f"{cursor_x_display:.4f}")
         self.edit_distance.blockSignals(False)
 
-        # Convert back to SI to interpolate
         cursor_x_si = self.local_unit.from_display_length(cursor_x_display)
         
         val_prior = np.interp(cursor_x_si, self.x_array, self.prior_array)

@@ -19,7 +19,6 @@ class LinearSegment:
     def get_curvature(self, x):
         return 0.0
 
-
 class ParabolicSegment:
     """Evaluates a parabolic tendon segment using start point, end point, and start slope."""
     def __init__(self, p0, p1, ordinate_key="coord2", use_slope=True):
@@ -55,7 +54,6 @@ class ParabolicSegment:
         y_double_prime = 2 * self.a
         return y_double_prime / (1 + y_prime**2)**1.5
 
-
 class TendonEvaluator:
     """
     Parses UI layout points and computes continuous geometry and prestress force
@@ -63,9 +61,6 @@ class TendonEvaluator:
     (chord-based, nodally-averaged) computation to within screen-rounding precision.
     """
 
-    # Number of sub-steps used to numerically integrate arc length within each
-    # user-defined layout segment. High enough that arc length itself is exact
-    # to far better precision than SAP's own 4-decimal display.
     _ARC_LENGTH_SUBSTEPS = 4000
 
     def __init__(self, layout_points, tendon_section, load_data, total_length, max_disc=1.524):
@@ -73,7 +68,7 @@ class TendonEvaluator:
         self.segments = []
         self.z_segments = []
         self.segment_bounds = []
-        self.total_length = total_length          # horizontal (coord1) length - kept for compatibility
+        self.total_length = total_length                                                               
         self.max_disc = max_disc
 
         self._build_segments()
@@ -99,19 +94,13 @@ class TendonEvaluator:
         )
         self.constant_force_loss = constant_stress_loss * self.area
 
-        # --- Build the discretized (chord) mesh and the two friction-loss meshes
-        #     (measured from I-end and from J-end) that SAP2000's own algorithm uses. ---
-        self._mesh_nodes = self._build_mesh()          # list of (x, s) pairs, s = arc length from I-end
-        self.arc_length = self._mesh_nodes[-1][1]       # true total arc length of the tendon
+        self._mesh_nodes = self._build_mesh()                                                           
+        self.arc_length = self._mesh_nodes[-1][1]                                            
 
-        # Backward-compat: tendon_response_dialog.py reads evaluator.discrete_x directly
-        # as the plotting grid (coord1 values). The mesh nodes already give exactly
-        # this grid (every layout point plus every arc-length subdivision), so just
-        # expose their x-coordinates under the old name.
         self.discrete_x = [x for x, s in self._mesh_nodes]
 
-        self._mesh_forward = self._build_force_mesh(from_i_end=True)   # nodes referenced from I-end
-        self._mesh_reverse = self._build_force_mesh(from_i_end=False)  # nodes referenced from J-end
+        self._mesh_forward = self._build_force_mesh(from_i_end=True)                                
+        self._mesh_reverse = self._build_force_mesh(from_i_end=False)                               
 
         self.P_jack_after_I = self.P0
         self.P_jack_after_J = self.P0
@@ -121,8 +110,6 @@ class TendonEvaluator:
                 self.P_jack_after_I = self._calc_slip_p_jack(from_i_end=True)
             if self.jack_loc in ["J-End", "Both Ends"]:
                 self.P_jack_after_J = self._calc_slip_p_jack(from_i_end=False)
-
-    # ------------------------------------------------------------------ geometry -----
 
     def _build_segments(self):
         n = len(self.points)
@@ -182,8 +169,6 @@ class TendonEvaluator:
         seg_z = self._get_z_segment_at(x)
         return seg_y.get_y(x), seg_z.get_y(x)
 
-    # --------------------------------------------------------- arc-length mesh -----
-
     def _build_mesh(self):
         """
         Builds the discretized node list SAP2000 uses internally: every user-defined
@@ -202,8 +187,7 @@ class TendonEvaluator:
         each independently subdivided by max_disc. This does not change the geometry
         (the underlying curve/eccentricity is unaffected) - only the meshing.
         """
-        # Build the list of (x0, x1, seg_index) discretization sub-spans, splitting
-        # Parabolic segments at their midpoint.
+                                                                                   
         disc_spans = []
         for i, (x0, x1) in enumerate(self.segment_bounds):
             seg_type = self.points[i + 1].get("segment_type", "Linear")
@@ -235,7 +219,6 @@ class TendonEvaluator:
 
             s_cum += span_arc_len
 
-        # de-duplicate any near-coincident nodes (can happen at span boundaries)
         dedup = [nodes[0]]
         for x, s in nodes[1:]:
             if x - dedup[-1][0] > 1e-7:
@@ -305,8 +288,6 @@ class TendonEvaluator:
         v2 = v2 / np.linalg.norm(v2)
         return math.acos(np.clip(np.dot(v1, v2), -1.0, 1.0))
 
-    # ---------------------------------------------------------------- alpha api -----
-
     def get_alpha(self, x_target):
         """Kept for backward compatibility / external callers: returns the smooth
         (non-discretized) cumulative angle up to x_target from the I-end. Prefer the
@@ -347,8 +328,6 @@ class TendonEvaluator:
         a_arr = [m['alpha_avg'] for m in mesh]
         s_query = min(max(s_query, s_arr[0]), s_arr[-1])
         return float(np.interp(s_query, s_arr, a_arr))
-
-    # ---------------------------------------------------------- force / seating -----
 
     def _x_to_s(self, x, from_i_end=True):
         node_x = [n[0] for n in self._mesh_nodes]
@@ -430,15 +409,7 @@ class TendonEvaluator:
         elif self.jack_loc == "J-End":
             P_prior, P_after = self._get_components_from_jack(x, from_i_end=False)
         elif self.jack_loc == "Both Ends":
-            # SAP2000 computes each end's anchorage-set (wedge draw-in) loss
-            # completely independently - exactly the same calculation as if that
-            # end were the only jack, no coupling between the two ends' solves.
-            # The reported "After Seating" force is then the combined (both-ends)
-            # friction-only Prior curve, with BOTH ends' independently-computed
-            # losses subtracted from it (superposition), NOT a max() or a min() of
-            # the two ends' own after-curves. Validated exactly (0.0001 kN, screen
-            # rounding) against real SAP2000 output for straight, V-shaped, and
-            # parabolic tendons.
+                                                                            
             P_prior_I, P_after_I = self._get_components_from_jack(x, from_i_end=True)
             P_prior_J, P_after_J = self._get_components_from_jack(x, from_i_end=False)
             P_prior = max(P_prior_I, P_prior_J)

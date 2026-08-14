@@ -93,8 +93,7 @@ class DisplayForcesDialog(QDialog):
         if current_case in valid_cases:
             self.cb_case.setCurrentText(current_case)
 
-        is_single_case = current_case in getattr(self.model, 'load_cases', {})
-        if is_single_case:
+        if len(valid_cases) <= 1:
             self.cb_case.setEnabled(False)
 
         self._results_base_path = None

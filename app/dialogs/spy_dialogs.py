@@ -653,7 +653,8 @@ class FBDViewerDialog(QDialog):
 
         active_case = self.results.get("info", {}).get("case_name", "")
 
-        is_single_case = active_case in getattr(self.model, 'load_cases', {})
+        valid_paths = getattr(self.model, 'valid_result_paths', [])
+        is_single_case = len(valid_paths) <= 1
 
         if is_single_case:
             self.case_combo.addItem(active_case, active_case)
@@ -670,26 +671,24 @@ class FBDViewerDialog(QDialog):
                 self._base_file_path = self._base_file_path.rsplit("_", 1)[0]
 
         valid_cases = []
-        excluded_types = ["Modal", "Buckling", "LTHA"]
         
         search_pattern = f"{self._base_file_path}_*_results.json"
         for file_path in glob.glob(search_pattern):
-            try:
-                with open(file_path, 'r') as f:
-                    temp_data = json.load(f)
-                
-                case_type = temp_data.get("info", {}).get("type", "")
-                if case_type in excluded_types:
-                    continue
-            except Exception:
-                continue
-
             filename = os.path.basename(file_path)
             base_name = os.path.basename(self._base_file_path)
             case_name = filename.replace(base_name + "_", "").replace("_results.json", "")
-            valid_cases.append(case_name)
+            
+            c_type = "Linear Static"
+            if hasattr(self.model, 'load_cases') and case_name in self.model.load_cases:
+                case_obj = self.model.load_cases[case_name]
+                c_type = getattr(case_obj, 'case_type', getattr(case_obj, 'type', 'Linear Static'))
+            elif hasattr(self.model, 'load_combos') and case_name in self.model.load_combos:
+                c_type = 'Load Combination'
+                
+            if c_type in ["Modal", "Buckling", "LTHA"]:
+                continue
 
-        valid_cases = list(dict.fromkeys(valid_cases))
+            valid_cases.append(case_name)
         current_idx = -1
         
         for i, case_name in enumerate(valid_cases):

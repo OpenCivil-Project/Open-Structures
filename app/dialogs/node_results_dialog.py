@@ -119,7 +119,10 @@ class NodeResultsDialog(QDialog):
                     display_name += f" (RSA Envelope)"
                 elif info_type == "Linear Time History Analysis":
                     display_name += f" (LTHA Envelope)"
-                    
+                elif info_type == "Nonlinear Static":
+                    geom_type = data.get("info", {}).get("geom_nonlin", "None")
+                    display_name += f" ({geom_type})"
+                      
                 self.combo_cases.addItem(display_name, {"path": path, "mode": "MAIN"})
                 if case_name == current_case_name:
                     target_idx = self.combo_cases.count() - 1

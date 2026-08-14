@@ -206,17 +206,16 @@ class TendonLoadDialog(QDialog):
         self.lbl_relax.setText(f"Steel Relaxation Stress ({u_press})")
 
     def _show_losses_stub(self):
-        # Grab the tendon ID from the parent (TendonGeometryDialog)
+                                                                   
         try:
             tendon_id = self.parent().tendon.id
         except AttributeError:
             tendon_id = None
             
-        # Get the unsaved SI data currently typed in the UI
         current_data = self.get_data()
         
         from app.dialogs.tendon_response_dialog import TendonResponseDialog
-        # Pass the unsaved data as 'preview_load_data'
+                                                      
         dlg = TendonResponseDialog(self.model, initial_tendon_id=tendon_id, preview_load_data=current_data, parent=self)
         dlg.exec()
 
@@ -442,11 +441,10 @@ class TendonLoadDisplayDialog(QDialog):
         self.table.blockSignals(False)
 
     def _show_losses_stub(self):
-        # Sync the table UI to the self.load_data dictionary first
+                                                                  
         if not self._sync_to_data():
             return
             
-        # Reach up to the parent to grab the model
         try:
             model = self.parent().model
         except AttributeError:

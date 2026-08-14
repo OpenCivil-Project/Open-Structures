@@ -3854,6 +3854,10 @@ class MainWindow(QMainWindow):
                                              
                 self.switch_modal_view("LTHA_LIVE")
                 
+            elif info_type == "Nonlinear Static":
+                                                                            
+                self.switch_modal_view("MAIN_RESULT")
+                
             else:
                                                                            
                 self.switch_modal_view("MAIN_RESULT")
@@ -3952,6 +3956,8 @@ class MainWindow(QMainWindow):
 
         res_path = f"{base_path}_{load_case}_results.json"
 
+        self.solver_output_path = res_path
+
         if not os.path.exists(res_path):
             self.statusBar().showMessage(f"No results on disk for '{load_case}'. Run that case first.")
             return
@@ -4032,6 +4038,8 @@ class MainWindow(QMainWindow):
 
         res_path = f"{base_path}_{load_case}_results.json"
         mat_path = f"{base_path}_{load_case}_matrices.json"
+
+        self.solver_output_path = res_path
 
         if not os.path.exists(res_path):
             self.statusBar().showMessage(
