@@ -69,7 +69,8 @@ def compute_corotational_element(state: ElementCorotState,
                                   p1_current, p2_current,
                                   R_node1: NodeRotationState,
                                   R_node2: NodeRotationState,
-                                  is_strict_statics: bool = False):
+                                  is_strict_statics: bool = False,
+                                  fef_local: np.ndarray = None):
     """
     Given current node positions and current accumulated node orientations,
     returns:
@@ -78,6 +79,33 @@ def compute_corotational_element(state: ElementCorotState,
         N_axial        : recovered axial force (for diagnostics / consistency
                           with the existing P-Delta geometric stiffness call)
     Also updates state.R_r in place (the corotational frame for this element).
+
+    fef_local: optional 12-vector, the element's fixed-end-force vector
+    (member distributed / trapezoidal / self-weight / point loads and
+    point moments applied along the span), expressed in the element's
+    ORIGINAL local axes exactly as computed by GlobalAssembler._add_member_loads
+    for the linear/P-Delta path.
+
+    Previously this function only recovered internal force from nodal-
+    displacement-induced strain (k_local @ p_local [+ k_geo @ p_local]),
+    which silently drops any member load that only exists as a fixed-end
+    force (distributed loads, trapezoidal distributed loads, self-weight,
+    and point loads/moments applied along the span rather than at a node).
+    Point loads applied directly AT a node never went through fef_local at
+    all, which is why they already matched SAP2000 while these did not.
+
+    fef_local is added into the LOCAL force vector before rotation into
+    global axes, so it rotates rigidly with the element's current
+    corotational frame R_r (the same "attached to the member" treatment
+    used for the elastic/geometric stiffness terms). This exactly
+    reproduces the linear/small-rotation FEF result at zero rotation, and
+    is a standard corotational-frame approximation for member loads at
+    large rotation. It is NOT a full re-projection of a space-fixed
+    (Global-coordinate) load direction onto the rotating member at every
+    iteration - if you need that level of fidelity for elements that
+    rotate a large amount under a Global-direction distributed load,
+    flag it and we can add per-iteration re-projection for coord='Global'
+    member loads specifically.
     """
                                                                      
     chord = p2_current - p1_current
@@ -112,9 +140,13 @@ def compute_corotational_element(state: ElementCorotState,
         I22=sec['I22'], I33=sec['I33'], As2=sec['As2'], As3=sec['As3'],
         L=L_eval
     )
-    
-    f_local_linear = k_local @ p_local
-    N_axial = f_local_linear[6]   
+
+    if fef_local is None:
+        fef_local = np.zeros(12)
+
+    f_local_linear = k_local @ p_local + fef_local
+                                                                          
+    N_axial = 0.5 * (f_local_linear[6] - f_local_linear[0])
 
     phi_y = (12 * mat['E'] * sec['I33']) / (mat['G'] * sec['As2'] * L_eval**2) if sec['As2'] > 0 else 0.0
     phi_z = (12 * mat['E'] * sec['I22']) / (mat['G'] * sec['As3'] * L_eval**2) if sec['As3'] > 0 else 0.0
@@ -123,8 +155,10 @@ def compute_corotational_element(state: ElementCorotState,
         -N_axial, L_eval, phi_y=phi_y, phi_z=phi_z, A=sec['A'], I22=sec['I22'], I33=sec['I33']
     )
 
-    f_local = (k_local + k_geo) @ p_local
-    N_axial = f_local[6]                      
+    f_local_with_fef = (k_local + k_geo) @ p_local + fef_local
+    N_axial = 0.5 * (f_local_with_fef[6] - f_local_with_fef[0])
+
+    f_local = (k_local + k_geo) @ p_local                      
     
     R_full = np.zeros((12, 12))
     for blk in range(4):

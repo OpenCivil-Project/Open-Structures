@@ -495,169 +495,225 @@ class GlobalAssembler:
         """
         Calculates FEF for all member loads, condenses them for releases,
         transforms them to Global coordinates, and adds to P vector.
+
+        Thin loop around compute_single_member_load_fef_global() - see that
+        method's docstring for why the per-load math was pulled out into a
+        standalone, reusable function.
         """
         print("Assembler: Processing Member Loads (FEF)...")
         active_patterns = {pat: scale for pat, scale in self.dm.load_case['patterns']}
-        
+
         for load in self.dm.raw['loads']:
-                             
             if load['pattern'] not in active_patterns: continue
             if load['type'] not in ['member_dist', 'member_point']: continue
-            
+
             scale = active_patterns[load['pattern']]
-            
-            el = self.element_by_id.get(load['element_id'])
-            if not el: continue
-            
-            L_clear = el['L_clear']
-            L_total = el['L_total']
-            idx_i, idx_j = el['node_indices']
-            p1 = self.dm.nodes[idx_i]['coords']
-            p2 = self.dm.nodes[idx_j]['coords']
+            result = self.compute_single_member_load_fef_global(load, scale)
+            if result is None:
+                continue
+            fef_global, fef_local, idx_i, idx_j = result
 
-            rz = el.get('rz_factor', 0.0)
-            ri = el.get('end_off_i', 0.0) * rz
-            rj = el.get('end_off_j', 0.0) * rz
-            
-            ri = el.get('end_off_i', 0.0)
-            rj = el.get('end_off_j', 0.0)
-            
-            mat = el['material']
-            sec = el['section']
-            k_raw = get_local_stiffness_matrix(
-                E=mat['E'], G=mat['G'], A=sec['A'], J=sec['J'],
-                I22=sec['I22'], I33=sec['I33'],
-                As2=sec['As2'], As3=sec['As3'], 
-                L=L_clear, L_tor=L_total
-            )
-
-            fef_local = np.zeros(12)
-                                                                          
-            beta_eff = el['beta'] - np.degrees(sec.get('theta_p', 0.0))
-            R_3x3 = get_rotation_matrix(p1, p2, beta_eff)
-
-            w_vec_local_for_offset = np.zeros(3) 
-
-            if load['type'] == 'member_dist':
-                                        
-                mags = load.get('magnitudes', [0, 0, 0, 0])
-                
-                if any(abs(m) > 1e-9 for m in mags):
-                    fef_local, F_ri, M_ri_cent, F_rj, M_rj_cent = self._get_trapezoidal_fef_and_w(
-                        load, scale, R_3x3, L_clear, L_total, ri, rj, p1, p2, mat, sec
-                    )
-                    w_vec_local_for_offset = None                                              
-                else:
-                                                                 
-                    w_defined = np.array([load.get('wx', 0.0), load.get('wy', 0.0), load.get('wz', 0.0)]) * scale
-                    
-                    if load.get('coord', 'Global') == 'Global':
-                        w_local = R_3x3 @ w_defined
-                    else:
-                        w_local = w_defined
-
-                    if load.get('projected', False):
-                        w_local = self._apply_projection_factor(
-                            w_local, p1, p2, L_total, load.get('coord', 'Global')
-                        )
-                    
-                    wx, wy, wz = w_local
-                    w_vec_local_for_offset = w_local                               
-
-                    fef_local[0] = -wx * L_clear / 2;    fef_local[6] = -wx * L_clear / 2
-                    fef_local[1] = -wy * L_clear / 2;    fef_local[7] = -wy * L_clear / 2
-                    fef_local[5] = -wy * L_clear**2/12;  fef_local[11]=  wy * L_clear**2/12
-                    fef_local[2] = -wz * L_clear / 2;    fef_local[8] = -wz * L_clear / 2
-                    fef_local[4] =  wz * L_clear**2/12;  fef_local[10]= -wz * L_clear**2/12
-
-            elif load['type'] == 'member_point':
-                P_val = load['force'] * scale
-                
-                idx_dir, sign = self._parse_load_direction(load['dir'])
-                if idx_dir is None: continue 
-                
-                vec_defined = np.zeros(3)
-                vec_defined[idx_dir] = 1.0 * sign * P_val
-
-                coord_sys = load.get('coord', 'Global')
-                if "GRAVITY" in str(load['dir']).upper(): coord_sys = 'Global'
-                
-                if coord_sys == 'Global':
-
-                    P_local = R_3x3 @ vec_defined 
-                else:
-                    P_local = vec_defined
-                
-                dist_raw = load['dist']
-                if load['is_rel']: dist_raw *= L_total
-
-                if dist_raw >= ri and dist_raw <= (L_total - rj):
-                    a_dist = dist_raw - ri 
-                    
-                    l_type = load.get('l_type', 'Force')
-                    if l_type == 'Moment':
-                        fef_local = get_exact_fef_via_stiffness(L_clear, a_dist, np.zeros(3), mat, sec, M_vec_local=P_local)
-                    else:
-                        fef_local = get_exact_fef_via_stiffness(L_clear, a_dist, P_local, mat, sec)
-                    
-            if any(el['releases'][0]) or any(el['releases'][1]):
-                fef_local = condense_fef(k_raw, fef_local, el['releases'])
-
-            self.spy.record_fef(el['id'], fef_local)
-            
-            T_rot = np.zeros((12, 12))
-            for i in range(4): T_rot[i*3:(i+1)*3, i*3:(i+1)*3] = R_3x3
-
-            glob_off_i = np.array(el['offsets'][0])
-            glob_off_j = np.array(el['offsets'][1])
-
-            loc_off_insertion_i = R_3x3 @ glob_off_i
-            loc_off_insertion_j = R_3x3 @ glob_off_j
-
-            loc_off_total_i = loc_off_insertion_i.copy()
-            loc_off_total_j = loc_off_insertion_j.copy()
-            loc_off_total_i[0] += ri
-            loc_off_total_j[0] -= rj
-
-            T_ecc = get_eccentricity_matrix(loc_off_total_i, loc_off_total_j)
-            T_total = T_ecc @ T_rot
-
-            fef_global = T_total.T @ fef_local
-
-            if load['type'] == 'member_dist' and (ri > 0 or rj > 0):
-                if w_vec_local_for_offset is not None:
-                                                                 
-                    wx, wy, wz = w_vec_local_for_offset
-                    if ri > 0:
-                        F_rigid_i = np.array([wx, wy, wz]) * ri
-                        centroid_i = np.array([ri/2.0, 0, 0])
-                        centroid_i += loc_off_insertion_i
-                        M_rigid_i = np.cross(centroid_i, F_rigid_i)
-                        fef_global[0:3] -= R_3x3.T @ F_rigid_i
-                        fef_global[3:6] -= R_3x3.T @ M_rigid_i
-                    if rj > 0:
-                        F_rigid_j = np.array([wx, wy, wz]) * rj
-                        centroid_j = np.array([-rj/2.0, 0, 0])
-                        centroid_j += loc_off_insertion_j
-                        M_rigid_j = np.cross(centroid_j, F_rigid_j)
-                        fef_global[6:9] -= R_3x3.T @ F_rigid_j
-                        fef_global[9:12] -= R_3x3.T @ M_rigid_j
-                else:
-                                                                       
-                    if ri > 0:
-                        M_rigid_i = M_ri_cent + np.cross(loc_off_insertion_i, F_ri)
-                        fef_global[0:3] -= R_3x3.T @ F_ri
-                        fef_global[3:6] -= R_3x3.T @ M_rigid_i
-                    if rj > 0:
-                        M_rigid_j = M_rj_cent + np.cross(loc_off_insertion_j, F_rj)
-                        fef_global[6:9] -= R_3x3.T @ F_rj
-                        fef_global[9:12] -= R_3x3.T @ M_rigid_j
-    
             rows_i = slice(idx_i*6, idx_i*6+6)
             rows_j = slice(idx_j*6, idx_j*6+6)
-            
+
             self.P[rows_i] -= fef_global[0:6]
             self.P[rows_j] -= fef_global[6:12]
+
+    def compute_single_member_load_fef_global(self, load, scale, R_3x3_override=None):
+        """
+        Computes the full 12-vector fef_global (GLOBAL axes, equivalent-
+        nodal-load convention: caller does self.P -= fef_global) for ONE
+        member load record.
+
+        Extracted out of _add_member_loads() so this EXACT, already-
+        validated FEF math (trapezoidal integration, exact-stiffness point
+        load FEF, release condensation, rigid-end-offset correction) can
+        also be called from nonlinear_engine.py's Large Displacements path
+        with R_3x3_override = the element's CURRENT corotational frame
+        rotation matrix, instead of the frozen undeformed one.
+
+        Why this matters: for a member load with coord='Global' (fixed
+        global direction - e.g. wind, or a horizontal push on a column),
+        the intensity vector must be re-projected onto the member's
+        CURRENT (rotated) local axes to get the right FEF once the member
+        has rotated significantly - the undeformed-geometry projection
+        used by the static assembler is only a decent approximation for
+        SMALL rotations. A coord='Local' load's fef_local is, by
+        construction, independent of R_3x3 (see the branches below) - so
+        it is already exactly correct at any rotation and needs no
+        reprojection; only Global-coordinate loads are affected.
+
+        R_3x3_override: if None, computed from the element's stored
+        (undeformed) node coordinates exactly as before (unchanged
+        behavior for linear/P-Delta and the static baseline of Large
+        Displacements). If supplied, used in place of that rotation
+        matrix everywhere below - this is the sole change needed to
+        reproject onto a deformed/rotated configuration.
+
+        Returns (fef_global, fef_local, idx_i, idx_j), or None if the load
+        doesn't apply (unknown element / unknown direction / point load
+        outside the member's rigid-end-adjusted span).
+
+        fef_local is returned alongside fef_global (post release-
+        condensation, pre eccentricity/rotation transform -- the exact
+        same value MatrixSpy records) so callers that need the LOCAL-axis
+        FEF directly -- e.g. nonlinear_engine.py's N_axial/geometric-
+        stiffness reprojection, which operates in the element's local
+        frame, not the assembled global one -- don't have to invert
+        T_ecc/T_rot to recover it.
+        """
+        el = self.element_by_id.get(load['element_id'])
+        if not el:
+            return None
+
+        L_clear = el['L_clear']
+        L_total = el['L_total']
+        idx_i, idx_j = el['node_indices']
+        p1 = self.dm.nodes[idx_i]['coords']
+        p2 = self.dm.nodes[idx_j]['coords']
+
+        rz = el.get('rz_factor', 0.0)
+        ri = el.get('end_off_i', 0.0) * rz
+        rj = el.get('end_off_j', 0.0) * rz
+
+        ri = el.get('end_off_i', 0.0)
+        rj = el.get('end_off_j', 0.0)
+
+        mat = el['material']
+        sec = el['section']
+        k_raw = get_local_stiffness_matrix(
+            E=mat['E'], G=mat['G'], A=sec['A'], J=sec['J'],
+            I22=sec['I22'], I33=sec['I33'],
+            As2=sec['As2'], As3=sec['As3'],
+            L=L_clear, L_tor=L_total
+        )
+
+        fef_local = np.zeros(12)
+
+        beta_eff = el['beta'] - np.degrees(sec.get('theta_p', 0.0))
+        if R_3x3_override is not None:
+            R_3x3 = R_3x3_override
+        else:
+            R_3x3 = get_rotation_matrix(p1, p2, beta_eff)
+
+        w_vec_local_for_offset = np.zeros(3)
+
+        if load['type'] == 'member_dist':
+                                    
+            mags = load.get('magnitudes', [0, 0, 0, 0])
+            
+            if any(abs(m) > 1e-9 for m in mags):
+                fef_local, F_ri, M_ri_cent, F_rj, M_rj_cent = self._get_trapezoidal_fef_and_w(
+                    load, scale, R_3x3, L_clear, L_total, ri, rj, p1, p2, mat, sec
+                )
+                w_vec_local_for_offset = None                                              
+            else:
+                                                             
+                w_defined = np.array([load.get('wx', 0.0), load.get('wy', 0.0), load.get('wz', 0.0)]) * scale
+                
+                if load.get('coord', 'Global') == 'Global':
+                    w_local = R_3x3 @ w_defined
+                else:
+                    w_local = w_defined
+
+                if load.get('projected', False):
+                    w_local = self._apply_projection_factor(
+                        w_local, p1, p2, L_total, load.get('coord', 'Global')
+                    )
+                
+                wx, wy, wz = w_local
+                w_vec_local_for_offset = w_local                               
+
+                fef_local[0] = -wx * L_clear / 2;    fef_local[6] = -wx * L_clear / 2
+                fef_local[1] = -wy * L_clear / 2;    fef_local[7] = -wy * L_clear / 2
+                fef_local[5] = -wy * L_clear**2/12;  fef_local[11]=  wy * L_clear**2/12
+                fef_local[2] = -wz * L_clear / 2;    fef_local[8] = -wz * L_clear / 2
+                fef_local[4] =  wz * L_clear**2/12;  fef_local[10]= -wz * L_clear**2/12
+
+        elif load['type'] == 'member_point':
+            P_val = load['force'] * scale
+            
+            idx_dir, sign = self._parse_load_direction(load['dir'])
+            if idx_dir is None: return None
+            
+            vec_defined = np.zeros(3)
+            vec_defined[idx_dir] = 1.0 * sign * P_val
+
+            coord_sys = load.get('coord', 'Global')
+            if "GRAVITY" in str(load['dir']).upper(): coord_sys = 'Global'
+            
+            if coord_sys == 'Global':
+
+                P_local = R_3x3 @ vec_defined 
+            else:
+                P_local = vec_defined
+            
+            dist_raw = load['dist']
+            if load['is_rel']: dist_raw *= L_total
+
+            if dist_raw >= ri and dist_raw <= (L_total - rj):
+                a_dist = dist_raw - ri 
+                
+                l_type = load.get('l_type', 'Force')
+                if l_type == 'Moment':
+                    fef_local = get_exact_fef_via_stiffness(L_clear, a_dist, np.zeros(3), mat, sec, M_vec_local=P_local)
+                else:
+                    fef_local = get_exact_fef_via_stiffness(L_clear, a_dist, P_local, mat, sec)
+                
+        if any(el['releases'][0]) or any(el['releases'][1]):
+            fef_local = condense_fef(k_raw, fef_local, el['releases'])
+
+        self.spy.record_fef(el['id'], fef_local)
+        
+        T_rot = np.zeros((12, 12))
+        for i in range(4): T_rot[i*3:(i+1)*3, i*3:(i+1)*3] = R_3x3
+
+        glob_off_i = np.array(el['offsets'][0])
+        glob_off_j = np.array(el['offsets'][1])
+
+        loc_off_insertion_i = R_3x3 @ glob_off_i
+        loc_off_insertion_j = R_3x3 @ glob_off_j
+
+        loc_off_total_i = loc_off_insertion_i.copy()
+        loc_off_total_j = loc_off_insertion_j.copy()
+        loc_off_total_i[0] += ri
+        loc_off_total_j[0] -= rj
+
+        T_ecc = get_eccentricity_matrix(loc_off_total_i, loc_off_total_j)
+        T_total = T_ecc @ T_rot
+
+        fef_global = T_total.T @ fef_local
+
+        if load['type'] == 'member_dist' and (ri > 0 or rj > 0):
+            if w_vec_local_for_offset is not None:
+                                                             
+                wx, wy, wz = w_vec_local_for_offset
+                if ri > 0:
+                    F_rigid_i = np.array([wx, wy, wz]) * ri
+                    centroid_i = np.array([ri/2.0, 0, 0])
+                    centroid_i += loc_off_insertion_i
+                    M_rigid_i = np.cross(centroid_i, F_rigid_i)
+                    fef_global[0:3] -= R_3x3.T @ F_rigid_i
+                    fef_global[3:6] -= R_3x3.T @ M_rigid_i
+                if rj > 0:
+                    F_rigid_j = np.array([wx, wy, wz]) * rj
+                    centroid_j = np.array([-rj/2.0, 0, 0])
+                    centroid_j += loc_off_insertion_j
+                    M_rigid_j = np.cross(centroid_j, F_rigid_j)
+                    fef_global[6:9] -= R_3x3.T @ F_rigid_j
+                    fef_global[9:12] -= R_3x3.T @ M_rigid_j
+            else:
+                                                                   
+                if ri > 0:
+                    M_rigid_i = M_ri_cent + np.cross(loc_off_insertion_i, F_ri)
+                    fef_global[0:3] -= R_3x3.T @ F_ri
+                    fef_global[3:6] -= R_3x3.T @ M_rigid_i
+                if rj > 0:
+                    M_rigid_j = M_rj_cent + np.cross(loc_off_insertion_j, F_rj)
+                    fef_global[6:9] -= R_3x3.T @ F_rj
+                    fef_global[9:12] -= R_3x3.T @ M_rigid_j
+
+        return fef_global, fef_local, idx_i, idx_j
 
     def _parse_load_direction(self, dir_str):
         """

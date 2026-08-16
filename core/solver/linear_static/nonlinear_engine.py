@@ -12,8 +12,10 @@ from error_definitions import SolverException
 from data_manager import DataManager
 from assembler import GlobalAssembler
 from core.units import unit_registry
+from solver_kernel import build_imposed_displacements
 
 from corotational_beam import ElementCorotState, NodeRotationState, compute_corotational_element
+from rotation_utils import update_corotational_frame
 
 def _snapshot_corot_state(node_rot, corot_elements):
     """
@@ -35,7 +37,7 @@ def _restore_corot_state(node_rot, corot_elements, node_snap, elem_snap):
     for k, R_r in elem_snap.items():
         corot_elements[k].R_r = R_r.copy()
 
-def _compute_corot_residual(dm, U_full_now, node_rot, corot_elements, T, has_T, is_free_sys, is_strict_statics=False):
+def _compute_corot_residual(dm, U_full_now, node_rot, corot_elements, T, has_T, is_free_sys, is_strict_statics=False, element_fef=None):
     """
     One evaluation of the corotational internal-force / tangent-stiffness
     state at a given full displacement vector U_full_now, against the
@@ -47,6 +49,14 @@ def _compute_corot_residual(dm, U_full_now, node_rot, corot_elements, T, has_T, 
     evaluation and speculative line-search trial evaluations can share
     the exact same force-recovery code path, instead of two copies
     drifting out of sync over time.
+
+    element_fef: optional {element_id_str: np.array(12)} of fixed-end-force
+    vectors (member distributed/trapezoidal/self-weight/point loads and
+    point moments applied along the span), exactly as recorded by
+    GlobalAssembler/MatrixSpy into the *_matrices.json export. Without
+    this, compute_corotational_element() only sees nodal-displacement-
+    induced internal force and silently drops every member load that
+    isn't applied directly at a node.
 
     NOTE: calling this mutates corot_elements[*].R_r in place (each
     compute_corotational_element() call updates its element's
@@ -66,10 +76,12 @@ def _compute_corot_residual(dm, U_full_now, node_rot, corot_elements, T, has_T, 
         p1_current = dm.nodes[idx_i]['coords'] + U_full_now[idx_i*6: idx_i*6+3]
         p2_current = dm.nodes[idx_j]['coords'] + U_full_now[idx_j*6: idx_j*6+3]
 
+        fef_local = element_fef.get(eid_str) if element_fef else None
+
         f_g, K_g, N_axial = compute_corotational_element(
             state, p1_current, p2_current,
             node_rot[idx_i], node_rot[idx_j],
-            is_strict_statics
+            is_strict_statics, fef_local
         )
 
         dof_map = ([idx_i*6+k for k in range(6)] +
@@ -100,7 +112,7 @@ def _compute_corot_residual(dm, U_full_now, node_rot, corot_elements, T, has_T, 
     return F_int_full, F_int_free, K_total_free
 
 def _fd_consistent_tangent(dm, U_free, F_int_free_base, node_rot, corot_elements,
-                            T, has_T, is_free_sys, K_E_sys, eps=1e-6, is_strict_statics=False):
+                            T, has_T, is_free_sys, K_E_sys, eps=1e-6, is_strict_statics=False, element_fef=None):
     """
     Builds the TRUE consistent tangent stiffness by CENTRAL finite
     differences, rather than the analytical approximation (K_approx,
@@ -147,7 +159,7 @@ def _fd_consistent_tangent(dm, U_free, F_int_free_base, node_rot, corot_elements
         U_full_pert = T @ U_sys_pert if has_T else U_sys_pert
 
         _, F_int_free_pert, _ = _compute_corot_residual(
-            dm, U_full_pert, node_rot, corot_elements, T, has_T, is_free_sys, is_strict_statics
+            dm, U_full_pert, node_rot, corot_elements, T, has_T, is_free_sys, is_strict_statics, element_fef
         )
         return F_int_free_pert
 
@@ -234,7 +246,173 @@ def run_nonlinear_analysis(input_json_path, output_json_path, target_case_name, 
 
         with open(matrix_path, 'r') as f:
             element_matrices = json.load(f)
-                                                                   
+
+        element_fef = {
+            eid: np.array(mats['fef'])
+            for eid, mats in element_matrices.items()
+            if mats.get('fef') is not None
+        }
+
+        geom_nonlin_for_reproj = case_data.get("geom_nonlin", "None")
+        large_disp_for_reproj = (geom_nonlin_for_reproj == "Large Displacements")
+
+        active_patterns_dict = {pat: sc for pat, sc in dm.load_case['patterns']}
+        global_coord_member_loads = []
+        if large_disp_for_reproj:
+            for load in dm.raw.get('loads', []):
+                if load.get('pattern') not in active_patterns_dict: continue
+                if load.get('type') not in ('member_dist', 'member_point'): continue
+                if str(load.get('coord', 'Global')).upper() != 'GLOBAL': continue
+                global_coord_member_loads.append((load, active_patterns_dict[load['pattern']]))
+
+        P_global_baseline_full = np.zeros(dm.total_dofs)
+                                                                         
+        element_fef_global_baseline_local = {}
+        if global_coord_member_loads:
+            print(f"      [Large Displacements] {len(global_coord_member_loads)} coord='Global' "
+                  f"member load(s) will be re-projected onto the current corotational frame "
+                  f"each iteration instead of held fixed at the undeformed orientation.")
+            for load, scale in global_coord_member_loads:
+                result = assembler.compute_single_member_load_fef_global(load, scale)
+                if result is None:
+                    continue
+                fef_global, fef_local, idx_i, idx_j = result
+                P_global_baseline_full[idx_i*6: idx_i*6+6] -= fef_global[0:6]
+                P_global_baseline_full[idx_j*6: idx_j*6+6] -= fef_global[6:12]
+                eid_str = str(load['element_id'])
+                element_fef_global_baseline_local[eid_str] = (
+                    element_fef_global_baseline_local.get(eid_str, np.zeros(12)) + fef_local
+                )
+
+        P_static_full = P_total_full - P_global_baseline_full
+
+        def _compute_dynamic_global_load_full():
+            """
+            Re-evaluates the coord='Global' member loads' equivalent-nodal-
+            load contribution using each element's CURRENT corotational
+            frame (corot_elements[eid].R_r), via the SAME validated FEF
+            math as the static assembler. Must be called AFTER corot_
+            elements[*].R_r has been updated to reflect the state being
+            evaluated (compute_corotational_element/_compute_corot_residual
+            already does this as a side effect).
+
+            corot_elements[eid].R_r is stored LOCAL->GLOBAL (columns = local
+            axes in global coords - see corotational_beam.py). The
+            assembler's R_3x3 convention is GLOBAL->LOCAL (v_local =
+            R_3x3 @ v_global). Hence the transpose below.
+            """
+            P_dyn_full = np.zeros(dm.total_dofs)
+            for load, scale in global_coord_member_loads:
+                eid_str = str(load['element_id'])
+                state = corot_elements.get(eid_str)
+                if state is None:
+                    continue
+                R_current_global_to_local = state.R_r.T
+                result = assembler.compute_single_member_load_fef_global(
+                    load, scale, R_3x3_override=R_current_global_to_local
+                )
+                if result is None:
+                    continue
+                fef_global, fef_local, idx_i, idx_j = result
+                P_dyn_full[idx_i*6: idx_i*6+6] -= fef_global[0:6]
+                P_dyn_full[idx_j*6: idx_j*6+6] -= fef_global[6:12]
+            return P_dyn_full
+
+        element_fef_static_local_only = dict(element_fef)
+        for eid_str, fef_glob_local in element_fef_global_baseline_local.items():
+            base = element_fef_static_local_only.get(eid_str, np.zeros(12))
+            element_fef_static_local_only[eid_str] = base - fef_glob_local
+
+        def _compute_dynamic_element_fef():
+            """
+            Per-element LOCAL-axis fef_local dict for compute_corotational_
+            element()'s N_axial (-> k_geo geometric-stiffness) calculation,
+            with the coord='Global' loads' contribution re-integrated from
+            each element's corot_elements[eid].R_r AS IT CURRENTLY STANDS
+            (i.e. left over from the previous iteration's
+            compute_corotational_element call, since that call is what's
+            about to consume the dict this function builds -- one Newton
+            iteration of staleness, unavoidable without predicting R_r
+            before computing it).
+
+            This existed as a real gap even after P_target_free started
+            being reprojected: f_local (the value that actually drives the
+            residual/reactions) never includes fef_local by construction
+            (see corotational_beam.py's double-counting-fix comment) --
+            but fef_local still feeds N_axial, which builds k_geo, i.e.
+            the TANGENT stiffness. A coord='Global' load like self-weight
+            (pure Global -Z) couples strongly into the member's axial
+            direction once it rotates far enough toward horizontal, so a
+            STALE (undeformed-orientation) fef_local here measurably biases
+            k_geo and can stall Newton convergence -- confirmed as the
+            cause of the ~2-5% gap that showed up only once self-weight
+            was added at large rotation, even though the assembled load
+            (P_target_free) was already being correctly reprojected.
+
+            One iteration of staleness here would be a standard modified-
+            Newton approximation (only shapes the tangent used to GET to
+            equilibrium, not the equilibrium condition itself) -- but it's
+            avoidable and measurably mattered here (self-weight is pure
+            Global -Z, a case where the staleness turned out not to be
+            negligible), so callers should run _sync_corot_frames(U_full)
+            first each iteration to eliminate it: that updates R_r from
+            geometry alone (which is all update_corotational_frame ever
+            depends on -- see corotational_beam.py), before this function
+            reprojects fef_local against it, so what this function reads
+            is the SAME R_r the subsequent compute_corotational_element
+            call will independently re-derive from that same geometry --
+            zero lag, not one iteration behind.
+            """
+            eff = dict(element_fef_static_local_only)
+            for load, scale in global_coord_member_loads:
+                eid_str = str(load['element_id'])
+                state = corot_elements.get(eid_str)
+                if state is None:
+                    continue
+                R_current_global_to_local = state.R_r.T
+                result = assembler.compute_single_member_load_fef_global(
+                    load, scale, R_3x3_override=R_current_global_to_local
+                )
+                if result is None:
+                    continue
+                _, fef_local, idx_i, idx_j = result
+                eff[eid_str] = eff.get(eid_str, np.zeros(12)) + fef_local
+            return eff
+
+        def _sync_corot_frames(U_full_now):
+            """
+            Advances each element's corot_elements[eid].R_r to match the
+            chord geometry implied by U_full_now, WITHOUT doing the full
+            local-stiffness / internal-force recovery that
+            compute_corotational_element does. This is exactly that
+            function's own R_r update (see corotational_beam.py's
+            `state.R_r = update_corotational_frame(state.R_r, e1_new)`),
+            pulled out standalone -- R_r's update depends only on the
+            element's current p1/p2 positions, never on fef_local, so it's
+            safe to run this BEFORE reprojecting fef_local instead of
+            chasing R_r one iteration behind it.
+
+            Calling compute_corotational_element afterwards on the SAME
+            U_full_now re-derives an identical R_r (update_corotational_
+            frame from an already-aligned frame is a no-op rotation), so
+            this is not a second, competing source of truth -- it just
+            gives fef reprojection early access to what that call would
+            have produced anyway.
+            """
+            for el in dm.elements:
+                eid_str = str(el['id'])
+                state = corot_elements.get(eid_str)
+                if state is None:
+                    continue
+                idx_i, idx_j = el['node_indices']
+                p1_current = dm.nodes[idx_i]['coords'] + U_full_now[idx_i*6: idx_i*6+3]
+                p2_current = dm.nodes[idx_j]['coords'] + U_full_now[idx_j*6: idx_j*6+3]
+                chord = p2_current - p1_current
+                L_n = np.linalg.norm(chord)
+                if L_n < 1e-12:
+                    continue
+                state.R_r = update_corotational_frame(state.R_r, chord / L_n)
+
         print("[3/5] Applying Boundary Conditions...")
         is_free_full = np.ones(dm.total_dofs, dtype=bool)
         for node in dm.nodes:
@@ -244,26 +422,50 @@ def run_nonlinear_analysis(input_json_path, output_json_path, target_case_name, 
                 if restraints[i] or not dm.active_dofs[i]:           
                     is_free_full[start_idx + i] = False
 
+        print("      Checking for Imposed Joint (Ground) Displacements...")
+        U_imp_full, has_imposed = build_imposed_displacements(dm, is_free_full)
+
         has_T = hasattr(assembler, 'T') and assembler.T is not None
         T = None                                                               
                                                                             
         if has_T:
             T = assembler.T
             kept_dofs = assembler.kept_dofs
+
+            eliminated_set = set(range(dm.total_dofs)) - set(kept_dofs)
+            bad = sorted(d for d in eliminated_set if not is_free_full[d])
+            if bad:
+                raise SolverException(
+                    "E205",
+                    f"Restraint found on diaphragm-slaved DOF index(es) {bad}. "
+                    f"Restrain the diaphragm MASTER node instead."
+                )
+
             K_E_sys = T.T @ K_E_full @ T
             P_total_sys = T.T @ P_total_full
+            P_static_sys = T.T @ P_static_full
             is_free_sys = is_free_full[kept_dofs]
+            U_imp_sys = U_imp_full[kept_dofs]
         else:
             K_E_sys = K_E_full
             P_total_sys = P_total_full
+            P_static_sys = P_static_full
             is_free_sys = is_free_full
+            U_imp_sys = U_imp_full
 
         K_E_free = K_E_sys.tocsc()[is_free_sys, :][:, is_free_sys]
         P_total_free = P_total_sys[is_free_sys]
+                                                                    
+        P_static_free = P_static_sys[is_free_sys]
 
         num_free_dofs = K_E_free.shape[0]
         if num_free_dofs == 0:
             raise SolverException("E301", "Structure is fully constrained. No free DOFs.")
+
+        if has_imposed:
+            n_imp = int(np.sum(np.abs(U_imp_sys) > 1e-12))
+            print(f"      {n_imp} restrained DOF(s) carry an imposed joint displacement; "
+                  f"ramping alongside the {max_total_steps} load steps.")
 
         large_disp = (geom_nonlin == "Large Displacements")
         corot_elements = {}                                     
@@ -289,39 +491,88 @@ def run_nonlinear_analysis(input_json_path, output_json_path, target_case_name, 
         U_free = np.zeros(num_free_dofs)                                       
         F_int_full_ld_last = None                                                                           
 
-        dP_ext_free = P_total_free / max_total_steps
+        dU_imp_sys = U_imp_sys / max_total_steps
+
+        def _compute_reprojected_target_free(step_frac):
+            """
+            Builds the external-load target for the CURRENT Newton
+            iteration's residual, at load-step fraction step_frac
+            (= step / max_total_steps, standard proportional loading).
+
+            For the static portion (direct nodal loads + coord='Local'
+            member loads) this is just step_frac * P_static_free, exactly
+            like the old fixed dP_ext_free * step scheme.
+
+            For coord='Global' member loads under Large Displacements,
+            the equivalent nodal load is instead RE-INTEGRATED here, every
+            call, from each element's corot_elements[*].R_r as it stands
+            right now -- so calling this after compute_corotational_element
+            has updated R_r for the current displacement iterate gives the
+            load re-projected onto the member's actual current orientation,
+            not the undeformed one. Falls back to the plain static ramp
+            when there's nothing to reproject (non-Large-Displacements
+            cases, or Large Displacements with no coord='Global' member
+            loads) -- zero behavior change for those.
+            """
+            if not (large_disp and global_coord_member_loads):
+                return step_frac * P_total_free
+
+            P_dyn_full = _compute_dynamic_global_load_full()
+            P_dyn_sys = T.T @ P_dyn_full if has_T else P_dyn_full
+            P_dyn_free = P_dyn_sys[is_free_sys]
+            return step_frac * (P_static_free + P_dyn_free)
 
         for step in range(1, max_total_steps + 1):
             print(f"   -> Step {step}/{max_total_steps}")
             progress_callback(f"Solving Step {step} of {max_total_steps}...", 20 + int(70 * (step / max_total_steps)))
-            
-            P_target_free = dP_ext_free * step 
+
+            step_frac = step / max_total_steps
+            U_imp_target_sys = dU_imp_sys * step
 
             K_total_free = K_E_free.copy()
+            K_total_sys = K_E_sys.tocsc()
+
+            if large_disp and has_imposed:
+                                                                              
+                dU_imp_full_this_step = T @ dU_imp_sys if has_T else dU_imp_sys
+                for node in dm.nodes:
+                    n_idx = node['idx']
+                    d_theta_imp = dU_imp_full_this_step[n_idx*6+3: n_idx*6+6]
+                    if np.any(np.abs(d_theta_imp) > 1e-14):
+                        node_rot[n_idx].update(d_theta_imp)
 
             for iter_count in range(1, max_nr_iter + 1):
 
                 if large_disp:
-                                                                                      
-                    U_sys_now = np.zeros(K_E_sys.shape[0])
+                    U_sys_now = U_imp_target_sys.copy()
                     U_sys_now[is_free_sys] = U_free
                     U_full_now = T @ U_sys_now if has_T else U_sys_now
 
+                    if global_coord_member_loads:
+                                                                           
+                        _sync_corot_frames(U_full_now)
+                        element_fef_this_iter = _compute_dynamic_element_fef()
+                    else:
+                        element_fef_this_iter = element_fef
+
                     F_int_full, F_int_free, K_total_free = _compute_corot_residual(
-                    dm, U_full_now, node_rot, corot_elements, T, has_T, is_free_sys, is_strict_statics
+                    dm, U_full_now, node_rot, corot_elements, T, has_T, is_free_sys, is_strict_statics, element_fef_this_iter
                     )
                     F_int_full_ld_last = F_int_full                                             
 
                     if nl_params.get("use_fd_tangent", False):
                         K_total_free = _fd_consistent_tangent(
                             dm, U_free, F_int_free, node_rot, corot_elements,
-                            T, has_T, is_free_sys, K_E_sys, is_strict_statics=is_strict_statics
+                            T, has_T, is_free_sys, K_E_sys, is_strict_statics=is_strict_statics, element_fef=element_fef_this_iter
                         )
 
                 else:
                                                                                       
-                    F_int_free = K_total_free.dot(U_free)
+                    U_sys_now = U_imp_target_sys.copy()
+                    U_sys_now[is_free_sys] = U_free
+                    F_int_free = K_total_sys.dot(U_sys_now)[is_free_sys]
 
+                P_target_free = _compute_reprojected_target_free(step_frac)
                 R_free = P_target_free - F_int_free
                 
                 residual_norm = np.linalg.norm(R_free)
@@ -355,14 +606,16 @@ def run_nonlinear_analysis(input_json_path, output_json_path, target_case_name, 
                             node_rot[n_idx].update(dU_full_trial[n_idx*6+3: n_idx*6+6])
 
                         U_free_trial = U_free + alpha_try * dU_free
-                        U_sys_trial = np.zeros(K_E_sys.shape[0])
+                        U_sys_trial = U_imp_target_sys.copy()
                         U_sys_trial[is_free_sys] = U_free_trial
                         U_full_trial = T @ U_sys_trial if has_T else U_sys_trial
 
                         _, F_int_free_trial, _ = _compute_corot_residual(
-                        dm, U_full_trial, node_rot, corot_elements, T, has_T, is_free_sys, is_strict_statics
+                        dm, U_full_trial, node_rot, corot_elements, T, has_T, is_free_sys, is_strict_statics, element_fef_this_iter
                         )
-                        return np.linalg.norm(P_target_free - F_int_free_trial)
+                                                                             
+                        P_target_free_trial = _compute_reprojected_target_free(step_frac)
+                        return np.linalg.norm(P_target_free_trial - F_int_free_trial)
 
                     alpha = 1.0
                     accepted = False
@@ -401,7 +654,7 @@ def run_nonlinear_analysis(input_json_path, output_json_path, target_case_name, 
 
                 if geom_nonlin in ["P-Delta", "Large Displacements"]:
                     
-                    U_sys = np.zeros(K_E_sys.shape[0])
+                    U_sys = U_imp_target_sys.copy()
                     U_sys[is_free_sys] = U_free
                     U_full = T @ U_sys if has_T else U_sys
 
@@ -504,9 +757,8 @@ def run_nonlinear_analysis(input_json_path, output_json_path, target_case_name, 
                     else:
                         KG_sys = KG_full
                         
-                    KG_free = KG_sys.tocsc()[is_free_sys, :][:, is_free_sys]
-                    
-                    K_total_free = K_E_free + KG_free
+                    K_total_sys = (K_E_sys + KG_sys).tocsc()
+                    K_total_free = K_total_sys[is_free_sys, :][:, is_free_sys]
 
             else:
                                                                               
@@ -517,13 +769,18 @@ def run_nonlinear_analysis(input_json_path, output_json_path, target_case_name, 
         print("      Extracting Final Displacements and Reactions...")
         progress_callback("Formatting results...", 90)
 
-        U_sys = np.zeros(dm.total_dofs)
+        U_sys = U_imp_target_sys.copy()
         U_sys[is_free_sys] = U_free
         U_full = T @ U_sys if has_T else U_sys
 
         if large_disp and F_int_full_ld_last is not None:
-                                                                               
-            Reactions_full = F_int_full_ld_last - P_total_full
+                                                                   
+            if global_coord_member_loads:
+                P_dyn_full_final = _compute_dynamic_global_load_full()
+                P_target_full_final = P_static_full + P_dyn_full_final
+            else:
+                P_target_full_final = P_total_full
+            Reactions_full = F_int_full_ld_last - P_target_full_final
         else:
                                                        
             if geom_nonlin in ["P-Delta", "Large Displacements"] and 'KG_full' in locals():

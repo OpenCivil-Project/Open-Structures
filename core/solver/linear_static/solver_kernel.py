@@ -3,6 +3,45 @@ from scipy.sparse.linalg import spsolve
 from scipy.sparse import csc_matrix
 from error_definitions import SolverException
 
+def build_imposed_displacements(dm, is_free):
+    """
+    Extracts Ground Displacements from the active load case, for a given
+    full-DOF is_free mask. Per standard FEA logic, we ONLY apply these to
+    DOFs that are restrained.
+
+    Standalone module-level version of LinearSolver._build_imposed_displacements
+    so the nonlinear engine (P-Delta / Large Displacements) can share the
+    exact same ground-displacement logic instead of re-implementing it -
+    LinearSolver below now just delegates to this.
+    """
+    U_imp = np.zeros(dm.total_dofs)
+    active_patterns = {pat: scale for pat, scale in dm.load_case['patterns']}
+
+    has_imposed = False
+    for load in dm.raw.get('loads', []):
+        pat = load.get('pattern') or load.get('pattern_name')
+        if load.get('type') == 'ground_displacement' and pat in active_patterns:
+            scale = active_patterns[pat]
+            node_idx = dm.node_id_to_idx[load['node_id']]
+            start = node_idx * 6
+
+            vals = [
+                load.get('ux', 0.0), load.get('uy', 0.0), load.get('uz', 0.0),
+                load.get('rx', 0.0), load.get('ry', 0.0), load.get('rz', 0.0)
+            ]
+
+            dof_names = ['UX', 'UY', 'UZ', 'RX', 'RY', 'RZ']
+            for i, val in enumerate(vals):
+                if abs(val) > 1e-12:
+
+                    if not is_free[start + i]:
+                        U_imp[start + i] += val * scale
+                        has_imposed = True
+                    else:
+                        print(f"      [!] Warning: Ground Displacement {val} on Node {load['node_id']} ({dof_names[i]}) ignored because it is a FREE Degree of Freedom.")
+
+    return U_imp, has_imposed
+
 class LinearSolver:
     def __init__(self, K_global, P_global, data_manager, T=None, kept_dofs=None):
         self.K = K_global
@@ -18,34 +57,11 @@ class LinearSolver:
         """
         Extracts Ground Displacements from the active load case.
         Per standard FEA logic, we ONLY apply these to DOFs that are restrained.
+
+        Delegates to the module-level build_imposed_displacements() so the
+        nonlinear engine can share this exact logic. Behavior unchanged.
         """
-        U_imp = np.zeros(self.dm.total_dofs)
-        active_patterns = {pat: scale for pat, scale in self.dm.load_case['patterns']}
-        
-        has_imposed = False
-        for load in self.dm.raw.get('loads', []):
-            pat = load.get('pattern') or load.get('pattern_name')
-            if load.get('type') == 'ground_displacement' and pat in active_patterns:
-                scale = active_patterns[pat]
-                node_idx = self.dm.node_id_to_idx[load['node_id']]
-                start = node_idx * 6
-                
-                vals = [
-                    load.get('ux', 0.0), load.get('uy', 0.0), load.get('uz', 0.0),
-                    load.get('rx', 0.0), load.get('ry', 0.0), load.get('rz', 0.0)
-                ]
-                
-                dof_names = ['UX', 'UY', 'UZ', 'RX', 'RY', 'RZ']
-                for i, val in enumerate(vals):
-                    if abs(val) > 1e-12:
-                                                       
-                        if not is_free[start + i]:
-                            U_imp[start + i] += val * scale
-                            has_imposed = True
-                        else:
-                            print(f"      [!] Warning: Ground Displacement {val} on Node {load['node_id']} ({dof_names[i]}) ignored because it is a FREE Degree of Freedom.")
-                            
-        return U_imp, has_imposed
+        return build_imposed_displacements(self.dm, is_free)
 
     def solve(self):
         """
@@ -232,4 +248,4 @@ class LinearSolver:
             str(n['id']) for n in self.dm.nodes if any(n['restraints']) or n.get('spring_matrix') is not None
         ]
 
-        return results  
+        return results
