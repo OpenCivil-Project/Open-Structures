@@ -15,6 +15,16 @@ NOTICES = [
 
 RELEASE_NOTES = [
     {
+        "version": "v0.7.90",
+        "date": "August 16, 2026",
+        "items": [
+            ("new", "Dual-Formulation Corotational Engine — implemented UI-toggled support for Commercial Compatibility (Updated Lagrangian Match) and Strict Global Equilibrium (Native O//S)."),
+            ("fix", "Large Deflection Force Recovery — aligned element constitutive and geometric stiffness evaluations with the original undeformed length (L0) to eliminate artificial softening and match commercial solvers."),
+            ("new", "Analytical Spin Matrix (K_spin) — formulated and injected the exact geometric spin tangent into the global Jacobian to guarantee perfect Newton-Raphson convergence without numerical approximations."),
+            ("validated", "Large Displacement Verification — achieved nanometer-perfect correlation with commercial benchmark data on a highly nonlinear 37-degree massive rotation cantilever test."),
+        ]
+    },
+    {
         "version": "v0.7.85",
         "date": "July 26, 2026",
         "items": [

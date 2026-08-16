@@ -111,6 +111,9 @@ class StructuralModel:
         self.tendon_sections = {}
         self.tendons = {}
         self._tendon_counter = 1
+        self.cable_sections = {}              
+        self.cables = {}                      
+        self._cable_counter = 1
         self.link_properties = {}
         self.links = {}
         self._link_counter = 1                         
@@ -401,7 +404,9 @@ class StructuralModel:
             "materials": [],
             "sections": [],
             "tendon_sections": [],
+            "cable_sections": [],
             "tendons": [],
+            "cables": [],
             "nodes": [],
             "elements": [],
             "slabs": [],    
@@ -440,7 +445,8 @@ class StructuralModel:
                     "tf_max_iter": getattr(lc, 'tf_max_iter', 10),
                     "tf_conv_tol": getattr(lc, 'tf_conv_tol', 0.01),
                     "tf_accel_factor": getattr(lc, 'tf_accel_factor', 1.0),
-                    "continue_if_no_converge": getattr(lc, 'continue_if_no_converge', False)
+                    "continue_if_no_converge": getattr(lc, 'continue_if_no_converge', False),
+                    "corot_type": getattr(lc, 'corot_type', "Commercial Compatibility")
                 },
                 "num_modes": getattr(lc, 'num_modes', 12),
                 "rsa_loads": getattr(lc, 'rsa_loads', []),
@@ -525,6 +531,21 @@ class StructuralModel:
                 "color": ts.color
             })
 
+        _p(f"Saving {len(self.cable_sections)} cable section(s)...")
+        for cs in self.cable_sections.values():
+            data["cable_sections"].append({
+                "name": cs.name,
+                "mat_name": cs.material.name if cs.material else None,
+                "is_dia": getattr(cs, 'is_dia', False),
+                "dia": getattr(cs, 'dia', 0.0),
+                "area": getattr(cs, 'area', 0.0),
+                "J": getattr(cs, 'J', 0.0),
+                "I": getattr(cs, 'I', 0.0),
+                "As": getattr(cs, 'As', 0.0),
+                "color": cs.color,
+                "modifiers": getattr(cs, 'modifiers', {"A": 1.0, "Mass": 1.0, "Weight": 1.0})
+            })
+        
         _p(f"Saving {len(self.nodes)} nodes & boundary conditions...")
         for n_id in sorted(self.nodes.keys()):
             n = self.nodes[n_id]
@@ -599,6 +620,25 @@ class StructuralModel:
                 "coordinate_system": t.coordinate_system,
                 "color": t.color,
                 "loads": getattr(t, "loads", [])
+            })
+
+        _p(f"Saving {len(self.cables)} cable(s)...")
+        for c_id in sorted(self.cables.keys()):
+            c = self.cables[c_id]
+            data["cables"].append({
+                "id": c.id,
+                "n1_id": c.node_i.id,
+                "n2_id": c.node_j.id,
+                "sec_name": c.cable_section.name if c.cable_section else None,
+                "model_as_straight_frame": getattr(c, 'model_as_straight_frame', True),
+                "number_of_segments": getattr(c, 'number_of_segments', 1),
+                "undeformed_length": getattr(c, 'undeformed_length', None),
+                "is_active": getattr(c, 'is_active', True),
+                                                            
+                "target_type": getattr(c, 'target_type', "Cable - Undeformed Length"),
+                "target_value": getattr(c, 'target_value', None),
+                "added_weight": getattr(c, 'added_weight', 0.0),
+                "projected_load": getattr(c, 'projected_load', 0.0)
             })
 
         _p(f"Saving {len(self.slabs)} slab(s)...")
@@ -716,6 +756,16 @@ class StructuralModel:
                     "ux": load.ux, "uy": load.uy, "uz": load.uz,
                     "rx": load.rx, "ry": load.ry, "rz": load.rz
                 })
+
+            elif hasattr(load, 'cable_id'):
+                load_data.update({
+                    "type": "cable_dist",
+                    "cable_id": load.cable_id,
+                    "val": load.val,
+                    "direction": load.direction,
+                    "coord_system": load.coord_system,
+                    "load_type": load.load_type
+                })
             
             data["loads"].append(load_data)
 
@@ -789,7 +839,8 @@ class StructuralModel:
         _p("Clearing current model data...")
         self.nodes.clear(); self.elements.clear(); self.materials.clear()
         self.sections.clear(); self.area_sections.clear(); self.load_patterns.clear(); self.loads.clear()
-        self.tendon_sections.clear()                                  
+        self.tendon_sections.clear(); self.tendons.clear()              
+        self.cable_sections.clear(); self.cables.clear()                   
         self.slabs.clear(); self.area_elements.clear(); self.constraints.clear()
         self.link_properties.clear(); self.links.clear()
         self._link_counter = 1
@@ -798,7 +849,8 @@ class StructuralModel:
         self.th_functions = {}
         self.plot_functions = []
         self._node_counter = 1; self._elem_counter = 1; self._slab_counter = 1; self._area_elem_counter = 1
-        
+        self._cable_counter = 1
+
         _p("Loading project info & grid...")
         self.name = data["info"]["name"]
         self.saved_unit_system = data["info"].get("units", "kN, m, C")
@@ -891,6 +943,26 @@ class StructuralModel:
                 color=tuple(ts_data.get("color", (0.0, 1.0, 1.0, 1.0)))
             )
             self.add_tendon_section(ts)
+
+        _p(f"Loading {len(data.get('cable_sections', []))} cable section(s)...")
+        from core.properties import CableSection
+        for cs_data in data.get("cable_sections", []):
+            mat = self.materials.get(cs_data.get("mat_name"))
+            if not mat: continue
+            
+            cs = CableSection(
+                name=cs_data["name"],
+                material=mat,
+                is_dia=cs_data.get("is_dia", False),
+                dia=cs_data.get("dia", 0.0),
+                area=cs_data.get("area", 0.0),
+                J=cs_data.get("J", 0.0),
+                I=cs_data.get("I", 0.0),
+                As=cs_data.get("As", 0.0),
+                color=tuple(cs_data.get("color", (1.0, 0.0, 0.0, 1.0)))
+            )
+            cs.modifiers = cs_data.get("modifiers", {"A": 1.0, "Mass": 1.0, "Weight": 1.0})
+            self.cable_sections[cs.name] = cs
 
         _p("Loading area sections...")
         for d in data.get("area_sections", []):
@@ -1029,6 +1101,29 @@ class StructuralModel:
                 self.tendons[t.id] = t
                 self._tendon_counter = max(self._tendon_counter, t.id + 1)
 
+        _p(f"Loading {len(data.get('cables', []))} cable(s)...")
+        from core.mesh import CableObject
+        for c_data in data.get("cables", []):
+            n1 = self.nodes.get(c_data["n1_id"])
+            n2 = self.nodes.get(c_data["n2_id"])
+            csec = self.cable_sections.get(c_data.get("sec_name"))
+
+            if n1 and n2 and csec:
+                c = CableObject(c_data["id"], n1, n2, csec)
+                
+                c.model_as_straight_frame = c_data.get("model_as_straight_frame", True)
+                c.number_of_segments = c_data.get("number_of_segments", 1)
+                c.undeformed_length = c_data.get("undeformed_length", None)
+                c.is_active = c_data.get("is_active", True)
+                
+                c.target_type = c_data.get("target_type", "Cable - Undeformed Length")
+                c.target_value = c_data.get("target_value", c.undeformed_length)
+                c.added_weight = c_data.get("added_weight", 0.0)
+                c.projected_load = c_data.get("projected_load", 0.0)
+                
+                self.cables[c.id] = c
+                self._cable_counter = max(self._cable_counter, c.id + 1)
+
         _p("Loading link properties...")
         for lp_data in data.get("link_properties", []):
             self.link_properties[lp_data["name"]] = {
@@ -1105,7 +1200,8 @@ class StructuralModel:
                 new_lc.tf_max_iter = nl_params.get("tf_max_iter", 10)
                 new_lc.tf_conv_tol = nl_params.get("tf_conv_tol", 0.01)
                 new_lc.tf_accel_factor = nl_params.get("tf_accel_factor", 1.0)
-                new_lc.continue_if_no_converge = nl_params.get("continue_if_no_converge", False)
+                new_lc.continue_if_no_converge = nl_params.get("continue_if_no_converge", False),
+                new_lc.corot_type = nl_params.get("corot_type", "Commercial Compatibility")
 
                 raw_rsa = lc_data.get("rsa_loads", [])
                 new_lc.rsa_loads = [tuple(item) for item in raw_rsa]
@@ -1267,6 +1363,18 @@ class StructuralModel:
                             load_data.get("load", 0.0)
                         )
                         self.loads.append(new_load)
+
+                elif l_type == "cable_dist":
+                    from core.loads import CableDistributedLoad
+                    new_load = CableDistributedLoad(
+                        cable_id=load_data["cable_id"],
+                        pattern_name=pattern_name,
+                        val=load_data["val"],
+                        direction=load_data["direction"],
+                        coord_sys=load_data["coord_system"],
+                        load_type=load_data["load_type"]
+                    )
+                    self.loads.append(new_load)
         
         _p("Load complete.")
 
@@ -2190,6 +2298,8 @@ class LoadCase:
         self.tf_conv_tol = 0.01
         self.tf_accel_factor = 1.0
         self.continue_if_no_converge = False
+
+        self.corot_type = "Commercial Compatibility"
 
         self.modal_case = None                                                     
         self.num_modes = 12

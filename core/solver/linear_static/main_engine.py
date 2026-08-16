@@ -167,6 +167,16 @@ def run_linear_static_analysis(input_json_path, output_json_path, target_case_na
         progress_callback("Forming results and computing reactions...", 75)
         results = solver.get_results_dict()
 
+        try:
+            from cable_elements import check_cable_tension_state
+            cable_warnings = check_cable_tension_state(dm, solver.U_full)
+            for w in cable_warnings:
+                progress_callback(f"  [!] {w}", 78)
+            if cable_warnings:
+                progress_callback("", 78)
+        except Exception as e:
+            print(f"      [INFO] Cable tension-state check skipped: {e}")
+
         assembled_mass = None
         try:
             mass_sources = dm.raw.get("mass_sources", [])

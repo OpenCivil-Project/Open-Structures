@@ -335,3 +335,39 @@ class AreaElement:
             return "Vertical Wall"
             
         return "Sloped Shell"
+
+class CableObject:
+    """
+    A Cable element drawn between two nodes.
+    Phase 1: Treated internally as a straight, tension-only frame element.
+    Phase 2: Will support catenary sag profiling and target tension.
+    """
+    def __init__(self, id: int, node_i: Node, node_j: Node, cable_section,
+                 model_as_straight_frame=True, number_of_segments=1, undeformed_length=None):
+        self.id = int(id)
+        self.label = f"C{self.id}"
+        self.node_i = node_i
+        self.node_j = node_j
+        self.cable_section = cable_section
+        
+        self.model_as_straight_frame = model_as_straight_frame
+        self.number_of_segments = int(number_of_segments)
+        
+        self.chord_length = self._calculate_chord_length()
+        self.undeformed_length = float(undeformed_length) if undeformed_length is not None else self.chord_length
+        
+        self.is_active = True
+        
+        self.color = cable_section.color
+
+    def _calculate_chord_length(self):
+        dx = self.node_j.x - self.node_i.x
+        dy = self.node_j.y - self.node_i.y
+        dz = self.node_j.z - self.node_i.z
+        return math.sqrt(dx**2 + dy**2 + dz**2)
+
+    def length(self):
+        return self.chord_length
+
+    def __repr__(self):
+        return f"CableObject({self.id}, sec={self.cable_section.name})"

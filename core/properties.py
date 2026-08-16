@@ -567,3 +567,25 @@ class TendonSection:
 
     def __repr__(self):
         return f"TendonSection({self.name})"
+
+class CableSection:
+    """Stores geometric and material properties for a Cable."""
+    def __init__(self, name, material, is_dia=False, dia=0.0, area=0.0, J=0.0, I=0.0, As=0.0, color=None):
+        self.name = name
+        self.material = material
+        self.is_dia = is_dia
+        self.dia = float(dia)
+        self.area = float(area)
+        self.J = float(J)
+        self.I = float(I)
+        self.As = float(As)
+        self.color = color if color else (1.0, 0.0, 0.0, 1.0)
+        
+        self.modifiers = {
+            "A": 1.0, 
+            "Mass": 1.0, 
+            "Weight": 1.0
+        }
+
+    def __repr__(self):
+        return f"CableSection({self.name})"

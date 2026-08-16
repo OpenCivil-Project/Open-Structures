@@ -391,18 +391,43 @@ class LoadCaseDetailDialog(QDialog):
         self.radio_geom_pdelta = QRadioButton("P-Delta")
         self.radio_geom_large = QRadioButton("P-Delta plus Large Displacements")
 
-        self.radio_geom_large.setEnabled(False)
-        self.radio_geom_large.setToolTip("Large Displacements are currently in development.")
+        self.radio_geom_large.setEnabled(True)
+        self.radio_geom_large.setToolTip(
+            "Beta: validated on isolated benchmark cases. Known gaps - member "
+            "distributed loads (incl. self-weight) and rigid end-offsets are not "
+            "yet included in the large-displacement force recovery. Test on a "
+            "simple nodal-load-only model before trusting production results."
+        )
+
+        h_corot = QHBoxLayout()
+        h_corot.setContentsMargins(20, 0, 0, 0)                     
+        h_corot.addWidget(QLabel("Large Deflection Formulation:"))
+        self.combo_corot_formulation = QComboBox()
+        self.combo_corot_formulation.addItems([
+            "Commercial Compatibility",
+            "Strict Global Equilibrium (Native)"
+        ])
+        h_corot.addWidget(self.combo_corot_formulation)
         
+        self.radio_geom_none.toggled.connect(self._update_corot_state)
+        self.radio_geom_pdelta.toggled.connect(self._update_corot_state)
+        self.radio_geom_large.toggled.connect(self._update_corot_state)
+
         geom_val = getattr(self.case, 'geom_nonlin', 'None')
         if geom_val == "P-Delta": self.radio_geom_pdelta.setChecked(True)
         elif geom_val == "Large Displacements": self.radio_geom_large.setChecked(True)
         else: self.radio_geom_none.setChecked(True)
+        
+        current_corot = getattr(self.case, 'corot_type', "Commercial Compatibility")
+        self.combo_corot_formulation.setCurrentText(current_corot)
 
         v_geom.addWidget(self.radio_geom_none)
         v_geom.addWidget(self.radio_geom_pdelta)
         v_geom.addWidget(self.radio_geom_large)
+        v_geom.addLayout(h_corot)
         layout.addWidget(self.group_nonlinear)
+        
+        self._update_corot_state()
 
         self.group_other_params = QGroupBox("Other Parameters")
         form_other = QFormLayout(self.group_other_params)
@@ -458,6 +483,10 @@ class LoadCaseDetailDialog(QDialog):
         if hasattr(self.case, 'dir_comb'):
             if self.case.dir_comb == "Absolute": self.radio_dir_abs.setChecked(True)
             else: self.radio_dir_srss.setChecked(True)
+
+    def _update_corot_state(self):
+        """Enables the corotational formulation dropdown only if Large Displacements is selected."""
+        self.combo_corot_formulation.setEnabled(self.radio_geom_large.isChecked())
 
     def on_type_changed(self, text):
         is_modal     = (text == "Modal")
@@ -593,6 +622,7 @@ class LoadCaseDetailDialog(QDialog):
         c.tf_conv_tol = getattr(self.case, 'tf_conv_tol', 0.01)
         c.tf_accel_factor = getattr(self.case, 'tf_accel_factor', 1.0)
         c.continue_if_no_converge = getattr(self.case, 'continue_if_no_converge', False)
+        c.corot_type = self.combo_corot_formulation.currentText()
                                                                                            
         try:
             c.modal_damping = float(self.input_damping.text()) if hasattr(self, 'input_damping') else 0.05

@@ -13,6 +13,163 @@ from data_manager import DataManager
 from assembler import GlobalAssembler
 from core.units import unit_registry
 
+from corotational_beam import ElementCorotState, NodeRotationState, compute_corotational_element
+
+def _snapshot_corot_state(node_rot, corot_elements):
+    """
+    Deep-copies the MUTABLE parts of the corotational state (node
+    orientation triads + each element's rotation-minimizing frame) so a
+    trial line-search step can be evaluated and then cleanly undone if
+    rejected. Rotations are matrices composed multiplicatively, so a
+    rejected trial can't be "subtracted off" - it has to be restored from
+    a snapshot taken before the trial was applied.
+    """
+    node_snap = {k: v.R.copy() for k, v in node_rot.items()}
+    elem_snap = {k: v.R_r.copy() for k, v in corot_elements.items()}
+    return node_snap, elem_snap
+
+def _restore_corot_state(node_rot, corot_elements, node_snap, elem_snap):
+    """Undoes a rejected trial step by writing the snapshot back in place."""
+    for k, R in node_snap.items():
+        node_rot[k].R = R.copy()
+    for k, R_r in elem_snap.items():
+        corot_elements[k].R_r = R_r.copy()
+
+def _compute_corot_residual(dm, U_full_now, node_rot, corot_elements, T, has_T, is_free_sys, is_strict_statics=False):
+    """
+    One evaluation of the corotational internal-force / tangent-stiffness
+    state at a given full displacement vector U_full_now, against the
+    CURRENT node_rot / corot_elements orientation state (caller is
+    responsible for making sure that state already reflects U_full_now -
+    see the rotation composition step in the caller).
+
+    Extracted out of the main loop so both the "real" per-iteration
+    evaluation and speculative line-search trial evaluations can share
+    the exact same force-recovery code path, instead of two copies
+    drifting out of sync over time.
+
+    NOTE: calling this mutates corot_elements[*].R_r in place (each
+    compute_corotational_element() call updates its element's
+    rotation-minimizing frame as a side effect) - callers doing a
+    speculative trial MUST snapshot/restore around this call.
+    """
+    F_int_full = np.zeros(dm.total_dofs)
+    kg_row, kg_col, kg_data = [], [], []
+
+    for el in dm.elements:
+        eid_str = str(el['id'])
+        state = corot_elements.get(eid_str)
+        if state is None:
+            continue
+        idx_i, idx_j = el['node_indices']
+
+        p1_current = dm.nodes[idx_i]['coords'] + U_full_now[idx_i*6: idx_i*6+3]
+        p2_current = dm.nodes[idx_j]['coords'] + U_full_now[idx_j*6: idx_j*6+3]
+
+        f_g, K_g, N_axial = compute_corotational_element(
+            state, p1_current, p2_current,
+            node_rot[idx_i], node_rot[idx_j],
+            is_strict_statics
+        )
+
+        dof_map = ([idx_i*6+k for k in range(6)] +
+                   [idx_j*6+k for k in range(6)])
+        for a in range(12):
+            F_int_full[dof_map[a]] += f_g[a]
+            for b in range(12):
+                val = K_g[a, b]
+                if val != 0.0:
+                    kg_row.append(dof_map[a])
+                    kg_col.append(dof_map[b])
+                    kg_data.append(val)
+
+    from scipy.sparse import coo_matrix
+    K_full_ld = coo_matrix((kg_data, (kg_row, kg_col)),
+                            shape=(dm.total_dofs, dm.total_dofs)).tocsc()
+
+    if has_T:
+        K_sys_ld = T.T @ K_full_ld @ T
+        F_int_sys = T.T @ F_int_full
+    else:
+        K_sys_ld = K_full_ld
+        F_int_sys = F_int_full
+
+    K_total_free = K_sys_ld.tocsc()[is_free_sys, :][:, is_free_sys]
+    F_int_free = F_int_sys[is_free_sys]
+
+    return F_int_full, F_int_free, K_total_free
+
+def _fd_consistent_tangent(dm, U_free, F_int_free_base, node_rot, corot_elements,
+                            T, has_T, is_free_sys, K_E_sys, eps=1e-6, is_strict_statics=False):
+    """
+    Builds the TRUE consistent tangent stiffness by CENTRAL finite
+    differences, rather than the analytical approximation (K_approx,
+    which is missing the corotational "spin" term - see
+    corotational_beam.py docstring).
+
+    Central differences (f(x+eps) - f(x-eps)) / (2*eps) rather than
+    forward differences ((f(x+eps) - f(x)) / eps): this halves the
+    truncation error order (O(eps^2) instead of O(eps)) and, more
+    importantly, removes a systematic bias that a forward-difference
+    tangent carries relative to the exact tangent at the CURRENT state -
+    that bias is the most likely explanation for why an earlier
+    forward-difference version of this function converged some load
+    steps to 1e-8 cleanly but plateaued inconsistently on others.
+
+    For each free DOF, perturb it by +-eps (composing the perturbation
+    onto the rotation state the SAME way the real solver does, via
+    NodeRotationState.update - not just adding to a flat vector, since
+    rotations are non-additive), recompute the true internal force via
+    the exact same _compute_corot_residual used everywhere else, and
+    take the central-difference column. Costs 2*num_free_dofs extra full
+    residual evaluations per Newton iteration - fine for verifying on a
+    small test model, not meant for production use on large meshes.
+    """
+    num_free = U_free.shape[0]
+    node_snap, elem_snap = _snapshot_corot_state(node_rot, corot_elements)
+
+    cols = np.zeros((num_free, num_free))
+
+    def _perturbed_force(dU_free_pert):
+        dU_sys = np.zeros(K_E_sys.shape[0])
+        dU_sys[is_free_sys] = dU_free_pert
+        dU_full = T @ dU_sys if has_T else dU_sys
+
+        for node in dm.nodes:
+            n_idx = node['idx']
+            d_theta = dU_full[n_idx*6+3: n_idx*6+6]
+            if np.any(d_theta):
+                node_rot[n_idx].update(d_theta)
+
+        U_free_pert = U_free + dU_free_pert
+        U_sys_pert = np.zeros(K_E_sys.shape[0])
+        U_sys_pert[is_free_sys] = U_free_pert
+        U_full_pert = T @ U_sys_pert if has_T else U_sys_pert
+
+        _, F_int_free_pert, _ = _compute_corot_residual(
+            dm, U_full_pert, node_rot, corot_elements, T, has_T, is_free_sys, is_strict_statics
+        )
+        return F_int_free_pert
+
+    for j in range(num_free):
+        dplus = np.zeros(num_free); dplus[j] = eps
+        dminus = np.zeros(num_free); dminus[j] = -eps
+
+        node_snap_j, elem_snap_j = _snapshot_corot_state(node_rot, corot_elements)
+        F_plus = _perturbed_force(dplus)
+        _restore_corot_state(node_rot, corot_elements, node_snap_j, elem_snap_j)
+
+        node_snap_j, elem_snap_j = _snapshot_corot_state(node_rot, corot_elements)
+        F_minus = _perturbed_force(dminus)
+        _restore_corot_state(node_rot, corot_elements, node_snap_j, elem_snap_j)
+
+        cols[:, j] = (F_plus - F_minus) / (2 * eps)
+
+    _restore_corot_state(node_rot, corot_elements, node_snap, elem_snap)
+
+    from scipy.sparse import csc_matrix
+    return csc_matrix(cols)
+
 def _write_error(out_path, error_code, extra=""):
     """Writes the error to JSON and returns True so the UI loads the error dialog."""
     ex = SolverException(error_code, extra)
@@ -57,6 +214,8 @@ def run_nonlinear_analysis(input_json_path, output_json_path, target_case_name, 
         max_total_steps = nl_params.get("max_total_steps", 10)                              
         max_nr_iter = nl_params.get("max_nr_iter", 40)
         iter_conv_tol = nl_params.get("iter_conv_tol", 1e-4)
+        corot_type = nl_params.get("corot_type", "Commercial Compatibility")
+        is_strict_statics = (corot_type == "Strict Global Equilibrium (Native)")
 
         progress_callback(f"NONLINEAR TYPE                       = {geom_nonlin:>10}", 8)
         progress_callback(f"TOTAL LOAD STEPS                     = {max_total_steps:>10}", 8)
@@ -86,6 +245,8 @@ def run_nonlinear_analysis(input_json_path, output_json_path, target_case_name, 
                     is_free_full[start_idx + i] = False
 
         has_T = hasattr(assembler, 'T') and assembler.T is not None
+        T = None                                                               
+                                                                            
         if has_T:
             T = assembler.T
             kept_dofs = assembler.kept_dofs
@@ -104,11 +265,30 @@ def run_nonlinear_analysis(input_json_path, output_json_path, target_case_name, 
         if num_free_dofs == 0:
             raise SolverException("E301", "Structure is fully constrained. No free DOFs.")
 
+        large_disp = (geom_nonlin == "Large Displacements")
+        corot_elements = {}                                     
+        node_rot = {}                                              
+
+        if large_disp:
+            print("      [Large Displacements] Building corotational element/node state...")
+            for node in dm.nodes:
+                node_rot[node['idx']] = NodeRotationState()
+
+            for el in dm.elements:
+                idx_i, idx_j = el['node_indices']
+                p1_0 = dm.nodes[idx_i]['coords'] + np.array(el['offsets'][0])
+                p2_0 = dm.nodes[idx_j]['coords'] + np.array(el['offsets'][1])
+                                                                                       
+                corot_elements[str(el['id'])] = ElementCorotState(
+                    p1_0, p2_0, el.get('beta', 0.0), el['section'], el['material']
+                )
+
         print("[4/5] Entering Nonlinear Load Stepping Loop...")
         progress_callback("Starting Incremental Load Analysis...", 20)
 
         U_free = np.zeros(num_free_dofs)                                       
-        
+        F_int_full_ld_last = None                                                                           
+
         dP_ext_free = P_total_free / max_total_steps
 
         for step in range(1, max_total_steps + 1):
@@ -120,9 +300,28 @@ def run_nonlinear_analysis(input_json_path, output_json_path, target_case_name, 
             K_total_free = K_E_free.copy()
 
             for iter_count in range(1, max_nr_iter + 1):
-                
-                F_int_free = K_total_free.dot(U_free) 
-                
+
+                if large_disp:
+                                                                                      
+                    U_sys_now = np.zeros(K_E_sys.shape[0])
+                    U_sys_now[is_free_sys] = U_free
+                    U_full_now = T @ U_sys_now if has_T else U_sys_now
+
+                    F_int_full, F_int_free, K_total_free = _compute_corot_residual(
+                    dm, U_full_now, node_rot, corot_elements, T, has_T, is_free_sys, is_strict_statics
+                    )
+                    F_int_full_ld_last = F_int_full                                             
+
+                    if nl_params.get("use_fd_tangent", False):
+                        K_total_free = _fd_consistent_tangent(
+                            dm, U_free, F_int_free, node_rot, corot_elements,
+                            T, has_T, is_free_sys, K_E_sys, is_strict_statics=is_strict_statics
+                        )
+
+                else:
+                                                                                      
+                    F_int_free = K_total_free.dot(U_free)
+
                 R_free = P_target_free - F_int_free
                 
                 residual_norm = np.linalg.norm(R_free)
@@ -139,7 +338,66 @@ def run_nonlinear_analysis(input_json_path, output_json_path, target_case_name, 
                 except Exception as e:
                     raise SolverException("E301", f"Matrix singular at step {step}, iter {iter_count}: {e}")
                 
+                if large_disp and nl_params.get("use_line_search", False):
+                                                      
+                    node_snap, elem_snap = _snapshot_corot_state(node_rot, corot_elements)
+
+                    def _apply_trial(alpha_try):
+                        """Composes alpha_try*dU_free onto the (already-restored,
+                        pristine) rotation state and returns the resulting residual
+                        norm. Leaves node_rot/corot_elements mutated at this alpha -
+                        caller must restore before trying a different alpha."""
+                        dU_sys_trial = np.zeros(K_E_sys.shape[0])
+                        dU_sys_trial[is_free_sys] = alpha_try * dU_free
+                        dU_full_trial = T @ dU_sys_trial if has_T else dU_sys_trial
+                        for node in dm.nodes:
+                            n_idx = node['idx']
+                            node_rot[n_idx].update(dU_full_trial[n_idx*6+3: n_idx*6+6])
+
+                        U_free_trial = U_free + alpha_try * dU_free
+                        U_sys_trial = np.zeros(K_E_sys.shape[0])
+                        U_sys_trial[is_free_sys] = U_free_trial
+                        U_full_trial = T @ U_sys_trial if has_T else U_sys_trial
+
+                        _, F_int_free_trial, _ = _compute_corot_residual(
+                        dm, U_full_trial, node_rot, corot_elements, T, has_T, is_free_sys, is_strict_statics
+                        )
+                        return np.linalg.norm(P_target_free - F_int_free_trial)
+
+                    alpha = 1.0
+                    accepted = False
+                    for _ls_try in range(10):
+                        trial_norm = _apply_trial(alpha)
+                        if step == 1:
+                            print(f"      [dbg-ls] step 1 iter {iter_count} try {_ls_try}: "
+                                  f"alpha={alpha:.4f} trial_norm={trial_norm:.4E} "
+                                  f"(pre-step residual={residual_norm:.4E})")
+                        if trial_norm < residual_norm:
+                            accepted = True
+                            break
+                        _restore_corot_state(node_rot, corot_elements, node_snap, elem_snap)
+                        alpha *= 0.5
+
+                    if not accepted:
+                                                                                      
+                        _apply_trial(alpha)
+
+                    U_free = U_free + alpha * dU_free
+                    continue
+
                 U_free += dU_free
+
+                if large_disp:
+                                                                                  
+                    dU_sys = np.zeros(K_E_sys.shape[0])
+                    dU_sys[is_free_sys] = dU_free
+                    dU_full = T @ dU_sys if has_T else dU_sys
+                    for node in dm.nodes:
+                        n_idx = node['idx']
+                        d_theta = dU_full[n_idx*6+3: n_idx*6+6]
+                        node_rot[n_idx].update(d_theta)
+                                                                                       
+                    continue
 
                 if geom_nonlin in ["P-Delta", "Large Displacements"]:
                     
@@ -263,12 +521,17 @@ def run_nonlinear_analysis(input_json_path, output_json_path, target_case_name, 
         U_sys[is_free_sys] = U_free
         U_full = T @ U_sys if has_T else U_sys
 
-        if geom_nonlin in ["P-Delta", "Large Displacements"] and 'KG_full' in locals():
-            K_final_full = K_E_full + KG_full
+        if large_disp and F_int_full_ld_last is not None:
+                                                                               
+            Reactions_full = F_int_full_ld_last - P_total_full
         else:
-            K_final_full = K_E_full
-            
-        Reactions_full = K_final_full.dot(U_full) - P_total_full
+                                                       
+            if geom_nonlin in ["P-Delta", "Large Displacements"] and 'KG_full' in locals():
+                K_final_full = K_E_full + KG_full
+            else:
+                K_final_full = K_E_full
+
+            Reactions_full = K_final_full.dot(U_full) - P_total_full
 
         results_dict = {
             "displacements": {},
@@ -339,8 +602,12 @@ def run_nonlinear_analysis(input_json_path, output_json_path, target_case_name, 
         return _write_error(output_json_path, "E000", str(e))
 
 if __name__ == "__main__":
-                    
+                                                                                 
     test_in = os.path.join(current_dir, "test.mf")
     test_out = os.path.join(current_dir, "test_nonlinear_results.json")
     if os.path.exists(test_in):
-        run_nonlinear_analysis(test_in, test_out, "DEAD")
+        run_nonlinear_analysis(test_in, test_out, "Large_deflection")
+    else:
+        print(f"Test file not found: {test_in}")
+        print("Create a simple cantilever .mf with a Nonlinear Static case")
+        print("(Large Displacements enabled, nodal load only) and place it here.")

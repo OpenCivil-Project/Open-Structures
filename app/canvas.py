@@ -21,7 +21,7 @@ from core.ForceComputationWorker import ForceComputationWorker
 class MCanvas3D(gl.GLViewWidget):
     signal_canvas_clicked = pyqtSignal(float, float, float)
     signal_right_clicked = pyqtSignal()
-    signal_box_selection = pyqtSignal(list, list, list, list, bool, bool)
+    signal_box_selection = pyqtSignal(list, list, list, list, list, bool, bool) 
     signal_area_box_selection = pyqtSignal(list, bool, bool)                                   
     signal_element_selected = pyqtSignal(int)
     signal_mouse_moved = pyqtSignal(float, float, float)
@@ -108,6 +108,9 @@ class MCanvas3D(gl.GLViewWidget):
         self.hovered_elem_id = None
         self.hovered_tendon_id = None
         self.selected_tendon_ids = []
+
+        self.hovered_cable_id = None                 
+        self.selected_cable_ids = []
 
         self.deflection_cache = {}
         self.cache_valid = False
@@ -564,6 +567,7 @@ class MCanvas3D(gl.GLViewWidget):
         self.selected_node_ids    = []
         self.selected_area_ids    = []
         self.selected_tendon_ids  = []
+        self.selected_cable_ids   = []
         self.selected_link_ids    = []
         self._rebuild_selection_overlay()
         self._rebuild_area_interior_lines()                                        
@@ -883,10 +887,12 @@ class MCanvas3D(gl.GLViewWidget):
             _p("Extruding 3D frame elements to VBO...")
             self._draw_elements_extruded(model)
             self._draw_tendons_extruded(model)
+            self._draw_cables_extruded(model)
         else:
             _p("Generating wireframe elements...")
             self._draw_elements_wireframe(model)
             self._draw_tendons_wireframe(model)
+            self._draw_cables_wireframe(model)
 
         if self.show_loads and not in_analysis_mode:
             _p("Generating applied load geometries...")
@@ -899,6 +905,7 @@ class MCanvas3D(gl.GLViewWidget):
             self._draw_member_loads(model)
             self._draw_member_point_loads(model)
             self._draw_area_loads(model)  
+            self._draw_cable_loads(model)
             _p("Pushing load buffers to GPU...")
             self._upload_loads_to_vbo()
             self._upload_load_labels_to_gpu() 
@@ -1003,7 +1010,8 @@ class MCanvas3D(gl.GLViewWidget):
                 self._draw_member_loads(self.current_model)
                 self._draw_member_point_loads(self.current_model)
                 self._draw_area_loads(self.current_model)
-
+                self._draw_cable_loads(self.current_model)
+                
                 self._upload_loads_to_vbo()
                 self._loads_dirty = False
 
@@ -1104,7 +1112,8 @@ class MCanvas3D(gl.GLViewWidget):
             self._rebuild_wireframe_selection_overlay()
         self._rebuild_node_selection_overlay()
         self._rebuild_link_selection_overlay()
-        self._rebuild_tendon_selection_overlay()                
+        self._rebuild_tendon_selection_overlay()   
+        self._rebuild_cable_selection_overlay()             
 
     def _rebuild_tendon_selection_overlay(self):
         if not getattr(self, 'selected_tendon_ids', None) or not self.current_model: return
@@ -1124,6 +1133,52 @@ class MCanvas3D(gl.GLViewWidget):
             
             dash, gap = 0.4, 0.25
             dist_accum, on = 0.0, True
+            for k in range(len(pts) - 1):
+                seg_start = pts[k]
+                seg_end = pts[k + 1]
+                seg_vec = seg_end - seg_start
+                seg_len = np.linalg.norm(seg_vec)
+                if seg_len < 1e-6: continue
+                seg_u = seg_vec / seg_len
+                walked = 0.0
+                while walked < seg_len:
+                    interval = dash if on else gap
+                    remaining = interval - dist_accum
+                    can_walk = min(remaining, seg_len - walked)
+                    if on:
+                        dash_pos.extend([seg_start + seg_u * walked,
+                                         seg_start + seg_u * (walked + can_walk)])
+                        dash_colors.extend([sel_color, sel_color])
+                    walked += can_walk
+                    dist_accum += can_walk
+                    if dist_accum >= interval:
+                        dist_accum = 0.0
+                        on = not on
+
+        if dash_pos:
+            item = gl.GLLinePlotItem(pos=np.array(dash_pos), color=np.array(dash_colors), mode='lines', width=3.5, antialias=True)
+            item.setGLOptions({'glEnable': (GL_BLEND,), 'glBlendFunc': (GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA), 'glDisable': (GL_DEPTH_TEST,)})
+            self.addItem(item)
+            self._sel_overlay_items.append(item)
+
+    def _rebuild_cable_selection_overlay(self):
+        if not getattr(self, 'selected_cable_ids', None) or not self.current_model: return
+        sel_color = np.array([1.0, 1.0, 0.0, 1.0])
+        cables = getattr(self.current_model, 'cables', {})
+        if not cables: return
+
+        dash_pos = []
+        dash_colors = []
+
+        for cid in self.selected_cable_ids:
+            if cid not in cables: continue
+            cable = cables[cid]
+            pts = self._get_cable_world_points(cable)
+            if pts is None or len(pts) < 2: continue
+            
+            dash, gap = 0.4, 0.25
+            dist_accum, on = 0.0, True
+            
             for k in range(len(pts) - 1):
                 seg_start = pts[k]
                 seg_end = pts[k + 1]
@@ -2705,6 +2760,83 @@ class MCanvas3D(gl.GLViewWidget):
             self.addItem(mesh)
             self.element_items.append(mesh)
 
+    def _draw_cables_wireframe(self, model):
+        cables = getattr(model, 'cables', {})
+        if not cables or self.view_deflected: return
+        
+        for cid, cable in cables.items():
+            pts = self._get_cable_world_points(cable)
+            if pts is None or len(pts) < 2:
+                continue
+
+            sec = getattr(cable, 'cable_section', None)
+            c = getattr(sec, 'color', (1, 0, 0, 1)) if sec else (1, 0, 0, 1)
+            if len(c) == 3: c = (*c, 1.0)
+            
+            item = gl.GLLinePlotItem(pos=pts, color=tuple(c), width=2.5, mode='line_strip', antialias=True)
+            item.setGLOptions('opaque')
+            self.addItem(item)
+            self.element_items.append(item)
+
+    def _draw_cables_extruded(self, model):
+        cables = getattr(model, 'cables', {})
+        if not cables or self.view_deflected: return
+        
+        sides = 10
+        for cid, cable in cables.items():
+            pts = self._get_cable_world_points(cable)
+            if pts is None or len(pts) < 2:
+                continue
+
+            sec = getattr(cable, 'cable_section', None)
+            if not sec: continue
+            
+            radius = (sec.dia / 2.0) if getattr(sec, 'is_dia', False) else math.sqrt(max(sec.area, 1e-8) / math.pi)
+            c = getattr(sec, 'color', (1, 0, 0, 1))
+            if len(c) == 3: c = (*c, 1.0)
+            face_color = np.array(c, dtype=np.float32)
+
+            tangents = []
+            for i in range(len(pts) - 1):
+                d = pts[i + 1] - pts[i]
+                L = np.linalg.norm(d)
+                tangents.append(d / L if L > 1e-9 else np.array([1.0, 0.0, 0.0]))
+            tangents.append(tangents[-1])
+
+            ref = np.array([0.0, 0.0, 1.0])
+            if abs(tangents[0][2]) > 0.99: ref = np.array([1.0, 0.0, 0.0])
+            side = np.cross(ref, tangents[0])
+            side /= np.linalg.norm(side)
+
+            rings = []
+            for i, pt in enumerate(pts):
+                t = tangents[i]
+                side = side - np.dot(side, t) * t
+                n_side = np.linalg.norm(side)
+                side = side / n_side if n_side > 1e-6 else side
+                up = np.cross(t, side)
+                
+                rings.append([pt + radius * (math.cos(a) * side + math.sin(a) * up)
+                              for a in np.linspace(0, 2 * math.pi, sides, endpoint=False)])
+
+            verts, faces, colors = [], [], []
+            for i in range(len(rings) - 1):
+                base = len(verts)
+                verts.extend(rings[i]); verts.extend(rings[i + 1])
+                for s in range(sides):
+                    s2 = (s + 1) % sides
+                    a, b, c_, d_ = base + s, base + s2, base + sides + s, base + sides + s2
+                    faces.append([a, b, c_]); faces.append([b, d_, c_])
+                colors.extend([face_color] * (2 * sides))
+
+            mesh = gl.GLMeshItem(vertexes=np.array(verts, dtype=np.float32),
+                                  faces=np.array(faces, dtype=np.int32),
+                                  vertexColors=np.array(colors, dtype=np.float32),
+                                  smooth=True,
+                                  glOptions='translucent' if face_color[3] < 0.999 else 'opaque')
+            self.addItem(mesh)
+            self.element_items.append(mesh)
+            
     def _draw_slabs(self, model):
                                                                                                 
         pass
@@ -4634,6 +4766,7 @@ class MCanvas3D(gl.GLViewWidget):
             return math.hypot(pt[0] - px, pt[1] - py)
 
         found_nodes, found_elems, found_links, found_tendons, found_area_elems = [], [], [], [], []
+        found_cables = []
 
         if is_single_click:
             mx = (p_start.x() + p_end.x()) / 2.0
@@ -4686,6 +4819,21 @@ class MCanvas3D(gl.GLViewWidget):
                         if min_t_dist <= 10:
                             candidates.append((min_t_dist, 3, 'tendon', tid))
 
+            if getattr(model, 'cables', None):
+                for cid, c in model.cables.items():
+                    pts = self._get_cable_world_points(c)
+                    if pts is not None and len(pts) >= 2:
+                        s_pts = []
+                        for p in pts:
+                            s_pos = self._project_to_screen(p[0], p[1], p[2], mvp, w, h)
+                            if s_pos: s_pts.append(s_pos)
+                        min_c_dist = float('inf')
+                        for k in range(len(s_pts)-1):
+                            d = pt_seg_dist((mx, my), s_pts[k], s_pts[k+1])
+                            if d < min_c_dist: min_c_dist = d
+                        if min_c_dist <= 10:
+                            candidates.append((min_c_dist, 2.5, 'cable', cid))
+
             if hasattr(model, 'links'):
                 for lid, link in model.links.items():
                     nodes = link['nodes']
@@ -4722,7 +4870,6 @@ class MCanvas3D(gl.GLViewWidget):
                         candidates.append((10.0, 5, 'area', aeid))
 
             if candidates:
-                                                                                                             
                 candidates.sort(key=lambda x: (x[0], x[1]))
                 min_d = candidates[0][0]
                 tied = [c for c in candidates if c[0] <= min_d + 2.0]
@@ -4747,6 +4894,7 @@ class MCanvas3D(gl.GLViewWidget):
                         'node':   getattr(self, 'selected_node_ids', []),
                         'elem':   getattr(self, 'selected_element_ids', []),
                         'tendon': getattr(self, 'selected_tendon_ids', []),
+                        'cable':  getattr(self, 'selected_cable_ids', []),
                         'link':   getattr(self, 'selected_link_ids', []),
                         'area':   getattr(self, 'selected_area_ids', []),
                     }
@@ -4760,11 +4908,11 @@ class MCanvas3D(gl.GLViewWidget):
                 if ctype == 'node': found_nodes.append(cid)
                 elif ctype == 'elem': found_elems.append(cid)
                 elif ctype == 'tendon': found_tendons.append(cid)
+                elif ctype == 'cable': found_cables.append(cid)
                 elif ctype == 'link': found_links.append(cid)
                 elif ctype == 'area': found_area_elems.append(cid)
 
         else:
-                                                       
             self._click_cycle_key = None
             self._click_cycle_index = -1
 
@@ -4808,6 +4956,26 @@ class MCanvas3D(gl.GLViewWidget):
                                     hit = True
                                     break
                             if hit: found_tendons.append(tid)
+
+            if getattr(model, 'cables', None):
+                for cid, c in model.cables.items():
+                    pts = self._get_cable_world_points(c)
+                    if pts is not None and len(pts) >= 2:
+                        s_pts = []
+                        for p in pts:
+                            s_pos = self._project_to_screen(p[0], p[1], p[2], mvp, w, h)
+                            if s_pos: s_pts.append(s_pos)
+                        if not s_pts: continue
+                        if is_window_select:
+                            if all(x_min <= p[0] <= x_max and y_min <= p[1] <= y_max for p in s_pts):
+                                found_cables.append(cid)
+                        else:
+                            hit = False
+                            for k in range(len(s_pts)-1):
+                                if self._line_intersects_rect(s_pts[k], s_pts[k+1], rect):
+                                    hit = True
+                                    break
+                            if hit: found_cables.append(cid)
 
             if hasattr(model, 'links'):
                 for lid, link in model.links.items():
@@ -4865,10 +5033,10 @@ class MCanvas3D(gl.GLViewWidget):
         modifiers   = QApplication.keyboardModifiers()
         is_additive = (modifiers == Qt.KeyboardModifier.ControlModifier)
         is_deselect = (modifiers == Qt.KeyboardModifier.ShiftModifier)
-        self.signal_box_selection.emit(found_nodes, found_elems, found_links, found_tendons, is_additive, is_deselect)
+        self.signal_box_selection.emit(found_nodes, found_elems, found_links, found_tendons, found_cables, is_additive, is_deselect)
         if found_area_elems or not is_single_click:
             self.signal_area_box_selection.emit(found_area_elems, is_additive, is_deselect)
-    
+
     def _point_in_polygon_2d(self, px, py, pts):
         """Winding number test — works for convex and concave screen-space polygons."""
         winding = 0
@@ -5591,6 +5759,178 @@ class MCanvas3D(gl.GLViewWidget):
                                                       face[2] + base_idx])
             self._pending_load_fill_colors.extend(sel_colors)
 
+        if sel_lines:
+            self._pending_load_line_pos.extend(sel_lines)
+            self._pending_load_line_colors.extend(sel_line_colors)
+
+    def _draw_cable_loads(self, model):
+        """Visualizes Distributed Loads assigned to Cables."""
+        if not getattr(model, 'loads', None): return
+        if not self.show_loads: return
+        if self.load_type_filter == "nodal": return
+
+        sel_verts, sel_colors, sel_faces = [], [], []
+        sel_idx_counter = 0
+        sel_lines, sel_line_colors = [], []
+
+        ghost_verts, ghost_colors, ghost_faces = [], [], []
+        ghost_idx_counter = 0
+        ghost_lines, ghost_line_colors = [], []
+        
+        for load in model.loads:
+                                                          
+            if not (hasattr(load, 'cable_id') and hasattr(load, 'val')):
+                continue
+            
+            if self.visible_load_patterns and getattr(load, 'pattern_name', None) not in self.visible_load_patterns:
+                continue
+
+            cb = getattr(model, 'cables', {}).get(load.cable_id)
+            if not cb: continue
+
+            v1_state = self._get_visibility_state(cb.node_i.x, cb.node_i.y, cb.node_i.z)
+            v2_state = self._get_visibility_state(cb.node_j.x, cb.node_j.y, cb.node_j.z)
+            if v1_state == 0 or v2_state == 0: continue
+
+            is_ghosted = (v1_state != 2 or v2_state != 2)
+            is_selected = (cb.id in getattr(self, 'selected_cable_ids', []))
+
+            p1 = np.array([cb.node_i.x, cb.node_i.y, cb.node_i.z])
+            p2 = np.array([cb.node_j.x, cb.node_j.y, cb.node_j.z])
+            cable_vec = p2 - p1
+            cable_len = np.linalg.norm(cable_vec)
+            if cable_len < 1e-6: continue
+            cable_dir = cable_vec / cable_len
+
+            val = load.val
+            if abs(val) < 1e-6: continue
+
+            l_dir = load.direction.upper()
+            load_vec = np.zeros(3)
+            
+            if load.coord_system == "GLOBAL":
+                if l_dir == 'GRAVITY': load_vec[2] = -1.0; val = abs(val)
+                elif 'X' in l_dir: load_vec[0] = 1.0
+                elif 'Y' in l_dir: load_vec[1] = 1.0
+                elif 'Z' in l_dir: load_vec[2] = 1.0
+            else:
+                v1_ax = cable_dir
+                up = np.array([1.0, 0.0, 0.0]) if np.isclose(abs(v1_ax[2]), 1.0) else np.array([0.0, 0.0, 1.0])
+                v2_ax = np.cross(up, v1_ax)
+                v2_ax /= np.linalg.norm(v2_ax)
+                v3_ax = np.cross(v1_ax, v2_ax)
+                
+                if '1' in l_dir: load_vec = v1_ax
+                elif '2' in l_dir: load_vec = v2_ax
+                elif '3' in l_dir: load_vec = v3_ax
+
+            base_rgb = (0.0, 0.0, 0.0)                      
+            c_ghost      = (*base_rgb, 0.25)
+            c_ghost_line = (*base_rgb, 0.60)
+            c_sel_fill   = (*base_rgb, 0.55)
+            c_line       = (*base_rgb, 1.00)
+
+            magnitude = max(1.0, abs(val))
+            scale = min(1.5, 0.5 + (np.log10(magnitude) * 0.2))
+            sign = 1 if val > 0 else -1
+            
+            offset_vec = sign * load_vec * scale
+
+            pt_base_1 = p1
+            pt_base_2 = p2
+            pt_top_1  = p1 - offset_vec
+            pt_top_2  = p2 - offset_vec
+
+            if is_ghosted:
+                ghost_verts.extend([pt_base_1, pt_base_2, pt_top_2, pt_top_1])
+                idx = ghost_idx_counter
+                ghost_faces.extend([[idx, idx+1, idx+2], [idx, idx+2, idx+3]])
+                for _ in range(4): ghost_colors.append((*base_rgb, 0.08))
+                ghost_idx_counter += 4
+                ghost_lines.extend([pt_top_1, pt_top_2])
+                ghost_line_colors.extend([(*base_rgb, 0.20)] * 2)
+                continue
+
+            if not is_selected:
+                ghost_verts.extend([pt_base_1, pt_base_2, pt_top_2, pt_top_1])
+                idx = ghost_idx_counter
+                ghost_faces.extend([[idx, idx+1, idx+2], [idx, idx+2, idx+3]])
+                for _ in range(4): ghost_colors.append(c_ghost)
+                ghost_idx_counter += 4
+                ghost_lines.extend([pt_top_1, pt_top_2])
+                ghost_line_colors.extend([c_ghost_line, c_ghost_line])
+                continue
+
+            sel_verts.extend([pt_base_1, pt_base_2, pt_top_2, pt_top_1])
+            idx = sel_idx_counter
+            sel_faces.extend([[idx, idx+1, idx+2], [idx, idx+2, idx+3]])
+            for _ in range(4): sel_colors.append(c_sel_fill)
+            sel_idx_counter += 4
+
+            sel_lines.extend([pt_top_1, pt_top_2, pt_top_1, pt_base_1, pt_top_2, pt_base_2])
+            sel_line_colors.extend([c_line] * 6)
+
+            num_arrows = 5
+            arrow_dir = sign * load_vec
+            arrow_len = scale * 0.9
+
+            def add_arrow(tip_pos, direction, color):
+                head_size = arrow_len * 0.3
+                tail = tip_pos - direction * arrow_len
+                sel_lines.extend([tail, tip_pos])
+                sel_line_colors.extend([color, color])
+                perp = np.array([1.0, 0.0, 0.0]) if abs(direction[2]) > 0.9 else np.array([0.0, 0.0, 1.0])
+                side_vec = np.cross(direction, perp)
+                side_vec = (side_vec / np.linalg.norm(side_vec)) * head_size
+                base = tip_pos - direction * head_size
+                sel_lines.extend([tip_pos, base + side_vec, tip_pos, base - side_vec])
+                sel_line_colors.extend([color] * 4)
+
+            for i in range(num_arrows):
+                t = i / (num_arrows - 1)
+                pt_tip = pt_base_1 + t * (pt_base_2 - pt_base_1)
+                add_arrow(pt_tip, arrow_dir, c_line)
+
+            v_right = cable_dir.copy()
+            if v_right[0] < -0.01: v_right = -v_right
+            v_up_text = np.array([0.0, 0.0, 1.0])
+            if abs(v_right[2]) > 0.99: v_up_text = np.array([1.0, 0.0, 0.0])
+
+            from core.units import unit_registry
+            q_scale = unit_registry.force_scale / unit_registry.length_scale
+            display_val = abs(val) * q_scale
+            unit_str = f"{unit_registry.force_unit_name}/{unit_registry.length_unit_name}"
+
+            mid_height = (pt_top_1 + pt_top_2) / 2
+            label_pos = mid_height + (v_up_text * 0.20)
+
+            self.load_labels.append({
+                'owner_id': cb.id, 'owner_type': 'cable',
+                'pos_3d': label_pos.tolist(),
+                'text': f"{display_val:.2f} {unit_str}",
+                'val': val,
+                'color': list(c_line[:4]),
+                'v_right': v_right.tolist(),
+                'v_up': v_up_text.tolist(),
+                'align': 'center',
+                'text_height': 0.20
+            })
+
+        if ghost_verts:
+            base_idx = len(self._pending_load_fill_verts)
+            self._pending_load_fill_verts.extend(ghost_verts)
+            for face in ghost_faces:
+                self._pending_load_fill_faces.append([face[0]+base_idx, face[1]+base_idx, face[2]+base_idx])
+            self._pending_load_fill_colors.extend(ghost_colors)
+        if ghost_lines:
+            self._pending_load_line_pos.extend(ghost_lines)
+            self._pending_load_line_colors.extend(ghost_line_colors)
+        if sel_verts:
+            base_idx = len(self._pending_load_fill_verts)
+            self._pending_load_fill_verts.extend(sel_verts)
+            for face in sel_faces:
+                self._pending_load_fill_faces.append([face[0]+base_idx, face[1]+base_idx, face[2]+base_idx])
+            self._pending_load_fill_colors.extend(sel_colors)
         if sel_lines:
             self._pending_load_line_pos.extend(sel_lines)
             self._pending_load_line_colors.extend(sel_line_colors)
@@ -6524,6 +6864,7 @@ class MCanvas3D(gl.GLViewWidget):
         hovered_elem = None
         hovered_area = None
         hovered_tendon = None
+        hovered_cable = None
         min_dist = 15.0
 
         for nid, s_pos in node_screens.items():
@@ -6613,6 +6954,32 @@ class MCanvas3D(gl.GLViewWidget):
                         min_dist_tendon = dist
                         hovered_tendon = tid
 
+        if hovered_node is None and hovered_elem is None and hovered_tendon is None and getattr(self.current_model, 'cables', None):
+            min_dist_cable = 10.0
+            for cid, cable in self.current_model.cables.items():
+                pts = self._get_cable_world_points(cable)
+                if pts is None or len(pts) < 2:
+                    continue
+                screen_pts = []
+                for p in pts:
+                    s_pos = self._project_to_screen(p[0], p[1], p[2], mvp, w, h)
+                    if s_pos:
+                        screen_pts.append(s_pos)
+                for i in range(len(screen_pts) - 1):
+                    x1, y1 = screen_pts[i]
+                    x2, y2 = screen_pts[i + 1]
+                    l2 = (x2 - x1)**2 + (y2 - y1)**2
+                    if l2 == 0:
+                        dist = ((px - x1)**2 + (py - y1)**2)**0.5
+                    else:
+                        t = max(0, min(1, ((px - x1) * (x2 - x1) + (py - y1) * (y2 - y1)) / l2))
+                        proj_x = x1 + t * (x2 - x1)
+                        proj_y = y1 + t * (y2 - y1)
+                        dist = ((px - proj_x)**2 + (py - proj_y)**2)**0.5
+                    if dist < min_dist_cable:
+                        min_dist_cable = dist
+                        hovered_cable = cid
+
         if hovered_node is None and hovered_elem is None and hovered_tendon is None and self.current_model.area_elements:
             for aeid, ae in self.current_model.area_elements.items():
                                                                                 
@@ -6672,6 +7039,11 @@ class MCanvas3D(gl.GLViewWidget):
             sec_name = td.tendon_section.name if td.tendon_section else "None"
             text = f"TENDON {hovered_tendon}\nSection: {sec_name}"
 
+        elif hovered_cable is not None:
+            cb = self.current_model.cables[hovered_cable]
+            sec_name = cb.cable_section.name if cb.cable_section else "None"
+            text = f"CABLE {hovered_cable}\nSection: {sec_name}"
+
         elif hovered_area is not None:
             ae  = self.current_model.area_elements[hovered_area]
             sec = ae.section
@@ -6694,11 +7066,13 @@ class MCanvas3D(gl.GLViewWidget):
                         new_hover_data is None)
 
         prev_hov_tendon = self.hovered_tendon_id
+        prev_hov_cable = getattr(self, 'hovered_cable_id', None)
         self.current_hover_data = new_hover_data
         self.hovered_node_id    = hovered_node
         self.hovered_elem_id    = hovered_elem
         self.hovered_tendon_id  = hovered_tendon
-        if hovered_tendon != prev_hov_tendon:
+        self.hovered_cable_id   = hovered_cable
+        if hovered_tendon != prev_hov_tendon or hovered_cable != prev_hov_cable:                   
             self.update()
 
         prev_hov_area = getattr(self, 'hovered_area_id', None)
@@ -6921,3 +7295,49 @@ class MCanvas3D(gl.GLViewWidget):
     def hide_section_locator(self):
         self.section_locator.setVisible(False)
         self.section_locator_mesh.setVisible(False)
+
+    def _get_cable_world_points(self, cable):
+        """
+        Dynamically calculates the exact catenary curve for the canvas.
+        """
+        try:
+            from core.cable_catenary_solver import solve_cable_geometry
+        except ImportError:
+            return np.array([[cable.node_i.x, cable.node_i.y, cable.node_i.z],
+                             [cable.node_j.x, cable.node_j.y, cable.node_j.z]], dtype=np.float64)
+        
+        node_i = (cable.node_i.x, cable.node_i.y, cable.node_i.z)
+        node_j = (cable.node_j.x, cable.node_j.y, cable.node_j.z)
+        
+        sec = getattr(cable, 'cable_section', None)
+        if not sec:
+            return np.array([node_i, node_j], dtype=np.float64)
+
+        mat = getattr(sec, 'material', None)
+        area = getattr(sec, 'area', 0.0)
+        E = getattr(mat, 'E', 0.0) if mat else 0.0
+        unit_weight = getattr(mat, 'unit_weight', 0.0) if mat else 0.0
+
+        EA = E * area
+        added_weight = getattr(cable, 'added_weight', 0.0)
+        weight_per_length = (area * unit_weight) + added_weight
+
+        target_type = getattr(cable, 'target_type', "Cable - Undeformed Length")
+        target_value = getattr(cable, 'target_value', getattr(cable, 'undeformed_length', 0.0))
+        
+        if not target_value or target_value <= 0:
+             return np.array([node_i, node_j], dtype=np.float64)
+
+        n_points = max(15, getattr(cable, 'number_of_segments', 1) + 1)
+
+        res = solve_cable_geometry(
+            node_i, node_j, weight_per_length, EA,
+            target_type, target_value,
+            gravity_dir=(0.0, 0.0, -1.0),
+            n_points=n_points
+        )
+
+        if res.converged and res.points:
+            return np.array([p.xyz for p in res.points], dtype=np.float64)
+        
+        return np.array([node_i, node_j], dtype=np.float64)

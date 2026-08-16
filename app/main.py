@@ -20,6 +20,8 @@ import qtawesome as qta
 from PyQt6.QtGui import QAction, QPixmap, QCursor, QVector3D, QColor, QIcon, QPainter, QFont
 from PyQt6.QtGui import QActionGroup
 import pyqtgraph.opengl as gl
+from PyQt6.QtWidgets import QWidgetAction, QHBoxLayout
+
 if getattr(sys, 'frozen', False):
 
     if hasattr(sys, '_MEIPASS'):
@@ -63,6 +65,8 @@ from release_notes import RELEASE_NOTES, NOTICES
 from app.dialogs.display_reactions_dialog import DisplayReactionsDialog
 from app.dialogs.model_io_dialog import ModelIODialog, LAUNCH_ON_ANALYSIS
 from app.dialogs.plot_function_dialog import PlotFunctionDisplayDialog
+from core.mesh import Node, FrameElement, AreaElement, CableObject
+from core.io_manager import RecentProjectsManager
 
 class OpenStructureSplash(QSplashScreen):
     def __init__(self, pixmap):
@@ -193,6 +197,67 @@ class GlobalDialogAnimator(QObject):
                 
         return super().eventFilter(obj, event)
 
+from PyQt6.QtCore import pyqtSignal, Qt
+from PyQt6.QtWidgets import QWidget, QHBoxLayout, QVBoxLayout, QLabel, QWidgetAction
+from PyQt6.QtGui import QPixmap
+
+class RecentProjectItem(QWidget):
+                                                                         
+    clicked = pyqtSignal(str) 
+
+    def __init__(self, project_data, parent=None):
+        super().__init__(parent)
+        self.project_path = project_data["path"]
+        
+        self.setMinimumSize(250, 90) 
+        
+        layout = QHBoxLayout(self)
+        layout.setContentsMargins(10, 8, 10, 8)
+        layout.setSpacing(12)
+        
+        thumb_label = QLabel()
+        thumb_label.setFixedSize(120, 67)                             
+        if os.path.exists(project_data["thumbnail"]):
+            pixmap = QPixmap(project_data["thumbnail"]).scaled(
+                120, 67, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation
+            )
+            thumb_label.setPixmap(pixmap)
+        else:
+            thumb_label.setText("No Image")
+            thumb_label.setStyleSheet("color: gray; background: #f0f0f0; border: 1px solid #ccc;")
+            thumb_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        
+        text_layout = QVBoxLayout()
+        text_layout.setSpacing(2)
+        
+        name_label = QLabel(f"<b style='font-size: 13px;'>{project_data['name']}</b>")
+        date_label = QLabel(f"<span style='color: #6c757d; font-size: 11px;'>{project_data['last_saved']}</span>")
+        
+        thumb_label.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
+        name_label.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
+        date_label.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
+        
+        text_layout.addWidget(name_label)
+        text_layout.addWidget(date_label)
+        text_layout.addStretch()
+        
+        layout.addWidget(thumb_label)
+        layout.addLayout(text_layout)
+        layout.addStretch()
+
+    def mouseReleaseEvent(self, event):
+        if event.button() == Qt.MouseButton.LeftButton:
+            self.clicked.emit(self.project_path)
+            super().mouseReleaseEvent(event)
+
+    def enterEvent(self, event):
+        self.setStyleSheet("background-color: #e9ecef;")                      
+        super().enterEvent(event)
+
+    def leaveEvent(self, event):
+        self.setStyleSheet("background-color: transparent;")                       
+        super().leaveEvent(event)
+
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
@@ -248,6 +313,9 @@ class MainWindow(QMainWindow):
         self.draw_link1_mode_active = False
         self.draw_link2_dialog = None
         self.draw_link1_dialog = None
+
+        self.recent_projects_manager = RecentProjectsManager()
+
         self.draw_start_node = None 
         self.draw_dialog = None
         self.cross_brace_mode_active = False
@@ -320,11 +388,33 @@ class MainWindow(QMainWindow):
         open_action.setShortcut("Ctrl+O")
         open_action.triggered.connect(self.on_open_model)
         file_menu.addAction(open_action)
+        
+        self.recent_projects_menu = file_menu.addMenu(qta.icon('fa5s.clock', color='#6c757d'), "Recent Projects")
+        self._build_recent_projects_menu() 
 
-        self.action_save = QAction(qta.icon('fa5s.save', color='#6c757d'), "Save As...", self)
+        file_menu.addSeparator()
+
+        self.action_close_project = QAction(qta.icon('fa5s.times', color='#c77873'), "Close Project", self)
+        self.action_close_project.triggered.connect(self.on_close_project)
+        file_menu.addAction(self.action_close_project)
+
+        file_menu.addSeparator()
+
+        self.action_save = QAction(qta.icon('fa5s.save', color='#6c757d'), "Save", self)
         self.action_save.setShortcut("Ctrl+S")
         self.action_save.triggered.connect(self.on_save_model)
         file_menu.addAction(self.action_save)
+
+        self.action_save_as = QAction(qta.icon('fa5s.save', color='#6c757d'), "Save As...", self)
+        self.action_save_as.setShortcut("Ctrl+Shift+S")
+        self.action_save_as.triggered.connect(self.on_save_as_model)
+        file_menu.addAction(self.action_save_as)
+
+        file_menu.addSeparator()
+
+        self.action_exit = QAction(qta.icon('fa5s.sign-out-alt', color='#6c757d'), "Exit", self)
+        self.action_exit.triggered.connect(self.close)
+        file_menu.addAction(self.action_exit)
 
         file_menu.addSeparator()
 
@@ -418,6 +508,10 @@ class MainWindow(QMainWindow):
         tendon_sec_action.triggered.connect(self.on_define_tendon_sections)
         self.menu_define.addAction(tendon_sec_action)
 
+        cable_sec_action = QAction(qta.icon('fa5s.bezier-curve', color='#6c757d'), "Cable Sections...", self)
+        cable_sec_action.triggered.connect(self.on_define_cable_sections)
+        self.menu_define.addAction(cable_sec_action)
+
         area_sec_action = QAction(qta.icon('fa5s.vector-square', color='#6c757d'), "Area Sections...", self)
         area_sec_action.triggered.connect(self.on_define_area_sections)
         self.menu_define.addAction(area_sec_action)
@@ -464,7 +558,7 @@ class MainWindow(QMainWindow):
 
         self.menu_draw = menubar.addMenu("Draw")
         
-        draw_action = QAction(qta.icon('fa5s.pencil-alt', color='#6c757d'), "Draw Frame/Tendon...", self)
+        draw_action = QAction(qta.icon('fa5s.pencil-alt', color='#6c757d'), "Draw Frame/Cables/Tendon...", self)
         draw_action.triggered.connect(self.on_draw_frame)
         self.menu_draw.addAction(draw_action)
 
@@ -956,6 +1050,15 @@ class MainWindow(QMainWindow):
 
         self.menu_assign.addSeparator()
 
+        cable_menu = self.menu_assign.addMenu("Cable")
+        cable_menu.setIcon(qta.icon('fa5s.bezier-curve', color='#6c757d'))
+
+        cable_load_action = QAction(qta.icon('fa5s.stream', color='#6c757d'), "Distributed Loads...", self)
+        cable_load_action.triggered.connect(self.on_assign_cable_load)
+        cable_menu.addAction(cable_load_action)
+
+        self.menu_assign.addSeparator()
+
         tendon_menu = self.menu_assign.addMenu("Tendon")
         tendon_menu.setIcon(qta.icon('fa5s.wave-square', color='#6c757d'))
 
@@ -1112,12 +1215,15 @@ class MainWindow(QMainWindow):
         self.selected_area_ids = []
         self.selected_link_ids = []
         self.selected_tendon_ids = []
+        self.selected_cable_ids = []
 
         if hasattr(self, 'canvas'):
             self.canvas.clear_hover_popup()
             self.canvas.selected_tendon_ids = []
+            self.canvas.selected_cable_ids = []
         if getattr(self, 'canvas2', None):
             self.canvas2.selected_tendon_ids = []
+            self.canvas2.selected_cable_ids = []
 
         self._refresh_selection_overlay()
         self.status.showMessage("Selection Cleared")
@@ -1793,6 +1899,14 @@ class MainWindow(QMainWindow):
             self.status.showMessage(f"Saved: {filename}")
             self.update_window_title()
             QApplication.processEvents()
+
+            try:
+                                                                      
+                frame_buffer = self.canvas.grabFramebuffer()
+                self.recent_projects_manager.save_project_thumbnail(filename, frame_buffer)
+                self._build_recent_projects_menu()                                    
+            except Exception as e:
+                print(f"Thumbnail capture failed: {e}")
     
             dlg.finish(success=True)
             return True
@@ -1865,11 +1979,20 @@ class MainWindow(QMainWindow):
             QMessageBox.critical(self, "Export Error", str(e))
             return False
 
-    def on_open_model(self):
-        filename, _ = QFileDialog.getOpenFileName(
-            self, "Open Model", "",
-            "Open//Structures Files (*.mf);;All Files (*)"
-        )
+    def on_open_model(self, filepath=False):
+                                
+        if not self._check_unsaved_changes():
+            return 
+            
+        if isinstance(filepath, str) and filepath:
+            filename = filepath
+        else:
+                                                     
+            filename, _ = QFileDialog.getOpenFileName(
+                self, "Open Model", "",
+                "Open//Structures Files (*.mf);;All Files (*)"
+            )
+            
         if not filename:
             return
     
@@ -2483,6 +2606,43 @@ class MainWindow(QMainWindow):
                 if not cmd.error_message:
                     self.status.showMessage("Ready to draw next Tendon...")
                 return
+            
+            elif self.draw_dialog.get_draw_mode() == "Cable":
+                cable_section = self.draw_dialog.get_selected_cable_section()
+                if not cable_section:
+                    self.status.showMessage("Error: No Cable Section Selected")
+                    return
+
+                from app.commands import CmdDrawCable
+                cmd = CmdDrawCable(self.model, self, self.draw_start_node, end_node, cable_section)
+                self.add_command(cmd)
+
+                if cmd.error_message:
+                    self.status.showMessage(f"⚠️ {cmd.error_message}")
+                else:
+                    cable = cmd.get_created_cable()
+                    if cable:
+                        from app.dialogs.cable_geometry_dialog import CableGeometryDialog
+
+                        self.draw_dialog.hide()
+
+                        dlg = CableGeometryDialog(cable, self.model, self)
+                        dlg.exec()
+
+                        if self.draw_dialog:
+                            self.draw_dialog.show()
+                            self.draw_dialog.raise_()
+                            self.draw_dialog.activateWindow()
+
+                        self.canvas.draw_model(self.model)
+                        if getattr(self, 'canvas2', None):
+                            self.canvas2.draw_model(self.model)
+
+                self.draw_start_node = None
+                self.active_canvas._draw_start = None
+                if not cmd.error_message:
+                    self.status.showMessage("Ready to draw next Cable...")
+                return
                     
             section = self.draw_dialog.get_selected_section()
             rel_i, rel_j = self.draw_dialog.get_release_arrays()
@@ -2541,6 +2701,10 @@ class MainWindow(QMainWindow):
         if target_tendon_id is None and len(getattr(self, 'selected_tendon_ids', [])) == 1:
             target_tendon_id = self.selected_tendon_ids[0]
 
+        target_cable_id = getattr(self.canvas, 'hovered_cable_id', None)
+        if target_cable_id is None and len(getattr(self, 'selected_cable_ids', [])) == 1:
+            target_cable_id = self.selected_cable_ids[0]
+
         tendons_here = []
         if target_elem_id is not None:
             tendons_here = [t for t in self.model.tendons.values()
@@ -2594,6 +2758,59 @@ class MainWindow(QMainWindow):
                     self.status.showMessage(f"Deleted Tendon {t_id}. (Host beam kept.)")
 
                 delete_action.triggered.connect(delete_this_tendon)
+
+            menu.addSeparator()
+            hit_something = True
+
+        cables_here = []
+        if target_cable_id is not None:
+            c = getattr(self.model, 'cables', {}).get(target_cable_id)
+            if c is not None:
+                cables_here = [c]
+
+        if cables_here:
+            for cable in cables_here:
+                cid = cable.id
+                sub_menu = menu.addMenu(f"Cable {cid}")
+
+                geom_action = sub_menu.addAction("Geometry...")
+                def show_cable_geometry(checked=False, c=cable):
+                    from app.dialogs.cable_geometry_dialog import CableGeometryDialog
+                    dlg = CableGeometryDialog(c, self.model, self)
+                    dlg.exec()
+                    self.canvas.draw_model(self.model)
+                    if getattr(self, 'canvas2', None):
+                        self.canvas2.draw_model(self.model)
+                geom_action.triggered.connect(show_cable_geometry)
+
+                select_action = sub_menu.addAction("Select Only This Cable")
+                def select_this_cable(checked=False, c_id=cid):
+                    self.selected_ids = []
+                    self.selected_node_ids = []
+                    self.selected_area_ids = []
+                    self.selected_link_ids = []
+                    self.selected_tendon_ids = []
+                    self.selected_cable_ids = [c_id]
+                    
+                    for cvs in [self.canvas, getattr(self, 'canvas2', None)]:
+                        if cvs:
+                                                                                              
+                            cvs.selected_cable_ids = [c_id] 
+                            cvs.update_selection_overlay(
+                                self.selected_ids, self.selected_node_ids,
+                                getattr(self, 'selected_area_ids', []),
+                                getattr(self, 'selected_link_ids', []),
+                                getattr(self, 'selected_tendon_ids', []))
+                    self.status.showMessage(f"Selected: Cable {c_id}")
+                select_action.triggered.connect(select_this_cable)
+
+                delete_action = sub_menu.addAction("Delete This Cable Only")
+                def delete_this_cable(checked=False, c_id=cid):
+                    from app.commands import CmdDeleteCable
+                    cmd = CmdDeleteCable(self.model, self, c_id)
+                    self.add_command(cmd)
+                    self.status.showMessage(f"Deleted Cable {c_id}.")
+                delete_action.triggered.connect(delete_this_cable)
 
             menu.addSeparator()
             hit_something = True
@@ -2806,11 +3023,10 @@ class MainWindow(QMainWindow):
         except (KeyError, AttributeError, IndexError, TypeError):
             pass
 
-    def _handle_box_selection_canvas2(self, node_ids, elem_ids, link_ids, tendon_ids, is_additive, is_deselect):
-        """Route canvas2 box-selection only when canvas2 is the active canvas."""
+    def _handle_box_selection_canvas2(self, node_ids, elem_ids, link_ids, tendon_ids, cable_ids, is_additive, is_deselect):
         if self.active_canvas is not self.canvas2:
             return
-        self.handle_box_selection(node_ids, elem_ids, link_ids, tendon_ids, is_additive, is_deselect)
+        self.handle_box_selection(node_ids, elem_ids, link_ids, tendon_ids, cable_ids, is_additive, is_deselect)
 
     def handle_area_box_selection(self, area_ids, is_additive, is_deselect):
         """Handle selection/deselection of area elements from canvas signals."""
@@ -2874,41 +3090,48 @@ class MainWindow(QMainWindow):
 
         self._update_coord_for_single_selection()
 
-    def handle_box_selection(self, node_ids, elem_ids, link_ids, tendon_ids, is_additive, is_deselect):
+    def handle_box_selection(self, node_ids, elem_ids, link_ids, tendon_ids, cable_ids, is_additive, is_deselect):
         if not hasattr(self, 'selected_link_ids'): self.selected_link_ids = []
         if not hasattr(self, 'selected_tendon_ids'): self.selected_tendon_ids = []
+        if not hasattr(self, 'selected_cable_ids'): self.selected_cable_ids = []
 
         node_ids = list(node_ids)
         elem_ids = list(elem_ids)
         link_ids = list(link_ids)
         tendon_ids = list(tendon_ids)
+        cable_ids = list(cable_ids)
 
         if is_additive:
             self.selected_node_ids = list(set(self.selected_node_ids + node_ids))
             self.selected_ids = list(set(self.selected_ids + elem_ids))
             self.selected_link_ids = list(set(getattr(self, 'selected_link_ids', []) + link_ids))
             self.selected_tendon_ids = list(set(getattr(self, 'selected_tendon_ids', []) + tendon_ids))
+            self.selected_cable_ids = list(set(getattr(self, 'selected_cable_ids', []) + cable_ids))
         elif is_deselect:
             self.selected_node_ids = [n for n in self.selected_node_ids if n not in node_ids]
             self.selected_ids = [e for e in self.selected_ids if e not in elem_ids]
             self.selected_link_ids = [l for l in getattr(self, 'selected_link_ids', []) if l not in link_ids]
             self.selected_tendon_ids = [t for t in getattr(self, 'selected_tendon_ids', []) if t not in tendon_ids]
+            self.selected_cable_ids = [c for c in getattr(self, 'selected_cable_ids', []) if c not in cable_ids]
         else:
-            hit_something = bool(node_ids or elem_ids or link_ids or tendon_ids)
+            hit_something = bool(node_ids or elem_ids or link_ids or tendon_ids or cable_ids)
             if hit_something:
-                                                                                                      
                 self.selected_node_ids = list(node_ids)
                 self.selected_ids = list(elem_ids)
                 self.selected_link_ids = list(link_ids)
                 self.selected_tendon_ids = list(tendon_ids)
+                self.selected_cable_ids = list(cable_ids)
 
         for cvs in [self.canvas, getattr(self, 'canvas2', None)]:
             if cvs:
+                cvs.selected_cable_ids = self.selected_cable_ids
                 cvs.update_selection_overlay(self.selected_ids, self.selected_node_ids, getattr(self, 'selected_area_ids', []), self.selected_link_ids, self.selected_tendon_ids)
 
         n_tendons = len(self.selected_tendon_ids)
+        n_cables = len(self.selected_cable_ids)
         tendon_str = f", {n_tendons} Tendons" if n_tendons else ""
-        self.status.showMessage(f"Selected: {len(self.selected_ids)} Frames, {len(self.selected_node_ids)} Joints, {len(self.selected_link_ids)} Links{tendon_str}")
+        cable_str = f", {n_cables} Cables" if n_cables else ""
+        self.status.showMessage(f"Selected: {len(self.selected_ids)} Frames, {len(self.selected_node_ids)} Joints, {len(self.selected_link_ids)} Links{tendon_str}{cable_str}")
 
         self._update_coord_for_single_selection()
 
@@ -2960,7 +3183,7 @@ class MainWindow(QMainWindow):
     def delete_current_selection(self):
         if not self.model: return
         
-        if not self.selected_ids and not self.selected_node_ids and not self.selected_area_ids and not getattr(self, 'selected_link_ids', []) and not getattr(self, 'selected_tendon_ids', []):
+        if not self.selected_ids and not self.selected_node_ids and not self.selected_area_ids and not getattr(self, 'selected_link_ids', []) and not getattr(self, 'selected_tendon_ids', []) and not getattr(self, 'selected_cable_ids', []):
             return
 
         final_elem_ids = list(self.selected_ids)
@@ -3015,12 +3238,14 @@ class MainWindow(QMainWindow):
         deleted_area_count = len(self.selected_area_ids)
         deleted_link_count = len(auto_link_ids)
         deleted_tendon_count = len(getattr(self, 'selected_tendon_ids', []))
+        deleted_cable_count = len(getattr(self, 'selected_cable_ids', []))
 
         cmd = CmdDeleteSelection(
             self.model, self, final_node_ids, final_elem_ids,
             area_elem_ids=list(self.selected_area_ids),
             link_ids=list(auto_link_ids),
-            tendon_ids=list(getattr(self, 'selected_tendon_ids', []))
+            tendon_ids=list(getattr(self, 'selected_tendon_ids', [])),
+            cable_ids=list(getattr(self, 'selected_cable_ids', []))           
         )
         self.add_command(cmd)
         
@@ -3029,6 +3254,7 @@ class MainWindow(QMainWindow):
         self.selected_area_ids = []
         self.selected_link_ids = []          
         self.selected_tendon_ids = []
+        self.selected_cable_ids = []           
         
         parts = []
         if final_elem_ids:     parts.append(f"{len(final_elem_ids)} Frames")
@@ -3036,7 +3262,7 @@ class MainWindow(QMainWindow):
         if deleted_area_count: parts.append(f"{deleted_area_count} Areas")
         if deleted_link_count: parts.append(f"{deleted_link_count} Links")          
         if deleted_tendon_count: parts.append(f"{deleted_tendon_count} Tendons")
-        
+        if deleted_cable_count: parts.append(f"{deleted_cable_count} Cables")
         msg = f"Deleted {', '.join(parts)}." if parts else "Nothing deleted."
         if skipped_shared_joints:
             msg += f" (⚠️ {skipped_shared_joints} shared joint(s) skipped — still in use by other elements)"
@@ -5127,6 +5353,158 @@ class MainWindow(QMainWindow):
             cmd = CmdAssignTendonLoad(self.model, self, selected_tendons, data)
             self.add_command(cmd)
             self.status.showMessage(f"Assigned tendon loads to {len(selected_tendons)} tendon(s).")
+
+    def on_define_cable_sections(self):
+        if not self.model: return
+        from app.dialogs.cable_dialog import CableManagerDialog
+        dialog = CableManagerDialog(self.model, self)
+        dialog.exec()
+        self.draw_both_canvases()
+
+    def on_assign_cable_load(self):
+        if not hasattr(self.model, 'cables') or not self.model.cables:
+            from PyQt6.QtWidgets import QMessageBox
+            QMessageBox.warning(
+                self, 
+                "Warning", 
+                "This command requires at least one cable object to exist in the model."
+            )
+            return
+
+        selected_cables = getattr(self, 'selected_cable_ids', [])
+        if not selected_cables:
+            from PyQt6.QtWidgets import QMessageBox
+            QMessageBox.information(self, "Selection Required", "Please select at least one cable to assign loads.")
+            return
+
+        from app.dialogs.cable_load_dialog import AssignCableLoadDialog
+        from app.commands import CmdAssignCableLoad
+
+        if not hasattr(self, '_cable_load_dlg') or not self._cable_load_dlg.isVisible():
+            self._cable_load_dlg = AssignCableLoadDialog(self.model, self)
+            
+            def apply_loads():
+                data = self._cable_load_dlg.get_data()
+                if data:
+                    cmd = CmdAssignCableLoad(self.model, self, selected_cables, data)
+                    self.add_command(cmd)
+                    self.status.showMessage(f"Assigned distributed loads to {len(selected_cables)} cable(s).")
+            
+            self._cable_load_dlg.btn_apply.clicked.connect(apply_loads)
+            
+            def accept_loads():
+                apply_loads()
+                self._cable_load_dlg.accept()
+                
+            self._cable_load_dlg.btn_ok.clicked.disconnect()
+            self._cable_load_dlg.btn_ok.clicked.connect(accept_loads)
+
+        self._cable_load_dlg.show()
+        self._cable_load_dlg.raise_()
+        self._cable_load_dlg.activateWindow()
+
+    def _build_recent_projects_menu(self):
+        """Populates the Recent Projects menu with large thumbnails and details."""
+        self.recent_projects_menu.clear()
+        recent_files = self.recent_projects_manager.get_recent_projects()
+
+        if not recent_files:
+            empty_action = QAction("No Recent Projects", self)
+            empty_action.setEnabled(False)
+            self.recent_projects_menu.addAction(empty_action)
+            return
+
+        for project in recent_files:
+            action = QWidgetAction(self.recent_projects_menu)
+            
+            item_widget = RecentProjectItem(project, self.recent_projects_menu)
+            
+            item_widget.clicked.connect(self._on_recent_project_clicked)
+            
+            action.setDefaultWidget(item_widget)
+            self.recent_projects_menu.addAction(action)
+
+    def _on_recent_project_clicked(self, filepath):
+        """Closes the menu and opens the file."""
+                                                
+        self.recent_projects_menu.hide() 
+        
+        self._open_recent_project(filepath)
+        
+    def _open_recent_project(self, filepath):
+        """Helper to open a project directly from the recent menu."""
+        if not os.path.exists(filepath):
+            QMessageBox.warning(self, "File Not Found", f"The project file could not be found:\n{filepath}")
+            self._build_recent_projects_menu() 
+            return
+            
+        self.on_open_model(filepath=filepath)
+
+    def _check_unsaved_changes(self):
+        """
+        Checks for unsaved changes and prompts the user. 
+        Returns True if it is safe to proceed, False if the user canceled.
+        """
+        if self.model and not self.undo_stack.isClean():
+            reply = QMessageBox.question(
+                self, 
+                "Unsaved Changes",
+                "You have unsaved changes in your model.\nDo you want to save them before proceeding?",
+                QMessageBox.StandardButton.Save | QMessageBox.StandardButton.Discard | QMessageBox.StandardButton.Cancel,
+                QMessageBox.StandardButton.Save
+            )
+
+            if reply == QMessageBox.StandardButton.Save:
+                                                               
+                return self.on_save_model()
+                
+            elif reply == QMessageBox.StandardButton.Cancel:
+                                                            
+                return False 
+
+        return True
+
+    def on_save_as_model(self):
+        """Forces the save dialog by prompting for a new filename."""
+        if not self.model:
+            return False
+            
+        filename, _ = QFileDialog.getSaveFileName(
+            self, "Save Model As", "",
+            "Open//Structures Files (*.mf);;All Files (*)"
+        )
+        
+        if not filename:
+            return False
+            
+        if not filename.endswith(".mf"):
+            filename += ".mf"
+            
+        self.model.file_path = filename
+        return self.on_save_model()
+
+    def on_close_project(self):
+        """Closes the current project safely and returns to the welcome screen."""
+        if not self.model:
+            return
+            
+        if not self._check_unsaved_changes():
+            return
+            
+        self.model = None
+        self._purge_results_and_visuals()
+        self.undo_stack.clear()
+        self.terminal_panel.set_model(None)
+        
+        self.canvas.current_model = None
+        self.canvas.update()
+        if getattr(self, 'canvas2_visible', False):
+            self.canvas2.current_model = None
+            self.canvas2.update()
+            
+        self.set_interface_state(False) 
+        self.setWindowTitle("Open//Structures v0.7.85")
+        self.status.showMessage("Project closed. Ready.")
 
 def main():
     if sys.platform == 'win32':

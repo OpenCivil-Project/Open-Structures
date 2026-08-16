@@ -9,7 +9,7 @@ class DrawFrameDialog(QDialog):
     def __init__(self, model, parent=None):
         super().__init__(parent)
         self.model = model
-        self.setWindowTitle("Draw Frame/Tendon Object")
+        self.setWindowTitle("Draw Frame/Cable/Tendon Object")
         
         self.setWindowFlags(Qt.WindowType.Tool | Qt.WindowType.WindowStaysOnTopHint) 
         self.setMinimumWidth(280)
@@ -19,7 +19,7 @@ class DrawFrameDialog(QDialog):
         type_group = QGroupBox("Object Type")
         type_layout = QFormLayout()
         self.object_type_combo = QComboBox()
-        self.object_type_combo.addItems(["Frame", "Tendon"])
+        self.object_type_combo.addItems(["Frame", "Tendon", "Cable"])              
         self.object_type_combo.currentTextChanged.connect(self._on_object_type_changed)
         type_layout.addRow("Draw:", self.object_type_combo)
         type_group.setLayout(type_layout)
@@ -72,20 +72,25 @@ class DrawFrameDialog(QDialog):
 
     def _on_object_type_changed(self, mode):
         is_tendon = (mode == "Tendon")
+        is_cable = (mode == "Cable")
 
-        self.release_combo.setVisible(not is_tendon)
-        self.release_label.setVisible(not is_tendon)
+        self.release_combo.setVisible(not (is_tendon or is_cable))
+        self.release_label.setVisible(not (is_tendon or is_cable))
+        
         self.tendon_note.setVisible(is_tendon)
 
-        self.section_label.setText("Tendon Section:" if is_tendon else "Section Property:")
-
         if is_tendon:
+            self.section_label.setText("Tendon Section:")
             self.refresh_tendon_sections()
+        elif is_cable:
+            self.section_label.setText("Cable Section:")
+            self.refresh_cable_sections()
         else:
+            self.section_label.setText("Section Property:")
             self.refresh_sections()
 
     def get_draw_mode(self):
-        """Returns 'Frame' or 'Tendon' — main.py branches its click handler on this."""
+        """Returns 'Frame', 'Tendon', or 'Cable' — main.py branches its click handler on this."""
         return self.object_type_combo.currentText()
 
     def refresh_sections(self):
@@ -135,3 +140,19 @@ class DrawFrameDialog(QDialog):
     def closeEvent(self, event):
         self.signal_dialog_closed.emit()
         super().closeEvent(event)
+
+    def refresh_cable_sections(self):
+        current = self.section_combo.currentText()
+        self.section_combo.clear()
+        if not hasattr(self.model, 'cable_sections') or not self.model.cable_sections:
+            self.section_combo.addItem("(Define a Cable Section first)")
+        else:
+            self.section_combo.addItems(list(self.model.cable_sections.keys()))
+        idx = self.section_combo.findText(current)
+        if idx >= 0: self.section_combo.setCurrentIndex(idx)
+
+    def get_selected_cable_section(self):
+        name = self.section_combo.currentText()
+        if hasattr(self.model, 'cable_sections') and name in self.model.cable_sections:
+            return self.model.cable_sections[name]
+        return None

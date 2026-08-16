@@ -120,3 +120,13 @@ class GroundDisplacement:
     rx: float = 0.0
     ry: float = 0.0
     rz: float = 0.0
+
+class CableDistributedLoad:
+    """Stores a distributed load assigned to a cable object."""
+    def __init__(self, cable_id, pattern_name, val, direction, coord_sys, load_type):
+        self.cable_id = cable_id
+        self.pattern_name = pattern_name
+        self.val = float(val)
+        self.direction = direction
+        self.coord_system = coord_sys
+        self.load_type = load_type

@@ -115,12 +115,33 @@ class DataManager:
         self._map_nodes()
         self._parse_elements()
         self._parse_links()
+        self._parse_cables()
         self._prepare_load_case(case_name)
         self._generate_self_weight()
+        self._generate_cable_self_weight()
         self._generate_tendon_loads()
         
         from auto_seismic import AutoSeismicGenerator
         AutoSeismicGenerator(self).generate_loads()
+
+    def _parse_cables(self):
+        """
+        Additive hook -> cable_elements.py. No-op (touches nothing) if the
+        .mf has no "cables" key, so every existing non-cable model is
+        completely unaffected. See cable_elements.build_cable_elements for
+        the actual logic.
+        """
+        from cable_elements import build_cable_elements
+        build_cable_elements(self)
+
+    def _generate_cable_self_weight(self):
+        """
+        Additive hook -> cable_elements.py, mirrors _generate_self_weight()
+        above but for cables (nodal-lumped, not member_dist -- see that
+        module's docstring for why). No-op if there are no cables.
+        """
+        from cable_elements import generate_cable_self_weight_loads
+        generate_cable_self_weight_loads(self)
 
     def _map_nodes(self):
                                          

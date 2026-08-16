@@ -1,6 +1,6 @@
 from PyQt6.QtGui import QUndoCommand
 import copy
-from core.loads import NodalLoad, MemberLoad, MemberPointLoad, GroundDisplacement
+from core.loads import NodalLoad, MemberLoad, MemberPointLoad, GroundDisplacement, CableDistributedLoad
 
 class CmdDrawFrame(QUndoCommand):
 
@@ -120,10 +120,10 @@ class CmdDrawTendon(QUndoCommand):
 
 class CmdDeleteSelection(QUndoCommand):
     """
-    Command to Delete Frames, Shells, Links, and/or Joints.
+    Command to Delete Frames, Shells, Links, Tendons, Cables and/or Joints.
     Includes DOUBLE SAFETY CHECK to protect nodes still in use.
     """
-    def __init__(self, model, main_window, node_ids, elem_ids, area_elem_ids=None, link_ids=None, tendon_ids=None):
+    def __init__(self, model, main_window, node_ids, elem_ids, area_elem_ids=None, link_ids=None, tendon_ids=None, cable_ids=None):
         super().__init__("Delete Selection")
         self.model = model
         self.main_window = main_window
@@ -132,6 +132,7 @@ class CmdDeleteSelection(QUndoCommand):
         ids_area_elements_to_delete = set(area_elem_ids or [])
         ids_links_to_delete = set(link_ids or [])
         ids_tendons_to_delete = set(tendon_ids or [])
+        ids_cables_to_delete = set(cable_ids or [])
 
         if hasattr(model, 'tendons'):
             for tid, t in model.tendons.items():
@@ -139,7 +140,7 @@ class CmdDeleteSelection(QUndoCommand):
                 if any(h in ids_elements_to_delete for h in host_ids):
                     ids_tendons_to_delete.add(tid)
 
-        if hasattr(model, 'links'):
+        if hasattr(model, 'links') or hasattr(model, 'cables'):
             changed = True
             while changed:
                 changed = False
@@ -158,13 +159,18 @@ class CmdDeleteSelection(QUndoCommand):
                                 touched_nodes.add(n.id)
 
                 for lid in ids_links_to_delete:
-                    if lid in model.links:
+                    if lid in getattr(model, 'links', {}):
                         touched_nodes.update(model.links[lid]['nodes'])
 
                 for tid in ids_tendons_to_delete:
                     if tid in getattr(model, 'tendons', {}):
                         touched_nodes.add(model.tendons[tid].node_i.id)
                         touched_nodes.add(model.tendons[tid].node_j.id)
+
+                for cid in ids_cables_to_delete:
+                    if cid in getattr(model, 'cables', {}):
+                        touched_nodes.add(model.cables[cid].node_i.id)
+                        touched_nodes.add(model.cables[cid].node_j.id)
 
                 for nid in touched_nodes:
                     if nid not in model.nodes:
@@ -177,7 +183,15 @@ class CmdDeleteSelection(QUndoCommand):
                         for eid2, el in model.elements.items()
                         if eid2 not in ids_elements_to_delete
                     )
-                    if still_has_element:
+                    still_has_cable = False
+                    if hasattr(model, 'cables'):
+                        still_has_cable = any(
+                            (c.node_i.id == nid or c.node_j.id == nid)
+                            for cid2, c in model.cables.items()
+                            if cid2 not in ids_cables_to_delete
+                        )
+
+                    if still_has_element or still_has_cable:
                         continue
 
                     still_has_area = False
@@ -190,7 +204,7 @@ class CmdDeleteSelection(QUndoCommand):
                     if still_has_area:
                         continue
 
-                    for lid, link in model.links.items():
+                    for lid, link in getattr(model, 'links', {}).items():
                         if lid in ids_links_to_delete:
                             continue
                         if nid in link['nodes']:
@@ -200,16 +214,16 @@ class CmdDeleteSelection(QUndoCommand):
         nodes_to_actually_delete = set()
         
         for nid in node_ids:
-            if self._is_truly_orphaned(model, nid, ids_elements_to_delete, ids_area_elements_to_delete, ids_links_to_delete):
+            if self._is_truly_orphaned(model, nid, ids_elements_to_delete, ids_area_elements_to_delete, ids_links_to_delete, ids_cables_to_delete):
                 nodes_to_actually_delete.add(nid)
         
         safe_nodes_to_delete = set()
         for eid in ids_elements_to_delete:
             if eid in model.elements:
                 el = model.elements[eid]
-                if self._will_become_orphan(model, el.node_i.id, ids_elements_to_delete, ids_area_elements_to_delete, ids_links_to_delete):
+                if self._will_become_orphan(model, el.node_i.id, ids_elements_to_delete, ids_area_elements_to_delete, ids_links_to_delete, ids_cables_to_delete):
                     safe_nodes_to_delete.add(el.node_i.id)
-                if self._will_become_orphan(model, el.node_j.id, ids_elements_to_delete, ids_area_elements_to_delete, ids_links_to_delete):
+                if self._will_become_orphan(model, el.node_j.id, ids_elements_to_delete, ids_area_elements_to_delete, ids_links_to_delete, ids_cables_to_delete):
                     safe_nodes_to_delete.add(el.node_j.id)
 
         if hasattr(model, 'area_elements'):
@@ -217,7 +231,7 @@ class CmdDeleteSelection(QUndoCommand):
                 if aeid in model.area_elements:
                     ae = model.area_elements[aeid]
                     for node in ae.nodes:
-                        if self._will_become_orphan(model, node.id, ids_elements_to_delete, ids_area_elements_to_delete, ids_links_to_delete):
+                        if self._will_become_orphan(model, node.id, ids_elements_to_delete, ids_area_elements_to_delete, ids_links_to_delete, ids_cables_to_delete):
                             safe_nodes_to_delete.add(node.id)
 
         if hasattr(model, 'links'):
@@ -225,20 +239,31 @@ class CmdDeleteSelection(QUndoCommand):
                 if lid in model.links:
                     link = model.links[lid]
                     for nid in link['nodes']:
-                        if self._will_become_orphan(model, nid, ids_elements_to_delete, ids_area_elements_to_delete, ids_links_to_delete):
+                        if self._will_become_orphan(model, nid, ids_elements_to_delete, ids_area_elements_to_delete, ids_links_to_delete, ids_cables_to_delete):
                             safe_nodes_to_delete.add(nid)
+                            
+        if hasattr(model, 'cables'):
+            for cid in ids_cables_to_delete:
+                if cid in model.cables:
+                    c = model.cables[cid]
+                    if self._will_become_orphan(model, c.node_i.id, ids_elements_to_delete, ids_area_elements_to_delete, ids_links_to_delete, ids_cables_to_delete):
+                        safe_nodes_to_delete.add(c.node_i.id)
+                    if self._will_become_orphan(model, c.node_j.id, ids_elements_to_delete, ids_area_elements_to_delete, ids_links_to_delete, ids_cables_to_delete):
+                        safe_nodes_to_delete.add(c.node_j.id)
         
         self.node_ids_to_del = list(nodes_to_actually_delete | safe_nodes_to_delete)
         self.elem_ids_to_del = list(ids_elements_to_delete)
         self.area_elem_ids_to_del = list(ids_area_elements_to_delete)
         self.link_ids_to_del = list(ids_links_to_delete)
         self.tendon_ids_to_del = list(ids_tendons_to_delete)
+        self.cable_ids_to_del = list(ids_cables_to_delete)
 
         self.saved_nodes = {}
         self.saved_elems = {}
         self.saved_area_elems = {}
         self.saved_links = {}
         self.saved_tendons = {}
+        self.saved_cables = {}
         self.saved_loads = []
 
         for eid in self.elem_ids_to_del:
@@ -259,6 +284,11 @@ class CmdDeleteSelection(QUndoCommand):
             for tid in self.tendon_ids_to_del:
                 if tid in model.tendons:
                     self.saved_tendons[tid] = copy.deepcopy(model.tendons[tid])
+                    
+        if hasattr(model, 'cables'):
+            for cid in self.cable_ids_to_del:
+                if cid in model.cables:
+                    self.saved_cables[cid] = copy.deepcopy(model.cables[cid])
         
         for nid in self.node_ids_to_del:
             if nid in model.nodes:
@@ -270,10 +300,12 @@ class CmdDeleteSelection(QUndoCommand):
                 should_save = True
             elif hasattr(load, 'node_id') and load.node_id in self.node_ids_to_del:
                 should_save = True
+            elif hasattr(load, 'cable_id') and load.cable_id in self.cable_ids_to_del:                         
+                should_save = True
             if should_save:
                 self.saved_loads.append(copy.deepcopy(load))
 
-    def _is_truly_orphaned(self, model, node_id, deleted_elem_ids, deleted_area_ids, deleted_link_ids):
+    def _is_truly_orphaned(self, model, node_id, deleted_elem_ids, deleted_area_ids, deleted_link_ids, deleted_cable_ids):
         for el in model.elements.values():
             if el.id not in deleted_elem_ids:
                 if el.node_i.id == node_id or el.node_j.id == node_id:
@@ -290,10 +322,16 @@ class CmdDeleteSelection(QUndoCommand):
                 if link['id'] not in deleted_link_ids:
                     if node_id in link['nodes']:
                         return False
+                        
+        if hasattr(model, 'cables'):
+            for c in model.cables.values():
+                if c.id not in deleted_cable_ids:
+                    if c.node_i.id == node_id or c.node_j.id == node_id:
+                        return False
         
         return True
     
-    def _will_become_orphan(self, model, node_id, deleted_element_ids, deleted_area_ids, deleted_link_ids):
+    def _will_become_orphan(self, model, node_id, deleted_element_ids, deleted_area_ids, deleted_link_ids, deleted_cable_ids):
         for el in model.elements.values():
             if el.id not in deleted_element_ids:
                 if el.node_i.id == node_id or el.node_j.id == node_id:
@@ -309,6 +347,12 @@ class CmdDeleteSelection(QUndoCommand):
             for link in model.links.values():
                 if link['id'] not in deleted_link_ids:
                     if node_id in link['nodes']:
+                        return False
+
+        if hasattr(model, 'cables'):
+            for c in model.cables.values():
+                if c.id not in deleted_cable_ids:
+                    if c.node_i.id == node_id or c.node_j.id == node_id:
                         return False
 
         return True
@@ -332,6 +376,11 @@ class CmdDeleteSelection(QUndoCommand):
             for tid in self.tendon_ids_to_del:
                 if tid in self.model.tendons:
                     del self.model.tendons[tid]
+                    
+        if hasattr(self.model, 'cables'):
+            for cid in self.cable_ids_to_del:
+                if cid in self.model.cables:
+                    del self.model.cables[cid]
         
         for nid in self.node_ids_to_del:
             if nid in self.model.nodes:
@@ -341,6 +390,7 @@ class CmdDeleteSelection(QUndoCommand):
             load for load in self.model.loads
             if not (hasattr(load, 'element_id') and load.element_id in self.elem_ids_to_del)
             and not (hasattr(load, 'node_id') and load.node_id in self.node_ids_to_del)
+            and not (hasattr(load, 'cable_id') and load.cable_id in self.cable_ids_to_del)                         
         ]
 
         self.main_window.selected_ids = []
@@ -351,6 +401,8 @@ class CmdDeleteSelection(QUndoCommand):
             self.main_window.selected_link_ids = []
         if hasattr(self.main_window, 'selected_tendon_ids'):                    
             self.main_window.selected_tendon_ids = []
+        if hasattr(self.main_window, 'selected_cable_ids'):                    
+            self.main_window.selected_cable_ids = []
             
         self._refresh_view()
 
@@ -393,13 +445,21 @@ class CmdDeleteSelection(QUndoCommand):
 
         if hasattr(self.model, 'tendons'):
             for tid, t_obj in self.saved_tendons.items():
-                                                  
                 if t_obj.node_i.id in self.model.nodes:
                     t_obj.node_i = self.model.nodes[t_obj.node_i.id]
                 if t_obj.node_j.id in self.model.nodes:
                     t_obj.node_j = self.model.nodes[t_obj.node_j.id]
                 self.model.tendons[tid] = t_obj
                 self.model._tendon_counter = max(getattr(self.model, '_tendon_counter', 1), tid + 1)
+
+        if hasattr(self.model, 'cables'):
+            for cid, c_obj in self.saved_cables.items():
+                if c_obj.node_i.id in self.model.nodes:
+                    c_obj.node_i = self.model.nodes[c_obj.node_i.id]
+                if c_obj.node_j.id in self.model.nodes:
+                    c_obj.node_j = self.model.nodes[c_obj.node_j.id]
+                self.model.cables[cid] = c_obj
+                self.model._cable_counter = max(getattr(self.model, '_cable_counter', 1), cid + 1)
 
         for load in self.saved_loads:
             self.model.loads.append(copy.deepcopy(load))
@@ -408,7 +468,7 @@ class CmdDeleteSelection(QUndoCommand):
 
     def _refresh_view(self):
         self.main_window.draw_both_canvases()
-        
+           
 class CmdAssignRestraints(QUndoCommand):
     def __init__(self, model, main_window, node_ids, new_restraints, description="Assign Restraints"):
         super().__init__(description)
@@ -1454,4 +1514,136 @@ class CmdAssignTendonLoad(QUndoCommand):
             if tid in self.model.tendons:
                 self.model.tendons[tid].loads = copy.deepcopy(old_loads)
                 
+        self.main_window.draw_both_canvases()
+
+class CmdDrawCable(QUndoCommand):
+    """Command to draw a Cable object between two existing nodes."""
+    def __init__(self, model, main_window, node_i, node_j, cable_section, description="Draw Cable"):
+        super().__init__(description)
+        self.model = model
+        self.main_window = main_window
+        self.node_i = node_i
+        self.node_j = node_j
+        self.cable_section = cable_section
+        self.created_cable_id = None
+        self.error_message = None
+
+    def redo(self):
+        if not hasattr(self.model, 'cables'):
+            self.model.cables = {}
+            self.model._cable_counter = 1
+            
+        new_id = self.model._cable_counter
+        self.model._cable_counter += 1
+        
+        from core.mesh import CableObject
+        cable = CableObject(new_id, self.node_i, self.node_j, self.cable_section)
+        self.model.cables[new_id] = cable
+        self.created_cable_id = new_id
+        
+        self.main_window.draw_both_canvases()
+
+    def undo(self):
+        if self.created_cable_id and self.created_cable_id in self.model.cables:
+            del self.model.cables[self.created_cable_id]
+        self.main_window.draw_both_canvases()
+
+    def get_created_cable(self):
+        if self.created_cable_id:
+            return self.model.cables.get(self.created_cable_id)
+        return None
+
+class CmdDeleteCable(QUndoCommand):
+    """Dedicated command to safely delete a Cable object."""
+    def __init__(self, model, main_window, cable_id, description="Delete Cable"):
+        super().__init__(description)
+        self.model = model
+        self.main_window = main_window
+        self.cable_id = cable_id
+        self.cable_obj = None
+
+    def redo(self):
+        if hasattr(self.model, 'cables') and self.cable_id in self.model.cables:
+            self.cable_obj = self.model.cables.pop(self.cable_id)
+        
+        if hasattr(self.main_window, 'selected_cable_ids') and self.cable_id in self.main_window.selected_cable_ids:
+            self.main_window.selected_cable_ids.remove(self.cable_id)
+        for cvs in [self.main_window.canvas, getattr(self.main_window, 'canvas2', None)]:
+            if cvs and hasattr(cvs, 'selected_cable_ids') and self.cable_id in cvs.selected_cable_ids:
+                cvs.selected_cable_ids.remove(self.cable_id)
+                
+        self.main_window.draw_both_canvases()
+
+    def undo(self):
+        if self.cable_obj:
+            if not hasattr(self.model, 'cables'):
+                self.model.cables = {}
+            self.model.cables[self.cable_id] = self.cable_obj
+        self.main_window.draw_both_canvases()
+
+class CableDistributedLoad:
+    """Temporary pure-data class for Cable loads until full backend integration."""
+    def __init__(self, cable_id, pattern_name, val, direction, coord_sys, load_type):
+        self.cable_id = cable_id
+        self.pattern_name = pattern_name
+        self.val = val
+        self.direction = direction
+        self.coord_system = coord_sys
+        self.load_type = load_type
+
+class CmdAssignCableLoad(QUndoCommand):
+    """Assigns distributed loads to a selection of cables (Add/Replace/Delete)."""
+    def __init__(self, model, main_window, cable_ids, data, description="Assign Cable Load"):
+        super().__init__(description)
+        self.model = model
+        self.main_window = main_window
+        self.cable_ids = cable_ids
+        self.data = data
+        
+        import copy
+        self.old_loads = []
+        for load in getattr(self.model, 'loads', []):
+            if isinstance(load, CableDistributedLoad):
+                if load.cable_id in cable_ids and load.pattern_name == data["pattern"]:
+                    self.old_loads.append(copy.deepcopy(load))
+
+    def redo(self):
+        if not hasattr(self.model, 'loads'):
+            self.model.loads = []
+
+        mode = self.data["mode"]
+        pattern = self.data["pattern"]
+
+        if mode in ("replace", "delete"):
+            for i in range(len(self.model.loads) - 1, -1, -1):
+                load = self.model.loads[i]
+                if isinstance(load, CableDistributedLoad):
+                    if load.cable_id in self.cable_ids and load.pattern_name == pattern:
+                        del self.model.loads[i]
+
+        if mode in ("replace", "add") and self.data["value"] != 0:
+            for cid in self.cable_ids:
+                new_load = CableDistributedLoad(
+                    cable_id=cid,
+                    pattern_name=pattern,
+                    val=self.data["value"],
+                    direction=self.data["direction"],
+                    coord_sys=self.data["coord_sys"],
+                    load_type=self.data["load_type"]
+                )
+                self.model.loads.append(new_load)
+
+        self.main_window.draw_both_canvases()
+
+    def undo(self):
+        import copy
+        for i in range(len(self.model.loads) - 1, -1, -1):
+            load = self.model.loads[i]
+            if isinstance(load, CableDistributedLoad):
+                if load.cable_id in self.cable_ids and load.pattern_name == self.data["pattern"]:
+                    del self.model.loads[i]
+
+        for old_load in self.old_loads:
+            self.model.loads.append(copy.deepcopy(old_load))
+            
         self.main_window.draw_both_canvases()
