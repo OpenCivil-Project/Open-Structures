@@ -353,9 +353,7 @@ class StructuralModel:
         existing_indices = []
         for i, load in enumerate(self.loads):
             if (hasattr(load, 'element_id') and load.element_id == element_id 
-                and getattr(load, 'pattern_name', None) == pattern_name
-                and getattr(load, 'coord_system', "Global") == coord_system
-                and getattr(load, 'load_direction', "Gravity") == load_direction):
+                and getattr(load, 'pattern_name', None) == pattern_name):
                 existing_indices.append(i)
 
         if mode == "delete":
@@ -367,17 +365,22 @@ class StructuralModel:
             for i in reversed(existing_indices):
                 del self.loads[i]
             
-            new_load = MemberLoad(element_id, pattern_name, wx, wy, wz, 
-                                  projected, coord_system, 
-                                  distances, magnitudes, is_relative, load_direction, load_type)
-            self.loads.append(new_load)
+            has_nonzero = (abs(wx) > 1e-9 or abs(wy) > 1e-9 or abs(wz) > 1e-9 or 
+                           any(abs(m) > 1e-9 for m in magnitudes))
+            if has_nonzero:
+                new_load = MemberLoad(element_id, pattern_name, wx, wy, wz, 
+                                      projected, coord_system, 
+                                      distances, magnitudes, is_relative, load_direction, load_type)
+                self.loads.append(new_load)
 
         elif mode == "add":
-                                                                                    
-            new_load = MemberLoad(element_id, pattern_name, wx, wy, wz, 
-                                  projected, coord_system, 
-                                  distances, magnitudes, is_relative, load_direction, load_type)
-            self.loads.append(new_load)
+            has_nonzero = (abs(wx) > 1e-9 or abs(wy) > 1e-9 or abs(wz) > 1e-9 or 
+                           any(abs(m) > 1e-9 for m in magnitudes))
+            if has_nonzero:
+                new_load = MemberLoad(element_id, pattern_name, wx, wy, wz, 
+                                      projected, coord_system, 
+                                      distances, magnitudes, is_relative, load_direction, load_type)
+                self.loads.append(new_load)
 
     def save_to_file(self, filepath, progress=None):
         """Serializes the model data to a JSON file"""
