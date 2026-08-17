@@ -230,4 +230,11 @@ def compute_corotational_element(state: ElementCorotState,
 
     K_approx = R_full @ (k_local + k_geo) @ R_full.T + K_spin
 
+    # TEST: symmetrize the tangent. K_spin above has no particular reason to
+    # be symmetric; if joint-to-joint asymmetry on a symmetric model traces
+    # back to this, forcing symmetry here should remove it. Kept as an
+    # isolated, easy-to-revert change so the effect of this one line can be
+    # judged on its own (see run notes / A-B comparison).
+    K_approx = 0.5 * (K_approx + K_approx.T)
+
     return f_global, K_approx, N_axial
