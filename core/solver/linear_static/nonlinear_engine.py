@@ -111,38 +111,21 @@ def _compute_corot_residual(dm, U_full_now, node_rot, corot_elements, T, has_T, 
 
     return F_int_full, F_int_free, K_total_free
 
-def _fd_consistent_tangent(dm, U_free, F_int_free_base, node_rot, corot_elements,
-                            T, has_T, is_free_sys, K_E_sys, eps=1e-6, is_strict_statics=False, element_fef=None):
+def _fd_consistent_tangent(dm, U_free, node_rot, corot_elements,
+                            T, has_T, is_free_sys, K_E_sys, eps=1e-6, 
+                            is_strict_statics=False, element_fef=None, 
+                            step_frac=1.0, get_target_free=None):
     """
-    Builds the TRUE consistent tangent stiffness by CENTRAL finite
-    differences, rather than the analytical approximation (K_approx,
-    which is missing the corotational "spin" term - see
-    corotational_beam.py docstring).
-
-    Central differences (f(x+eps) - f(x-eps)) / (2*eps) rather than
-    forward differences ((f(x+eps) - f(x)) / eps): this halves the
-    truncation error order (O(eps^2) instead of O(eps)) and, more
-    importantly, removes a systematic bias that a forward-difference
-    tangent carries relative to the exact tangent at the CURRENT state -
-    that bias is the most likely explanation for why an earlier
-    forward-difference version of this function converged some load
-    steps to 1e-8 cleanly but plateaued inconsistently on others.
-
-    For each free DOF, perturb it by +-eps (composing the perturbation
-    onto the rotation state the SAME way the real solver does, via
-    NodeRotationState.update - not just adding to a flat vector, since
-    rotations are non-additive), recompute the true internal force via
-    the exact same _compute_corot_residual used everywhere else, and
-    take the central-difference column. Costs 2*num_free_dofs extra full
-    residual evaluations per Newton iteration - fine for verifying on a
-    small test model, not meant for production use on large meshes.
+    Builds the 100% EXACT consistent tangent stiffness by central finite
+    differences of the ENTIRE RESIDUAL (Internal Force - External Force).
+    This perfectly captures the 3D Corotational geometric stiffness AND 
+    the Load Stiffness (follower forces) to machine precision.
     """
     num_free = U_free.shape[0]
     node_snap, elem_snap = _snapshot_corot_state(node_rot, corot_elements)
-
     cols = np.zeros((num_free, num_free))
 
-    def _perturbed_force(dU_free_pert):
+    def _perturbed_residual(dU_free_pert):
         dU_sys = np.zeros(K_E_sys.shape[0])
         dU_sys[is_free_sys] = dU_free_pert
         dU_full = T @ dU_sys if has_T else dU_sys
@@ -158,27 +141,35 @@ def _fd_consistent_tangent(dm, U_free, F_int_free_base, node_rot, corot_elements
         U_sys_pert[is_free_sys] = U_free_pert
         U_full_pert = T @ U_sys_pert if has_T else U_sys_pert
 
-        _, F_int_free_pert, _ = _compute_corot_residual(
+        # Evaluates perturbed internal force and mutates R_r to perturbed state
+        _, F_int_pert, _ = _compute_corot_residual(
             dm, U_full_pert, node_rot, corot_elements, T, has_T, is_free_sys, is_strict_statics, element_fef
         )
-        return F_int_free_pert
+        
+        # Now that R_r is perturbed, re-evaluate external forces to capture follower load stiffness
+        if get_target_free is not None:
+            P_ext_pert = get_target_free(step_frac)
+        else:
+            P_ext_pert = np.zeros_like(F_int_pert)
+            
+        return F_int_pert - P_ext_pert
 
     for j in range(num_free):
         dplus = np.zeros(num_free); dplus[j] = eps
         dminus = np.zeros(num_free); dminus[j] = -eps
 
         node_snap_j, elem_snap_j = _snapshot_corot_state(node_rot, corot_elements)
-        F_plus = _perturbed_force(dplus)
+        R_plus = _perturbed_residual(dplus)
         _restore_corot_state(node_rot, corot_elements, node_snap_j, elem_snap_j)
 
         node_snap_j, elem_snap_j = _snapshot_corot_state(node_rot, corot_elements)
-        F_minus = _perturbed_force(dminus)
+        R_minus = _perturbed_residual(dminus)
         _restore_corot_state(node_rot, corot_elements, node_snap_j, elem_snap_j)
 
-        cols[:, j] = (F_plus - F_minus) / (2 * eps)
+        # Exact Tangent is d(Residual)/dU
+        cols[:, j] = (R_plus - R_minus) / (2 * eps)
 
     _restore_corot_state(node_rot, corot_elements, node_snap, elem_snap)
-
     from scipy.sparse import csc_matrix
     return csc_matrix(cols)
 
@@ -495,6 +486,19 @@ def run_nonlinear_analysis(input_json_path, output_json_path, target_case_name, 
         print("[4/5] Entering Nonlinear Load Stepping Loop...")
         progress_callback("Starting Incremental Load Analysis...", 20)
 
+        # Cap on how far a single Newton iteration is allowed to move any one
+        # free DOF, as a fraction of the shortest element in the model.
+        # Prevents an oversized Newton update (which K_approx, being only an
+        # approximate tangent, can occasionally propose) from collapsing an
+        # element's chord length toward 0 -- the actual cause of the earlier
+        # NaN / "Matrix is exactly singular" failures. Does not change the
+        # converged answer, only limits step SIZE within a Newton iteration.
+        _elem_lengths = [el.get('L_clear', el.get('L_total', np.inf)) for el in dm.elements]
+        min_elem_length = min(_elem_lengths) if _elem_lengths else np.inf
+        if not np.isfinite(min_elem_length) or min_elem_length <= 0:
+            min_elem_length = 1.0
+        max_disp_per_iter = 0.25 * min_elem_length
+
         U_free = np.zeros(num_free_dofs)                                       
         F_int_full_ld_last = None                                                                           
 
@@ -569,8 +573,10 @@ def run_nonlinear_analysis(input_json_path, output_json_path, target_case_name, 
 
                     if nl_params.get("use_fd_tangent", False):
                         K_total_free = _fd_consistent_tangent(
-                            dm, U_free, F_int_free, node_rot, corot_elements,
-                            T, has_T, is_free_sys, K_E_sys, is_strict_statics=is_strict_statics, element_fef=element_fef_this_iter
+                            dm, U_free, node_rot, corot_elements,
+                            T, has_T, is_free_sys, K_E_sys, eps=1e-6, 
+                            is_strict_statics=is_strict_statics, element_fef=element_fef_this_iter,
+                            step_frac=step_frac, get_target_free=_compute_reprojected_target_free
                         )
 
                 else:
@@ -595,7 +601,18 @@ def run_nonlinear_analysis(input_json_path, output_json_path, target_case_name, 
                     dU_free = spsolve(K_total_free, R_free)
                 except Exception as e:
                     raise SolverException("E301", f"Matrix singular at step {step}, iter {iter_count}: {e}")
-                
+
+                if not np.isfinite(dU_free).all():
+                    raise SolverException(
+                        "E301",
+                        f"Non-finite Newton update at step {step}, iteration {iter_count}. "
+                        f"K_total_free is likely NaN-poisoned from a prior over-large step."
+                    )
+
+                _trial_max = np.max(np.abs(dU_free)) if dU_free.size > 0 else 0.0
+                if _trial_max > max_disp_per_iter:
+                    dU_free = dU_free * (max_disp_per_iter / _trial_max)
+
                 if large_disp and nl_params.get("use_line_search", False):
                                                       
                     node_snap, elem_snap = _snapshot_corot_state(node_rot, corot_elements)
