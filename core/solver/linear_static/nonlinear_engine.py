@@ -481,8 +481,15 @@ def run_nonlinear_analysis(input_json_path, output_json_path, target_case_name, 
                 p1_0 = dm.nodes[idx_i]['coords'] + np.array(el['offsets'][0])
                 p2_0 = dm.nodes[idx_j]['coords'] + np.array(el['offsets'][1])
                                                                                        
+                # L_clear/L_total come straight from data_manager (same keys
+                # assembler.py already reads for the linear/P-Delta path) so
+                # the Large Displacements element uses the SAME flexible
+                # span / torsional length as everywhere else, instead of
+                # silently treating the whole offset-adjusted chord as
+                # flexible.
                 corot_elements[str(el['id'])] = ElementCorotState(
-                    p1_0, p2_0, el.get('beta', 0.0), el['section'], el['material']
+                    p1_0, p2_0, el.get('beta', 0.0), el['section'], el['material'],
+                    L_clear=el['L_clear'], L_tor=el['L_total']
                 )
 
         print("[4/5] Entering Nonlinear Load Stepping Loop...")
@@ -712,7 +719,11 @@ def run_nonlinear_analysis(input_json_path, output_json_path, target_case_name, 
                         global_off_i = np.array(el['offsets'][0])
                         global_off_j = np.array(el['offsets'][1])
                         
-                        R_3x3 = get_rotation_matrix(p1 + global_off_i, p2 + global_off_j, el.get('beta', 0.0))
+                        # Match assembler.py's beta_eff = beta - degrees(theta_p) so the
+                        # P-Delta geometric-stiffness local axes line up with the elastic
+                        # local axes used to build K_E_full for this same element.
+                        beta_eff = el.get('beta', 0.0) - np.degrees(sec.get('theta_p', 0.0))
+                        R_3x3 = get_rotation_matrix(p1 + global_off_i, p2 + global_off_j, beta_eff)
                         T_rot = np.zeros((12, 12))
                         for i in range(4): T_rot[i*3:(i+1)*3, i*3:(i+1)*3] = R_3x3
                         

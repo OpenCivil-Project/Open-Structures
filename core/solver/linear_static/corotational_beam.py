@@ -37,10 +37,40 @@ class ElementCorotState:
     Persistent per-element corotational state, carried across load steps.
     One instance per element in the model.
     """
-    def __init__(self, p1_0, p2_0, beta_deg, section, material):
+    def __init__(self, p1_0, p2_0, beta_deg, section, material, L_clear, L_tor):
+        # L0 stays the GEOMETRIC distance between the (offset-adjusted) end
+        # points -- same basis as p1_0/p2_0/p1_current/p2_current -- so the
+        # axial-strain measurement (L_n - L0) in compute_corotational_element
+        # stays geometrically consistent with the current chord length L_n.
+        # This equals el['L_total'] (assembler.py's convention), i.e. the
+        # same value L_tor below carries.
         self.L0 = np.linalg.norm(p2_0 - p1_0)
-                                                                              
-        self.R0 = get_rotation_matrix(p1_0, p2_0, beta_deg)                     
+
+        # L_clear / L_tor are the SAME two lengths assembler.py already
+        # separates for the linear/P-Delta path: L_clear (el['L_clear']) is
+        # the flexible span after subtracting rigid end-zone length
+        # (end_off_i/j * rz_factor) -- used for bending/axial/shear
+        # flexibility. L_tor (el['L_total']) is the full offset-adjusted
+        # node-to-node length -- used only for torsion (GJ/L_tor), matching
+        # assembler.py's get_local_stiffness_matrix(..., L=L_clear,
+        # L_tor=L_total) call. Previously this class had no L_clear concept
+        # at all and used L0 (~L_total) for EVERYTHING, silently modeling
+        # any member with a rigid end zone as more flexible than the linear/
+        # P-Delta path does.
+        self.L_clear = L_clear
+        self.L_tor = L_tor
+        # Constant length of the rigid end zones combined (does not change
+        # under deformation -- rigid zones don't stretch by definition).
+        self.rigid_zone_total = max(self.L_tor - self.L_clear, 0.0)
+
+        # Match assembler.py's beta_eff = beta - degrees(theta_p): the linear
+        # path always corrects the member's rolled-beta by the section's
+        # principal-axis angle before building the local frame. This call
+        # previously used raw beta_deg, so any section with theta_p != 0
+        # got an initial corotational frame misaligned with the elastic
+        # local axes used everywhere else.
+        beta_eff = beta_deg - np.degrees(section.get('theta_p', 0.0))
+        self.R0 = get_rotation_matrix(p1_0, p2_0, beta_eff)
         self.R0 = self.R0.T                                                          
 
         self.R_r = self.R0.copy()
@@ -132,13 +162,23 @@ def compute_corotational_element(state: ElementCorotState,
     p_local[9:12] = theta_l2
 
     sec, mat = state.section, state.material
-    
-    L_eval = L_n if is_strict_statics else state.L0
+
+    # Flexibility (bending/axial/shear) length: matches assembler.py's
+    # el['L_clear'] -- the span AFTER subtracting the rigid end-zone
+    # length, not the raw node-to-node distance. Rigid zones don't
+    # stretch or bend by definition, so under is_strict_statics (current-
+    # geometry stiffness) the deformed clear length is the deformed total
+    # chord minus that SAME constant rigid-zone length -- not the raw
+    # deformed chord itself.
+    if is_strict_statics:
+        L_flex = max(L_n - state.rigid_zone_total, 1e-9)
+    else:
+        L_flex = state.L_clear
 
     k_local = get_local_stiffness_matrix(
         E=mat['E'], G=mat['G'], A=sec['A'], J=sec['J'],
         I22=sec['I22'], I33=sec['I33'], As2=sec['As2'], As3=sec['As3'],
-        L=L_eval
+        L=L_flex, L_tor=state.L_tor
     )
 
     if fef_local is None:
@@ -148,11 +188,15 @@ def compute_corotational_element(state: ElementCorotState,
                                                                           
     N_axial = 0.5 * (f_local_linear[6] - f_local_linear[0])
 
-    phi_y = (12 * mat['E'] * sec['I33']) / (mat['G'] * sec['As2'] * L_eval**2) if sec['As2'] > 0 else 0.0
-    phi_z = (12 * mat['E'] * sec['I22']) / (mat['G'] * sec['As3'] * L_eval**2) if sec['As3'] > 0 else 0.0
+    # Same L_flex as k_local above (was L_eval, ~L_total) -- phi_y/phi_z and
+    # the geometric stiffness matrix must use the SAME length basis as the
+    # elastic k_local they're added to, or the combined tangent is
+    # dimensionally inconsistent.
+    phi_y = (12 * mat['E'] * sec['I33']) / (mat['G'] * sec['As2'] * L_flex**2) if sec['As2'] > 0 else 0.0
+    phi_z = (12 * mat['E'] * sec['I22']) / (mat['G'] * sec['As3'] * L_flex**2) if sec['As3'] > 0 else 0.0
     
     k_geo = get_geometric_stiffness_matrix(
-        -N_axial, L_eval, phi_y=phi_y, phi_z=phi_z, A=sec['A'], I22=sec['I22'], I33=sec['I33']
+        -N_axial, L_flex, phi_y=phi_y, phi_z=phi_z, A=sec['A'], I22=sec['I22'], I33=sec['I33']
     )
 
     f_local_with_fef = (k_local + k_geo) @ p_local + fef_local

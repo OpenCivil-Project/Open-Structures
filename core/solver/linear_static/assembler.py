@@ -576,9 +576,6 @@ class GlobalAssembler:
         ri = el.get('end_off_i', 0.0) * rz
         rj = el.get('end_off_j', 0.0) * rz
 
-        ri = el.get('end_off_i', 0.0)
-        rj = el.get('end_off_j', 0.0)
-
         mat = el['material']
         sec = el['section']
         k_raw = get_local_stiffness_matrix(
