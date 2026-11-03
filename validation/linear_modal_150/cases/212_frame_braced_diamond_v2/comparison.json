@@ -1,0 +1,114 @@
+{
+  "id": "212_frame_braced_diamond_v2",
+  "family": "frame_braced_diamond",
+  "variant": 2,
+  "model_file": "212_frame_braced_diamond_v2.mf",
+  "static": {
+    "passed": true,
+    "checks": [
+      {
+        "name": "nodal displacement and rotation",
+        "passed": true,
+        "max_tolerance_ratio": 4.1254037023272575e-06,
+        "relative_tolerance": 2e-06,
+        "absolute_tolerances_per_dof": [
+          1e-10,
+          1e-10,
+          1e-10,
+          1e-10,
+          1e-10,
+          1e-10
+        ],
+        "worst_components": []
+      },
+      {
+        "name": "support force and moment",
+        "passed": true,
+        "max_tolerance_ratio": 6.025812468229688e-06,
+        "relative_tolerance": 2e-06,
+        "absolute_tolerances_per_dof": [
+          0.0001,
+          0.0001,
+          0.0001,
+          0.0001,
+          0.0001,
+          0.0001
+        ],
+        "worst_components": []
+      },
+      {
+        "name": "independent free-DOF equilibrium residual",
+        "passed": true,
+        "value": 8.823322652944451e-16,
+        "limit": 2e-06
+      }
+    ]
+  },
+  "modal": {
+    "passed": true,
+    "checks": [
+      {
+        "name": "mode count",
+        "passed": true,
+        "actual": 3,
+        "expected": 3
+      },
+      {
+        "name": "finite positive sorted frequencies",
+        "passed": true
+      },
+      {
+        "name": "maximum relative frequency error",
+        "passed": true,
+        "value": 1.7164298190204901e-15,
+        "limit": 2e-05
+      },
+      {
+        "name": "period/frequency/omega/eigenvalue consistency",
+        "passed": true,
+        "value": 2.220446049250313e-16,
+        "limit": 1e-09
+      },
+      {
+        "name": "maximum independent eigen residual",
+        "passed": true,
+        "value": 5.396837202918505e-15,
+        "limit": 2e-05
+      },
+      {
+        "name": "mass normalization and orthogonality",
+        "passed": true,
+        "value": 4.440892098500626e-16,
+        "limit": 2e-05
+      },
+      {
+        "name": "worst modal subspace mismatch (1-MAC)",
+        "passed": true,
+        "value": 0.0,
+        "limit": 0.0002
+      },
+      {
+        "name": "assembled physical nodal mass",
+        "passed": true,
+        "max_tolerance_ratio": 0.0,
+        "relative_tolerance": 1e-08,
+        "absolute_tolerances_per_dof": [
+          1e-10,
+          1e-10,
+          1e-10,
+          1e-10,
+          1e-10,
+          1e-10
+        ],
+        "worst_components": []
+      }
+    ]
+  },
+  "analytical": [],
+  "reference_error": null,
+  "execution": {
+    "returncode": 0,
+    "model_sha256": "bf121eeda4ba9579bc43e3793851481ecd0052d42b832b11da8bdcec6f1c5a54",
+    "solver_source_sha256": "b2dcefa0108c3e5d25eebdc3c19f4cd8586716bf63074a9bf5dead876a6ea0cf"
+  }
+}

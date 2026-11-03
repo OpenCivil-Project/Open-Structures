@@ -1,0 +1,215 @@
+{
+  "id": "034_torsion_bar_v4",
+  "family": "torsion_bar",
+  "variant": 4,
+  "model_file": "034_torsion_bar_v4.mf",
+  "static": {
+    "passed": true,
+    "checks": [
+      {
+        "name": "nodal displacement and rotation",
+        "passed": true,
+        "max_tolerance_ratio": 4.691792853133936e-10,
+        "relative_tolerance": 2e-06,
+        "absolute_tolerances_per_dof": [
+          1e-10,
+          1e-10,
+          1e-10,
+          1e-10,
+          1e-10,
+          1e-10
+        ],
+        "worst_components": []
+      },
+      {
+        "name": "support force and moment",
+        "passed": true,
+        "max_tolerance_ratio": 6.969308059562669e-11,
+        "relative_tolerance": 2e-06,
+        "absolute_tolerances_per_dof": [
+          0.0001,
+          0.0001,
+          0.0001,
+          0.0001,
+          0.0001,
+          0.0001
+        ],
+        "worst_components": []
+      },
+      {
+        "name": "independent free-DOF equilibrium residual",
+        "passed": true,
+        "value": 8.395335708673184e-16,
+        "limit": 2e-06
+      },
+      {
+        "name": "analytical: Uniform bar twist",
+        "passed": true,
+        "actual": 0.001311509003816697,
+        "expected": 0.0013115090038166959,
+        "absolute_error": 1.0842021724855044e-18,
+        "tolerance": 2.7230180076333916e-09,
+        "formula": "TL/(GJ)",
+        "reference_kind": "continuum or exact discrete formula as labelled"
+      },
+      {
+        "name": "analytical: Root torque",
+        "passed": true,
+        "actual": -13000.000000000002,
+        "expected": -13000.0,
+        "absolute_error": 1.8189894035458565e-12,
+        "tolerance": 0.026099999999999998,
+        "formula": "-T",
+        "reference_kind": "continuum or exact discrete formula as labelled"
+      }
+    ]
+  },
+  "modal": {
+    "passed": true,
+    "checks": [
+      {
+        "name": "mode count",
+        "passed": true,
+        "actual": 3,
+        "expected": 3
+      },
+      {
+        "name": "finite positive sorted frequencies",
+        "passed": true
+      },
+      {
+        "name": "maximum relative frequency error",
+        "passed": true,
+        "value": 1.7565788329423041e-15,
+        "limit": 2e-05
+      },
+      {
+        "name": "period/frequency/omega/eigenvalue consistency",
+        "passed": true,
+        "value": 2.220446049250313e-16,
+        "limit": 1e-09
+      },
+      {
+        "name": "maximum independent eigen residual",
+        "passed": true,
+        "value": 1.4619910516047493e-14,
+        "limit": 2e-05
+      },
+      {
+        "name": "mass normalization and orthogonality",
+        "passed": true,
+        "value": 4.440892098500626e-16,
+        "limit": 2e-05
+      },
+      {
+        "name": "worst modal subspace mismatch (1-MAC)",
+        "passed": true,
+        "value": 0.0,
+        "limit": 0.0002
+      },
+      {
+        "name": "assembled physical nodal mass",
+        "passed": true,
+        "max_tolerance_ratio": 0.0,
+        "relative_tolerance": 1e-08,
+        "absolute_tolerances_per_dof": [
+          1e-10,
+          1e-10,
+          1e-10,
+          1e-10,
+          1e-10,
+          1e-10
+        ],
+        "worst_components": []
+      },
+      {
+        "name": "analytical: Exact discrete torsional chain frequency",
+        "passed": true,
+        "actual": 177.9816526712709,
+        "expected": 177.9816526712708,
+        "absolute_error": 8.526512829121202e-14,
+        "tolerance": 0.0001779826526712708,
+        "formula": "sqrt(4k/Jm)*sin((2r-1)\u03c0/(4n+2))/(2\u03c0)",
+        "reference_kind": "continuum or exact discrete formula as labelled"
+      },
+      {
+        "name": "analytical: Exact discrete torsional chain frequency",
+        "passed": true,
+        "actual": 531.1380810301008,
+        "expected": 531.1380810301007,
+        "absolute_error": 1.1368683772161603e-13,
+        "tolerance": 0.0005311390810301007,
+        "formula": "sqrt(4k/Jm)*sin((2r-1)\u03c0/(4n+2))/(2\u03c0)",
+        "reference_kind": "continuum or exact discrete formula as labelled"
+      },
+      {
+        "name": "analytical: Exact discrete torsional chain frequency",
+        "passed": true,
+        "actual": 875.9181445645759,
+        "expected": 875.9181445645759,
+        "absolute_error": 0.0,
+        "tolerance": 0.0008759191445645759,
+        "formula": "sqrt(4k/Jm)*sin((2r-1)\u03c0/(4n+2))/(2\u03c0)",
+        "reference_kind": "continuum or exact discrete formula as labelled"
+      }
+    ]
+  },
+  "analytical": [
+    {
+      "name": "analytical: Uniform bar twist",
+      "passed": true,
+      "actual": 0.001311509003816697,
+      "expected": 0.0013115090038166959,
+      "absolute_error": 1.0842021724855044e-18,
+      "tolerance": 2.7230180076333916e-09,
+      "formula": "TL/(GJ)",
+      "reference_kind": "continuum or exact discrete formula as labelled"
+    },
+    {
+      "name": "analytical: Root torque",
+      "passed": true,
+      "actual": -13000.000000000002,
+      "expected": -13000.0,
+      "absolute_error": 1.8189894035458565e-12,
+      "tolerance": 0.026099999999999998,
+      "formula": "-T",
+      "reference_kind": "continuum or exact discrete formula as labelled"
+    },
+    {
+      "name": "analytical: Exact discrete torsional chain frequency",
+      "passed": true,
+      "actual": 177.9816526712709,
+      "expected": 177.9816526712708,
+      "absolute_error": 8.526512829121202e-14,
+      "tolerance": 0.0001779826526712708,
+      "formula": "sqrt(4k/Jm)*sin((2r-1)\u03c0/(4n+2))/(2\u03c0)",
+      "reference_kind": "continuum or exact discrete formula as labelled"
+    },
+    {
+      "name": "analytical: Exact discrete torsional chain frequency",
+      "passed": true,
+      "actual": 531.1380810301008,
+      "expected": 531.1380810301007,
+      "absolute_error": 1.1368683772161603e-13,
+      "tolerance": 0.0005311390810301007,
+      "formula": "sqrt(4k/Jm)*sin((2r-1)\u03c0/(4n+2))/(2\u03c0)",
+      "reference_kind": "continuum or exact discrete formula as labelled"
+    },
+    {
+      "name": "analytical: Exact discrete torsional chain frequency",
+      "passed": true,
+      "actual": 875.9181445645759,
+      "expected": 875.9181445645759,
+      "absolute_error": 0.0,
+      "tolerance": 0.0008759191445645759,
+      "formula": "sqrt(4k/Jm)*sin((2r-1)\u03c0/(4n+2))/(2\u03c0)",
+      "reference_kind": "continuum or exact discrete formula as labelled"
+    }
+  ],
+  "reference_error": null,
+  "execution": {
+    "returncode": 0,
+    "model_sha256": "cb54d5752834182a90b9373f57b821ce89c851963c5408b504b765660a333a95",
+    "solver_source_sha256": "b2dcefa0108c3e5d25eebdc3c19f4cd8586716bf63074a9bf5dead876a6ea0cf"
+  }
+}

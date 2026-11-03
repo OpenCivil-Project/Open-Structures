@@ -1,21 +1,24 @@
 from PyQt6.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, 
-                             QCheckBox, QPushButton, QGroupBox)
+                             QCheckBox, QPushButton, QGroupBox,
+                             QRadioButton, QButtonGroup, QMessageBox)
 from PyQt6.QtCore import Qt
 
 from PyQt6.QtWidgets import QFrame
 from PyQt6.QtCore import Qt, QRect, QPoint
 from PyQt6.QtGui import QPainter, QColor, QPen, QBrush, QFont, QPolygon
 
+from app.ui.theme import apply_dialog_style, COLORS
+from core.opensees_port.os_capabilities import apply_engine_switch
+
 class AnalysisCard(QFrame):
     """
     Clickable card that draws analysis option diagrams via QPainter.
     types: "space", "plane", "grid"
     """
-    MEMBER_COLOR  = QColor("#000000")
-    SELECT_COLOR  = QColor("#1976D2")
-    BG_NORMAL     = QColor("#F5F5F5")
-    BG_HOVER      = QColor("#E3F2FD")
-    BG_SELECTED   = QColor("#BBDEFB")
+                                                                        
+    @staticmethod
+    def _c(key):
+        return QColor(COLORS[key])
 
     def __init__(self, card_type: str, label: str, parent=None):
         super().__init__(parent)
@@ -50,17 +53,17 @@ class AnalysisCard(QFrame):
         w, h = self.width(), self.height()
 
         if self.selected:
-            bg, border, bw = self.BG_SELECTED, self.SELECT_COLOR, 2
+            bg, border, bw = self._c("selection_bg"), self._c("accent"), 2
         elif self._hovered:
-            bg, border, bw = self.BG_HOVER, QColor("#90CAF9"), 1
+            bg, border, bw = self._c("bg_btn_hover"), self._c("border_hover"), 1
         else:
-            bg, border, bw = self.BG_NORMAL, QColor("#CCCCCC"), 1
+            bg, border, bw = self._c("bg_table_alt"), self._c("border"), 1
 
         p.setBrush(QBrush(bg))
         p.setPen(QPen(border, bw))
         p.drawRoundedRect(2, 2, w - 4, h - 4, 6, 6)
 
-        p.setPen(QPen(self.MEMBER_COLOR, 2, Qt.PenStyle.SolidLine, Qt.PenCapStyle.RoundCap))
+        p.setPen(QPen(self._c("text_primary"), 2, Qt.PenStyle.SolidLine, Qt.PenCapStyle.RoundCap))
         
         if self.card_type == "space":
             self._draw_space(p)
@@ -70,7 +73,7 @@ class AnalysisCard(QFrame):
             self._draw_grid(p)
 
         lbl_y = 80
-        p.setPen(QPen(self.SELECT_COLOR if self.selected else QColor("#333333")))
+        p.setPen(QPen(self._c("accent") if self.selected else self._c("text_primary")))
         font = QFont()
         font.setBold(self.selected)
         font.setPointSize(8)
@@ -137,9 +140,11 @@ class AnalysisCard(QFrame):
 class AnalysisOptionsDialog(QDialog):
     def __init__(self, main_window):
         super().__init__(main_window)
+        apply_dialog_style(self)
+
         self.main_window = main_window
         self.setWindowTitle("Analysis Options")
-        self.setFixedSize(420, 310)
+        self.setFixedSize(420, 390)
         self.setModal(True)
 
         root = QVBoxLayout(self)
@@ -161,6 +166,22 @@ class AnalysisOptionsDialog(QDialog):
             
         root.addWidget(dof_group)
 
+        engine_group = QGroupBox("Analysis Engine")
+        engine_layout = QHBoxLayout(engine_group)
+
+        self.rb_native = QRadioButton("Native")
+        self.rb_opensees = QRadioButton("OpenSees")
+
+        self.engine_button_group = QButtonGroup(self)
+        self.engine_button_group.addButton(self.rb_native)
+        self.engine_button_group.addButton(self.rb_opensees)
+
+        engine_layout.addWidget(self.rb_native)
+        engine_layout.addWidget(self.rb_opensees)
+        engine_layout.addStretch()
+
+        root.addWidget(engine_group)
+
         fast_group = QGroupBox("Fast DOFs")
         fast_layout = QHBoxLayout(fast_group)
         fast_layout.setSpacing(10)
@@ -179,10 +200,12 @@ class AnalysisOptionsDialog(QDialog):
         action_layout.addStretch()
 
         self.btn_ok = QPushButton("OK")
+        self.btn_ok.setObjectName("primary")
         self.btn_ok.setFixedWidth(100)
         self.btn_ok.clicked.connect(self.apply_changes)
 
         self.btn_cancel = QPushButton("Cancel")
+        self.btn_cancel.setObjectName("secondary")
         self.btn_cancel.setFixedWidth(100)
         self.btn_cancel.clicked.connect(self.reject)
 
@@ -218,13 +241,48 @@ class AnalysisOptionsDialog(QDialog):
             self.cb_ry.setChecked(dofs[4])
             self.cb_rz.setChecked(dofs[5])
 
+        engine = getattr(self.main_window.model, 'analysis_engine', "native")
+        if engine == "opensees":
+            self.rb_opensees.setChecked(True)
+        else:
+            self.rb_native.setChecked(True)
+
+        patterns = {
+            "space": [True] * 6,
+            "plane": [True, False, True, False, True, False],
+            "grid":  [False, False, True, True, True, False],
+        }
+        current = list(getattr(self.main_window.model, 'active_dofs', [True] * 6))
+        for key, card in self._cards.items():
+            card.set_selected(current == patterns[key])
+
     def apply_changes(self):
         active_dofs = [
             self.cb_ux.isChecked(), self.cb_uy.isChecked(), self.cb_uz.isChecked(),
             self.cb_rx.isChecked(), self.cb_ry.isChecked(), self.cb_rz.isChecked()
         ]
         
-        self.main_window.model.active_dofs = active_dofs
+        model = self.main_window.model
+        new_engine = "opensees" if self.rb_opensees.isChecked() else "native"
+        engine_changed = getattr(model, "analysis_engine", "native") != new_engine
+
+        model.active_dofs = active_dofs
+        model.analysis_engine = new_engine
+
+        if engine_changed:
+            changed = apply_engine_switch(model, new_engine)
+            if changed and new_engine == "opensees":
+                lines = "\n".join(f"  \u2022 {name}: '{old}' \u2192 '{new}'" for name, old, new in changed)
+                QMessageBox.warning(self, "Hysteresis types adjusted for OpenSees",
+                    f"The following materials use a hysteresis type OpenSees has no equivalent "
+                    f"for, so they were switched to a supported default:\n\n{lines}\n\n"
+                    f"Your original choices are kept and restored automatically if you switch "
+                    f"the Analysis Engine back to Native.")
+            elif changed:
+                lines = "\n".join(f"  \u2022 {name}: restored to '{new}'" for name, old, new in changed)
+                self.main_window.status.showMessage(
+                    f"Restored native hysteresis types for {len(changed)} material(s).")
+
         self.main_window.status.showMessage("Analysis Options Updated.")
         self.accept()
 

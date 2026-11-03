@@ -2,6 +2,8 @@ from PyQt6.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, QGroupBox,
                              QComboBox, QRadioButton, QPushButton)
 from PyQt6.QtCore import pyqtSignal
 
+from app.ui.theme import apply_dialog_style
+
 class DisplayReactionsDialog(QDialog):
     """
     Dialog to configure and display joint reactions in Open // Structures.
@@ -13,6 +15,7 @@ class DisplayReactionsDialog(QDialog):
 
     def __init__(self, available_cases, base_path, parent=None):
         super().__init__(parent)
+        apply_dialog_style(self)
         self.setWindowTitle("Display Joint Reactions")
         self.setMinimumWidth(320)
         
@@ -64,9 +67,11 @@ class DisplayReactionsDialog(QDialog):
 
         btn_layout = QHBoxLayout()
         btn_apply = QPushButton("Apply")
+        btn_apply.setObjectName("primary")
         btn_apply.clicked.connect(self.on_apply)
         
         btn_close = QPushButton("Close")
+        btn_close.setObjectName("secondary")
         btn_close.clicked.connect(self.close)
         
         btn_layout.addStretch()

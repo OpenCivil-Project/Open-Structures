@@ -1,0 +1,751 @@
+{
+  "info": {
+    "name": "150_beam_rigid_root_segment_v5",
+    "units": "N, m, C",
+    "active_dofs": [
+      true,
+      true,
+      false,
+      false,
+      false,
+      true
+    ],
+    "analysis_engine": "native",
+    "last_run_case": "STATIC",
+    "show_analysis_log": true
+  },
+  "grid": {
+    "x_lines": [],
+    "y_lines": [],
+    "z_lines": []
+  },
+  "nodes": [
+    {
+      "id": 237,
+      "x": 3.875,
+      "y": 0.0,
+      "z": 0.0,
+      "restraints": [
+        false,
+        false,
+        true,
+        true,
+        true,
+        false
+      ],
+      "diaphragm": null
+    },
+    {
+      "id": 244,
+      "x": 4.65,
+      "y": 0.0,
+      "z": 0.0,
+      "restraints": [
+        false,
+        false,
+        true,
+        true,
+        true,
+        false
+      ],
+      "diaphragm": null
+    },
+    {
+      "id": 251,
+      "x": 5.425000000000001,
+      "y": 0.0,
+      "z": 0.0,
+      "restraints": [
+        false,
+        false,
+        true,
+        true,
+        true,
+        false
+      ],
+      "diaphragm": null
+    },
+    {
+      "id": 258,
+      "x": 6.2,
+      "y": 0.0,
+      "z": 0.0,
+      "restraints": [
+        false,
+        false,
+        true,
+        true,
+        true,
+        false
+      ],
+      "diaphragm": null
+    },
+    {
+      "id": 265,
+      "x": 6.9750000000000005,
+      "y": 0.0,
+      "z": 0.0,
+      "restraints": [
+        false,
+        false,
+        true,
+        true,
+        true,
+        false
+      ],
+      "diaphragm": null
+    },
+    {
+      "id": 272,
+      "x": 7.75,
+      "y": 0.0,
+      "z": 0.0,
+      "restraints": [
+        false,
+        false,
+        true,
+        true,
+        true,
+        false
+      ],
+      "diaphragm": null
+    },
+    {
+      "id": 279,
+      "x": 8.525,
+      "y": 0.0,
+      "z": 0.0,
+      "restraints": [
+        false,
+        false,
+        true,
+        true,
+        true,
+        false
+      ],
+      "diaphragm": null
+    },
+    {
+      "id": 286,
+      "x": 9.3,
+      "y": 0.0,
+      "z": 0.0,
+      "restraints": [
+        false,
+        false,
+        true,
+        true,
+        true,
+        false
+      ],
+      "diaphragm": null
+    },
+    {
+      "id": 202,
+      "x": 0.0,
+      "y": 0.0,
+      "z": 0.0,
+      "restraints": [
+        true,
+        true,
+        true,
+        true,
+        true,
+        true
+      ],
+      "diaphragm": null
+    },
+    {
+      "id": 209,
+      "x": 0.775,
+      "y": 0.0,
+      "z": 0.0,
+      "restraints": [
+        false,
+        false,
+        true,
+        true,
+        true,
+        false
+      ],
+      "diaphragm": null
+    },
+    {
+      "id": 216,
+      "x": 1.55,
+      "y": 0.0,
+      "z": 0.0,
+      "restraints": [
+        false,
+        false,
+        true,
+        true,
+        true,
+        false
+      ],
+      "diaphragm": null
+    },
+    {
+      "id": 223,
+      "x": 2.325,
+      "y": 0.0,
+      "z": 0.0,
+      "restraints": [
+        false,
+        false,
+        true,
+        true,
+        true,
+        false
+      ],
+      "diaphragm": null
+    },
+    {
+      "id": 230,
+      "x": 3.1,
+      "y": 0.0,
+      "z": 0.0,
+      "restraints": [
+        false,
+        false,
+        true,
+        true,
+        true,
+        false
+      ],
+      "diaphragm": null
+    }
+  ],
+  "elements": [
+    {
+      "id": 276,
+      "n1_id": 202,
+      "n2_id": 209,
+      "sec_name": "Beam",
+      "beta": 0.0,
+      "rel_i": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
+      "rel_j": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
+      "off_i": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "off_j": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "end_off_i": 0.4262500000000001,
+      "end_off_j": 0.0,
+      "rz_factor": 1.0
+    },
+    {
+      "id": 287,
+      "n1_id": 209,
+      "n2_id": 216,
+      "sec_name": "Beam",
+      "beta": 0.0,
+      "rel_i": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
+      "rel_j": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
+      "off_i": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "off_j": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "end_off_i": 0.0,
+      "end_off_j": 0.0,
+      "rz_factor": 0.0
+    },
+    {
+      "id": 298,
+      "n1_id": 216,
+      "n2_id": 223,
+      "sec_name": "Beam",
+      "beta": 0.0,
+      "rel_i": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
+      "rel_j": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
+      "off_i": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "off_j": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "end_off_i": 0.0,
+      "end_off_j": 0.0,
+      "rz_factor": 0.0
+    },
+    {
+      "id": 309,
+      "n1_id": 223,
+      "n2_id": 230,
+      "sec_name": "Beam",
+      "beta": 0.0,
+      "rel_i": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
+      "rel_j": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
+      "off_i": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "off_j": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "end_off_i": 0.0,
+      "end_off_j": 0.0,
+      "rz_factor": 0.0
+    },
+    {
+      "id": 320,
+      "n1_id": 230,
+      "n2_id": 237,
+      "sec_name": "Beam",
+      "beta": 0.0,
+      "rel_i": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
+      "rel_j": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
+      "off_i": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "off_j": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "end_off_i": 0.0,
+      "end_off_j": 0.0,
+      "rz_factor": 0.0
+    },
+    {
+      "id": 331,
+      "n1_id": 237,
+      "n2_id": 244,
+      "sec_name": "Beam",
+      "beta": 0.0,
+      "rel_i": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
+      "rel_j": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
+      "off_i": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "off_j": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "end_off_i": 0.0,
+      "end_off_j": 0.0,
+      "rz_factor": 0.0
+    },
+    {
+      "id": 342,
+      "n1_id": 244,
+      "n2_id": 251,
+      "sec_name": "Beam",
+      "beta": 0.0,
+      "rel_i": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
+      "rel_j": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
+      "off_i": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "off_j": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "end_off_i": 0.0,
+      "end_off_j": 0.0,
+      "rz_factor": 0.0
+    },
+    {
+      "id": 353,
+      "n1_id": 251,
+      "n2_id": 258,
+      "sec_name": "Beam",
+      "beta": 0.0,
+      "rel_i": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
+      "rel_j": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
+      "off_i": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "off_j": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "end_off_i": 0.0,
+      "end_off_j": 0.0,
+      "rz_factor": 0.0
+    },
+    {
+      "id": 364,
+      "n1_id": 258,
+      "n2_id": 265,
+      "sec_name": "Beam",
+      "beta": 0.0,
+      "rel_i": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
+      "rel_j": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
+      "off_i": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "off_j": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "end_off_i": 0.0,
+      "end_off_j": 0.0,
+      "rz_factor": 0.0
+    },
+    {
+      "id": 375,
+      "n1_id": 265,
+      "n2_id": 272,
+      "sec_name": "Beam",
+      "beta": 0.0,
+      "rel_i": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
+      "rel_j": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
+      "off_i": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "off_j": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "end_off_i": 0.0,
+      "end_off_j": 0.0,
+      "rz_factor": 0.0
+    },
+    {
+      "id": 386,
+      "n1_id": 272,
+      "n2_id": 279,
+      "sec_name": "Beam",
+      "beta": 0.0,
+      "rel_i": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
+      "rel_j": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
+      "off_i": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "off_j": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "end_off_i": 0.0,
+      "end_off_j": 0.0,
+      "rz_factor": 0.0
+    },
+    {
+      "id": 397,
+      "n1_id": 279,
+      "n2_id": 286,
+      "sec_name": "Beam",
+      "beta": 0.0,
+      "rel_i": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
+      "rel_j": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
+      "off_i": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "off_j": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "end_off_i": 0.0,
+      "end_off_j": 0.0,
+      "rz_factor": 0.0
+    }
+  ],
+  "materials": [
+    {
+      "name": "Elastic",
+      "type": "Steel",
+      "E": 190000000000.0,
+      "nu": 0.29,
+      "G": 73643410852.71318,
+      "rho": 76491.87
+    }
+  ],
+  "sections": [
+    {
+      "name": "Beam",
+      "type": "general",
+      "mat_name": "Elastic",
+      "properties": {
+        "A": 0.09660000000000002,
+        "J": 0.0009466800000000003,
+        "I22": 0.0006311200000000002,
+        "I33": 0.0009581512500000004,
+        "As2": 0.08050000000000002,
+        "As3": 0.08050000000000002,
+        "theta_p": 0.0
+      },
+      "modifiers": {
+        "A": 1.0,
+        "I2": 1.0,
+        "I3": 1.0,
+        "As2": 1.0,
+        "As3": 1.0,
+        "J": 1.0,
+        "Mass": 1.0,
+        "Weight": 1.0
+      },
+      "color": [
+        0.25,
+        0.7,
+        1.0,
+        1.0
+      ]
+    }
+  ],
+  "load_patterns": [
+    {
+      "name": "TEST",
+      "type": "Other",
+      "sw_mult": 0.0
+    }
+  ],
+  "load_cases": [
+    {
+      "name": "STATIC",
+      "type": "Linear Static",
+      "loads": [
+        [
+          "TEST",
+          1.0
+        ]
+      ]
+    },
+    {
+      "name": "MODAL",
+      "type": "Modal",
+      "loads": [],
+      "mass_source": "Default",
+      "num_modes": 3
+    }
+  ],
+  "load_combinations": [],
+  "loads": [
+    {
+      "type": "nodal",
+      "pattern": "TEST",
+      "node_id": 286,
+      "fx": 0.0,
+      "fy": -19500.0,
+      "fz": 0.0,
+      "mx": 0.0,
+      "my": 0.0,
+      "mz": 20150.0
+    }
+  ],
+  "constraints": [],
+  "mass_sources": [
+    {
+      "name": "Default",
+      "include_self_mass": true,
+      "include_patterns": false,
+      "load_patterns": []
+    }
+  ],
+  "link_properties": [],
+  "links": [],
+  "area_elements": [],
+  "area_sections": [],
+  "slabs": [],
+  "tendons": [],
+  "cables": []
+}

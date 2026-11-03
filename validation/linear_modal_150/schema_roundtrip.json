@@ -1,0 +1,602 @@
+[
+  {
+    "id": "101_beam_mixed_tip_3d_v1",
+    "status": "PASS"
+  },
+  {
+    "id": "102_beam_mixed_tip_3d_v2",
+    "status": "PASS"
+  },
+  {
+    "id": "103_beam_mixed_tip_3d_v3",
+    "status": "PASS"
+  },
+  {
+    "id": "104_beam_mixed_tip_3d_v4",
+    "status": "PASS"
+  },
+  {
+    "id": "105_beam_mixed_tip_3d_v5",
+    "status": "PASS"
+  },
+  {
+    "id": "106_beam_interior_point_force_v1",
+    "status": "PASS"
+  },
+  {
+    "id": "107_beam_interior_point_force_v2",
+    "status": "PASS"
+  },
+  {
+    "id": "108_beam_interior_point_force_v3",
+    "status": "PASS"
+  },
+  {
+    "id": "109_beam_interior_point_force_v4",
+    "status": "PASS"
+  },
+  {
+    "id": "110_beam_interior_point_force_v5",
+    "status": "PASS"
+  },
+  {
+    "id": "111_beam_interior_point_moment_v1",
+    "status": "PASS"
+  },
+  {
+    "id": "112_beam_interior_point_moment_v2",
+    "status": "PASS"
+  },
+  {
+    "id": "113_beam_interior_point_moment_v3",
+    "status": "PASS"
+  },
+  {
+    "id": "114_beam_interior_point_moment_v4",
+    "status": "PASS"
+  },
+  {
+    "id": "115_beam_interior_point_moment_v5",
+    "status": "PASS"
+  },
+  {
+    "id": "116_beam_triangular_load_v1",
+    "status": "PASS"
+  },
+  {
+    "id": "117_beam_triangular_load_v2",
+    "status": "PASS"
+  },
+  {
+    "id": "118_beam_triangular_load_v3",
+    "status": "PASS"
+  },
+  {
+    "id": "119_beam_triangular_load_v4",
+    "status": "PASS"
+  },
+  {
+    "id": "120_beam_triangular_load_v5",
+    "status": "PASS"
+  },
+  {
+    "id": "121_beam_patch_trapezoid_load_v1",
+    "status": "PASS"
+  },
+  {
+    "id": "122_beam_patch_trapezoid_load_v2",
+    "status": "PASS"
+  },
+  {
+    "id": "123_beam_patch_trapezoid_load_v3",
+    "status": "PASS"
+  },
+  {
+    "id": "124_beam_patch_trapezoid_load_v4",
+    "status": "PASS"
+  },
+  {
+    "id": "125_beam_patch_trapezoid_load_v5",
+    "status": "PASS"
+  },
+  {
+    "id": "126_beam_projected_gravity_load_v1",
+    "status": "PASS"
+  },
+  {
+    "id": "127_beam_projected_gravity_load_v2",
+    "status": "PASS"
+  },
+  {
+    "id": "128_beam_projected_gravity_load_v3",
+    "status": "PASS"
+  },
+  {
+    "id": "129_beam_projected_gravity_load_v4",
+    "status": "PASS"
+  },
+  {
+    "id": "130_beam_projected_gravity_load_v5",
+    "status": "PASS"
+  },
+  {
+    "id": "131_beam_self_weight_v1",
+    "status": "PASS"
+  },
+  {
+    "id": "132_beam_self_weight_v2",
+    "status": "PASS"
+  },
+  {
+    "id": "133_beam_self_weight_v3",
+    "status": "PASS"
+  },
+  {
+    "id": "134_beam_self_weight_v4",
+    "status": "PASS"
+  },
+  {
+    "id": "135_beam_self_weight_v5",
+    "status": "PASS"
+  },
+  {
+    "id": "136_beam_section_stiffness_modifiers_v1",
+    "status": "PASS"
+  },
+  {
+    "id": "137_beam_section_stiffness_modifiers_v2",
+    "status": "PASS"
+  },
+  {
+    "id": "138_beam_section_stiffness_modifiers_v3",
+    "status": "PASS"
+  },
+  {
+    "id": "139_beam_section_stiffness_modifiers_v4",
+    "status": "PASS"
+  },
+  {
+    "id": "140_beam_section_stiffness_modifiers_v5",
+    "status": "PASS"
+  },
+  {
+    "id": "141_beam_two_pattern_superposition_v1",
+    "status": "PASS"
+  },
+  {
+    "id": "142_beam_two_pattern_superposition_v2",
+    "status": "PASS"
+  },
+  {
+    "id": "143_beam_two_pattern_superposition_v3",
+    "status": "PASS"
+  },
+  {
+    "id": "144_beam_two_pattern_superposition_v4",
+    "status": "PASS"
+  },
+  {
+    "id": "145_beam_two_pattern_superposition_v5",
+    "status": "PASS"
+  },
+  {
+    "id": "146_beam_rigid_root_segment_v1",
+    "status": "PASS"
+  },
+  {
+    "id": "147_beam_rigid_root_segment_v2",
+    "status": "PASS"
+  },
+  {
+    "id": "148_beam_rigid_root_segment_v3",
+    "status": "PASS"
+  },
+  {
+    "id": "149_beam_rigid_root_segment_v4",
+    "status": "PASS"
+  },
+  {
+    "id": "150_beam_rigid_root_segment_v5",
+    "status": "PASS"
+  },
+  {
+    "id": "151_mass_self_modifier_beam_v1",
+    "status": "PASS"
+  },
+  {
+    "id": "152_mass_self_modifier_beam_v2",
+    "status": "PASS"
+  },
+  {
+    "id": "153_mass_self_modifier_beam_v3",
+    "status": "PASS"
+  },
+  {
+    "id": "154_mass_self_modifier_beam_v4",
+    "status": "PASS"
+  },
+  {
+    "id": "155_mass_self_modifier_beam_v5",
+    "status": "PASS"
+  },
+  {
+    "id": "156_mass_nodal_pattern_chain_v1",
+    "status": "PASS"
+  },
+  {
+    "id": "157_mass_nodal_pattern_chain_v2",
+    "status": "PASS"
+  },
+  {
+    "id": "158_mass_nodal_pattern_chain_v3",
+    "status": "PASS"
+  },
+  {
+    "id": "159_mass_nodal_pattern_chain_v4",
+    "status": "PASS"
+  },
+  {
+    "id": "160_mass_nodal_pattern_chain_v5",
+    "status": "PASS"
+  },
+  {
+    "id": "161_mass_member_udl_chain_v1",
+    "status": "PASS"
+  },
+  {
+    "id": "162_mass_member_udl_chain_v2",
+    "status": "PASS"
+  },
+  {
+    "id": "163_mass_member_udl_chain_v3",
+    "status": "PASS"
+  },
+  {
+    "id": "164_mass_member_udl_chain_v4",
+    "status": "PASS"
+  },
+  {
+    "id": "165_mass_member_udl_chain_v5",
+    "status": "PASS"
+  },
+  {
+    "id": "166_mass_member_point_chain_v1",
+    "status": "PASS"
+  },
+  {
+    "id": "167_mass_member_point_chain_v2",
+    "status": "PASS"
+  },
+  {
+    "id": "168_mass_member_point_chain_v3",
+    "status": "PASS"
+  },
+  {
+    "id": "169_mass_member_point_chain_v4",
+    "status": "PASS"
+  },
+  {
+    "id": "170_mass_member_point_chain_v5",
+    "status": "PASS"
+  },
+  {
+    "id": "171_mass_self_plus_nodal_beam_v1",
+    "status": "PASS"
+  },
+  {
+    "id": "172_mass_self_plus_nodal_beam_v2",
+    "status": "PASS"
+  },
+  {
+    "id": "173_mass_self_plus_nodal_beam_v3",
+    "status": "PASS"
+  },
+  {
+    "id": "174_mass_self_plus_nodal_beam_v4",
+    "status": "PASS"
+  },
+  {
+    "id": "175_mass_self_plus_nodal_beam_v5",
+    "status": "PASS"
+  },
+  {
+    "id": "176_mass_added_tip_link_beam_v1",
+    "status": "PASS"
+  },
+  {
+    "id": "177_mass_added_tip_link_beam_v2",
+    "status": "PASS"
+  },
+  {
+    "id": "178_mass_added_tip_link_beam_v3",
+    "status": "PASS"
+  },
+  {
+    "id": "179_mass_added_tip_link_beam_v4",
+    "status": "PASS"
+  },
+  {
+    "id": "180_mass_added_tip_link_beam_v5",
+    "status": "PASS"
+  },
+  {
+    "id": "181_mass_fixedfixed_rotary_chain_v1",
+    "status": "PASS"
+  },
+  {
+    "id": "182_mass_fixedfixed_rotary_chain_v2",
+    "status": "PASS"
+  },
+  {
+    "id": "183_mass_fixedfixed_rotary_chain_v3",
+    "status": "PASS"
+  },
+  {
+    "id": "184_mass_fixedfixed_rotary_chain_v4",
+    "status": "PASS"
+  },
+  {
+    "id": "185_mass_fixedfixed_rotary_chain_v5",
+    "status": "PASS"
+  },
+  {
+    "id": "186_support_tip_axial_spring_chain_v1",
+    "status": "PASS"
+  },
+  {
+    "id": "187_support_tip_axial_spring_chain_v2",
+    "status": "PASS"
+  },
+  {
+    "id": "188_support_tip_axial_spring_chain_v3",
+    "status": "PASS"
+  },
+  {
+    "id": "189_support_tip_axial_spring_chain_v4",
+    "status": "PASS"
+  },
+  {
+    "id": "190_support_tip_axial_spring_chain_v5",
+    "status": "PASS"
+  },
+  {
+    "id": "191_support_coupled_tip_spring_v1",
+    "status": "PASS"
+  },
+  {
+    "id": "192_support_coupled_tip_spring_v2",
+    "status": "PASS"
+  },
+  {
+    "id": "193_support_coupled_tip_spring_v3",
+    "status": "PASS"
+  },
+  {
+    "id": "194_support_coupled_tip_spring_v4",
+    "status": "PASS"
+  },
+  {
+    "id": "195_support_coupled_tip_spring_v5",
+    "status": "PASS"
+  },
+  {
+    "id": "196_support_uniform_foundation_chain_v1",
+    "status": "PASS"
+  },
+  {
+    "id": "197_support_uniform_foundation_chain_v2",
+    "status": "PASS"
+  },
+  {
+    "id": "198_support_uniform_foundation_chain_v3",
+    "status": "PASS"
+  },
+  {
+    "id": "199_support_uniform_foundation_chain_v4",
+    "status": "PASS"
+  },
+  {
+    "id": "200_support_uniform_foundation_chain_v5",
+    "status": "PASS"
+  },
+  {
+    "id": "201_frame_asymmetric_multibay_v1",
+    "status": "PASS"
+  },
+  {
+    "id": "202_frame_asymmetric_multibay_v2",
+    "status": "PASS"
+  },
+  {
+    "id": "203_frame_asymmetric_multibay_v3",
+    "status": "PASS"
+  },
+  {
+    "id": "204_frame_asymmetric_multibay_v4",
+    "status": "PASS"
+  },
+  {
+    "id": "205_frame_asymmetric_multibay_v5",
+    "status": "PASS"
+  },
+  {
+    "id": "206_frame_setback_three_storey_v1",
+    "status": "PASS"
+  },
+  {
+    "id": "207_frame_setback_three_storey_v2",
+    "status": "PASS"
+  },
+  {
+    "id": "208_frame_setback_three_storey_v3",
+    "status": "PASS"
+  },
+  {
+    "id": "209_frame_setback_three_storey_v4",
+    "status": "PASS"
+  },
+  {
+    "id": "210_frame_setback_three_storey_v5",
+    "status": "PASS"
+  },
+  {
+    "id": "211_frame_braced_diamond_v1",
+    "status": "PASS"
+  },
+  {
+    "id": "212_frame_braced_diamond_v2",
+    "status": "PASS"
+  },
+  {
+    "id": "213_frame_braced_diamond_v3",
+    "status": "PASS"
+  },
+  {
+    "id": "214_frame_braced_diamond_v4",
+    "status": "PASS"
+  },
+  {
+    "id": "215_frame_braced_diamond_v5",
+    "status": "PASS"
+  },
+  {
+    "id": "216_frame_mixed_supports_releases_v1",
+    "status": "PASS"
+  },
+  {
+    "id": "217_frame_mixed_supports_releases_v2",
+    "status": "PASS"
+  },
+  {
+    "id": "218_frame_mixed_supports_releases_v3",
+    "status": "PASS"
+  },
+  {
+    "id": "219_frame_mixed_supports_releases_v4",
+    "status": "PASS"
+  },
+  {
+    "id": "220_frame_mixed_supports_releases_v5",
+    "status": "PASS"
+  },
+  {
+    "id": "221_frame_branched_cantilever_3d_v1",
+    "status": "PASS"
+  },
+  {
+    "id": "222_frame_branched_cantilever_3d_v2",
+    "status": "PASS"
+  },
+  {
+    "id": "223_frame_branched_cantilever_3d_v3",
+    "status": "PASS"
+  },
+  {
+    "id": "224_frame_branched_cantilever_3d_v4",
+    "status": "PASS"
+  },
+  {
+    "id": "225_frame_branched_cantilever_3d_v5",
+    "status": "PASS"
+  },
+  {
+    "id": "226_frame_skew_roof_3d_v1",
+    "status": "PASS"
+  },
+  {
+    "id": "227_frame_skew_roof_3d_v2",
+    "status": "PASS"
+  },
+  {
+    "id": "228_frame_skew_roof_3d_v3",
+    "status": "PASS"
+  },
+  {
+    "id": "229_frame_skew_roof_3d_v4",
+    "status": "PASS"
+  },
+  {
+    "id": "230_frame_skew_roof_3d_v5",
+    "status": "PASS"
+  },
+  {
+    "id": "231_frame_closed_tower_3d_v1",
+    "status": "PASS"
+  },
+  {
+    "id": "232_frame_closed_tower_3d_v2",
+    "status": "PASS"
+  },
+  {
+    "id": "233_frame_closed_tower_3d_v3",
+    "status": "PASS"
+  },
+  {
+    "id": "234_frame_closed_tower_3d_v4",
+    "status": "PASS"
+  },
+  {
+    "id": "235_frame_closed_tower_3d_v5",
+    "status": "PASS"
+  },
+  {
+    "id": "236_frame_zigzag_cantilever_3d_v1",
+    "status": "PASS"
+  },
+  {
+    "id": "237_frame_zigzag_cantilever_3d_v2",
+    "status": "PASS"
+  },
+  {
+    "id": "238_frame_zigzag_cantilever_3d_v3",
+    "status": "PASS"
+  },
+  {
+    "id": "239_frame_zigzag_cantilever_3d_v4",
+    "status": "PASS"
+  },
+  {
+    "id": "240_frame_zigzag_cantilever_3d_v5",
+    "status": "PASS"
+  },
+  {
+    "id": "241_frame_reversed_rolled_l_3d_v1",
+    "status": "PASS"
+  },
+  {
+    "id": "242_frame_reversed_rolled_l_3d_v2",
+    "status": "PASS"
+  },
+  {
+    "id": "243_frame_reversed_rolled_l_3d_v3",
+    "status": "PASS"
+  },
+  {
+    "id": "244_frame_reversed_rolled_l_3d_v4",
+    "status": "PASS"
+  },
+  {
+    "id": "245_frame_reversed_rolled_l_3d_v5",
+    "status": "PASS"
+  },
+  {
+    "id": "246_frame_polygon_cantilever_3d_v1",
+    "status": "PASS"
+  },
+  {
+    "id": "247_frame_polygon_cantilever_3d_v2",
+    "status": "PASS"
+  },
+  {
+    "id": "248_frame_polygon_cantilever_3d_v3",
+    "status": "PASS"
+  },
+  {
+    "id": "249_frame_polygon_cantilever_3d_v4",
+    "status": "PASS"
+  },
+  {
+    "id": "250_frame_polygon_cantilever_3d_v5",
+    "status": "PASS"
+  }
+]

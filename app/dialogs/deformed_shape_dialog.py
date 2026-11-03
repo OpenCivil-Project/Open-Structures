@@ -1,10 +1,13 @@
 import os
 import json
+import math
 from PyQt6.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, QLabel, 
                              QPushButton, QDoubleSpinBox, QCheckBox, QGroupBox,
                              QColorDialog, QSlider, QComboBox, QRadioButton, QButtonGroup)
-from PyQt6.QtCore import Qt
+from PyQt6.QtCore import Qt, QTimer
 from PyQt6.QtGui import QColor
+
+from app.ui.theme import apply_dialog_style
 
 class DeformedShapeDialog(QDialog):
     def __init__(self, parent=None, current_scale=50.0, auto_scale=50.0, is_active=False, 
@@ -13,8 +16,10 @@ class DeformedShapeDialog(QDialog):
                  ltha_mode=False, ltha_n_steps=0, ltha_dt=0.01,
                  contour_enabled=False, contour_component="Resultant",
                  contour_range_auto=True, contour_min=0.0, contour_max=1.0,
-                 contour_absolute=False):
+                 contour_absolute=False,
+                 step_mode=False, step_numbers=None):
         super().__init__(parent)
+        apply_dialog_style(self)
         self.setWindowTitle("Deformed Shape & Animation")
         self.setWindowFlags(self.windowFlags() & ~Qt.WindowType.WindowContextHelpButtonHint)
         self.resize(380, 560)
@@ -25,7 +30,12 @@ class DeformedShapeDialog(QDialog):
         self.shadow_active = show_shadow
         self.shadow_rgba = shadow_color
         self.is_animating = is_animating
-        self.anim_speed = current_speed
+        try:
+            self.anim_speed = float(current_speed)
+        except (TypeError, ValueError, OverflowError):
+            self.anim_speed = 1.0
+        if not math.isfinite(self.anim_speed) or self.anim_speed <= 0.0:
+            self.anim_speed = 1.0
         self.contour_enabled = contour_enabled
         self.contour_component = contour_component
         self.contour_range_auto = contour_range_auto
@@ -36,6 +46,9 @@ class DeformedShapeDialog(QDialog):
         self.ltha_mode = ltha_mode
         self.ltha_n_steps = ltha_n_steps
         self.ltha_dt = ltha_dt
+                                                                                
+        self.step_mode = bool(step_mode) and bool(ltha_mode)
+        self.step_numbers = list(step_numbers) if step_numbers else None
 
         self.prefs_path = os.path.join(os.path.expanduser("~"), ".opencivil_prefs.json")
         self._load_prefs()
@@ -83,11 +96,11 @@ class DeformedShapeDialog(QDialog):
         s_layout.addLayout(lbl_layout)
                                                             
         self.spin_scale = QDoubleSpinBox()
-        self.spin_scale.setRange(0.000001, 1000000.0)
+        self.spin_scale.setDecimals(8)
+        self.spin_scale.setRange(0.00000001, 1000000000000.0)
         self.spin_scale.setValue(self.scale_value)
         self.spin_scale.setSingleStep(10.0)
-        
-        self.spin_scale.setDecimals(4) 
+        self.spin_scale.setKeyboardTracking(False)                                                          
         
         self.spin_scale.setEnabled(self.show_deformed)
         self.spin_scale.valueChanged.connect(self.on_apply)
@@ -141,6 +154,7 @@ class DeformedShapeDialog(QDialog):
         self.spin_contour_min = QDoubleSpinBox()
         self.spin_contour_min.setRange(-1e9, 1e9)
         self.spin_contour_min.setDecimals(6)
+        self.spin_contour_min.setKeyboardTracking(False)
         self.spin_contour_min.setValue(self.contour_min)
         self.spin_contour_min.valueChanged.connect(self.on_apply)
         h_range_vals.addWidget(self.spin_contour_min)
@@ -149,6 +163,7 @@ class DeformedShapeDialog(QDialog):
         self.spin_contour_max = QDoubleSpinBox()
         self.spin_contour_max.setRange(-1e9, 1e9)
         self.spin_contour_max.setDecimals(6)
+        self.spin_contour_max.setKeyboardTracking(False)
         self.spin_contour_max.setValue(self.contour_max)
         self.spin_contour_max.valueChanged.connect(self.on_apply)
         h_range_vals.addWidget(self.spin_contour_max)
@@ -163,7 +178,7 @@ class DeformedShapeDialog(QDialog):
         self.grp_contour.setLayout(c_layout)
         layout.addWidget(self.grp_contour)
 
-        self.grp_anim = QGroupBox("Animation  —  LTHA Time History" if self.ltha_mode else "Animation")
+        self.grp_anim = QGroupBox("Animation" if self.ltha_mode else "Animation")
         self.grp_anim.setEnabled(self.show_deformed)                                   
         a_layout = QVBoxLayout()
 
@@ -184,8 +199,7 @@ class DeformedShapeDialog(QDialog):
 
         if self.ltha_mode:
                                                         
-            total_duration = self.ltha_n_steps * self.ltha_dt
-            self.lbl_time = QLabel(f"t = 0.00 s  /  {total_duration:.2f} s")
+            self.lbl_time = QLabel(self._time_text(0))
             self.lbl_time.setStyleSheet("font-family: monospace; font-weight: bold;")
             self.lbl_time.setAlignment(Qt.AlignmentFlag.AlignCenter)
             a_layout.addWidget(self.lbl_time)
@@ -200,62 +214,59 @@ class DeformedShapeDialog(QDialog):
             self.slider_scrub = None
 
         h_speed = QHBoxLayout()
-        h_speed.addWidget(QLabel("Speed:"))
-        self._speed_buttons = {}
-        for label, val in [("0.5x", 0.5), ("1x", 1.0), ("2x", 2.0), ("5x", 5.0), ("10x", 10.0)]:
-            btn = QPushButton(label)
-            btn.setCheckable(True)
-            btn.setFixedWidth(40)
-            btn.clicked.connect(lambda checked, v=val: self.on_speed_toggle(v))
-            h_speed.addWidget(btn)
-            self._speed_buttons[val] = btn
-        h_speed.addStretch()
+        h_speed.addWidget(QLabel("Playback Speed:"))
+        self.spin_speed = QDoubleSpinBox()
+        self.spin_speed.setDecimals(6)
+        self.spin_speed.setRange(0.000001, 1000000000000.0)
+        self.spin_speed.setSuffix("x")
+        self.spin_speed.setSingleStep(0.5)
+        self.spin_speed.setKeyboardTracking(False)
+        self.spin_speed.setValue(self.anim_speed)
+        self.spin_speed.setToolTip("Enter a positive speed multiplier, such as 0.25, 1 or 100.")
+        self.spin_speed.valueChanged.connect(self.on_speed_changed)
+        h_speed.addWidget(self.spin_speed)
         a_layout.addLayout(h_speed)
-        self._speed_buttons[1.0].setChecked(True)
 
         if self.ltha_mode:
-            total_dur = self.ltha_n_steps * self.ltha_dt
+            total_dur = max(self.ltha_n_steps - 1, 0) * self.ltha_dt
+            start_value, end_value = 0.0, total_dur
+            if self.parent() and hasattr(self.parent(), 'canvas'):
+                mgr = getattr(self.parent().canvas, 'animation_manager', None)
+                if mgr is not None and getattr(mgr, 'ltha_playback_start', None) is not None:
+                    start_value = mgr.ltha_playback_start * self.ltha_dt
+                    end_value = mgr.ltha_playback_end * self.ltha_dt
 
             h_range = QHBoxLayout()
-            h_range.addWidget(QLabel("Start (s):"))
+            h_range.addWidget(QLabel("Start (step):" if self.step_mode else "Start (s):"))
             self.spin_start = QDoubleSpinBox()
+            self.spin_start.setDecimals(0 if self.step_mode else 2)
             self.spin_start.setRange(0.0, total_dur)
-            self.spin_start.setValue(0.0)
+            self.spin_start.setValue(start_value)
             self.spin_start.setSingleStep(1.0)
-            self.spin_start.setDecimals(2)
+            self.spin_start.setKeyboardTracking(False)
+            self.spin_start.setToolTip("First time/step in the playback loop.")
             self.spin_start.setMinimumWidth(90)                               
-            self.spin_start.valueChanged.connect(self._on_range_changed)
             h_range.addWidget(self.spin_start)
 
             h_range.addSpacing(8)
-            h_range.addWidget(QLabel("End (s):"))
+            h_range.addWidget(QLabel("End (step):" if self.step_mode else "End (s):"))
             self.spin_end = QDoubleSpinBox()
+            self.spin_end.setDecimals(0 if self.step_mode else 2)
             self.spin_end.setRange(0.0, total_dur)
-            self.spin_end.setValue(total_dur)
+            self.spin_end.setValue(end_value)
             self.spin_end.setSingleStep(1.0)
-            self.spin_end.setDecimals(2)
+            self.spin_end.setKeyboardTracking(False)
+            self.spin_end.setToolTip("Last time/step in the playback loop. Playback repeats within Start–End.")
             self.spin_end.setMinimumWidth(90)                               
-            self.spin_end.valueChanged.connect(self._on_range_changed)
             h_range.addWidget(self.spin_end)
             h_range.addStretch()
             a_layout.addLayout(h_range)
 
-            self.btn_prerender = QPushButton("Pre-Animate")
-            self.btn_prerender.setToolTip("Pre-computes frames for the selected time window.")
-            self.btn_prerender.clicked.connect(self.on_prerender)
-            
-            self.btn_clear_pre = QPushButton("Clear")
-            self.btn_clear_pre.setToolTip("Clear pre-rendered window and return to full record.")
-            self.btn_clear_pre.clicked.connect(self.on_clear_prerender)
-            
-            h_pre = QHBoxLayout()
-            h_pre.addWidget(self.btn_prerender)
-            h_pre.addWidget(self.btn_clear_pre)
-            a_layout.addLayout(h_pre)
+            self.spin_start.valueChanged.connect(self._on_range_changed)
+            self.spin_end.valueChanged.connect(self._on_range_changed)
         else:
             self.spin_start = None
             self.spin_end   = None
-            self.btn_prerender = None
 
         self.grp_anim.setLayout(a_layout)
         layout.addWidget(self.grp_anim)
@@ -264,28 +275,30 @@ class DeformedShapeDialog(QDialog):
 
         btn_layout = QHBoxLayout()
         btn_apply = QPushButton("Apply")
-        btn_apply.clicked.connect(self.on_apply)
+        btn_apply.setObjectName("primary")
+        btn_apply.clicked.connect(self._do_apply)
         btn_ok = QPushButton("Close")
+        btn_ok.setObjectName("secondary")
         btn_ok.clicked.connect(self.accept)
         btn_layout.addStretch()
         btn_layout.addWidget(btn_apply)
         btn_layout.addWidget(btn_ok)
         layout.addLayout(btn_layout)
 
+    def _time_text(self, idx):
+        """Readout under the play button: seconds for LTHA, step for static."""
+        if self.step_mode:
+            n = max(self.ltha_n_steps, 1)
+            idx = max(0, min(int(idx), n - 1))
+            num = self.step_numbers[idx] if (self.step_numbers and idx < len(self.step_numbers)) else idx + 1
+            return f"Step {num}  ({idx + 1} of {n})"
+        total_duration = self.ltha_n_steps * self.ltha_dt
+        return f"t = {idx * self.ltha_dt:.2f} s  /  {total_duration:.2f} s"
+
     def update_color_button(self):
         r, g, b, a = self.shadow_rgba
         c_str = f"rgba({int(r*255)}, {int(g*255)}, {int(b*255)}, {a})"
         self.btn_color.setStyleSheet(f"background-color: {c_str}; border: 1px solid #555;")
-
-    def on_clear_prerender(self):
-        """Action for the Clear button."""
-        if not self.ltha_mode or not self.parent():
-            return
-            
-        if hasattr(self.parent(), 'clear_ltha_prerender'):
-            self.parent().clear_ltha_prerender()
-            
-        self.btn_prerender.setText("Pre-Animate")
 
     def pick_color(self):
         r, g, b, a = self.shadow_rgba
@@ -355,6 +368,12 @@ class DeformedShapeDialog(QDialog):
             self.spin_scale.setEnabled(True)
 
     def on_toggle_anim(self):
+        valid_range = self._on_range_changed()
+        if self.btn_animate.isChecked() and valid_range is False:
+            self.btn_animate.setChecked(False)
+            self._on_range_changed()
+            self.update_anim_button_style()
+            return
         self.update_anim_button_style()
         self.is_animating = self.btn_animate.isChecked()
         if self.parent():
@@ -368,9 +387,7 @@ class DeformedShapeDialog(QDialog):
         if not self.ltha_mode:
             return
                            
-        t_sec = value * self.ltha_dt
-        total_duration = self.ltha_n_steps * self.ltha_dt
-        self.lbl_time.setText(f"t = {t_sec:.2f} s  /  {total_duration:.2f} s")
+        self.lbl_time.setText(self._time_text(value))
                                                      
         if self.parent():
             mgr = self.parent().canvas.animation_manager
@@ -387,60 +404,42 @@ class DeformedShapeDialog(QDialog):
         self.slider_scrub.blockSignals(True)
         self.slider_scrub.setValue(t_index)
         self.slider_scrub.blockSignals(False)
-        t_sec = t_index * self.ltha_dt
-        total_duration = self.ltha_n_steps * self.ltha_dt
-        self.lbl_time.setText(f"t = {t_sec:.2f} s  /  {total_duration:.2f} s")
+        self.lbl_time.setText(self._time_text(t_index))
 
-    def on_speed_toggle(self, value):
-        for v, btn in self._speed_buttons.items():
-            btn.setChecked(v == value)
+    def on_speed_changed(self, value):
         self.anim_speed = value
         if self.parent():
             self.parent().set_animation_speed(value)
 
     def _on_range_changed(self):
-        """Notify canvas to repaint the highlighted region on the accelerogram."""
+        """Apply Start/End directly as the playback loop."""
         if not self.ltha_mode or self.spin_start is None:
-            return
-                            
-        if self.spin_start.value() >= self.spin_end.value():
-            return
-        if self.parent() and hasattr(self.parent(), 'canvas'):
-            t_start = self.spin_start.value()
-            t_end   = self.spin_end.value()
-            self.parent().canvas.ltha_highlight = (t_start, t_end)
-            self.parent().canvas._invalidate_accel_pixmap()                                             
-            self.parent().canvas.update()
-
-    def on_prerender(self):
-        if not self.ltha_mode or not self.parent():
-            return
-        if not hasattr(self.parent(), 'prerender_ltha_animation'):
-            return
-        t_start = self.spin_start.value() if self.spin_start else 0.0
-        t_end   = self.spin_end.value()   if self.spin_end   else self.ltha_n_steps * self.ltha_dt
-        self.btn_prerender.setEnabled(False)
-        self.btn_prerender.setText("Pre-Animating...")
-        self.parent().prerender_ltha_animation(t_start, t_end, self._on_prerender_done)
-
-    def _on_prerender_done(self):
-        self.btn_prerender.setEnabled(True)
-        self.btn_prerender.setText("Pre-Animate  ✓")
-        
-        if not self.btn_animate.isChecked():
-            self.btn_animate.setChecked(True)
-            self.on_toggle_anim()
+            return True
+        start, end = self.spin_start.value(), self.spin_end.value()
+        valid = start <= end
+        self.spin_start.setToolTip("First time/step in the playback loop." if valid
+                                   else "Start must be at or before End.")
+        self.btn_animate.setEnabled(valid or self.btn_animate.isChecked())
+        if valid and self.parent() and hasattr(self.parent(), 'set_ltha_playback_range'):
+            return self.parent().set_ltha_playback_range(start, end)
+        return valid
 
     def on_apply(self):
+        """Debounced: several widgets can fire in one go (toggle + enable/disable cascades, spin-box
+        arrows held down). Only the last request within 120 ms actually redraws."""
+        t = getattr(self, '_apply_timer', None)
+        if t is None:
+            t = QTimer(self)
+            t.setSingleShot(True)
+            t.timeout.connect(self._do_apply)
+            self._apply_timer = t
+        t.start(120)
+
+    def _do_apply(self):
         if not self.parent():
             return
             
-        current_val = self.spin_scale.value()
-        
-        if current_val >= 999999.0:
-            val_to_apply = self.auto_scale
-        else:
-            val_to_apply = current_val
+        val_to_apply = self.spin_scale.value()
 
         self.parent().apply_deformed_shape(
             self.chk_show.isChecked(), 
@@ -455,8 +454,10 @@ class DeformedShapeDialog(QDialog):
             self.chk_contour_absolute.isChecked()
         )
         
-        if self.chk_show.isChecked() and hasattr(self.parent(), 'canvas'):
-            self.parent().canvas.clear_force_diagrams()
+        if self.chk_show.isChecked() and hasattr(self.parent(), 'active_canvas'):
+                                                                          
+            if hasattr(self.parent().active_canvas, 'refresh_deformed_playback'):
+                self.parent().active_canvas.refresh_deformed_playback()
             
     def accept(self):
                                                   
@@ -478,9 +479,6 @@ class DeformedShapeDialog(QDialog):
             try:
                 with open(self.prefs_path, 'r') as f:
                     prefs = json.load(f)
-                    
-                if not self.is_animating:
-                    self.anim_speed = prefs.get("anim_speed", self.anim_speed)
                     
                 self.shadow_active = prefs.get("shadow_active", self.shadow_active)
                 
@@ -518,7 +516,12 @@ class DeformedShapeDialog(QDialog):
         super().accept()
 
     def on_normalize(self):
-                                                                    
+        timer = getattr(self, '_apply_timer', None)
+        if timer is not None:
+            timer.stop()
+        if self.parent() and hasattr(self.parent(), 'active_canvas'):
+            self.auto_scale = getattr(self.parent().active_canvas, 'auto_deflection_scale', self.auto_scale)
+
         self.spin_scale.blockSignals(True)
         self.spin_scale.setValue(self.auto_scale)
         self.spin_scale.blockSignals(False)
@@ -526,7 +529,7 @@ class DeformedShapeDialog(QDialog):
         if self.parent():
             self.parent().apply_deformed_shape(
                 self.chk_show.isChecked(), 
-                self.auto_scale,                       
+                self.spin_scale.value(),
                 self.chk_shadow.isChecked(),
                 self.shadow_rgba,
                 self.chk_contour.isChecked(),
@@ -535,27 +538,15 @@ class DeformedShapeDialog(QDialog):
                 0.0, 1.0,
                 self.chk_contour_absolute.isChecked()
             )
-
-    def _load_prefs(self):
-        """Loads animation preferences from the JSON file."""
-        if os.path.exists(self.prefs_path):
-            try:
-                with open(self.prefs_path, 'r') as f:
-                    prefs = json.load(f)
-                    
-                if not self.is_animating:
-                    self.scale_value = prefs.get("deflection_scale", self.scale_value)
-                    self.anim_speed = prefs.get("anim_speed", self.anim_speed)
-                    
-                self.shadow_active = prefs.get("shadow_active", self.shadow_active)
-                
-                saved_color = prefs.get("shadow_color")
-                if saved_color and len(saved_color) == 4:
-                    self.shadow_rgba = tuple(saved_color)
-            except Exception as e:
-                print(f"Failed to load animation prefs: {e}")
+            canvas = getattr(self.parent(), 'active_canvas', None)
+            if canvas is not None and self.chk_show.isChecked() and hasattr(canvas, 'refresh_deformed_playback'):
+                canvas.refresh_deformed_playback()
 
     def accept(self):
+        t = getattr(self, '_apply_timer', None)
+        if t is not None and t.isActive():
+            t.stop()
+            self._do_apply()
         if self.is_animating:
             self.btn_animate.setChecked(False)
             self.on_toggle_anim()

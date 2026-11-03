@@ -1,0 +1,2342 @@
+{
+    "info": {
+        "name": "084_two_story_frame_v4",
+        "units": "N, m, C",
+        "active_dofs": [
+            true,
+            true,
+            false,
+            false,
+            false,
+            true
+        ],
+        "analysis_engine": "native",
+        "last_run_case": "STATIC",
+        "show_analysis_log": true
+    },
+    "graphics": {},
+    "rebar_sizes": [],
+    "load_cases": [
+        {
+            "name": "DEAD",
+            "type": "Linear Static",
+            "loads": [
+                [
+                    "DEAD",
+                    1.0
+                ]
+            ],
+            "mass_source": "Default",
+            "geom_nonlin": "None",
+            "nl_params": {
+                "max_total_steps": 200,
+                "max_null_steps": 50,
+                "use_event_stepping": true,
+                "event_lumping_tol": 0.01,
+                "max_events_per_step": 24,
+                "use_iteration": true,
+                "max_const_stiff_iter": 10,
+                "max_nr_iter": 40,
+                "iter_conv_tol": 0.0001,
+                "use_line_search": false,
+                "tf_max_iter": 10,
+                "tf_conv_tol": 0.01,
+                "tf_accel_factor": 1.0,
+                "continue_if_no_converge": false,
+                "use_fd_tangent": false,
+                "formulation": "Corotational",
+                "corot_type": "Commercial Compatibility",
+                "results_saved": "Final State Only",
+                "min_saved_states": 1,
+                "max_saved_states": 100,
+                "save_positive_disp_only": false,
+                "continue_from_case": null,
+                "load_application": "Full Load",
+                "disp_control_node_id": null,
+                "disp_control_dof": "U1",
+                "disp_control_magnitude": 0.1,
+                "disp_control_tol": 1e-06,
+                "hinge_snap": true,
+                "hinge_snap_scope": "tension",
+                "stop_on_fiber_failure": false,
+                "residual_stiffness": 1e-08,
+                "min_step_frac": 0.0001,
+                "max_event_probes": 12,
+                "auto_cutback": true,
+                "max_step_attempts": 0
+            },
+            "opensees": {
+                "test_type": "NormDispIncr",
+                "tolerance": 1e-06,
+                "max_iter": 50,
+                "algorithm": "Newton",
+                "step_size": 0.001,
+                "path_mode": "Single Target",
+                "disp_history": [],
+                "load_steps": 10,
+                "load_path_mode": "Monotonic",
+                "load_history": [],
+                "n_int_pts": 5,
+                "fiber_size_ratio": 16,
+                "integration": "Lobatto",
+                "hinge_length": 0.0,
+                "bar_slip": false,
+                "safety_check": true,
+                "relax_on_fail": true,
+                "relax_ceiling": 1e-05,
+                "slip_R": 0.5,
+                "slip_b": 0.3,
+                "slip_sy_mult": 1.0,
+                "slip_su_mult": 35.0,
+                "slip_concrete": "stiff",
+                "shear_spring": null
+            },
+            "num_modes": 12,
+            "modal_fiber_hinges": false,
+            "rsa_loads": [],
+            "modal_comb": "SRSS",
+            "dir_comb": "SRSS",
+            "modal_damping": 0.05,
+            "ltha_damping": 0.05,
+            "ltha_loads": []
+        },
+        {
+            "name": "MODAL",
+            "type": "Modal",
+            "loads": [],
+            "mass_source": "Default",
+            "geom_nonlin": "None",
+            "nl_params": {
+                "max_total_steps": 200,
+                "max_null_steps": 50,
+                "use_event_stepping": true,
+                "event_lumping_tol": 0.01,
+                "max_events_per_step": 24,
+                "use_iteration": true,
+                "max_const_stiff_iter": 10,
+                "max_nr_iter": 40,
+                "iter_conv_tol": 0.0001,
+                "use_line_search": false,
+                "tf_max_iter": 10,
+                "tf_conv_tol": 0.01,
+                "tf_accel_factor": 1.0,
+                "continue_if_no_converge": false,
+                "use_fd_tangent": false,
+                "formulation": "Corotational",
+                "corot_type": "Commercial Compatibility",
+                "results_saved": "Final State Only",
+                "min_saved_states": 1,
+                "max_saved_states": 100,
+                "save_positive_disp_only": false,
+                "continue_from_case": null,
+                "load_application": "Full Load",
+                "disp_control_node_id": null,
+                "disp_control_dof": "U1",
+                "disp_control_magnitude": 0.1,
+                "disp_control_tol": 1e-06,
+                "hinge_snap": true,
+                "hinge_snap_scope": "tension",
+                "stop_on_fiber_failure": false,
+                "residual_stiffness": 1e-08,
+                "min_step_frac": 0.0001,
+                "max_event_probes": 12,
+                "auto_cutback": true,
+                "max_step_attempts": 0
+            },
+            "opensees": {
+                "test_type": "NormDispIncr",
+                "tolerance": 1e-06,
+                "max_iter": 50,
+                "algorithm": "Newton",
+                "step_size": 0.001,
+                "path_mode": "Single Target",
+                "disp_history": [],
+                "load_steps": 10,
+                "load_path_mode": "Monotonic",
+                "load_history": [],
+                "n_int_pts": 5,
+                "fiber_size_ratio": 16,
+                "integration": "Lobatto",
+                "hinge_length": 0.0,
+                "bar_slip": false,
+                "safety_check": true,
+                "relax_on_fail": true,
+                "relax_ceiling": 1e-05,
+                "slip_R": 0.5,
+                "slip_b": 0.3,
+                "slip_sy_mult": 1.0,
+                "slip_su_mult": 35.0,
+                "slip_concrete": "stiff",
+                "shear_spring": null
+            },
+            "num_modes": 3,
+            "modal_fiber_hinges": false,
+            "rsa_loads": [],
+            "modal_comb": "SRSS",
+            "dir_comb": "SRSS",
+            "modal_damping": 0.05,
+            "ltha_damping": 0.05,
+            "ltha_loads": []
+        },
+        {
+            "name": "STATIC",
+            "type": "Linear Static",
+            "loads": [
+                [
+                    "TEST",
+                    1.0
+                ]
+            ],
+            "mass_source": "Default",
+            "geom_nonlin": "None",
+            "nl_params": {
+                "max_total_steps": 200,
+                "max_null_steps": 50,
+                "use_event_stepping": true,
+                "event_lumping_tol": 0.01,
+                "max_events_per_step": 24,
+                "use_iteration": true,
+                "max_const_stiff_iter": 10,
+                "max_nr_iter": 40,
+                "iter_conv_tol": 0.0001,
+                "use_line_search": false,
+                "tf_max_iter": 10,
+                "tf_conv_tol": 0.01,
+                "tf_accel_factor": 1.0,
+                "continue_if_no_converge": false,
+                "use_fd_tangent": false,
+                "formulation": "Corotational",
+                "corot_type": "Commercial Compatibility",
+                "results_saved": "Final State Only",
+                "min_saved_states": 1,
+                "max_saved_states": 100,
+                "save_positive_disp_only": false,
+                "continue_from_case": null,
+                "load_application": "Full Load",
+                "disp_control_node_id": null,
+                "disp_control_dof": "U1",
+                "disp_control_magnitude": 0.1,
+                "disp_control_tol": 1e-06,
+                "hinge_snap": true,
+                "hinge_snap_scope": "tension",
+                "stop_on_fiber_failure": false,
+                "residual_stiffness": 1e-08,
+                "min_step_frac": 0.0001,
+                "max_event_probes": 12,
+                "auto_cutback": true,
+                "max_step_attempts": 0
+            },
+            "opensees": {
+                "test_type": "NormDispIncr",
+                "tolerance": 1e-06,
+                "max_iter": 50,
+                "algorithm": "Newton",
+                "step_size": 0.001,
+                "path_mode": "Single Target",
+                "disp_history": [],
+                "load_steps": 10,
+                "load_path_mode": "Monotonic",
+                "load_history": [],
+                "n_int_pts": 5,
+                "fiber_size_ratio": 16,
+                "integration": "Lobatto",
+                "hinge_length": 0.0,
+                "bar_slip": false,
+                "safety_check": true,
+                "relax_on_fail": true,
+                "relax_ceiling": 1e-05,
+                "slip_R": 0.5,
+                "slip_b": 0.3,
+                "slip_sy_mult": 1.0,
+                "slip_su_mult": 35.0,
+                "slip_concrete": "stiff",
+                "shear_spring": null
+            },
+            "num_modes": 12,
+            "modal_fiber_hinges": false,
+            "rsa_loads": [],
+            "modal_comb": "SRSS",
+            "dir_comb": "SRSS",
+            "modal_damping": 0.05,
+            "ltha_damping": 0.05,
+            "ltha_loads": []
+        },
+        {
+            "name": "TEST",
+            "type": "Linear Static",
+            "loads": [
+                [
+                    "TEST",
+                    1.0
+                ]
+            ],
+            "mass_source": "Default",
+            "geom_nonlin": "None",
+            "nl_params": {
+                "max_total_steps": 200,
+                "max_null_steps": 50,
+                "use_event_stepping": true,
+                "event_lumping_tol": 0.01,
+                "max_events_per_step": 24,
+                "use_iteration": true,
+                "max_const_stiff_iter": 10,
+                "max_nr_iter": 40,
+                "iter_conv_tol": 0.0001,
+                "use_line_search": false,
+                "tf_max_iter": 10,
+                "tf_conv_tol": 0.01,
+                "tf_accel_factor": 1.0,
+                "continue_if_no_converge": false,
+                "use_fd_tangent": false,
+                "formulation": "Corotational",
+                "corot_type": "Commercial Compatibility",
+                "results_saved": "Final State Only",
+                "min_saved_states": 1,
+                "max_saved_states": 100,
+                "save_positive_disp_only": false,
+                "continue_from_case": null,
+                "load_application": "Full Load",
+                "disp_control_node_id": null,
+                "disp_control_dof": "U1",
+                "disp_control_magnitude": 0.1,
+                "disp_control_tol": 1e-06,
+                "hinge_snap": true,
+                "hinge_snap_scope": "tension",
+                "stop_on_fiber_failure": false,
+                "residual_stiffness": 1e-08,
+                "min_step_frac": 0.0001,
+                "max_event_probes": 12,
+                "auto_cutback": true,
+                "max_step_attempts": 0
+            },
+            "opensees": {
+                "test_type": "NormDispIncr",
+                "tolerance": 1e-06,
+                "max_iter": 50,
+                "algorithm": "Newton",
+                "step_size": 0.001,
+                "path_mode": "Single Target",
+                "disp_history": [],
+                "load_steps": 10,
+                "load_path_mode": "Monotonic",
+                "load_history": [],
+                "n_int_pts": 5,
+                "fiber_size_ratio": 16,
+                "integration": "Lobatto",
+                "hinge_length": 0.0,
+                "bar_slip": false,
+                "safety_check": true,
+                "relax_on_fail": true,
+                "relax_ceiling": 1e-05,
+                "slip_R": 0.5,
+                "slip_b": 0.3,
+                "slip_sy_mult": 1.0,
+                "slip_su_mult": 35.0,
+                "slip_concrete": "stiff",
+                "shear_spring": null
+            },
+            "num_modes": 12,
+            "modal_fiber_hinges": false,
+            "rsa_loads": [],
+            "modal_comb": "SRSS",
+            "dir_comb": "SRSS",
+            "modal_damping": 0.05,
+            "ltha_damping": 0.05,
+            "ltha_loads": []
+        }
+    ],
+    "grid": {
+        "x_lines": [],
+        "y_lines": [],
+        "z_lines": [],
+        "bubble_size": 1.25,
+        "bubble_alpha": 1.0,
+        "bubble_line_width": 1.5,
+        "bubble_ext_line_width": null,
+        "bubble_extension": 3.125,
+        "style": {
+            "preset": "Auto",
+            "custom": {},
+            "show_floor": true,
+            "floor_spacing": 0.0,
+            "floor_major_every": 5,
+            "width_lines": 1.5,
+            "width_floor": 1.0
+        }
+    },
+    "materials": [
+        {
+            "name": "Elastic",
+            "E": 210000000000.0,
+            "nu": 0.28,
+            "G": 82031250000.0,
+            "rho": 76982.2025,
+            "type": "Steel",
+            "fy": 0,
+            "fu": 0,
+            "fye": 0,
+            "fue": 0,
+            "grade": "",
+            "derived_from": "",
+            "nonlinear": null,
+            "damping": null
+        }
+    ],
+    "sections": [
+        {
+            "name": "Beam",
+            "mat_name": "Elastic",
+            "color": [
+                0.25,
+                0.7,
+                1.0,
+                1.0
+            ],
+            "modifiers": {
+                "A": 1.0,
+                "I2": 1.0,
+                "I3": 1.0,
+                "As2": 1.0,
+                "As3": 1.0,
+                "J": 1.0,
+                "Mass": 1.0,
+                "Weight": 1.0
+            },
+            "properties": {
+                "A": 0.0858,
+                "J": 0.0007250100000000001,
+                "I33": 0.0007786350000000002,
+                "I22": 0.00048334000000000007,
+                "As2": 0.0,
+                "As3": 0.0,
+                "theta_p": 0.0
+            },
+            "type": "general"
+        }
+    ],
+    "hinge_properties": [],
+    "frame_hinges": [],
+    "tendon_sections": [],
+    "cable_sections": [],
+    "tendons": [],
+    "cables": [],
+    "nodes": [
+        {
+            "id": 1,
+            "x": 0.0,
+            "y": 0.0,
+            "z": 0.0,
+            "restraints": [
+                true,
+                true,
+                true,
+                true,
+                true,
+                true
+            ],
+            "diaphragm": null
+        },
+        {
+            "id": 2,
+            "x": 6.5,
+            "y": 0.0,
+            "z": 0.0,
+            "restraints": [
+                true,
+                true,
+                true,
+                true,
+                true,
+                true
+            ],
+            "diaphragm": null
+        },
+        {
+            "id": 3,
+            "x": 0.0,
+            "y": 0.8,
+            "z": 0.0,
+            "restraints": [
+                false,
+                false,
+                true,
+                true,
+                true,
+                false
+            ],
+            "diaphragm": null
+        },
+        {
+            "id": 4,
+            "x": 0.0,
+            "y": 1.6,
+            "z": 0.0,
+            "restraints": [
+                false,
+                false,
+                true,
+                true,
+                true,
+                false
+            ],
+            "diaphragm": null
+        },
+        {
+            "id": 5,
+            "x": 0.0,
+            "y": 2.4,
+            "z": 0.0,
+            "restraints": [
+                false,
+                false,
+                true,
+                true,
+                true,
+                false
+            ],
+            "diaphragm": null
+        },
+        {
+            "id": 6,
+            "x": 0.0,
+            "y": 3.2,
+            "z": 0.0,
+            "restraints": [
+                false,
+                false,
+                true,
+                true,
+                true,
+                false
+            ],
+            "diaphragm": null
+        },
+        {
+            "id": 7,
+            "x": 0.0,
+            "y": 4.0,
+            "z": 0.0,
+            "restraints": [
+                false,
+                false,
+                true,
+                true,
+                true,
+                false
+            ],
+            "diaphragm": null
+        },
+        {
+            "id": 8,
+            "x": 6.5,
+            "y": 0.8,
+            "z": 0.0,
+            "restraints": [
+                false,
+                false,
+                true,
+                true,
+                true,
+                false
+            ],
+            "diaphragm": null
+        },
+        {
+            "id": 9,
+            "x": 6.5,
+            "y": 1.6,
+            "z": 0.0,
+            "restraints": [
+                false,
+                false,
+                true,
+                true,
+                true,
+                false
+            ],
+            "diaphragm": null
+        },
+        {
+            "id": 10,
+            "x": 6.5,
+            "y": 2.4,
+            "z": 0.0,
+            "restraints": [
+                false,
+                false,
+                true,
+                true,
+                true,
+                false
+            ],
+            "diaphragm": null
+        },
+        {
+            "id": 11,
+            "x": 6.5,
+            "y": 3.2,
+            "z": 0.0,
+            "restraints": [
+                false,
+                false,
+                true,
+                true,
+                true,
+                false
+            ],
+            "diaphragm": null
+        },
+        {
+            "id": 12,
+            "x": 6.5,
+            "y": 4.0,
+            "z": 0.0,
+            "restraints": [
+                false,
+                false,
+                true,
+                true,
+                true,
+                false
+            ],
+            "diaphragm": null
+        },
+        {
+            "id": 13,
+            "x": 1.3,
+            "y": 4.0,
+            "z": 0.0,
+            "restraints": [
+                false,
+                false,
+                true,
+                true,
+                true,
+                false
+            ],
+            "diaphragm": null
+        },
+        {
+            "id": 14,
+            "x": 2.6,
+            "y": 4.0,
+            "z": 0.0,
+            "restraints": [
+                false,
+                false,
+                true,
+                true,
+                true,
+                false
+            ],
+            "diaphragm": null
+        },
+        {
+            "id": 15,
+            "x": 3.9,
+            "y": 4.0,
+            "z": 0.0,
+            "restraints": [
+                false,
+                false,
+                true,
+                true,
+                true,
+                false
+            ],
+            "diaphragm": null
+        },
+        {
+            "id": 16,
+            "x": 5.2,
+            "y": 4.0,
+            "z": 0.0,
+            "restraints": [
+                false,
+                false,
+                true,
+                true,
+                true,
+                false
+            ],
+            "diaphragm": null
+        },
+        {
+            "id": 17,
+            "x": 0.0,
+            "y": 4.8,
+            "z": 0.0,
+            "restraints": [
+                false,
+                false,
+                true,
+                true,
+                true,
+                false
+            ],
+            "diaphragm": null
+        },
+        {
+            "id": 18,
+            "x": 0.0,
+            "y": 5.6,
+            "z": 0.0,
+            "restraints": [
+                false,
+                false,
+                true,
+                true,
+                true,
+                false
+            ],
+            "diaphragm": null
+        },
+        {
+            "id": 19,
+            "x": 0.0,
+            "y": 6.4,
+            "z": 0.0,
+            "restraints": [
+                false,
+                false,
+                true,
+                true,
+                true,
+                false
+            ],
+            "diaphragm": null
+        },
+        {
+            "id": 20,
+            "x": 0.0,
+            "y": 7.2,
+            "z": 0.0,
+            "restraints": [
+                false,
+                false,
+                true,
+                true,
+                true,
+                false
+            ],
+            "diaphragm": null
+        },
+        {
+            "id": 21,
+            "x": 0.0,
+            "y": 8.0,
+            "z": 0.0,
+            "restraints": [
+                false,
+                false,
+                true,
+                true,
+                true,
+                false
+            ],
+            "diaphragm": null
+        },
+        {
+            "id": 22,
+            "x": 6.5,
+            "y": 4.8,
+            "z": 0.0,
+            "restraints": [
+                false,
+                false,
+                true,
+                true,
+                true,
+                false
+            ],
+            "diaphragm": null
+        },
+        {
+            "id": 23,
+            "x": 6.5,
+            "y": 5.6,
+            "z": 0.0,
+            "restraints": [
+                false,
+                false,
+                true,
+                true,
+                true,
+                false
+            ],
+            "diaphragm": null
+        },
+        {
+            "id": 24,
+            "x": 6.5,
+            "y": 6.4,
+            "z": 0.0,
+            "restraints": [
+                false,
+                false,
+                true,
+                true,
+                true,
+                false
+            ],
+            "diaphragm": null
+        },
+        {
+            "id": 25,
+            "x": 6.5,
+            "y": 7.2,
+            "z": 0.0,
+            "restraints": [
+                false,
+                false,
+                true,
+                true,
+                true,
+                false
+            ],
+            "diaphragm": null
+        },
+        {
+            "id": 26,
+            "x": 6.5,
+            "y": 8.0,
+            "z": 0.0,
+            "restraints": [
+                false,
+                false,
+                true,
+                true,
+                true,
+                false
+            ],
+            "diaphragm": null
+        },
+        {
+            "id": 27,
+            "x": 1.3,
+            "y": 8.0,
+            "z": 0.0,
+            "restraints": [
+                false,
+                false,
+                true,
+                true,
+                true,
+                false
+            ],
+            "diaphragm": null
+        },
+        {
+            "id": 28,
+            "x": 2.6,
+            "y": 8.0,
+            "z": 0.0,
+            "restraints": [
+                false,
+                false,
+                true,
+                true,
+                true,
+                false
+            ],
+            "diaphragm": null
+        },
+        {
+            "id": 29,
+            "x": 3.9,
+            "y": 8.0,
+            "z": 0.0,
+            "restraints": [
+                false,
+                false,
+                true,
+                true,
+                true,
+                false
+            ],
+            "diaphragm": null
+        },
+        {
+            "id": 30,
+            "x": 5.2,
+            "y": 8.0,
+            "z": 0.0,
+            "restraints": [
+                false,
+                false,
+                true,
+                true,
+                true,
+                false
+            ],
+            "diaphragm": null
+        }
+    ],
+    "elements": [
+        {
+            "id": 1,
+            "n1_id": 1,
+            "n2_id": 3,
+            "sec_name": "Beam",
+            "beta": 0.0,
+            "rel_i": [
+                false,
+                false,
+                false,
+                false,
+                false,
+                false
+            ],
+            "rel_j": [
+                false,
+                false,
+                false,
+                false,
+                false,
+                false
+            ],
+            "cardinal": 10,
+            "off_i": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "off_j": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "end_off_i": 0.0,
+            "end_off_j": 0.0,
+            "rz_factor": 0.0
+        },
+        {
+            "id": 2,
+            "n1_id": 3,
+            "n2_id": 4,
+            "sec_name": "Beam",
+            "beta": 0.0,
+            "rel_i": [
+                false,
+                false,
+                false,
+                false,
+                false,
+                false
+            ],
+            "rel_j": [
+                false,
+                false,
+                false,
+                false,
+                false,
+                false
+            ],
+            "cardinal": 10,
+            "off_i": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "off_j": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "end_off_i": 0.0,
+            "end_off_j": 0.0,
+            "rz_factor": 0.0
+        },
+        {
+            "id": 3,
+            "n1_id": 4,
+            "n2_id": 5,
+            "sec_name": "Beam",
+            "beta": 0.0,
+            "rel_i": [
+                false,
+                false,
+                false,
+                false,
+                false,
+                false
+            ],
+            "rel_j": [
+                false,
+                false,
+                false,
+                false,
+                false,
+                false
+            ],
+            "cardinal": 10,
+            "off_i": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "off_j": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "end_off_i": 0.0,
+            "end_off_j": 0.0,
+            "rz_factor": 0.0
+        },
+        {
+            "id": 4,
+            "n1_id": 5,
+            "n2_id": 6,
+            "sec_name": "Beam",
+            "beta": 0.0,
+            "rel_i": [
+                false,
+                false,
+                false,
+                false,
+                false,
+                false
+            ],
+            "rel_j": [
+                false,
+                false,
+                false,
+                false,
+                false,
+                false
+            ],
+            "cardinal": 10,
+            "off_i": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "off_j": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "end_off_i": 0.0,
+            "end_off_j": 0.0,
+            "rz_factor": 0.0
+        },
+        {
+            "id": 5,
+            "n1_id": 6,
+            "n2_id": 7,
+            "sec_name": "Beam",
+            "beta": 0.0,
+            "rel_i": [
+                false,
+                false,
+                false,
+                false,
+                false,
+                false
+            ],
+            "rel_j": [
+                false,
+                false,
+                false,
+                false,
+                false,
+                false
+            ],
+            "cardinal": 10,
+            "off_i": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "off_j": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "end_off_i": 0.0,
+            "end_off_j": 0.0,
+            "rz_factor": 0.0
+        },
+        {
+            "id": 6,
+            "n1_id": 2,
+            "n2_id": 8,
+            "sec_name": "Beam",
+            "beta": 0.0,
+            "rel_i": [
+                false,
+                false,
+                false,
+                false,
+                false,
+                false
+            ],
+            "rel_j": [
+                false,
+                false,
+                false,
+                false,
+                false,
+                false
+            ],
+            "cardinal": 10,
+            "off_i": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "off_j": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "end_off_i": 0.0,
+            "end_off_j": 0.0,
+            "rz_factor": 0.0
+        },
+        {
+            "id": 7,
+            "n1_id": 8,
+            "n2_id": 9,
+            "sec_name": "Beam",
+            "beta": 0.0,
+            "rel_i": [
+                false,
+                false,
+                false,
+                false,
+                false,
+                false
+            ],
+            "rel_j": [
+                false,
+                false,
+                false,
+                false,
+                false,
+                false
+            ],
+            "cardinal": 10,
+            "off_i": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "off_j": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "end_off_i": 0.0,
+            "end_off_j": 0.0,
+            "rz_factor": 0.0
+        },
+        {
+            "id": 8,
+            "n1_id": 9,
+            "n2_id": 10,
+            "sec_name": "Beam",
+            "beta": 0.0,
+            "rel_i": [
+                false,
+                false,
+                false,
+                false,
+                false,
+                false
+            ],
+            "rel_j": [
+                false,
+                false,
+                false,
+                false,
+                false,
+                false
+            ],
+            "cardinal": 10,
+            "off_i": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "off_j": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "end_off_i": 0.0,
+            "end_off_j": 0.0,
+            "rz_factor": 0.0
+        },
+        {
+            "id": 9,
+            "n1_id": 10,
+            "n2_id": 11,
+            "sec_name": "Beam",
+            "beta": 0.0,
+            "rel_i": [
+                false,
+                false,
+                false,
+                false,
+                false,
+                false
+            ],
+            "rel_j": [
+                false,
+                false,
+                false,
+                false,
+                false,
+                false
+            ],
+            "cardinal": 10,
+            "off_i": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "off_j": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "end_off_i": 0.0,
+            "end_off_j": 0.0,
+            "rz_factor": 0.0
+        },
+        {
+            "id": 10,
+            "n1_id": 11,
+            "n2_id": 12,
+            "sec_name": "Beam",
+            "beta": 0.0,
+            "rel_i": [
+                false,
+                false,
+                false,
+                false,
+                false,
+                false
+            ],
+            "rel_j": [
+                false,
+                false,
+                false,
+                false,
+                false,
+                false
+            ],
+            "cardinal": 10,
+            "off_i": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "off_j": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "end_off_i": 0.0,
+            "end_off_j": 0.0,
+            "rz_factor": 0.0
+        },
+        {
+            "id": 11,
+            "n1_id": 7,
+            "n2_id": 13,
+            "sec_name": "Beam",
+            "beta": 0.0,
+            "rel_i": [
+                false,
+                false,
+                false,
+                false,
+                false,
+                false
+            ],
+            "rel_j": [
+                false,
+                false,
+                false,
+                false,
+                false,
+                false
+            ],
+            "cardinal": 10,
+            "off_i": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "off_j": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "end_off_i": 0.0,
+            "end_off_j": 0.0,
+            "rz_factor": 0.0
+        },
+        {
+            "id": 12,
+            "n1_id": 13,
+            "n2_id": 14,
+            "sec_name": "Beam",
+            "beta": 0.0,
+            "rel_i": [
+                false,
+                false,
+                false,
+                false,
+                false,
+                false
+            ],
+            "rel_j": [
+                false,
+                false,
+                false,
+                false,
+                false,
+                false
+            ],
+            "cardinal": 10,
+            "off_i": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "off_j": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "end_off_i": 0.0,
+            "end_off_j": 0.0,
+            "rz_factor": 0.0
+        },
+        {
+            "id": 13,
+            "n1_id": 14,
+            "n2_id": 15,
+            "sec_name": "Beam",
+            "beta": 0.0,
+            "rel_i": [
+                false,
+                false,
+                false,
+                false,
+                false,
+                false
+            ],
+            "rel_j": [
+                false,
+                false,
+                false,
+                false,
+                false,
+                false
+            ],
+            "cardinal": 10,
+            "off_i": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "off_j": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "end_off_i": 0.0,
+            "end_off_j": 0.0,
+            "rz_factor": 0.0
+        },
+        {
+            "id": 14,
+            "n1_id": 15,
+            "n2_id": 16,
+            "sec_name": "Beam",
+            "beta": 0.0,
+            "rel_i": [
+                false,
+                false,
+                false,
+                false,
+                false,
+                false
+            ],
+            "rel_j": [
+                false,
+                false,
+                false,
+                false,
+                false,
+                false
+            ],
+            "cardinal": 10,
+            "off_i": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "off_j": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "end_off_i": 0.0,
+            "end_off_j": 0.0,
+            "rz_factor": 0.0
+        },
+        {
+            "id": 15,
+            "n1_id": 16,
+            "n2_id": 12,
+            "sec_name": "Beam",
+            "beta": 0.0,
+            "rel_i": [
+                false,
+                false,
+                false,
+                false,
+                false,
+                false
+            ],
+            "rel_j": [
+                false,
+                false,
+                false,
+                false,
+                false,
+                false
+            ],
+            "cardinal": 10,
+            "off_i": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "off_j": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "end_off_i": 0.0,
+            "end_off_j": 0.0,
+            "rz_factor": 0.0
+        },
+        {
+            "id": 16,
+            "n1_id": 7,
+            "n2_id": 17,
+            "sec_name": "Beam",
+            "beta": 0.0,
+            "rel_i": [
+                false,
+                false,
+                false,
+                false,
+                false,
+                false
+            ],
+            "rel_j": [
+                false,
+                false,
+                false,
+                false,
+                false,
+                false
+            ],
+            "cardinal": 10,
+            "off_i": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "off_j": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "end_off_i": 0.0,
+            "end_off_j": 0.0,
+            "rz_factor": 0.0
+        },
+        {
+            "id": 17,
+            "n1_id": 17,
+            "n2_id": 18,
+            "sec_name": "Beam",
+            "beta": 0.0,
+            "rel_i": [
+                false,
+                false,
+                false,
+                false,
+                false,
+                false
+            ],
+            "rel_j": [
+                false,
+                false,
+                false,
+                false,
+                false,
+                false
+            ],
+            "cardinal": 10,
+            "off_i": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "off_j": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "end_off_i": 0.0,
+            "end_off_j": 0.0,
+            "rz_factor": 0.0
+        },
+        {
+            "id": 18,
+            "n1_id": 18,
+            "n2_id": 19,
+            "sec_name": "Beam",
+            "beta": 0.0,
+            "rel_i": [
+                false,
+                false,
+                false,
+                false,
+                false,
+                false
+            ],
+            "rel_j": [
+                false,
+                false,
+                false,
+                false,
+                false,
+                false
+            ],
+            "cardinal": 10,
+            "off_i": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "off_j": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "end_off_i": 0.0,
+            "end_off_j": 0.0,
+            "rz_factor": 0.0
+        },
+        {
+            "id": 19,
+            "n1_id": 19,
+            "n2_id": 20,
+            "sec_name": "Beam",
+            "beta": 0.0,
+            "rel_i": [
+                false,
+                false,
+                false,
+                false,
+                false,
+                false
+            ],
+            "rel_j": [
+                false,
+                false,
+                false,
+                false,
+                false,
+                false
+            ],
+            "cardinal": 10,
+            "off_i": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "off_j": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "end_off_i": 0.0,
+            "end_off_j": 0.0,
+            "rz_factor": 0.0
+        },
+        {
+            "id": 20,
+            "n1_id": 20,
+            "n2_id": 21,
+            "sec_name": "Beam",
+            "beta": 0.0,
+            "rel_i": [
+                false,
+                false,
+                false,
+                false,
+                false,
+                false
+            ],
+            "rel_j": [
+                false,
+                false,
+                false,
+                false,
+                false,
+                false
+            ],
+            "cardinal": 10,
+            "off_i": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "off_j": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "end_off_i": 0.0,
+            "end_off_j": 0.0,
+            "rz_factor": 0.0
+        },
+        {
+            "id": 21,
+            "n1_id": 12,
+            "n2_id": 22,
+            "sec_name": "Beam",
+            "beta": 0.0,
+            "rel_i": [
+                false,
+                false,
+                false,
+                false,
+                false,
+                false
+            ],
+            "rel_j": [
+                false,
+                false,
+                false,
+                false,
+                false,
+                false
+            ],
+            "cardinal": 10,
+            "off_i": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "off_j": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "end_off_i": 0.0,
+            "end_off_j": 0.0,
+            "rz_factor": 0.0
+        },
+        {
+            "id": 22,
+            "n1_id": 22,
+            "n2_id": 23,
+            "sec_name": "Beam",
+            "beta": 0.0,
+            "rel_i": [
+                false,
+                false,
+                false,
+                false,
+                false,
+                false
+            ],
+            "rel_j": [
+                false,
+                false,
+                false,
+                false,
+                false,
+                false
+            ],
+            "cardinal": 10,
+            "off_i": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "off_j": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "end_off_i": 0.0,
+            "end_off_j": 0.0,
+            "rz_factor": 0.0
+        },
+        {
+            "id": 23,
+            "n1_id": 23,
+            "n2_id": 24,
+            "sec_name": "Beam",
+            "beta": 0.0,
+            "rel_i": [
+                false,
+                false,
+                false,
+                false,
+                false,
+                false
+            ],
+            "rel_j": [
+                false,
+                false,
+                false,
+                false,
+                false,
+                false
+            ],
+            "cardinal": 10,
+            "off_i": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "off_j": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "end_off_i": 0.0,
+            "end_off_j": 0.0,
+            "rz_factor": 0.0
+        },
+        {
+            "id": 24,
+            "n1_id": 24,
+            "n2_id": 25,
+            "sec_name": "Beam",
+            "beta": 0.0,
+            "rel_i": [
+                false,
+                false,
+                false,
+                false,
+                false,
+                false
+            ],
+            "rel_j": [
+                false,
+                false,
+                false,
+                false,
+                false,
+                false
+            ],
+            "cardinal": 10,
+            "off_i": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "off_j": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "end_off_i": 0.0,
+            "end_off_j": 0.0,
+            "rz_factor": 0.0
+        },
+        {
+            "id": 25,
+            "n1_id": 25,
+            "n2_id": 26,
+            "sec_name": "Beam",
+            "beta": 0.0,
+            "rel_i": [
+                false,
+                false,
+                false,
+                false,
+                false,
+                false
+            ],
+            "rel_j": [
+                false,
+                false,
+                false,
+                false,
+                false,
+                false
+            ],
+            "cardinal": 10,
+            "off_i": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "off_j": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "end_off_i": 0.0,
+            "end_off_j": 0.0,
+            "rz_factor": 0.0
+        },
+        {
+            "id": 26,
+            "n1_id": 21,
+            "n2_id": 27,
+            "sec_name": "Beam",
+            "beta": 0.0,
+            "rel_i": [
+                false,
+                false,
+                false,
+                false,
+                false,
+                false
+            ],
+            "rel_j": [
+                false,
+                false,
+                false,
+                false,
+                false,
+                false
+            ],
+            "cardinal": 10,
+            "off_i": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "off_j": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "end_off_i": 0.0,
+            "end_off_j": 0.0,
+            "rz_factor": 0.0
+        },
+        {
+            "id": 27,
+            "n1_id": 27,
+            "n2_id": 28,
+            "sec_name": "Beam",
+            "beta": 0.0,
+            "rel_i": [
+                false,
+                false,
+                false,
+                false,
+                false,
+                false
+            ],
+            "rel_j": [
+                false,
+                false,
+                false,
+                false,
+                false,
+                false
+            ],
+            "cardinal": 10,
+            "off_i": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "off_j": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "end_off_i": 0.0,
+            "end_off_j": 0.0,
+            "rz_factor": 0.0
+        },
+        {
+            "id": 28,
+            "n1_id": 28,
+            "n2_id": 29,
+            "sec_name": "Beam",
+            "beta": 0.0,
+            "rel_i": [
+                false,
+                false,
+                false,
+                false,
+                false,
+                false
+            ],
+            "rel_j": [
+                false,
+                false,
+                false,
+                false,
+                false,
+                false
+            ],
+            "cardinal": 10,
+            "off_i": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "off_j": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "end_off_i": 0.0,
+            "end_off_j": 0.0,
+            "rz_factor": 0.0
+        },
+        {
+            "id": 29,
+            "n1_id": 29,
+            "n2_id": 30,
+            "sec_name": "Beam",
+            "beta": 0.0,
+            "rel_i": [
+                false,
+                false,
+                false,
+                false,
+                false,
+                false
+            ],
+            "rel_j": [
+                false,
+                false,
+                false,
+                false,
+                false,
+                false
+            ],
+            "cardinal": 10,
+            "off_i": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "off_j": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "end_off_i": 0.0,
+            "end_off_j": 0.0,
+            "rz_factor": 0.0
+        },
+        {
+            "id": 30,
+            "n1_id": 30,
+            "n2_id": 26,
+            "sec_name": "Beam",
+            "beta": 0.0,
+            "rel_i": [
+                false,
+                false,
+                false,
+                false,
+                false,
+                false
+            ],
+            "rel_j": [
+                false,
+                false,
+                false,
+                false,
+                false,
+                false
+            ],
+            "cardinal": 10,
+            "off_i": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "off_j": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "end_off_i": 0.0,
+            "end_off_j": 0.0,
+            "rz_factor": 0.0
+        }
+    ],
+    "slabs": [],
+    "area_elements": [],
+    "area_sections": [],
+    "constraints": [],
+    "link_properties": [],
+    "links": [],
+    "load_patterns": [
+        {
+            "name": "TEST",
+            "type": "Other",
+            "sw_mult": 0.0,
+            "auto_lateral": "None"
+        }
+    ],
+    "loads": [
+        {
+            "pattern": "TEST",
+            "type": "nodal",
+            "node_id": 7,
+            "fx": 8000.0,
+            "fy": 0.0,
+            "fz": 0.0,
+            "mx": 0.0,
+            "my": 0.0,
+            "mz": 0.0
+        },
+        {
+            "pattern": "TEST",
+            "type": "nodal",
+            "node_id": 12,
+            "fx": 8000.0,
+            "fy": 0.0,
+            "fz": 0.0,
+            "mx": 0.0,
+            "my": 0.0,
+            "mz": 0.0
+        },
+        {
+            "pattern": "TEST",
+            "type": "member_dist",
+            "element_id": 11,
+            "wx": 0.0,
+            "wy": -1500.0,
+            "wz": 0.0,
+            "projected": false,
+            "coord": "Global",
+            "is_tributary": false,
+            "distances": [
+                0,
+                0.25,
+                0.75,
+                1
+            ],
+            "magnitudes": [
+                0,
+                0,
+                0,
+                0
+            ],
+            "is_relative": true,
+            "load_direction": "Gravity",
+            "load_type": "Force"
+        },
+        {
+            "pattern": "TEST",
+            "type": "member_dist",
+            "element_id": 12,
+            "wx": 0.0,
+            "wy": -1500.0,
+            "wz": 0.0,
+            "projected": false,
+            "coord": "Global",
+            "is_tributary": false,
+            "distances": [
+                0,
+                0.25,
+                0.75,
+                1
+            ],
+            "magnitudes": [
+                0,
+                0,
+                0,
+                0
+            ],
+            "is_relative": true,
+            "load_direction": "Gravity",
+            "load_type": "Force"
+        },
+        {
+            "pattern": "TEST",
+            "type": "member_dist",
+            "element_id": 13,
+            "wx": 0.0,
+            "wy": -1500.0,
+            "wz": 0.0,
+            "projected": false,
+            "coord": "Global",
+            "is_tributary": false,
+            "distances": [
+                0,
+                0.25,
+                0.75,
+                1
+            ],
+            "magnitudes": [
+                0,
+                0,
+                0,
+                0
+            ],
+            "is_relative": true,
+            "load_direction": "Gravity",
+            "load_type": "Force"
+        },
+        {
+            "pattern": "TEST",
+            "type": "member_dist",
+            "element_id": 14,
+            "wx": 0.0,
+            "wy": -1500.0,
+            "wz": 0.0,
+            "projected": false,
+            "coord": "Global",
+            "is_tributary": false,
+            "distances": [
+                0,
+                0.25,
+                0.75,
+                1
+            ],
+            "magnitudes": [
+                0,
+                0,
+                0,
+                0
+            ],
+            "is_relative": true,
+            "load_direction": "Gravity",
+            "load_type": "Force"
+        },
+        {
+            "pattern": "TEST",
+            "type": "member_dist",
+            "element_id": 15,
+            "wx": 0.0,
+            "wy": -1500.0,
+            "wz": 0.0,
+            "projected": false,
+            "coord": "Global",
+            "is_tributary": false,
+            "distances": [
+                0,
+                0.25,
+                0.75,
+                1
+            ],
+            "magnitudes": [
+                0,
+                0,
+                0,
+                0
+            ],
+            "is_relative": true,
+            "load_direction": "Gravity",
+            "load_type": "Force"
+        },
+        {
+            "pattern": "TEST",
+            "type": "nodal",
+            "node_id": 21,
+            "fx": 16000.0,
+            "fy": 0.0,
+            "fz": 0.0,
+            "mx": 0.0,
+            "my": 0.0,
+            "mz": 0.0
+        },
+        {
+            "pattern": "TEST",
+            "type": "nodal",
+            "node_id": 26,
+            "fx": 16000.0,
+            "fy": 0.0,
+            "fz": 0.0,
+            "mx": 0.0,
+            "my": 0.0,
+            "mz": 0.0
+        },
+        {
+            "pattern": "TEST",
+            "type": "member_dist",
+            "element_id": 26,
+            "wx": 0.0,
+            "wy": -1500.0,
+            "wz": 0.0,
+            "projected": false,
+            "coord": "Global",
+            "is_tributary": false,
+            "distances": [
+                0,
+                0.25,
+                0.75,
+                1
+            ],
+            "magnitudes": [
+                0,
+                0,
+                0,
+                0
+            ],
+            "is_relative": true,
+            "load_direction": "Gravity",
+            "load_type": "Force"
+        },
+        {
+            "pattern": "TEST",
+            "type": "member_dist",
+            "element_id": 27,
+            "wx": 0.0,
+            "wy": -1500.0,
+            "wz": 0.0,
+            "projected": false,
+            "coord": "Global",
+            "is_tributary": false,
+            "distances": [
+                0,
+                0.25,
+                0.75,
+                1
+            ],
+            "magnitudes": [
+                0,
+                0,
+                0,
+                0
+            ],
+            "is_relative": true,
+            "load_direction": "Gravity",
+            "load_type": "Force"
+        },
+        {
+            "pattern": "TEST",
+            "type": "member_dist",
+            "element_id": 28,
+            "wx": 0.0,
+            "wy": -1500.0,
+            "wz": 0.0,
+            "projected": false,
+            "coord": "Global",
+            "is_tributary": false,
+            "distances": [
+                0,
+                0.25,
+                0.75,
+                1
+            ],
+            "magnitudes": [
+                0,
+                0,
+                0,
+                0
+            ],
+            "is_relative": true,
+            "load_direction": "Gravity",
+            "load_type": "Force"
+        },
+        {
+            "pattern": "TEST",
+            "type": "member_dist",
+            "element_id": 29,
+            "wx": 0.0,
+            "wy": -1500.0,
+            "wz": 0.0,
+            "projected": false,
+            "coord": "Global",
+            "is_tributary": false,
+            "distances": [
+                0,
+                0.25,
+                0.75,
+                1
+            ],
+            "magnitudes": [
+                0,
+                0,
+                0,
+                0
+            ],
+            "is_relative": true,
+            "load_direction": "Gravity",
+            "load_type": "Force"
+        },
+        {
+            "pattern": "TEST",
+            "type": "member_dist",
+            "element_id": 30,
+            "wx": 0.0,
+            "wy": -1500.0,
+            "wz": 0.0,
+            "projected": false,
+            "coord": "Global",
+            "is_tributary": false,
+            "distances": [
+                0,
+                0.25,
+                0.75,
+                1
+            ],
+            "magnitudes": [
+                0,
+                0,
+                0,
+                0
+            ],
+            "is_relative": true,
+            "load_direction": "Gravity",
+            "load_type": "Force"
+        }
+    ],
+    "mass_sources": [
+        {
+            "name": "Default",
+            "include_self_mass": true,
+            "include_patterns": false,
+            "load_patterns": []
+        }
+    ],
+    "functions": [],
+    "th_functions": [],
+    "plot_functions": [],
+    "virtual_measurements": {},
+    "pushover_param_sets": [
+        {
+            "name": "PO1",
+            "kind": "force_disp",
+            "plot_type": "Resultant Base Shear vs Monitored Displacement",
+            "units": "Model display units",
+            "auto_x": true,
+            "x_min": 0.0,
+            "x_max": 0.0,
+            "auto_y": true,
+            "y_min": 0.0,
+            "y_max": 0.0,
+            "label_x": "",
+            "label_y": "",
+            "notes": "",
+            "curve_color": "",
+            "curve_width": 2.2,
+            "curve_style": "-",
+            "overlay_curves": []
+        }
+    ],
+    "reference_curves": [],
+    "load_combos": []
+}

@@ -34,8 +34,8 @@ class AnimationManager(QObject):
         self.ltha_n_steps = 0                                          
         self.ltha_dt = 0.01                                           
         self.ltha_current_step = 0                                 
-        self.ltha_prerender_start = None                                         
-        self.ltha_prerender_end   = None
+        self.ltha_playback_start = None                                         
+        self.ltha_playback_end   = None
 
         self.canvas = None
 
@@ -44,16 +44,23 @@ class AnimationManager(QObject):
         self.ltha_time_accumulator = 0.0
         
     def set_speed(self, factor):
-        """Updates speed multiplier (0.5x to 5.0x)."""
+        """Set a custom positive, finite playback multiplier."""
+        try:
+            factor = float(factor)
+        except (TypeError, ValueError, OverflowError):
+            return False
+        if not math.isfinite(factor) or factor <= 0.0:
+            return False
         self.speed_factor = factor
+        return True
 
     def enable_ltha_mode(self, n_steps, dt=0.01):
         self.ltha_mode = True
         self.ltha_n_steps = n_steps
         self.ltha_dt = dt
         self.ltha_current_step = 0
-        self.ltha_prerender_start = None
-        self.ltha_prerender_end   = None
+        self.ltha_playback_start = None
+        self.ltha_playback_end   = None
         self.is_prerendered = False
         print(f"[AnimationManager] LTHA mode enabled: {n_steps} steps, dt={dt}s")
 
@@ -62,8 +69,8 @@ class AnimationManager(QObject):
         self.ltha_n_steps = 0
         self.ltha_dt = 0.01
         self.ltha_current_step = 0
-        self.ltha_prerender_start = None
-        self.ltha_prerender_end   = None
+        self.ltha_playback_start = None
+        self.ltha_playback_end   = None
 
     def scrub_to_step(self, t_index):
         """
@@ -77,6 +84,39 @@ class AnimationManager(QObject):
             return
         self.ltha_current_step = max(0, min(t_index, self.ltha_n_steps - 1))
         self.signal_ltha_frame_update.emit(self.ltha_current_step)
+
+    def set_ltha_playback_range(self, start_step, end_step):
+        """Select an inclusive loop without interrupting a running clock.
+
+        Clamp valid integer indices to the loaded history. Full-history ranges
+        use None endpoints. Keep the current step and partial elapsed time
+        while they remain inside the range; otherwise seek to its start.
+        """
+        if not self.ltha_mode or self.ltha_n_steps < 1:
+            return False
+        try:
+            start_value, end_value = float(start_step), float(end_step)
+        except (TypeError, ValueError, OverflowError):
+            return False
+        if (not math.isfinite(start_value) or not math.isfinite(end_value)
+                or not start_value.is_integer() or not end_value.is_integer()
+                or start_value > end_value):
+            return False
+
+        last_step = self.ltha_n_steps - 1
+        start = max(0, min(int(start_value), last_step))
+        end = max(0, min(int(end_value), last_step))
+        if start == 0 and end == last_step:
+            self.ltha_playback_start = None
+            self.ltha_playback_end = None
+        else:
+            self.ltha_playback_start = start
+            self.ltha_playback_end = end
+
+        if not (start <= self.ltha_current_step <= end):
+            self.ltha_time_accumulator = 0.0
+            self.scrub_to_step(start)
+        return True
 
     def prerender_frames(self, progress_callback=None):
         """
@@ -120,9 +160,9 @@ class AnimationManager(QObject):
         if self.ltha_mode:
                                                                                  
             n = self.ltha_n_steps
-            if self.ltha_prerender_start is not None:
-                start = self.ltha_prerender_start
-                end = self.ltha_prerender_end
+            if self.ltha_playback_start is not None:
+                start = self.ltha_playback_start
+                end = self.ltha_playback_end
                 if not (start <= self.ltha_current_step <= end):
                     self.ltha_current_step = start
             else:
@@ -166,11 +206,14 @@ class AnimationManager(QObject):
                                                                      
             self.signal_ltha_frame_update.emit(self.ltha_current_step)
         else:
-            self.signal_frame_update.emit(0.0)
-            if self.canvas and self.canvas.current_model:
+            canvas_ready = bool(self.canvas and self.canvas.current_model)
+            if canvas_ready:
                 self.canvas.vbo_manager.set_anim_factor(0.0)
                 self.canvas.vbo_manager.current_anim_factor = 0.0
                 self.canvas._anim_vbo_built = False
+                                                                                 
+            self.signal_frame_update.emit(0.0)
+            if canvas_ready and not self.canvas.view_deflected:
                 self.canvas._force_draw_model(
                     self.canvas.current_model,
                     self.canvas.selected_element_ids,
@@ -217,12 +260,14 @@ class AnimationManager(QObject):
                                                                                 
                 self.ltha_time_accumulator -= (steps_to_advance * self.ltha_dt)
 
-            if self.ltha_prerender_start is not None and self.ltha_prerender_end is not None:
-                if self.ltha_current_step > self.ltha_prerender_end:
-                    self.ltha_current_step = self.ltha_prerender_start
+            if self.ltha_playback_start is not None and self.ltha_playback_end is not None:
+                start = self.ltha_playback_start
+                count = self.ltha_playback_end - start + 1
+                if count > 0:
+                    self.ltha_current_step = start + (self.ltha_current_step - start) % count
             else:
-                if self.ltha_current_step >= self.ltha_n_steps:
-                    self.ltha_current_step = 0
+                if self.ltha_n_steps > 0:
+                    self.ltha_current_step %= self.ltha_n_steps
             return
 
         if self.is_prerendered and self.prerendered_frames:

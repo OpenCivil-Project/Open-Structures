@@ -33,11 +33,12 @@ from PyQt6.QtGui import QColor
 import pyqtgraph as pg
 
 from core.units import unit_registry, UnitConverter
-from app.ui.theme import apply_dialog_style, COLORS
+from app.ui.theme import (apply_dialog_style, COLORS, style_pyqtgraph, curve_colors, plot_color,
+                          on_theme_changed, off_theme_changed)
 from core.solver.LTHA.plot_function_sources import (
     LTHACaseData, PLOT_FUNCTION_TYPES, DOF_LABELS,
     JointResponseSource, ReactionSource, BaseReactionSource, GroundMotionSource,
-    ElementForceSource                                
+    ElementForceSource, VirtualMeasurementSource
 )
 
 UNIT_SYSTEMS = [
@@ -80,7 +81,7 @@ def discover_ltha_cases(model):
 
         if data.get("status") != "SUCCESS":
             continue
-        if data.get("info", {}).get("type") != "Linear Time History Analysis":
+        if data.get("info", {}).get("type") != "Linear Time History Analysis" and "saved_states" not in data:
             continue
 
         fname = os.path.basename(path)
@@ -100,11 +101,12 @@ class AddPlotFunctionDialog(QDialog):
     joint ID when the Joint ID field has a comma-separated list. Fields
     swap based on type."""
 
-    def __init__(self, parent=None, case_data: LTHACaseData = None, main_window=None):
+    def __init__(self, parent=None, case_data: LTHACaseData = None, main_window=None, model=None):
         super().__init__(parent)
         apply_dialog_style(self)
         self.case_data = case_data
         self.main_window = main_window
+        self.model = model
         self.result_sources = []
         self.setWindowTitle("Define Plot Function")
         self.setMinimumWidth(380)
@@ -240,6 +242,29 @@ class AddPlotFunctionDialog(QDialog):
             self.component_combo.addItems(["P", "V2", "V3", "T", "M2", "M3"])
             self.fields_layout.addRow("Component", self.component_combo)
 
+        elif type_name == "Virtual Measurement":
+            self.vm_combo = QComboBox()
+            vms = getattr(self.model, "virtual_measurements", None) or {}
+            for vm_id, vm in vms.items():
+                if vm.get("factors"):
+                    self.vm_combo.addItem(vm.get("name", "Unnamed"), vm_id)
+            if self.vm_combo.count() == 0:
+                self.vm_combo.addItem("No measurements defined yet", None)
+                self.vm_combo.setEnabled(False)
+            self.fields_layout.addRow("Measurement", self.vm_combo)
+
+            self.vm_vector_group = QButtonGroup(self)
+            vec_row = QHBoxLayout()
+            for i, label in enumerate(["Displ", "Vel", "Accel"]):
+                rb = QRadioButton(label)
+                self.vm_vector_group.addButton(rb)
+                if i == 0:
+                    rb.setChecked(True)
+                vec_row.addWidget(rb)
+            vec_widget = QWidget()
+            vec_widget.setLayout(vec_row)
+            self.fields_layout.addRow("Vector Type", vec_widget)
+
     def _on_vector_type_changed(self, button):
                                                                             
         is_displ = (button.text() == "Displ")
@@ -310,6 +335,23 @@ class AddPlotFunctionDialog(QDialog):
                         component=self.component_combo.currentText(),
                         name=name
                     ))
+
+            elif type_name == "Virtual Measurement":
+                vm_id = self.vm_combo.currentData()
+                if vm_id is None:
+                    raise ValueError("Define a measurement first, in Define > Virtual Measurements.")
+                vms = getattr(self.model, "virtual_measurements", None) or {}
+                vm = vms.get(vm_id)
+                if not vm or not vm.get("factors"):
+                    raise ValueError("That measurement no longer exists or has no joints defined.")
+                vector_type = self.vm_vector_group.checkedButton().text()
+                name = base_name or f"{vector_type} - {vm.get('name', 'Unnamed')}"
+                sources.append(VirtualMeasurementSource(
+                    measurement_id=vm_id,
+                    factors=vm["factors"],
+                    vector_type=vector_type,
+                    name=name,
+                ))
 
             else:
                 raise ValueError("Unknown function type.")
@@ -449,6 +491,7 @@ class PlotFunctionDisplayDialog(QDialog):
         self.current_case = None                        
         self.defined_functions = []                                 
         self.curve_items = {}                                     
+        self._curve_idx = {}
         self._suppress_scrub_emit = False
         self._scrub_sync_available = False
 
@@ -463,11 +506,30 @@ class PlotFunctionDisplayDialog(QDialog):
 
         if self.animation_manager is not None:
             self.animation_manager.signal_ltha_frame_update.connect(self._on_external_scrub)
+        on_theme_changed(self._on_theme_changed)
+
+    @staticmethod
+    def _curve_color(i):
+        palette = curve_colors()
+        return palette[i % len(palette)]
+
+    def _on_theme_changed(self, _name):
+        """Light/Dark switched while open: restyle the plot and recolour the curves in place
+        (keeps the user's zoom)."""
+        apply_dialog_style(self)
+        style_pyqtgraph(self.plot_widget, self.legend)
+        self.vline.setPen(pg.mkPen(plot_color("vline"), width=1))
+        self.warning_label.setStyleSheet(f"color: {COLORS['danger']};")
+        for source, curve in self.curve_items.items():
+            idx = self._curve_idx.get(source, 0)
+            curve.setPen(pg.mkPen(color=self._curve_color(idx), width=1.5))
+        self._update_max_values_panel()
 
     def done(self, r):
         """Save the defined plot functions onto the model every time this
         dialog closes — OK, Close button, or the window X — not just on
         explicit accept."""
+        off_theme_changed(self._on_theme_changed)
         self._save_functions_to_model()
         super().done(r)
 
@@ -477,6 +539,7 @@ class PlotFunctionDisplayDialog(QDialog):
         "BaseReactionSource": ("component",),
         "GroundMotionSource": ("direction",),
         "ElementForceSource": ("element_id", "station", "component"),               
+        "VirtualMeasurementSource": ("measurement_id", "vector_type"),
     }
 
     def _serialize_functions(self):
@@ -488,6 +551,7 @@ class PlotFunctionDisplayDialog(QDialog):
             "BaseReactionSource": BaseReactionSource,
             "GroundMotionSource": GroundMotionSource,
             "ElementForceSource": ElementForceSource,
+            "VirtualMeasurementSource": VirtualMeasurementSource,
         }
         out = []
         for i in range(self.func_list.count()):
@@ -546,6 +610,16 @@ class PlotFunctionDisplayDialog(QDialog):
                         element_id=d["element_id"], station=d["station"], 
                         component=d["component"], name=d.get("name")
                     )
+                elif kind == "VirtualMeasurementSource":
+                                                                           
+                    vms = getattr(self.model, "virtual_measurements", None) or {}
+                    vm = vms.get(d["measurement_id"])
+                    if not vm or not vm.get("factors"):
+                        continue
+                    source = VirtualMeasurementSource(
+                        measurement_id=d["measurement_id"], factors=vm["factors"],
+                        vector_type=d["vector_type"], name=d.get("name"),
+                    )
                 else:
                     continue
             except (KeyError, TypeError):
@@ -567,6 +641,11 @@ class PlotFunctionDisplayDialog(QDialog):
         self.case_combo = QComboBox()
         self.case_combo.currentIndexChanged.connect(self._on_case_changed)
         case_row.addWidget(self.case_combo, 1)
+
+        self.chk_sync_view = QCheckBox("Sync with 3D View")
+        self.chk_sync_view.setToolTip("Switch the 3D viewport to this load case's deformed shape and sync playback/scrubbing.")
+        self.chk_sync_view.toggled.connect(self._on_sync_view_toggled)
+        case_row.addWidget(self.chk_sync_view)
 
         case_row.addWidget(QLabel("Units:"))
         self.unit_combo = QComboBox()
@@ -618,10 +697,9 @@ class PlotFunctionDisplayDialog(QDialog):
         self.plot_widget.setLabel('bottom', 'Time', units='s')
         self.plot_widget.setLabel('left', 'Value')
         self.legend = self.plot_widget.addLegend(offset=(10, 10))
-        self.plot_widget.getAxis('bottom').setPen(pg.mkPen('k'))
-        self.plot_widget.getAxis('left').setPen(pg.mkPen('k'))
+        style_pyqtgraph(self.plot_widget, self.legend)
 
-        self.vline = pg.InfiniteLine(angle=90, movable=False, pen=pg.mkPen('#c0392b', width=1))
+        self.vline = pg.InfiniteLine(angle=90, movable=False, pen=pg.mkPen(plot_color("vline"), width=1))
         self.vline.setVisible(False)
         self.plot_widget.addItem(self.vline, ignoreBounds=True)
 
@@ -765,13 +843,14 @@ class PlotFunctionDisplayDialog(QDialog):
                 w.deleteLater()
 
         for i, (source, curve) in enumerate(self.curve_items.items()):
+            color_idx = self._curve_idx.get(source, i)
             xdata, ydata = curve.getData()
             if ydata is None or len(ydata) == 0:
                 continue
             peak = float(np.max(np.abs(ydata)))
             row = QLabel(f"{source.display_name()}: {peak:.4g}")
             row.setStyleSheet(
-                f"color: {CURVE_COLORS[i % len(CURVE_COLORS)]}; "
+                f"color: {self._curve_color(color_idx)}; "
                 f"font-family: Consolas, monospace; font-size: 11px;"
             )
             row.setWordWrap(True)
@@ -818,10 +897,12 @@ class PlotFunctionDisplayDialog(QDialog):
     def _on_axis_labels_changed(self, *_):
         x_text = self.x_label_edit.text().strip()
         y_text = self.y_label_edit.text().strip()
+        is_multi = getattr(self.current_case, 'is_multistep', False)
+        default_x = 'Step Fraction' if is_multi else 'Time (s)'
         if x_text:
             self.plot_widget.setLabel('bottom', x_text)
         else:
-            self.plot_widget.setLabel('bottom', 'Time', units='s')
+            self.plot_widget.setLabel('bottom', default_x)
         if y_text:
             self.plot_widget.setLabel('left', y_text)
         else:
@@ -830,17 +911,51 @@ class PlotFunctionDisplayDialog(QDialog):
     def _on_grid_toggled(self, checked):
         self.plot_widget.showGrid(x=checked, y=checked, alpha=0.15)
 
+    def _is_canvas_on_current_case(self):
+        if self.animation_manager is None or self.current_case is None:
+            return False
+        cv = getattr(self.animation_manager, 'canvas', None)
+        return (
+            getattr(self.animation_manager, 'ltha_mode', False)
+            and getattr(cv, '_ltha_loaded_case', None) == self.current_case.case_name
+            and int(self.animation_manager.ltha_n_steps) == int(self.current_case.n_steps)
+        )
+
+    def _on_sync_view_toggled(self, checked):
+        if checked and self.current_case is not None:
+            if self.main_window and hasattr(self.main_window, 'sync_canvas_to_case'):
+                step_idx = None
+                if self.vline.isVisible() and len(self.current_case.time) > 0:
+                    t = float(self.vline.value())
+                    step_idx = int((np.abs(self.current_case.time - t)).argmin())
+                self.main_window.sync_canvas_to_case(self.current_case.case_name, step_idx)
+        self._scrub_sync_available = bool(checked and self._is_canvas_on_current_case())
+        if hasattr(self, 'btn_play'):
+            self.btn_play.setEnabled(self._scrub_sync_available)
+            self._sync_play_button_state()
+
     def _load_cases(self):
         self.case_combo.blockSignals(True)
         self.case_combo.clear()
         cases = discover_ltha_cases(self.model) if self.model else []
-        for case_name, path in cases:
+        loaded_case = getattr(getattr(self.animation_manager, 'canvas', None), '_ltha_loaded_case', None)
+        target_idx = 0
+        for idx, (case_name, path) in enumerate(cases):
             self.case_combo.addItem(case_name, path)
+            if case_name == loaded_case:
+                target_idx = idx
         self.case_combo.blockSignals(False)
 
         if cases:
-            self.case_combo.setCurrentIndex(0)
-            self._on_case_changed(0)
+            self.case_combo.setCurrentIndex(target_idx)
+            self._on_case_changed(target_idx)
+            self.chk_sync_view.blockSignals(True)
+            self.chk_sync_view.setChecked(self._is_canvas_on_current_case())
+            self.chk_sync_view.blockSignals(False)
+            self._scrub_sync_available = bool(self.chk_sync_view.isChecked() and self._is_canvas_on_current_case())
+            if hasattr(self, 'btn_play'):
+                self.btn_play.setEnabled(self._scrub_sync_available)
+                self._sync_play_button_state()
         else:
             QMessageBox.information(
                 self, "No LTHA Results",
@@ -859,10 +974,14 @@ class PlotFunctionDisplayDialog(QDialog):
             self.current_case = None
             return
 
-        self._scrub_sync_available = (
-            self.animation_manager is not None
-            and getattr(self.animation_manager, 'ltha_mode', False)
-            and self.animation_manager.ltha_n_steps == self.current_case.n_steps
+        if getattr(self, 'chk_sync_view', None) and self.chk_sync_view.isChecked():
+            if self.main_window and hasattr(self.main_window, 'sync_canvas_to_case'):
+                self.main_window.sync_canvas_to_case(self.current_case.case_name)
+
+        self._scrub_sync_available = bool(
+            getattr(self, 'chk_sync_view', None)
+            and self.chk_sync_view.isChecked()
+            and self._is_canvas_on_current_case()
         )
 
         if hasattr(self, 'btn_play'):
@@ -917,7 +1036,7 @@ class PlotFunctionDisplayDialog(QDialog):
 
     def _on_add_function(self):
                                                                                         
-        self._add_dlg = AddPlotFunctionDialog(self, case_data=self.current_case, main_window=self.main_window)
+        self._add_dlg = AddPlotFunctionDialog(self, case_data=self.current_case, main_window=self.main_window, model=self.model)
         
         def handle_accept():
             self.func_list.blockSignals(True)
@@ -957,6 +1076,7 @@ class PlotFunctionDisplayDialog(QDialog):
         self.plot_widget.clear()
         self.plot_widget.addItem(self.vline, ignoreBounds=True)
         self.curve_items = {}
+        self._curve_idx = {}
         self.legend.clear()
 
         if self.current_case is None:
@@ -977,13 +1097,14 @@ class PlotFunctionDisplayDialog(QDialog):
             unit_kinds.add(unit_label)
             curve_label = f"{label} ({unit_label})" if unit_label else label
 
-            color = CURVE_COLORS[i % len(CURVE_COLORS)]
+            color = self._curve_color(i)
             pen = pg.mkPen(color=color, width=1.5)
             curve = self.plot_widget.plot(t, values_disp, pen=pen, name=curve_label)
                                                                          
             curve.setDownsampling(auto=True, method='peak')
             curve.setClipToView(True)
             self.curve_items[source] = curve
+            self._curve_idx[source] = i
 
         if errors:
             self.warning_label.setText("Could not plot: " + "; ".join(errors))
@@ -1044,8 +1165,12 @@ class PlotFunctionDisplayDialog(QDialog):
             self.readout_label.setText("t = --")
             return
 
-        t = t_index * self.current_case.dt
-        parts = [f"t = {t:6.3f} s"]
+        if t_index < len(self.current_case.time):
+            t = self.current_case.time[t_index]
+        else:
+            t = 0.0
+        label_prefix = "Step" if getattr(self.current_case, 'is_multistep', False) else "t"
+        parts = [f"{label_prefix} = {t:6.3f}"]
         for source, curve in self.curve_items.items():
             xdata, ydata = curve.getData()
             if xdata is None or len(xdata) == 0:
@@ -1064,29 +1189,39 @@ class PlotFunctionDisplayDialog(QDialog):
             return
         mouse_point = self.plot_widget.getPlotItem().vb.mapSceneToView(pos)
         t = max(0.0, mouse_point.x())
-        t_index = int(round(t / self.current_case.dt))
-        t_index = max(0, min(t_index, self.current_case.n_steps - 1))
+        t_index = int((np.abs(self.current_case.time - t)).argmin())
 
-        self.vline.setPos(t_index * self.current_case.dt)
+        self.vline.setPos(self.current_case.time[t_index])
         self.vline.setVisible(True)
         self._update_readout(t_index)
 
-        if self._scrub_sync_available:
-            self._suppress_scrub_emit = True
-            self.animation_manager.scrub_to_step(t_index)
-            self._suppress_scrub_emit = False
+        if getattr(self, 'chk_sync_view', None) and self.chk_sync_view.isChecked():
+            if not self._is_canvas_on_current_case() and self.main_window and hasattr(self.main_window, 'sync_canvas_to_case'):
+                self._suppress_scrub_emit = True
+                self.main_window.sync_canvas_to_case(self.current_case.case_name, t_index)
+                self._suppress_scrub_emit = False
+                self._scrub_sync_available = self._is_canvas_on_current_case()
+                self._sync_play_button_state()
+            elif self._scrub_sync_available:
+                self._suppress_scrub_emit = True
+                self.animation_manager.scrub_to_step(t_index)
+                self._suppress_scrub_emit = False
 
     def _on_external_scrub(self, t_index):
         """Fired when playback or another dialog (e.g. DeformedShapeDialog's
         scrubber) moves the timestep — keep our cursor and readout in sync."""
-        if self.current_case is None or not self._scrub_sync_available:
+        if self._suppress_scrub_emit or self.current_case is None or not self._scrub_sync_available:
             return
-        self.vline.setPos(t_index * self.current_case.dt)
+        if t_index < len(self.current_case.time):
+            t = self.current_case.time[t_index]
+        else:
+            t = 0.0
+        self.vline.setPos(t)
         self.vline.setVisible(True)
         self._update_readout(t_index)
 
         self._sync_play_button_state()
-
+        
     def _gather_export_table(self):
         sources = [s for s in self._checked_sources() if s in self.curve_items]
         if not sources or self.current_case is None:

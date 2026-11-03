@@ -1,0 +1,215 @@
+{
+  "id": "111_beam_interior_point_moment_v1",
+  "family": "beam_interior_point_moment",
+  "variant": 1,
+  "model_file": "111_beam_interior_point_moment_v1.mf",
+  "static": {
+    "passed": true,
+    "checks": [
+      {
+        "name": "nodal displacement and rotation",
+        "passed": true,
+        "max_tolerance_ratio": 2.48468883407693e-08,
+        "relative_tolerance": 2e-06,
+        "absolute_tolerances_per_dof": [
+          1e-10,
+          1e-10,
+          1e-10,
+          1e-10,
+          1e-10,
+          1e-10
+        ],
+        "worst_components": []
+      },
+      {
+        "name": "support force and moment",
+        "passed": true,
+        "max_tolerance_ratio": 2.850506144747715e-06,
+        "relative_tolerance": 2e-06,
+        "absolute_tolerances_per_dof": [
+          0.0001,
+          0.0001,
+          0.0001,
+          0.0001,
+          0.0001,
+          0.0001
+        ],
+        "worst_components": []
+      },
+      {
+        "name": "independent free-DOF equilibrium residual",
+        "passed": true,
+        "value": 1.7948723908407412e-14,
+        "limit": 2e-06
+      },
+      {
+        "name": "analytical: Interior action tip displacement",
+        "passed": true,
+        "actual": 4.449776155416731e-05,
+        "expected": 4.449776155416241e-05,
+        "absolute_error": 4.899238566918873e-18,
+        "tolerance": 1.8899552310832483e-10,
+        "formula": "Ma(2L-a)/(2EI)",
+        "reference_kind": "continuum or exact discrete formula as labelled"
+      },
+      {
+        "name": "analytical: Interior action tip slope",
+        "passed": true,
+        "actual": 2.4496428050739128e-05,
+        "expected": 2.4496428050736255e-05,
+        "absolute_error": 2.8731357570865868e-18,
+        "tolerance": 1.489928561014725e-10,
+        "formula": "Pa\u00b2/(2EI) or Ma/(EI)",
+        "reference_kind": "continuum or exact discrete formula as labelled"
+      },
+      {
+        "name": "analytical: Interior action root shear",
+        "passed": true,
+        "actual": -2.837623469531536e-10,
+        "expected": 0.0,
+        "absolute_error": 2.837623469531536e-10,
+        "tolerance": 0.0001,
+        "formula": "-P or zero for applied couple",
+        "reference_kind": "continuum or exact discrete formula as labelled"
+      },
+      {
+        "name": "analytical: Interior action root moment",
+        "passed": true,
+        "actual": -3333.7500000003793,
+        "expected": -3333.75,
+        "absolute_error": 3.792592906393111e-10,
+        "tolerance": 0.0067675,
+        "formula": "-Pa or -M",
+        "reference_kind": "continuum or exact discrete formula as labelled"
+      }
+    ]
+  },
+  "modal": {
+    "passed": true,
+    "checks": [
+      {
+        "name": "mode count",
+        "passed": true,
+        "actual": 3,
+        "expected": 3
+      },
+      {
+        "name": "finite positive sorted frequencies",
+        "passed": true
+      },
+      {
+        "name": "maximum relative frequency error",
+        "passed": true,
+        "value": 1.4120302334311755e-13,
+        "limit": 2e-05
+      },
+      {
+        "name": "period/frequency/omega/eigenvalue consistency",
+        "passed": true,
+        "value": 2.220446049250313e-16,
+        "limit": 1e-09
+      },
+      {
+        "name": "maximum independent eigen residual",
+        "passed": true,
+        "value": 4.1932513221302787e-13,
+        "limit": 2e-05
+      },
+      {
+        "name": "mass normalization and orthogonality",
+        "passed": true,
+        "value": 2.220446049250313e-16,
+        "limit": 2e-05
+      },
+      {
+        "name": "worst modal subspace mismatch (1-MAC)",
+        "passed": true,
+        "value": 2.220446049250313e-16,
+        "limit": 0.0002
+      },
+      {
+        "name": "assembled physical nodal mass",
+        "passed": true,
+        "max_tolerance_ratio": 0.0,
+        "relative_tolerance": 1e-08,
+        "absolute_tolerances_per_dof": [
+          1e-10,
+          1e-10,
+          1e-10,
+          1e-10,
+          1e-10,
+          1e-10
+        ],
+        "worst_components": []
+      },
+      {
+        "name": "analytical: Continuum first frequency",
+        "passed": true,
+        "actual": 52.03154800664244,
+        "expected": 52.69467144178936,
+        "absolute_error": 0.6631234351469217,
+        "tolerance": 1.0538934298357874,
+        "formula": "\u03b21\u00b2/(2\u03c0L\u00b2)*sqrt(EI/(\u03c1mA)); \u03b21=1.875104068711961",
+        "reference_kind": "continuum or exact discrete formula as labelled"
+      }
+    ]
+  },
+  "analytical": [
+    {
+      "name": "analytical: Interior action tip displacement",
+      "passed": true,
+      "actual": 4.449776155416731e-05,
+      "expected": 4.449776155416241e-05,
+      "absolute_error": 4.899238566918873e-18,
+      "tolerance": 1.8899552310832483e-10,
+      "formula": "Ma(2L-a)/(2EI)",
+      "reference_kind": "continuum or exact discrete formula as labelled"
+    },
+    {
+      "name": "analytical: Interior action tip slope",
+      "passed": true,
+      "actual": 2.4496428050739128e-05,
+      "expected": 2.4496428050736255e-05,
+      "absolute_error": 2.8731357570865868e-18,
+      "tolerance": 1.489928561014725e-10,
+      "formula": "Pa\u00b2/(2EI) or Ma/(EI)",
+      "reference_kind": "continuum or exact discrete formula as labelled"
+    },
+    {
+      "name": "analytical: Interior action root shear",
+      "passed": true,
+      "actual": -2.837623469531536e-10,
+      "expected": 0.0,
+      "absolute_error": 2.837623469531536e-10,
+      "tolerance": 0.0001,
+      "formula": "-P or zero for applied couple",
+      "reference_kind": "continuum or exact discrete formula as labelled"
+    },
+    {
+      "name": "analytical: Interior action root moment",
+      "passed": true,
+      "actual": -3333.7500000003793,
+      "expected": -3333.75,
+      "absolute_error": 3.792592906393111e-10,
+      "tolerance": 0.0067675,
+      "formula": "-Pa or -M",
+      "reference_kind": "continuum or exact discrete formula as labelled"
+    },
+    {
+      "name": "analytical: Continuum first frequency",
+      "passed": true,
+      "actual": 52.03154800664244,
+      "expected": 52.69467144178936,
+      "absolute_error": 0.6631234351469217,
+      "tolerance": 1.0538934298357874,
+      "formula": "\u03b21\u00b2/(2\u03c0L\u00b2)*sqrt(EI/(\u03c1mA)); \u03b21=1.875104068711961",
+      "reference_kind": "continuum or exact discrete formula as labelled"
+    }
+  ],
+  "reference_error": null,
+  "execution": {
+    "returncode": 0,
+    "model_sha256": "d036144dccf31350178672890e776186bd5ec41d9e5675c5f26ba4d84a83b6f5",
+    "solver_source_sha256": "b2dcefa0108c3e5d25eebdc3c19f4cd8586716bf63074a9bf5dead876a6ea0cf"
+  }
+}

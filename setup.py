@@ -10,6 +10,8 @@ setup(
         "numpy",
         "scipy",
         "PyQt6", 
+        "requests",
+        "cryptography",
     ],
     entry_points={
         'console_scripts': [

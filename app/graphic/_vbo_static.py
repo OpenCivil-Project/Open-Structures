@@ -50,16 +50,13 @@ class StaticMixin:
     def draw_static(self, view_matrix, proj_matrix, line_width=1.0, alpha_mult=1.0):
         if not self.is_initialized or self.static_line_vertex_count == 0:
             return
-        glUseProgram(self.shader_program)
-        glUniformMatrix4fv(self.loc_view, 1, GL_FALSE, view_matrix)
-        glUniformMatrix4fv(self.loc_proj, 1, GL_FALSE, proj_matrix)
-        glUniform1f(self.loc_alpha, alpha_mult)
-        glUniform1f(self.loc_anim, 0.0)
+        self._use_line_program(view_matrix, proj_matrix, alpha_mult, 0.0, line_width)
         glEnable(GL_DEPTH_TEST)
         glEnable(GL_BLEND)
         glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA)
-        glLineWidth(float(line_width))
+        glDepthFunc(GL_LEQUAL)
         glBindVertexArray(self.static_line_vao)
         glDrawArrays(GL_LINES, 0, self.static_line_vertex_count)
         glBindVertexArray(0)
+        glDepthFunc(GL_LESS)
         glUseProgram(0)

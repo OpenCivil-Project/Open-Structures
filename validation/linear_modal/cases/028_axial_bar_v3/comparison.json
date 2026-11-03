@@ -1,0 +1,215 @@
+{
+  "id": "028_axial_bar_v3",
+  "family": "axial_bar",
+  "variant": 3,
+  "model_file": "028_axial_bar_v3.mf",
+  "static": {
+    "passed": true,
+    "checks": [
+      {
+        "name": "nodal displacement and rotation",
+        "passed": true,
+        "max_tolerance_ratio": 2.6793176072144396e-11,
+        "relative_tolerance": 2e-06,
+        "absolute_tolerances_per_dof": [
+          1e-10,
+          1e-10,
+          1e-10,
+          1e-10,
+          1e-10,
+          1e-10
+        ],
+        "worst_components": []
+      },
+      {
+        "name": "support force and moment",
+        "passed": true,
+        "max_tolerance_ratio": 0.0,
+        "relative_tolerance": 2e-06,
+        "absolute_tolerances_per_dof": [
+          0.0001,
+          0.0001,
+          0.0001,
+          0.0001,
+          0.0001,
+          0.0001
+        ],
+        "worst_components": []
+      },
+      {
+        "name": "independent free-DOF equilibrium residual",
+        "passed": true,
+        "value": 0.0,
+        "limit": 2e-06
+      },
+      {
+        "name": "analytical: Axial tip displacement",
+        "passed": true,
+        "actual": 2.6455026455026453e-05,
+        "expected": 2.6455026455026456e-05,
+        "absolute_error": 3.3881317890172014e-21,
+        "tolerance": 1.5291005291005291e-10,
+        "formula": "PL/(EA)",
+        "reference_kind": "continuum or exact discrete formula as labelled"
+      },
+      {
+        "name": "analytical: Axial root reaction",
+        "passed": true,
+        "actual": -12000.0,
+        "expected": -12000.0,
+        "absolute_error": 0.0,
+        "tolerance": 0.0241,
+        "formula": "-P",
+        "reference_kind": "continuum or exact discrete formula as labelled"
+      }
+    ]
+  },
+  "modal": {
+    "passed": true,
+    "checks": [
+      {
+        "name": "mode count",
+        "passed": true,
+        "actual": 3,
+        "expected": 3
+      },
+      {
+        "name": "finite positive sorted frequencies",
+        "passed": true
+      },
+      {
+        "name": "maximum relative frequency error",
+        "passed": true,
+        "value": 2.7360289516642742e-15,
+        "limit": 2e-05
+      },
+      {
+        "name": "period/frequency/omega/eigenvalue consistency",
+        "passed": true,
+        "value": 1.1102230246251565e-16,
+        "limit": 1e-09
+      },
+      {
+        "name": "maximum independent eigen residual",
+        "passed": true,
+        "value": 1.0623718679645215e-14,
+        "limit": 2e-05
+      },
+      {
+        "name": "mass normalization and orthogonality",
+        "passed": true,
+        "value": 3.2698798139287167e-16,
+        "limit": 2e-05
+      },
+      {
+        "name": "worst modal subspace mismatch (1-MAC)",
+        "passed": true,
+        "value": 2.220446049250313e-16,
+        "limit": 0.0002
+      },
+      {
+        "name": "assembled physical nodal mass",
+        "passed": true,
+        "max_tolerance_ratio": 0.0,
+        "relative_tolerance": 1e-08,
+        "absolute_tolerances_per_dof": [
+          1e-10,
+          1e-10,
+          1e-10,
+          1e-10,
+          1e-10,
+          1e-10
+        ],
+        "worst_components": []
+      },
+      {
+        "name": "analytical: Exact lumped axial bar frequency",
+        "passed": true,
+        "actual": 176.5950100867781,
+        "expected": 176.59501008677776,
+        "absolute_error": 3.410605131648481e-13,
+        "tolerance": 0.00017659601008677774,
+        "formula": "sqrt(4k/m)*sin((2r-1)\u03c0/(4n))/(2\u03c0)",
+        "reference_kind": "continuum or exact discrete formula as labelled"
+      },
+      {
+        "name": "analytical: Exact lumped axial bar frequency",
+        "passed": true,
+        "actual": 525.4366750267601,
+        "expected": 525.43667502676,
+        "absolute_error": 1.1368683772161603e-13,
+        "tolerance": 0.00052543767502676,
+        "formula": "sqrt(4k/m)*sin((2r-1)\u03c0/(4n))/(2\u03c0)",
+        "reference_kind": "continuum or exact discrete formula as labelled"
+      },
+      {
+        "name": "analytical: Exact lumped axial bar frequency",
+        "passed": true,
+        "actual": 861.3403452032367,
+        "expected": 861.3403452032368,
+        "absolute_error": 1.1368683772161603e-13,
+        "tolerance": 0.0008613413452032367,
+        "formula": "sqrt(4k/m)*sin((2r-1)\u03c0/(4n))/(2\u03c0)",
+        "reference_kind": "continuum or exact discrete formula as labelled"
+      }
+    ]
+  },
+  "analytical": [
+    {
+      "name": "analytical: Axial tip displacement",
+      "passed": true,
+      "actual": 2.6455026455026453e-05,
+      "expected": 2.6455026455026456e-05,
+      "absolute_error": 3.3881317890172014e-21,
+      "tolerance": 1.5291005291005291e-10,
+      "formula": "PL/(EA)",
+      "reference_kind": "continuum or exact discrete formula as labelled"
+    },
+    {
+      "name": "analytical: Axial root reaction",
+      "passed": true,
+      "actual": -12000.0,
+      "expected": -12000.0,
+      "absolute_error": 0.0,
+      "tolerance": 0.0241,
+      "formula": "-P",
+      "reference_kind": "continuum or exact discrete formula as labelled"
+    },
+    {
+      "name": "analytical: Exact lumped axial bar frequency",
+      "passed": true,
+      "actual": 176.5950100867781,
+      "expected": 176.59501008677776,
+      "absolute_error": 3.410605131648481e-13,
+      "tolerance": 0.00017659601008677774,
+      "formula": "sqrt(4k/m)*sin((2r-1)\u03c0/(4n))/(2\u03c0)",
+      "reference_kind": "continuum or exact discrete formula as labelled"
+    },
+    {
+      "name": "analytical: Exact lumped axial bar frequency",
+      "passed": true,
+      "actual": 525.4366750267601,
+      "expected": 525.43667502676,
+      "absolute_error": 1.1368683772161603e-13,
+      "tolerance": 0.00052543767502676,
+      "formula": "sqrt(4k/m)*sin((2r-1)\u03c0/(4n))/(2\u03c0)",
+      "reference_kind": "continuum or exact discrete formula as labelled"
+    },
+    {
+      "name": "analytical: Exact lumped axial bar frequency",
+      "passed": true,
+      "actual": 861.3403452032367,
+      "expected": 861.3403452032368,
+      "absolute_error": 1.1368683772161603e-13,
+      "tolerance": 0.0008613413452032367,
+      "formula": "sqrt(4k/m)*sin((2r-1)\u03c0/(4n))/(2\u03c0)",
+      "reference_kind": "continuum or exact discrete formula as labelled"
+    }
+  ],
+  "reference_error": null,
+  "execution": {
+    "returncode": 0,
+    "model_sha256": "a27ba862c3f82140c4b0d09a145decd1c9270c7f2b2a0a4fdb6a15fd04e6701d",
+    "solver_source_sha256": "b2dcefa0108c3e5d25eebdc3c19f4cd8586716bf63074a9bf5dead876a6ea0cf"
+  }
+}

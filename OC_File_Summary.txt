@@ -1,0 +1,424 @@
+OPEN CIVIL - PYTHON SOURCE CODE SUMMARY
+=====================================================================================
+
+Project directory: E:\MetuFire\OpenCivil
+Total Python files: 307
+Total Python lines: 120,235
+Skipped files: 0
+
+=====================================================================================
+
+FOLDER: .
+Files: 3 | Lines: 51
+-------------------------------------------------------------------------------------
+   csv_to_dat.py                                  18 lines
+   encrypt_secrets.py                             11 lines
+   setup.py                                       22 lines
+
+FOLDER: app
+Files: 19 | Lines: 22,334
+-------------------------------------------------------------------------------------
+   __init__.py                                     1 lines
+   canvas.py                                   9,420 lines
+   commands.py                                 2,019 lines
+   compare_shell_flag.py                         132 lines
+   compare_shell_k.py                             76 lines
+   diagnose_singularity.py                       138 lines
+   error_definitions.py                          119 lines
+   ipc.py                                        116 lines
+   main.py                                     8,084 lines
+   model_history_controller.py                   349 lines
+   profile_solve.py                               87 lines
+   release_notes.py                              185 lines
+   result_file_loader.py                          26 lines
+   runtime_hook.py                                20 lines
+   solver_mesh_remap.py                          159 lines
+   solver_process.py                             156 lines
+   solver_runner.py                              173 lines
+   solver_worker.py                            1,000 lines
+   ui_stall_watchdog.py                           74 lines
+
+FOLDER: app\auth
+Files: 11 | Lines: 2,842
+-------------------------------------------------------------------------------------
+   __init__.py                                    27 lines
+   browser_bridge.py                             188 lines
+   config.py                                      74 lines
+   dialog.py                                   1,174 lines
+   email_auth.py                                  83 lines
+   encrypt_secrets.py                             11 lines
+   firebase_client.py                            304 lines
+   manager.py                                    303 lines
+   session_store.py                              164 lines
+   thread.py                                      78 lines
+   user_widget.py                                436 lines
+
+FOLDER: app\dialogs
+Files: 88 | Lines: 38,491
+-------------------------------------------------------------------------------------
+   __init__.py                                     1 lines
+   analysis_dialog.py                            277 lines
+   analysis_options_dialog.py                    296 lines
+   analysis_progress_dialog.py                   392 lines
+   analysis_results_dialog.py                  1,022 lines
+   area_mesh_dialog.py                           151 lines
+   area_section_dialog.py                        894 lines
+   assign_area_insertion_point_dialog.py         109 lines
+   assign_constraint_dialog.py                   301 lines
+   assign_displacement_dialog.py                 153 lines
+   assign_end_offset_dialog.py                   140 lines
+   assign_frame_hinge_dialog.py                  205 lines
+   assign_frame_point_load_dialog.py             343 lines
+   assign_insertion_point_dialog.py              192 lines
+   assign_load_dialog.py                         122 lines
+   assign_local_axis_dialog.py                    86 lines
+   assign_member_load_dialog.py                  230 lines
+   assign_spring_dialog.py                       282 lines
+   cable_dialog.py                               404 lines
+   cable_geometry_dialog.py                      578 lines
+   cable_load_dialog.py                          167 lines
+   define_link_dialog.py                         358 lines
+   deformed_shape_dialog.py                      566 lines
+   display_forces_dialog.py                      580 lines
+   display_reactions_dialog.py                   120 lines
+   divide_frame_dialog.py                        236 lines
+   dlg_area_gravity_load.py                      205 lines
+   dlg_area_uniform_load.py                      215 lines
+   draw_beam_column_dialog.py                    164 lines
+   draw_cross_brace_dialog.py                    120 lines
+   draw_dialog.py                                163 lines
+   draw_link_dialogs.py                          122 lines
+   draw_poly_area_dialog.py                       45 lines
+   draw_quick_area_dialog.py                      98 lines
+   element_info_dialog.py                        659 lines
+   frame_results_dialog.py                       501 lines
+   graphics_dialog.py                            682 lines
+   grid_dialog.py                                941 lines
+   hinge_dialog.py                             1,075 lines
+   hinge_results_dialog.py                     1,353 lines
+   hinge_state_tables.py                         206 lines
+   load_case_dialog.py                         1,856 lines
+   load_combo_dialog.py                          228 lines
+   load_pattern_dialog.py                        208 lines
+   ltha_node_graph_dialog.py                     271 lines
+   mass_source_dialog.py                         356 lines
+   material_dialog.py                          2,488 lines
+   model_history_dialog.py                       230 lines
+   model_history_graph.py                        449 lines
+   model_io_dialog.py                            301 lines
+   new_model_dialog.py                           319 lines
+   node_results_dialog.py                        320 lines
+   opensees_diagnostics_dialog.py                237 lines
+   opensees_hinge_results_dialog.py            1,078 lines
+   os_model_panel.py                             140 lines
+   plot_function_dialog.py                     1,285 lines
+   protocol_dialog.py                            102 lines
+   pushover_curve_dialog.py                    1,158 lines
+   pushover_parameters_dialog.py                 551 lines
+   rebar_size_dialog.py                          266 lines
+   reference_curve_import_dialog.py              264 lines
+   reinforcement_dialog.py                       320 lines
+   relabel_dialog.py                             173 lines
+   release_dialog.py                             123 lines
+   replicate_dialog.py                           138 lines
+   response_spectrum_dialog.py                   257 lines
+   response_spectrum_manager.py                  153 lines
+   restraint_dialog.py                           319 lines
+   section_dialog.py                           1,265 lines
+   section_manager_dialog.py                     243 lines
+   section_viewer_dialog.py                      194 lines
+   select_by_section_dialog.py                   344 lines
+   select_by_story_dialog.py                     240 lines
+   select_frame_properties_dialog.py              66 lines
+   slab_code_manager.py                          260 lines
+   solid_analysis_dialog.py                      309 lines
+   spy_dialogs.py                              2,054 lines
+   tendon_dialog.py                              449 lines
+   tendon_geometry_dialog.py                   1,656 lines
+   tendon_load_dialog.py                         455 lines
+   tendon_response_dialog.py                     347 lines
+   time_history_function_dialog.py               352 lines
+   time_history_manager.py                       135 lines
+   tsc2018_dialog.py                             250 lines
+   update_dialog.py                              207 lines
+   user_seismic_dialog.py                        261 lines
+   view_options_dialog.py                        274 lines
+   virtual_measurements_dialog.py                786 lines
+
+FOLDER: app\graphic
+Files: 26 | Lines: 6,162
+-------------------------------------------------------------------------------------
+   __init__.py                                     1 lines
+   _vbo_area.py                                  129 lines
+   _vbo_extruded.py                              128 lines
+   _vbo_force_load.py                            292 lines
+   _vbo_grid_bubble.py                           141 lines
+   _vbo_lines.py                                 201 lines
+   _vbo_load_view.py                             278 lines
+   _vbo_static.py                                 62 lines
+   _vbo_supports.py                              393 lines
+   _vbo_text.py                                  161 lines
+   _vbo_transparency.py                          383 lines
+   area_load_axes.py                             107 lines
+   area_load_display.py                          347 lines
+   area_load_render.py                           369 lines
+   camera_ctrl.py                                192 lines
+   frame_load_display.py                         369 lines
+   frame_load_render.py                          293 lines
+   load_arrow_geometry.py                         95 lines
+   load_label_layout.py                          196 lines
+   load_view_geometry.py                         153 lines
+   ltha_renderer.py                              470 lines
+   mouse_crosshair.py                            415 lines
+   sdf_generator.py                              102 lines
+   sdf_text.py                                   134 lines
+   vbo_engine.py                                 515 lines
+   view_cube.py                                  236 lines
+
+FOLDER: app\resources
+Files: 2 | Lines: 19
+-------------------------------------------------------------------------------------
+   __init__.py                                     1 lines
+   csv_to_dat.py                                  18 lines
+
+FOLDER: app\section_designer
+Files: 8 | Lines: 4,086
+-------------------------------------------------------------------------------------
+   __init__.py                                     1 lines
+   drawing_canvas.py                             648 lines
+   section_analyzer.py                           157 lines
+   section_designer_commands.py                  122 lines
+   section_designer_dialog.py                  1,408 lines
+   section_viewer_dialogs.py                   1,173 lines
+   section_worker.py                             386 lines
+   snap_grid.py                                  191 lines
+
+FOLDER: app\ui
+Files: 7 | Lines: 2,511
+-------------------------------------------------------------------------------------
+   __init__.py                                     1 lines
+   blur.py                                       206 lines
+   command_palette.py                            276 lines
+   metrics_panel.py                              292 lines
+   nav_hints.py                                  169 lines
+   recent_projects.py                            238 lines
+   theme.py                                    1,329 lines
+
+FOLDER: core
+Files: 28 | Lines: 11,675
+-------------------------------------------------------------------------------------
+   ForceComputationWorker.py                     101 lines
+   __init__.py                                     1 lines
+   assembly.py                                     1 lines
+   boundary.py                                    35 lines
+   cable_catenary_solver.py                      543 lines
+   cli.py                                        665 lines
+   compact_json.py                                84 lines
+   force_diagram.py                              591 lines
+   grid.py                                       148 lines
+   integrity_checks.py                           117 lines
+   io_manager.py                                 211 lines
+   launch_terminal.py                             14 lines
+   loads.py                                      133 lines
+   mander_model.py                               799 lines
+   mesh.py                                       373 lines
+   metrics.py                                    251 lines
+   model.py                                    3,829 lines
+   model_history.py                              492 lines
+   model_s2k.py                                  866 lines
+   model_tree.py                                 349 lines
+   properties.py                                 978 lines
+   reference_curve.py                            136 lines
+   result_file_cache.py                           70 lines
+   results.py                                      1 lines
+   terminal_panel.py                             292 lines
+   tributary_loads.py                            276 lines
+   tributary_worker.py                           196 lines
+   units.py                                      123 lines
+
+FOLDER: core\api
+Files: 7 | Lines: 844
+-------------------------------------------------------------------------------------
+   __init__.py                                    50 lines
+   dynamic.py                                     51 lines
+   engine.py                                     148 lines
+   geometry.py                                    63 lines
+   loading.py                                     40 lines
+   properties.py                                 101 lines
+   result_helper.py                              391 lines
+
+FOLDER: core\api\gui_hooks
+Files: 3 | Lines: 979
+-------------------------------------------------------------------------------------
+   __init__.py                                     1 lines
+   nvm_engine.py                                 168 lines
+   spy_dialogs.py                                810 lines
+
+FOLDER: core\opensees_port
+Files: 10 | Lines: 4,250
+-------------------------------------------------------------------------------------
+   OS_OP.py                                    2,140 lines
+   harness.py                                     43 lines
+   load_protocols.py                              78 lines
+   os_capabilities.py                             64 lines
+   os_curve_metrics.py                           215 lines
+   os_drift_events.py                            258 lines
+   os_force_recovery.py                          134 lines
+   os_hinge_results.py                           151 lines
+   os_materials.py                               366 lines
+   os_nonlinear.py                               801 lines
+
+FOLDER: core\prestress
+Files: 2 | Lines: 429
+-------------------------------------------------------------------------------------
+   __init__.py                                     1 lines
+   tendon_evaluator.py                           428 lines
+
+FOLDER: core\solver
+Files: 3 | Lines: 104
+-------------------------------------------------------------------------------------
+   __init__.py                                     1 lines
+   combo_engine.py                                84 lines
+   progress.py                                    19 lines
+
+FOLDER: core\solver\LTHA
+Files: 4 | Lines: 914
+-------------------------------------------------------------------------------------
+   __init__.py                                     1 lines
+   ltha_engine.py                                453 lines
+   newmark_sdof.py                               110 lines
+   plot_function_sources.py                      350 lines
+
+FOLDER: core\solver\RSA
+Files: 3 | Lines: 554
+-------------------------------------------------------------------------------------
+   __init__.py                                     1 lines
+   rsa_engine.py                                 428 lines
+   tsc2018_generator.py                          125 lines
+
+FOLDER: core\solver\buckling
+Files: 2 | Lines: 400
+-------------------------------------------------------------------------------------
+   __init__.py                                     1 lines
+   buckling_engine.py                            399 lines
+
+FOLDER: core\solver\linear_static
+Files: 24 | Lines: 10,198
+-------------------------------------------------------------------------------------
+   __init__.py                                     1 lines
+   assembler.py                                  980 lines
+   auto_seismic.py                               206 lines
+   cable_elements.py                             390 lines
+   cable_nonlinear_driver.py                     143 lines
+   corotational_beam.py                          364 lines
+   data_manager.py                               637 lines
+   element_forces.py                              96 lines
+   element_library.py                            597 lines
+   error_definitions.py                          122 lines
+   fiber_hysteresis.py                           283 lines
+   fiber_section.py                              421 lines
+   hinge_element.py                              322 lines
+   hinge_loader.py                               150 lines
+   main_engine.py                                261 lines
+   matrix_spy.py                                 100 lines
+   nl_chaining_and_disp_control.py               593 lines
+   nonlinear_engine.py                         2,274 lines
+   residual_batch.py                             164 lines
+   result_writer.py                               66 lines
+   rotation_utils.py                             201 lines
+   shell_element.py                              821 lines
+   solver_kernel.py                              251 lines
+   ul_element.py                                 755 lines
+
+FOLDER: core\solver\modal
+Files: 4 | Lines: 1,199
+-------------------------------------------------------------------------------------
+   __init__.py                                     1 lines
+   mass_assembler.py                             385 lines
+   modal_engine.py                               812 lines
+   result_helper.py                                1 lines
+
+FOLDER: core\solver\solid_elements
+Files: 10 | Lines: 3,283
+-------------------------------------------------------------------------------------
+   __init__.py                                     1 lines
+   error_definitions.py                           86 lines
+   solid_assembler.py                            433 lines
+   solid_color_mapper.py                         117 lines
+   solid_data_manager.py                         555 lines
+   solid_element_library.py                      251 lines
+   solid_main_engine.py                          288 lines
+   solid_mesher.py                               656 lines
+   solid_results_viewer.py                       801 lines
+   solver_kernel.py                               95 lines
+
+FOLDER: opencivil
+Files: 1 | Lines: 1
+-------------------------------------------------------------------------------------
+   __init__.py                                     1 lines
+
+FOLDER: post
+Files: 3 | Lines: 569
+-------------------------------------------------------------------------------------
+   animation.py                                  288 lines
+   deflection.py                                 151 lines
+   deformation_scale.py                          130 lines
+
+FOLDER: tests
+Files: 35 | Lines: 7,596
+-------------------------------------------------------------------------------------
+   test_animation_speed.py                       175 lines
+   test_area_load_axes.py                        129 lines
+   test_area_load_display.py                     327 lines
+   test_area_load_render.py                      348 lines
+   test_auth_browser_bridge.py                   143 lines
+   test_auth_dialog.py                           140 lines
+   test_auth_manager.py                          241 lines
+   test_auth_session_store.py                    126 lines
+   test_bulk_load_assignment.py                  270 lines
+   test_deformation_scale.py                     128 lines
+   test_deformed_shape_dialog.py                 154 lines
+   test_firebase_client.py                       356 lines
+   test_frame_load_apply.py                      137 lines
+   test_frame_load_display.py                    255 lines
+   test_frame_load_preparation_scaling.py         76 lines
+   test_frame_load_render.py                     345 lines
+   test_gpu_transparency.py                      151 lines
+   test_graphics_canvas.py                       189 lines
+   test_graphics_settings.py                     416 lines
+   test_load_arrow_batch.py                       90 lines
+   test_load_arrow_sizing.py                     219 lines
+   test_load_display_navigation.py               216 lines
+   test_load_display_stability.py                211 lines
+   test_load_label_scaling.py                    108 lines
+   test_load_profile_scales.py                    91 lines
+   test_load_refresh.py                          312 lines
+   test_load_vbo_updates.py                      130 lines
+   test_load_view_geometry.py                    297 lines
+   test_load_view_gpu.py                         232 lines
+   test_ltha_playback.py                         481 lines
+   test_model_history.py                         322 lines
+   test_model_history_controller.py              231 lines
+   test_model_history_dialog.py                  220 lines
+   test_model_history_graph.py                   150 lines
+   test_surface_rendering.py                     180 lines
+
+FOLDER: tools
+Files: 1 | Lines: 234
+-------------------------------------------------------------------------------------
+   migrate_firebase_users.py                     234 lines
+
+FOLDER: tools\tests
+Files: 2 | Lines: 197
+-------------------------------------------------------------------------------------
+   test_migrate_firebase_users.py                155 lines
+   test_release_packaging.py                      42 lines
+
+FOLDER: validation
+Files: 1 | Lines: 313
+-------------------------------------------------------------------------------------
+   validation_mander.py                          313 lines
+
+=====================================================================================
+TOTAL FILES: 307
+TOTAL LINES: 120,235

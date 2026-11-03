@@ -1,0 +1,71 @@
+{
+  "initial_run": {
+    "model_count": 100,
+    "static_pass": 97,
+    "static_fail": 3,
+    "modal_pass": 97,
+    "modal_fail": 3,
+    "elapsed_seconds": 160.93,
+    "environment": {
+      "python": "3.12.8",
+      "numpy": "1.26.4",
+      "scipy": "1.17.0",
+      "git_commit": "ebc58545120353886dc9c2cc91f45db93d409000"
+    }
+  },
+  "initial_failures": [
+    "015_inclined_cantilever_v5",
+    "085_two_story_frame_v5",
+    "100_elastic_support_beam_v5"
+  ],
+  "targeted_retry": {
+    "id": "100_elastic_support_beam_v5",
+    "initial_returncode": 3221226505,
+    "subsequent_returncode": 0,
+    "reason": "Windows process fast-fail, no results produced; isolated retry succeeded."
+  },
+  "provenance_note": "Production solver source remained unchanged during the initial sweep. Initial model/source hashes were captured after that sweep; later runner executions capture them before solving.",
+  "stable_pre_fix_baseline": {
+    "model_count": 100,
+    "static_pass": 98,
+    "static_fail": 2,
+    "modal_pass": 98,
+    "modal_fail": 2
+  },
+  "post_node_order_fix": {
+    "model_count": 100,
+    "static_pass": 100,
+    "static_fail": 0,
+    "modal_pass": 100,
+    "modal_fail": 0,
+    "elapsed_seconds": 148.37,
+    "environment": {
+      "python": "3.12.8",
+      "numpy": "1.26.4",
+      "scipy": "1.17.0",
+      "git_commit": "ebc58545120353886dc9c2cc91f45db93d409000"
+    },
+    "fix": "DataManager initial node list sorted by ID to match existing sorted DOF indices",
+    "solver_source_sha256": "b2dcefa0108c3e5d25eebdc3c19f4cd8586716bf63074a9bf5dead876a6ea0cf",
+    "regression_inputs_unchanged": {
+      "015_inclined_cantilever_v5": true,
+      "085_two_story_frame_v5": true
+    },
+    "numerical_assertions": {
+      "run": 200,
+      "passed": 200
+    },
+    "focused_regression_tests": {
+      "run": 4,
+      "passed": 4
+    },
+    "process_failures": 0
+  },
+  "format_only_refresh": {
+    "case": "084_two_story_frame_v4",
+    "static_pass": true,
+    "modal_pass": true,
+    "input_model_unchanged": true,
+    "input_json_equal_to_original_verified_model": true
+  }
+}

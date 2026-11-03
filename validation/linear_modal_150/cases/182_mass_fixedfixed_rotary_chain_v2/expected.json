@@ -1,0 +1,611 @@
+{
+  "static": {
+    "displacements": {
+      "11": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "18": [
+        0.0,
+        0.0,
+        0.0,
+        1.8628850488354623e-05,
+        0.0,
+        0.0
+      ],
+      "25": [
+        0.0,
+        0.0,
+        0.0,
+        3.725770097670925e-05,
+        0.0,
+        0.0
+      ],
+      "32": [
+        0.0,
+        0.0,
+        0.0,
+        5.588655146506387e-05,
+        0.0,
+        0.0
+      ],
+      "39": [
+        0.0,
+        0.0,
+        0.0,
+        7.451540195341848e-05,
+        0.0,
+        0.0
+      ],
+      "46": [
+        0.0,
+        0.0,
+        0.0,
+        5.588655146506386e-05,
+        0.0,
+        0.0
+      ],
+      "53": [
+        0.0,
+        0.0,
+        0.0,
+        3.7257700976709233e-05,
+        0.0,
+        0.0
+      ],
+      "60": [
+        0.0,
+        0.0,
+        0.0,
+        1.8628850488354623e-05,
+        0.0,
+        0.0
+      ],
+      "67": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ]
+    },
+    "reactions": {
+      "11": [
+        0.0,
+        0.0,
+        0.0,
+        -435.00000000000017,
+        0.0,
+        0.0
+      ],
+      "18": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "25": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "32": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "39": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "46": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "53": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "60": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "67": [
+        0.0,
+        0.0,
+        0.0,
+        -434.99999999999994,
+        0.0,
+        0.0
+      ]
+    }
+  },
+  "modal": {
+    "frequencies_hz": [
+      372.2037757721673,
+      730.1039691756921,
+      1059.9466764908184
+    ],
+    "regularized_frequencies_hz": [
+      372.2037757721671,
+      730.1039691756921,
+      1059.9466764908186
+    ],
+    "regularization_relative_shift": [
+      -6.10884924451738e-16,
+      0.0,
+      2.1451425858138594e-16
+    ],
+    "mode_shapes": {
+      "1": {
+        "11": [
+          -0.0,
+          -0.0,
+          -0.0,
+          -0.0,
+          -0.0,
+          -0.0
+        ],
+        "18": [
+          -0.0,
+          -0.0,
+          -0.0,
+          0.23733018982545637,
+          -0.0,
+          -0.0
+        ],
+        "25": [
+          -0.0,
+          -0.0,
+          -0.0,
+          0.4385290096535158,
+          -0.0,
+          -0.0
+        ],
+        "32": [
+          -0.0,
+          -0.0,
+          -0.0,
+          0.5729657630371976,
+          -0.0,
+          -0.0
+        ],
+        "39": [
+          -0.0,
+          -0.0,
+          -0.0,
+          0.6201736729460428,
+          -0.0,
+          -0.0
+        ],
+        "46": [
+          -0.0,
+          -0.0,
+          -0.0,
+          0.5729657630371974,
+          -0.0,
+          -0.0
+        ],
+        "53": [
+          -0.0,
+          -0.0,
+          -0.0,
+          0.43852900965351455,
+          -0.0,
+          -0.0
+        ],
+        "60": [
+          -0.0,
+          -0.0,
+          -0.0,
+          0.23733018982545614,
+          -0.0,
+          -0.0
+        ],
+        "67": [
+          -0.0,
+          -0.0,
+          -0.0,
+          -0.0,
+          -0.0,
+          -0.0
+        ]
+      },
+      "2": {
+        "11": [
+          -0.0,
+          -0.0,
+          -0.0,
+          -0.0,
+          -0.0,
+          -0.0
+        ],
+        "18": [
+          -0.0,
+          -0.0,
+          -0.0,
+          0.4385290096535144,
+          -0.0,
+          -0.0
+        ],
+        "25": [
+          -0.0,
+          -0.0,
+          -0.0,
+          0.6201736729460433,
+          -0.0,
+          -0.0
+        ],
+        "32": [
+          -0.0,
+          -0.0,
+          -0.0,
+          0.4385290096535138,
+          -0.0,
+          -0.0
+        ],
+        "39": [
+          -0.0,
+          -0.0,
+          -0.0,
+          -8.950904182623621e-16,
+          -0.0,
+          -0.0
+        ],
+        "46": [
+          -0.0,
+          -0.0,
+          -0.0,
+          -0.4385290096535149,
+          -0.0,
+          -0.0
+        ],
+        "53": [
+          -0.0,
+          -0.0,
+          -0.0,
+          -0.6201736729460428,
+          -0.0,
+          -0.0
+        ],
+        "60": [
+          -0.0,
+          -0.0,
+          -0.0,
+          -0.4385290096535148,
+          -0.0,
+          -0.0
+        ],
+        "67": [
+          -0.0,
+          -0.0,
+          -0.0,
+          -0.0,
+          -0.0,
+          -0.0
+        ]
+      },
+      "3": {
+        "11": [
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0
+        ],
+        "18": [
+          0.0,
+          0.0,
+          0.0,
+          -0.5729657630371963,
+          0.0,
+          0.0
+        ],
+        "25": [
+          0.0,
+          0.0,
+          0.0,
+          -0.4385290096535148,
+          0.0,
+          0.0
+        ],
+        "32": [
+          0.0,
+          0.0,
+          0.0,
+          0.23733018982545653,
+          0.0,
+          0.0
+        ],
+        "39": [
+          0.0,
+          0.0,
+          0.0,
+          0.6201736729460418,
+          0.0,
+          0.0
+        ],
+        "46": [
+          0.0,
+          0.0,
+          0.0,
+          0.2373301898254562,
+          0.0,
+          0.0
+        ],
+        "53": [
+          0.0,
+          0.0,
+          0.0,
+          -0.43852900965351443,
+          0.0,
+          0.0
+        ],
+        "60": [
+          0.0,
+          0.0,
+          0.0,
+          -0.5729657630371975,
+          0.0,
+          0.0
+        ],
+        "67": [
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0
+        ]
+      }
+    },
+    "assembled_mass": {
+      "11": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "18": [
+        0.0,
+        0.0,
+        0.0,
+        0.6499999999999999,
+        0.0,
+        0.0
+      ],
+      "25": [
+        0.0,
+        0.0,
+        0.0,
+        0.6499999999999999,
+        0.0,
+        0.0
+      ],
+      "32": [
+        0.0,
+        0.0,
+        0.0,
+        0.6499999999999999,
+        0.0,
+        0.0
+      ],
+      "39": [
+        0.0,
+        0.0,
+        0.0,
+        0.6499999999999999,
+        0.0,
+        0.0
+      ],
+      "46": [
+        0.0,
+        0.0,
+        0.0,
+        0.6499999999999999,
+        0.0,
+        0.0
+      ],
+      "53": [
+        0.0,
+        0.0,
+        0.0,
+        0.6499999999999999,
+        0.0,
+        0.0
+      ],
+      "60": [
+        0.0,
+        0.0,
+        0.0,
+        0.6499999999999999,
+        0.0,
+        0.0
+      ],
+      "67": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ]
+    }
+  },
+  "metadata": {
+    "reference_kind": "Independent discretized force-flexibility reference with separate analytical checks",
+    "mass_model": "Translational nodal lumping; rho denotes weight density; explicit link rotary inertia allowed",
+    "regularized_reference": "Native-only numerical terms: released rotational diagonal=max(abs(k_local))*1e-12; massless free diagonal=min_positive_free_mass*1e-6",
+    "mass_floor": 6.499999999999999e-07,
+    "requested_modes": 3,
+    "native_clamped_modes": 3,
+    "sources": [
+      {
+        "title": "Scott Whitney, University of Nebraska: Vibrations of Cantilever Beams (1999)",
+        "url": "https://emweb.unl.edu/mechanics-pages/Scott-Whitney/325hweb/Beams.htm",
+        "use": "Euler-Bernoulli cantilever deflection and frequency derivation"
+      },
+      {
+        "title": "CALFEM for Python: core.py, bar2e/beam2e/beam3e/beam2de",
+        "url": "https://github.com/CALFEM/calfem-python/blob/master/src/calfem/core.py",
+        "use": "Public independent FE library and beam/bar reference formulations; not imported"
+      },
+      {
+        "title": "OpenSees public examples: Example3.1.tcl",
+        "url": "https://github.com/OpenSees/OpenSees/blob/master/EXAMPLES/ExampleScripts/Example3.1.tcl",
+        "use": "Public portal-frame modelling benchmark example; not an analytical oracle"
+      },
+      {
+        "title": "Gere and Timoshenko, Mechanics of Materials; Clough and Penzien, Dynamics of Structures",
+        "url": null,
+        "use": "Force-flexibility integration, beam boundary conditions, modal generalized eigenproblem"
+      }
+    ],
+    "batch": "second_150",
+    "case_id": "182_mass_fixedfixed_rotary_chain_v2",
+    "model_sha256": "56b8b786106630cab6f1b96efe7ea571311d613817e623eda9b67409300c2178",
+    "reference_source_sha256": "4736d758c26c4b124dcdce5079c195fdb918049f5e38449de09279d4234f29d4",
+    "reference_wrapper_sha256": "344814f8988ecf6abaeb5633fc08aaf9e4c546dd6db4343b5338b12a3fae1d1f"
+  },
+  "analytical_checks": [
+    {
+      "node_id": 39,
+      "dof": 3,
+      "value": 7.451540195341847e-05,
+      "label": "Fixed-fixed bar center twist",
+      "formula": "TL/(4GJ)",
+      "result": "displacements"
+    },
+    {
+      "node_id": 11,
+      "dof": 3,
+      "value": -435.0,
+      "label": "Fixed-fixed bar support torque",
+      "formula": "-T/2",
+      "result": "reactions"
+    },
+    {
+      "node_id": 67,
+      "dof": 3,
+      "value": -435.0,
+      "label": "Fixed-fixed bar support torque",
+      "formula": "-T/2",
+      "result": "reactions"
+    },
+    {
+      "mode": 1,
+      "frequency_hz": 372.20377577216715,
+      "tolerance": 1e-06,
+      "formula": "sqrt(4k/Jm)*sin(r\u03c0/(2n))/(2\u03c0)",
+      "label": "Exact fixed-fixed discrete torsional frequency"
+    },
+    {
+      "mode": 2,
+      "frequency_hz": 730.1039691756922,
+      "tolerance": 1e-06,
+      "formula": "sqrt(4k/Jm)*sin(r\u03c0/(2n))/(2\u03c0)",
+      "label": "Exact fixed-fixed discrete torsional frequency"
+    },
+    {
+      "mode": 3,
+      "frequency_hz": 1059.9466764908184,
+      "tolerance": 1e-06,
+      "formula": "sqrt(4k/Jm)*sin(r\u03c0/(2n))/(2\u03c0)",
+      "label": "Exact fixed-fixed discrete torsional frequency"
+    }
+  ],
+  "analytical_reference_checks": [
+    {
+      "name": "analytical: Fixed-fixed bar center twist",
+      "passed": true,
+      "actual": 7.451540195341848e-05,
+      "expected": 7.451540195341847e-05,
+      "absolute_error": 1.3552527156068805e-20,
+      "tolerance": 2.490308039068369e-10,
+      "formula": "TL/(4GJ)",
+      "reference_kind": "continuum or exact discrete formula as labelled"
+    },
+    {
+      "name": "analytical: Fixed-fixed bar support torque",
+      "passed": true,
+      "actual": -435.00000000000017,
+      "expected": -435.0,
+      "absolute_error": 1.7053025658242404e-13,
+      "tolerance": 0.00097,
+      "formula": "-T/2",
+      "reference_kind": "continuum or exact discrete formula as labelled"
+    },
+    {
+      "name": "analytical: Fixed-fixed bar support torque",
+      "passed": true,
+      "actual": -434.99999999999994,
+      "expected": -435.0,
+      "absolute_error": 5.684341886080802e-14,
+      "tolerance": 0.00097,
+      "formula": "-T/2",
+      "reference_kind": "continuum or exact discrete formula as labelled"
+    },
+    {
+      "name": "analytical: Exact fixed-fixed discrete torsional frequency",
+      "passed": true,
+      "actual": 372.2037757721671,
+      "expected": 372.20377577216715,
+      "absolute_error": 5.684341886080802e-14,
+      "tolerance": 0.00037220477577216716,
+      "formula": "sqrt(4k/Jm)*sin(r\u03c0/(2n))/(2\u03c0)",
+      "reference_kind": "continuum or exact discrete formula as labelled"
+    },
+    {
+      "name": "analytical: Exact fixed-fixed discrete torsional frequency",
+      "passed": true,
+      "actual": 730.1039691756921,
+      "expected": 730.1039691756922,
+      "absolute_error": 1.1368683772161603e-13,
+      "tolerance": 0.0007301049691756921,
+      "formula": "sqrt(4k/Jm)*sin(r\u03c0/(2n))/(2\u03c0)",
+      "reference_kind": "continuum or exact discrete formula as labelled"
+    },
+    {
+      "name": "analytical: Exact fixed-fixed discrete torsional frequency",
+      "passed": true,
+      "actual": 1059.9466764908186,
+      "expected": 1059.9466764908184,
+      "absolute_error": 2.2737367544323206e-13,
+      "tolerance": 0.0010599476764908183,
+      "formula": "sqrt(4k/Jm)*sin(r\u03c0/(2n))/(2\u03c0)",
+      "reference_kind": "continuum or exact discrete formula as labelled"
+    }
+  ]
+}

@@ -1,0 +1,4737 @@
+[
+  {
+    "id": "001_cantilever_tip_y_v1",
+    "family": "cantilever_tip_y",
+    "variant": 1,
+    "mf_file": "cases\\001_cantilever_tip_y_v1\\001_cantilever_tip_y_v1.mf",
+    "spec": {
+      "family": "cantilever_tip_y",
+      "variant": 1,
+      "analytical_static": [
+        {
+          "node_id": 7,
+          "dof": 1,
+          "value": -0.0009680711473975797,
+          "label": "Tip bending displacement",
+          "formula": "-PL\u00b3/(3EI)",
+          "result": "displacements"
+        },
+        {
+          "node_id": 7,
+          "dof": 5,
+          "value": -0.0004840355736987898,
+          "label": "Tip bending rotation",
+          "formula": "\u00b1PL\u00b2/(2EI)",
+          "result": "displacements"
+        }
+      ],
+      "analytical_modal": [
+        {
+          "mode": 1,
+          "frequency_hz": 25.820389006476784,
+          "tolerance": 0.02,
+          "formula": "\u03b21\u00b2/(2\u03c0L\u00b2)*sqrt(EI/(\u03c1m A)), \u03b21=1.8751040687",
+          "label": "Continuum first frequency"
+        }
+      ],
+      "node_order": "ascending IDs",
+      "shear_deformation": false,
+      "reference_sources": [
+        "Gere and Timoshenko, Mechanics of Materials: beam and bar formulas",
+        "Clough and Penzien, Dynamics of Structures: beam vibration and discrete chains"
+      ],
+      "length": 3.0,
+      "segments": 6,
+      "load": 8300.0,
+      "uniform_load": 2050.0,
+      "mass_model": "lumped translational self-mass"
+    }
+  },
+  {
+    "id": "002_cantilever_tip_y_v2",
+    "family": "cantilever_tip_y",
+    "variant": 2,
+    "mf_file": "cases\\002_cantilever_tip_y_v2\\002_cantilever_tip_y_v2.mf",
+    "spec": {
+      "family": "cantilever_tip_y",
+      "variant": 2,
+      "analytical_static": [
+        {
+          "node_id": 9,
+          "dof": 1,
+          "value": -0.005910533910533906,
+          "label": "Tip bending displacement",
+          "formula": "-PL\u00b3/(3EI)",
+          "result": "displacements"
+        },
+        {
+          "node_id": 9,
+          "dof": 5,
+          "value": -0.002216450216450215,
+          "label": "Tip bending rotation",
+          "formula": "\u00b1PL\u00b2/(2EI)",
+          "result": "displacements"
+        }
+      ],
+      "analytical_modal": [
+        {
+          "mode": 1,
+          "frequency_hz": 15.422283098271386,
+          "tolerance": 0.02,
+          "formula": "\u03b21\u00b2/(2\u03c0L\u00b2)*sqrt(EI/(\u03c1m A)), \u03b21=1.8751040687",
+          "label": "Continuum first frequency"
+        }
+      ],
+      "node_order": "ascending IDs",
+      "shear_deformation": false,
+      "reference_sources": [
+        "Gere and Timoshenko, Mechanics of Materials: beam and bar formulas",
+        "Clough and Penzien, Dynamics of Structures: beam vibration and discrete chains"
+      ],
+      "length": 4.0,
+      "segments": 8,
+      "load": 9600.0,
+      "uniform_load": 2300.0,
+      "mass_model": "lumped translational self-mass"
+    }
+  },
+  {
+    "id": "003_cantilever_tip_y_v3",
+    "family": "cantilever_tip_y",
+    "variant": 3,
+    "mf_file": "cases\\003_cantilever_tip_y_v3\\003_cantilever_tip_y_v3.mf",
+    "spec": {
+      "family": "cantilever_tip_y",
+      "variant": 3,
+      "analytical_static": [
+        {
+          "node_id": 11,
+          "dof": 1,
+          "value": -0.03223371783882408,
+          "label": "Tip bending displacement",
+          "formula": "-PL\u00b3/(3EI)",
+          "result": "displacements"
+        },
+        {
+          "node_id": 11,
+          "dof": 5,
+          "value": -0.008791013956042931,
+          "label": "Tip bending rotation",
+          "formula": "\u00b1PL\u00b2/(2EI)",
+          "result": "displacements"
+        }
+      ],
+      "analytical_modal": [
+        {
+          "mode": 1,
+          "frequency_hz": 5.947308162882744,
+          "tolerance": 0.02,
+          "formula": "\u03b21\u00b2/(2\u03c0L\u00b2)*sqrt(EI/(\u03c1m A)), \u03b21=1.8751040687",
+          "label": "Continuum first frequency"
+        }
+      ],
+      "node_order": "ascending IDs",
+      "shear_deformation": false,
+      "reference_sources": [
+        "Gere and Timoshenko, Mechanics of Materials: beam and bar formulas",
+        "Clough and Penzien, Dynamics of Structures: beam vibration and discrete chains"
+      ],
+      "length": 5.5,
+      "segments": 10,
+      "load": 10900.0,
+      "uniform_load": 2550.0,
+      "mass_model": "lumped translational self-mass"
+    }
+  },
+  {
+    "id": "004_cantilever_tip_y_v4",
+    "family": "cantilever_tip_y",
+    "variant": 4,
+    "mf_file": "cases\\004_cantilever_tip_y_v4\\004_cantilever_tip_y_v4.mf",
+    "spec": {
+      "family": "cantilever_tip_y",
+      "variant": 4,
+      "analytical_static": [
+        {
+          "node_id": 13,
+          "dof": 1,
+          "value": -0.0085305980622785,
+          "label": "Tip bending displacement",
+          "formula": "-PL\u00b3/(3EI)",
+          "result": "displacements"
+        },
+        {
+          "node_id": 13,
+          "dof": 5,
+          "value": -0.0018279852990596788,
+          "label": "Tip bending rotation",
+          "formula": "\u00b1PL\u00b2/(2EI)",
+          "result": "displacements"
+        }
+      ],
+      "analytical_modal": [
+        {
+          "mode": 1,
+          "frequency_hz": 5.626948493194827,
+          "tolerance": 0.02,
+          "formula": "\u03b21\u00b2/(2\u03c0L\u00b2)*sqrt(EI/(\u03c1m A)), \u03b21=1.8751040687",
+          "label": "Continuum first frequency"
+        }
+      ],
+      "node_order": "ascending IDs",
+      "shear_deformation": false,
+      "reference_sources": [
+        "Gere and Timoshenko, Mechanics of Materials: beam and bar formulas",
+        "Clough and Penzien, Dynamics of Structures: beam vibration and discrete chains"
+      ],
+      "length": 7.0,
+      "segments": 12,
+      "load": 12200.0,
+      "uniform_load": 2800.0,
+      "mass_model": "lumped translational self-mass"
+    }
+  },
+  {
+    "id": "005_cantilever_tip_y_v5",
+    "family": "cantilever_tip_y",
+    "variant": 5,
+    "mf_file": "cases\\005_cantilever_tip_y_v5\\005_cantilever_tip_y_v5.mf",
+    "spec": {
+      "family": "cantilever_tip_y",
+      "variant": 5,
+      "analytical_static": [
+        {
+          "node_id": 15,
+          "dof": 1,
+          "value": -0.015180344219635133,
+          "label": "Tip bending displacement",
+          "formula": "-PL\u00b3/(3EI)",
+          "result": "displacements"
+        },
+        {
+          "node_id": 15,
+          "dof": 5,
+          "value": -0.002678884274053259,
+          "label": "Tip bending rotation",
+          "formula": "\u00b1PL\u00b2/(2EI)",
+          "result": "displacements"
+        }
+      ],
+      "analytical_modal": [
+        {
+          "mode": 1,
+          "frequency_hz": 3.8070712408973577,
+          "tolerance": 0.02,
+          "formula": "\u03b21\u00b2/(2\u03c0L\u00b2)*sqrt(EI/(\u03c1m A)), \u03b21=1.8751040687",
+          "label": "Continuum first frequency"
+        }
+      ],
+      "node_order": "ascending IDs",
+      "shear_deformation": false,
+      "reference_sources": [
+        "Gere and Timoshenko, Mechanics of Materials: beam and bar formulas",
+        "Clough and Penzien, Dynamics of Structures: beam vibration and discrete chains"
+      ],
+      "length": 8.5,
+      "segments": 14,
+      "load": 13500.0,
+      "uniform_load": 3050.0,
+      "mass_model": "lumped translational self-mass"
+    }
+  },
+  {
+    "id": "006_cantilever_tip_z_v1",
+    "family": "cantilever_tip_z",
+    "variant": 1,
+    "mf_file": "cases\\006_cantilever_tip_z_v1\\006_cantilever_tip_z_v1.mf",
+    "spec": {
+      "family": "cantilever_tip_z",
+      "variant": 1,
+      "analytical_static": [
+        {
+          "node_id": 7,
+          "dof": 2,
+          "value": -0.0019657894736842107,
+          "label": "Tip bending displacement",
+          "formula": "-PL\u00b3/(3EI)",
+          "result": "displacements"
+        },
+        {
+          "node_id": 7,
+          "dof": 4,
+          "value": 0.0009828947368421053,
+          "label": "Tip bending rotation",
+          "formula": "\u00b1PL\u00b2/(2EI)",
+          "result": "displacements"
+        }
+      ],
+      "analytical_modal": [
+        {
+          "mode": 1,
+          "frequency_hz": 18.119571232615286,
+          "tolerance": 0.02,
+          "formula": "\u03b21\u00b2/(2\u03c0L\u00b2)*sqrt(EI/(\u03c1m A)), \u03b21=1.8751040687",
+          "label": "Continuum first frequency"
+        }
+      ],
+      "node_order": "ascending IDs",
+      "shear_deformation": false,
+      "reference_sources": [
+        "Gere and Timoshenko, Mechanics of Materials: beam and bar formulas",
+        "Clough and Penzien, Dynamics of Structures: beam vibration and discrete chains"
+      ],
+      "length": 3.0,
+      "segments": 6,
+      "load": 8300.0,
+      "uniform_load": 2050.0,
+      "mass_model": "lumped translational self-mass"
+    }
+  },
+  {
+    "id": "007_cantilever_tip_z_v2",
+    "family": "cantilever_tip_z",
+    "variant": 2,
+    "mf_file": "cases\\007_cantilever_tip_z_v2\\007_cantilever_tip_z_v2.mf",
+    "spec": {
+      "family": "cantilever_tip_z",
+      "variant": 2,
+      "analytical_static": [
+        {
+          "node_id": 9,
+          "dof": 2,
+          "value": -0.01099066223033165,
+          "label": "Tip bending displacement",
+          "formula": "-PL\u00b3/(3EI)",
+          "result": "displacements"
+        },
+        {
+          "node_id": 9,
+          "dof": 4,
+          "value": 0.00412149833637437,
+          "label": "Tip bending rotation",
+          "formula": "\u00b1PL\u00b2/(2EI)",
+          "result": "displacements"
+        }
+      ],
+      "analytical_modal": [
+        {
+          "mode": 1,
+          "frequency_hz": 11.30967427206568,
+          "tolerance": 0.02,
+          "formula": "\u03b21\u00b2/(2\u03c0L\u00b2)*sqrt(EI/(\u03c1m A)), \u03b21=1.8751040687",
+          "label": "Continuum first frequency"
+        }
+      ],
+      "node_order": "ascending IDs",
+      "shear_deformation": false,
+      "reference_sources": [
+        "Gere and Timoshenko, Mechanics of Materials: beam and bar formulas",
+        "Clough and Penzien, Dynamics of Structures: beam vibration and discrete chains"
+      ],
+      "length": 4.0,
+      "segments": 8,
+      "load": 9600.0,
+      "uniform_load": 2300.0,
+      "mass_model": "lumped translational self-mass"
+    }
+  },
+  {
+    "id": "008_cantilever_tip_z_v3",
+    "family": "cantilever_tip_z",
+    "variant": 3,
+    "mf_file": "cases\\008_cantilever_tip_z_v3\\008_cantilever_tip_z_v3.mf",
+    "spec": {
+      "family": "cantilever_tip_z",
+      "variant": 3,
+      "analytical_static": [
+        {
+          "node_id": 11,
+          "dof": 2,
+          "value": -0.055527615495786796,
+          "label": "Tip bending displacement",
+          "formula": "-PL\u00b3/(3EI)",
+          "result": "displacements"
+        },
+        {
+          "node_id": 11,
+          "dof": 4,
+          "value": 0.015143895135214582,
+          "label": "Tip bending rotation",
+          "formula": "\u00b1PL\u00b2/(2EI)",
+          "result": "displacements"
+        }
+      ],
+      "analytical_modal": [
+        {
+          "mode": 1,
+          "frequency_hz": 4.531282409815423,
+          "tolerance": 0.02,
+          "formula": "\u03b21\u00b2/(2\u03c0L\u00b2)*sqrt(EI/(\u03c1m A)), \u03b21=1.8751040687",
+          "label": "Continuum first frequency"
+        }
+      ],
+      "node_order": "ascending IDs",
+      "shear_deformation": false,
+      "reference_sources": [
+        "Gere and Timoshenko, Mechanics of Materials: beam and bar formulas",
+        "Clough and Penzien, Dynamics of Structures: beam vibration and discrete chains"
+      ],
+      "length": 5.5,
+      "segments": 10,
+      "load": 10900.0,
+      "uniform_load": 2550.0,
+      "mass_model": "lumped translational self-mass"
+    }
+  },
+  {
+    "id": "009_cantilever_tip_z_v4",
+    "family": "cantilever_tip_z",
+    "variant": 4,
+    "mf_file": "cases\\009_cantilever_tip_z_v4\\009_cantilever_tip_z_v4.mf",
+    "spec": {
+      "family": "cantilever_tip_z",
+      "variant": 4,
+      "analytical_static": [
+        {
+          "node_id": 13,
+          "dof": 2,
+          "value": -0.013742339186126166,
+          "label": "Tip bending displacement",
+          "formula": "-PL\u00b3/(3EI)",
+          "result": "displacements"
+        },
+        {
+          "node_id": 13,
+          "dof": 4,
+          "value": 0.002944786968455607,
+          "label": "Tip bending rotation",
+          "formula": "\u00b1PL\u00b2/(2EI)",
+          "result": "displacements"
+        }
+      ],
+      "analytical_modal": [
+        {
+          "mode": 1,
+          "frequency_hz": 4.433353358274712,
+          "tolerance": 0.02,
+          "formula": "\u03b21\u00b2/(2\u03c0L\u00b2)*sqrt(EI/(\u03c1m A)), \u03b21=1.8751040687",
+          "label": "Continuum first frequency"
+        }
+      ],
+      "node_order": "ascending IDs",
+      "shear_deformation": false,
+      "reference_sources": [
+        "Gere and Timoshenko, Mechanics of Materials: beam and bar formulas",
+        "Clough and Penzien, Dynamics of Structures: beam vibration and discrete chains"
+      ],
+      "length": 7.0,
+      "segments": 12,
+      "load": 12200.0,
+      "uniform_load": 2800.0,
+      "mass_model": "lumped translational self-mass"
+    }
+  },
+  {
+    "id": "010_cantilever_tip_z_v5",
+    "family": "cantilever_tip_z",
+    "variant": 5,
+    "mf_file": "cases\\010_cantilever_tip_z_v5\\010_cantilever_tip_z_v5.mf",
+    "spec": {
+      "family": "cantilever_tip_z",
+      "variant": 5,
+      "analytical_static": [
+        {
+          "node_id": 15,
+          "dof": 2,
+          "value": -0.023046434575791735,
+          "label": "Tip bending displacement",
+          "formula": "-PL\u00b3/(3EI)",
+          "result": "displacements"
+        },
+        {
+          "node_id": 15,
+          "dof": 4,
+          "value": 0.004067017866316188,
+          "label": "Tip bending rotation",
+          "formula": "\u00b1PL\u00b2/(2EI)",
+          "result": "displacements"
+        }
+      ],
+      "analytical_modal": [
+        {
+          "mode": 1,
+          "frequency_hz": 3.0897969491340875,
+          "tolerance": 0.02,
+          "formula": "\u03b21\u00b2/(2\u03c0L\u00b2)*sqrt(EI/(\u03c1m A)), \u03b21=1.8751040687",
+          "label": "Continuum first frequency"
+        }
+      ],
+      "node_order": "ascending IDs",
+      "shear_deformation": false,
+      "reference_sources": [
+        "Gere and Timoshenko, Mechanics of Materials: beam and bar formulas",
+        "Clough and Penzien, Dynamics of Structures: beam vibration and discrete chains"
+      ],
+      "length": 8.5,
+      "segments": 14,
+      "load": 13500.0,
+      "uniform_load": 3050.0,
+      "mass_model": "lumped translational self-mass"
+    }
+  },
+  {
+    "id": "011_inclined_cantilever_v1",
+    "family": "inclined_cantilever",
+    "variant": 1,
+    "mf_file": "cases\\011_inclined_cantilever_v1\\011_inclined_cantilever_v1.mf",
+    "spec": {
+      "family": "inclined_cantilever",
+      "variant": 1,
+      "analytical_static": [
+        {
+          "node_id": 7,
+          "dof": 0,
+          "value": -0.0005015746494675289,
+          "label": "Inclined tip displacement",
+          "formula": "e2*(PL\u00b3/(3EI33)+PL/(GAs2))",
+          "result": "displacements"
+        },
+        {
+          "node_id": 7,
+          "dof": 1,
+          "value": 0.0008359577491125482,
+          "label": "Inclined tip displacement",
+          "formula": "e2*(PL\u00b3/(3EI33)+PL/(GAs2))",
+          "result": "displacements"
+        },
+        {
+          "node_id": 7,
+          "dof": 2,
+          "value": 0.0,
+          "label": "Inclined tip displacement",
+          "formula": "e2*(PL\u00b3/(3EI33)+PL/(GAs2))",
+          "result": "displacements"
+        },
+        {
+          "node_id": 7,
+          "dof": 3,
+          "value": -0.00013466229881381117,
+          "label": "Inclined tip rotation",
+          "formula": "e3*PL\u00b2/(2EI33)",
+          "result": "displacements"
+        },
+        {
+          "node_id": 7,
+          "dof": 4,
+          "value": -8.07973792882867e-05,
+          "label": "Inclined tip rotation",
+          "formula": "e3*PL\u00b2/(2EI33)",
+          "result": "displacements"
+        },
+        {
+          "node_id": 7,
+          "dof": 5,
+          "value": 0.00045785181596695796,
+          "label": "Inclined tip rotation",
+          "formula": "e3*PL\u00b2/(2EI33)",
+          "result": "displacements"
+        }
+      ],
+      "analytical_modal": [],
+      "node_order": "ascending IDs",
+      "shear_deformation": true,
+      "reference_sources": [
+        "Gere and Timoshenko, Mechanics of Materials: beam and bar formulas",
+        "Clough and Penzien, Dynamics of Structures: beam vibration and discrete chains"
+      ],
+      "length": 3.0,
+      "segments": 6,
+      "load": 8300.0,
+      "uniform_load": 2050.0,
+      "mass_model": "lumped translational self-mass",
+      "direction": [
+        1.0,
+        0.6,
+        0.4
+      ],
+      "beta": 0.0
+    }
+  },
+  {
+    "id": "012_inclined_cantilever_v2",
+    "family": "inclined_cantilever",
+    "variant": 2,
+    "mf_file": "cases\\012_inclined_cantilever_v2\\012_inclined_cantilever_v2.mf",
+    "spec": {
+      "family": "inclined_cantilever",
+      "variant": 2,
+      "analytical_static": [
+        {
+          "node_id": 9,
+          "dof": 0,
+          "value": 0.0030177538954280626,
+          "label": "Inclined tip displacement",
+          "formula": "e2*(PL\u00b3/(3EI33)+PL/(GAs2))",
+          "result": "displacements"
+        },
+        {
+          "node_id": 9,
+          "dof": 1,
+          "value": 0.00459185786524286,
+          "label": "Inclined tip displacement",
+          "formula": "e2*(PL\u00b3/(3EI33)+PL/(GAs2))",
+          "result": "displacements"
+        },
+        {
+          "node_id": 9,
+          "dof": 2,
+          "value": 0.002248719956878283,
+          "label": "Inclined tip displacement",
+          "formula": "e2*(PL\u00b3/(3EI33)+PL/(GAs2))",
+          "result": "displacements"
+        },
+        {
+          "node_id": 9,
+          "dof": 3,
+          "value": -0.0012924666459286998,
+          "label": "Inclined tip rotation",
+          "formula": "e3*PL\u00b2/(2EI33)",
+          "result": "displacements"
+        },
+        {
+          "node_id": 9,
+          "dof": 4,
+          "value": -3.2244646104384626e-05,
+          "label": "Inclined tip rotation",
+          "formula": "e3*PL\u00b2/(2EI33)",
+          "result": "displacements"
+        },
+        {
+          "node_id": 9,
+          "dof": 5,
+          "value": 0.0018003171426061646,
+          "label": "Inclined tip rotation",
+          "formula": "e3*PL\u00b2/(2EI33)",
+          "result": "displacements"
+        }
+      ],
+      "analytical_modal": [],
+      "node_order": "ascending IDs",
+      "shear_deformation": true,
+      "reference_sources": [
+        "Gere and Timoshenko, Mechanics of Materials: beam and bar formulas",
+        "Clough and Penzien, Dynamics of Structures: beam vibration and discrete chains"
+      ],
+      "length": 4.0,
+      "segments": 8,
+      "load": 9600.0,
+      "uniform_load": 2300.0,
+      "mass_model": "lumped translational self-mass",
+      "direction": [
+        1.0,
+        -1.0,
+        0.7
+      ],
+      "beta": 25.0
+    }
+  },
+  {
+    "id": "013_inclined_cantilever_v3",
+    "family": "inclined_cantilever",
+    "variant": 3,
+    "mf_file": "cases\\013_inclined_cantilever_v3\\013_inclined_cantilever_v3.mf",
+    "spec": {
+      "family": "inclined_cantilever",
+      "variant": 3,
+      "analytical_static": [
+        {
+          "node_id": 11,
+          "dof": 0,
+          "value": -0.015214978715199962,
+          "label": "Inclined tip displacement",
+          "formula": "e2*(PL\u00b3/(3EI33)+PL/(GAs2))",
+          "result": "displacements"
+        },
+        {
+          "node_id": 11,
+          "dof": 1,
+          "value": 0.02491446262683975,
+          "label": "Inclined tip displacement",
+          "formula": "e2*(PL\u00b3/(3EI33)+PL/(GAs2))",
+          "result": "displacements"
+        },
+        {
+          "node_id": 11,
+          "dof": 2,
+          "value": -0.013845578615391813,
+          "label": "Inclined tip displacement",
+          "formula": "e2*(PL\u00b3/(3EI33)+PL/(GAs2))",
+          "result": "displacements"
+        },
+        {
+          "node_id": 11,
+          "dof": 3,
+          "value": -0.0072989579154377204,
+          "label": "Inclined tip rotation",
+          "formula": "e3*PL\u00b2/(2EI33)",
+          "result": "displacements"
+        },
+        {
+          "node_id": 11,
+          "dof": 4,
+          "value": -0.001962443867621198,
+          "label": "Inclined tip rotation",
+          "formula": "e3*PL\u00b2/(2EI33)",
+          "result": "displacements"
+        },
+        {
+          "node_id": 11,
+          "dof": 5,
+          "value": 0.0044895382602720465,
+          "label": "Inclined tip rotation",
+          "formula": "e3*PL\u00b2/(2EI33)",
+          "result": "displacements"
+        }
+      ],
+      "analytical_modal": [],
+      "node_order": "ascending IDs",
+      "shear_deformation": true,
+      "reference_sources": [
+        "Gere and Timoshenko, Mechanics of Materials: beam and bar formulas",
+        "Clough and Penzien, Dynamics of Structures: beam vibration and discrete chains"
+      ],
+      "length": 5.5,
+      "segments": 10,
+      "load": 10900.0,
+      "uniform_load": 2550.0,
+      "mass_model": "lumped translational self-mass",
+      "direction": [
+        0.4,
+        0.8,
+        1.0
+      ],
+      "beta": -40.0
+    }
+  },
+  {
+    "id": "014_inclined_cantilever_v4",
+    "family": "inclined_cantilever",
+    "variant": 4,
+    "mf_file": "cases\\014_inclined_cantilever_v4\\014_inclined_cantilever_v4.mf",
+    "spec": {
+      "family": "inclined_cantilever",
+      "variant": 4,
+      "analytical_static": [
+        {
+          "node_id": 13,
+          "dof": 0,
+          "value": 0.007744543631318906,
+          "label": "Inclined tip displacement",
+          "formula": "e2*(PL\u00b3/(3EI33)+PL/(GAs2))",
+          "result": "displacements"
+        },
+        {
+          "node_id": 13,
+          "dof": 1,
+          "value": -0.0036113400041995277,
+          "label": "Inclined tip displacement",
+          "formula": "e2*(PL\u00b3/(3EI33)+PL/(GAs2))",
+          "result": "displacements"
+        },
+        {
+          "node_id": 13,
+          "dof": 2,
+          "value": 0.0,
+          "label": "Inclined tip displacement",
+          "formula": "e2*(PL\u00b3/(3EI33)+PL/(GAs2))",
+          "result": "displacements"
+        },
+        {
+          "node_id": 13,
+          "dof": 3,
+          "value": 0.0007725399695761541,
+          "label": "Inclined tip rotation",
+          "formula": "e3*PL\u00b2/(2EI33)",
+          "result": "displacements"
+        },
+        {
+          "node_id": 13,
+          "dof": 4,
+          "value": 0.0016567173111263062,
+          "label": "Inclined tip rotation",
+          "formula": "e3*PL\u00b2/(2EI33)",
+          "result": "displacements"
+        },
+        {
+          "node_id": 13,
+          "dof": 5,
+          "value": -0.0,
+          "label": "Inclined tip rotation",
+          "formula": "e3*PL\u00b2/(2EI33)",
+          "result": "displacements"
+        }
+      ],
+      "analytical_modal": [],
+      "node_order": "ascending IDs",
+      "shear_deformation": true,
+      "reference_sources": [
+        "Gere and Timoshenko, Mechanics of Materials: beam and bar formulas",
+        "Clough and Penzien, Dynamics of Structures: beam vibration and discrete chains"
+      ],
+      "length": 7.0,
+      "segments": 12,
+      "load": 12200.0,
+      "uniform_load": 2800.0,
+      "mass_model": "lumped translational self-mass",
+      "direction": [
+        0.0,
+        0.0,
+        1.0
+      ],
+      "beta": 65.0
+    }
+  },
+  {
+    "id": "015_inclined_cantilever_v5",
+    "family": "inclined_cantilever",
+    "variant": 5,
+    "mf_file": "cases\\015_inclined_cantilever_v5\\015_inclined_cantilever_v5.mf",
+    "spec": {
+      "family": "inclined_cantilever",
+      "variant": 5,
+      "analytical_static": [
+        {
+          "node_id": 15,
+          "dof": 0,
+          "value": -0.007794811031302599,
+          "label": "Inclined tip displacement",
+          "formula": "e2*(PL\u00b3/(3EI33)+PL/(GAs2))",
+          "result": "displacements"
+        },
+        {
+          "node_id": 15,
+          "dof": 1,
+          "value": 0.01269484014326007,
+          "label": "Inclined tip displacement",
+          "formula": "e2*(PL\u00b3/(3EI33)+PL/(GAs2))",
+          "result": "displacements"
+        },
+        {
+          "node_id": 15,
+          "dof": 2,
+          "value": 0.0030187499711095233,
+          "label": "Inclined tip displacement",
+          "formula": "e2*(PL\u00b3/(3EI33)+PL/(GAs2))",
+          "result": "displacements"
+        },
+        {
+          "node_id": 15,
+          "dof": 3,
+          "value": -0.001283055940370907,
+          "label": "Inclined tip rotation",
+          "formula": "e3*PL\u00b2/(2EI33)",
+          "result": "displacements"
+        },
+        {
+          "node_id": 15,
+          "dof": 4,
+          "value": -0.001259979162352172,
+          "label": "Inclined tip rotation",
+          "formula": "e3*PL\u00b2/(2EI33)",
+          "result": "displacements"
+        },
+        {
+          "node_id": 15,
+          "dof": 5,
+          "value": 0.001985608450346417,
+          "label": "Inclined tip rotation",
+          "formula": "e3*PL\u00b2/(2EI33)",
+          "result": "displacements"
+        }
+      ],
+      "analytical_modal": [],
+      "node_order": "shuffled; identical physical node IDs and coordinates",
+      "shear_deformation": true,
+      "reference_sources": [
+        "Gere and Timoshenko, Mechanics of Materials: beam and bar formulas",
+        "Clough and Penzien, Dynamics of Structures: beam vibration and discrete chains"
+      ],
+      "length": 8.5,
+      "segments": 14,
+      "load": 13500.0,
+      "uniform_load": 3050.0,
+      "mass_model": "lumped translational self-mass",
+      "direction": [
+        1.0,
+        0.4,
+        0.9
+      ],
+      "beta": 15.0
+    }
+  },
+  {
+    "id": "016_cantilever_udl_v1",
+    "family": "cantilever_udl",
+    "variant": 1,
+    "mf_file": "cases\\016_cantilever_udl_v1\\016_cantilever_udl_v1.mf",
+    "spec": {
+      "family": "cantilever_udl",
+      "variant": 1,
+      "analytical_static": [
+        {
+          "node_id": 7,
+          "dof": 1,
+          "value": -0.0002689896486368275,
+          "label": "Cantilever UDL tip displacement",
+          "formula": "-qL\u2074/(8EI)",
+          "result": "displacements"
+        },
+        {
+          "node_id": 7,
+          "dof": 5,
+          "value": -0.00011955095494970111,
+          "label": "Cantilever UDL tip rotation",
+          "formula": "-qL\u00b3/(6EI)",
+          "result": "displacements"
+        },
+        {
+          "node_id": 1,
+          "dof": 1,
+          "value": 6150.0,
+          "label": "Root shear",
+          "formula": "qL",
+          "result": "reactions"
+        }
+      ],
+      "analytical_modal": [
+        {
+          "mode": 1,
+          "frequency_hz": 25.820389006476784,
+          "tolerance": 0.02,
+          "formula": "\u03b21\u00b2/(2\u03c0L\u00b2)*sqrt(EI/(\u03c1m A)), \u03b21=1.8751040687",
+          "label": "Continuum first frequency"
+        }
+      ],
+      "node_order": "ascending IDs",
+      "shear_deformation": false,
+      "reference_sources": [
+        "Gere and Timoshenko, Mechanics of Materials: beam and bar formulas",
+        "Clough and Penzien, Dynamics of Structures: beam vibration and discrete chains"
+      ],
+      "length": 3.0,
+      "segments": 6,
+      "load": 8300.0,
+      "uniform_load": 2050.0,
+      "mass_model": "lumped translational self-mass"
+    }
+  },
+  {
+    "id": "017_cantilever_udl_v2",
+    "family": "cantilever_udl",
+    "variant": 2,
+    "mf_file": "cases\\017_cantilever_udl_v2\\017_cantilever_udl_v2.mf",
+    "spec": {
+      "family": "cantilever_udl",
+      "variant": 2,
+      "analytical_static": [
+        {
+          "node_id": 9,
+          "dof": 1,
+          "value": -0.002124098124098123,
+          "label": "Cantilever UDL tip displacement",
+          "formula": "-qL\u2074/(8EI)",
+          "result": "displacements"
+        },
+        {
+          "node_id": 9,
+          "dof": 5,
+          "value": -0.0007080327080327075,
+          "label": "Cantilever UDL tip rotation",
+          "formula": "-qL\u00b3/(6EI)",
+          "result": "displacements"
+        },
+        {
+          "node_id": 1,
+          "dof": 1,
+          "value": 9200.0,
+          "label": "Root shear",
+          "formula": "qL",
+          "result": "reactions"
+        }
+      ],
+      "analytical_modal": [
+        {
+          "mode": 1,
+          "frequency_hz": 15.422283098271386,
+          "tolerance": 0.02,
+          "formula": "\u03b21\u00b2/(2\u03c0L\u00b2)*sqrt(EI/(\u03c1m A)), \u03b21=1.8751040687",
+          "label": "Continuum first frequency"
+        }
+      ],
+      "node_order": "ascending IDs",
+      "shear_deformation": false,
+      "reference_sources": [
+        "Gere and Timoshenko, Mechanics of Materials: beam and bar formulas",
+        "Clough and Penzien, Dynamics of Structures: beam vibration and discrete chains"
+      ],
+      "length": 4.0,
+      "segments": 8,
+      "load": 9600.0,
+      "uniform_load": 2300.0,
+      "mass_model": "lumped translational self-mass"
+    }
+  },
+  {
+    "id": "018_cantilever_udl_v3",
+    "family": "cantilever_udl",
+    "variant": 3,
+    "mf_file": "cases\\018_cantilever_udl_v3\\018_cantilever_udl_v3.mf",
+    "spec": {
+      "family": "cantilever_udl",
+      "variant": 3,
+      "analytical_static": [
+        {
+          "node_id": 11,
+          "dof": 1,
+          "value": -0.015553138509960127,
+          "label": "Cantilever UDL tip displacement",
+          "formula": "-qL\u2074/(8EI)",
+          "result": "displacements"
+        },
+        {
+          "node_id": 11,
+          "dof": 5,
+          "value": -0.0037704578205963947,
+          "label": "Cantilever UDL tip rotation",
+          "formula": "-qL\u00b3/(6EI)",
+          "result": "displacements"
+        },
+        {
+          "node_id": 1,
+          "dof": 1,
+          "value": 14025.0,
+          "label": "Root shear",
+          "formula": "qL",
+          "result": "reactions"
+        }
+      ],
+      "analytical_modal": [
+        {
+          "mode": 1,
+          "frequency_hz": 5.947308162882744,
+          "tolerance": 0.02,
+          "formula": "\u03b21\u00b2/(2\u03c0L\u00b2)*sqrt(EI/(\u03c1m A)), \u03b21=1.8751040687",
+          "label": "Continuum first frequency"
+        }
+      ],
+      "node_order": "ascending IDs",
+      "shear_deformation": false,
+      "reference_sources": [
+        "Gere and Timoshenko, Mechanics of Materials: beam and bar formulas",
+        "Clough and Penzien, Dynamics of Structures: beam vibration and discrete chains"
+      ],
+      "length": 5.5,
+      "segments": 10,
+      "load": 10900.0,
+      "uniform_load": 2550.0,
+      "mass_model": "lumped translational self-mass"
+    }
+  },
+  {
+    "id": "019_cantilever_udl_v4",
+    "family": "cantilever_udl",
+    "variant": 4,
+    "mf_file": "cases\\019_cantilever_udl_v4\\019_cantilever_udl_v4.mf",
+    "spec": {
+      "family": "cantilever_udl",
+      "variant": 4,
+      "analytical_static": [
+        {
+          "node_id": 13,
+          "dof": 1,
+          "value": -0.0051393357178481135,
+          "label": "Cantilever UDL tip displacement",
+          "formula": "-qL\u2074/(8EI)",
+          "result": "displacements"
+        },
+        {
+          "node_id": 13,
+          "dof": 5,
+          "value": -0.0009789210891139263,
+          "label": "Cantilever UDL tip rotation",
+          "formula": "-qL\u00b3/(6EI)",
+          "result": "displacements"
+        },
+        {
+          "node_id": 1,
+          "dof": 1,
+          "value": 19600.0,
+          "label": "Root shear",
+          "formula": "qL",
+          "result": "reactions"
+        }
+      ],
+      "analytical_modal": [
+        {
+          "mode": 1,
+          "frequency_hz": 5.626948493194827,
+          "tolerance": 0.02,
+          "formula": "\u03b21\u00b2/(2\u03c0L\u00b2)*sqrt(EI/(\u03c1m A)), \u03b21=1.8751040687",
+          "label": "Continuum first frequency"
+        }
+      ],
+      "node_order": "ascending IDs",
+      "shear_deformation": false,
+      "reference_sources": [
+        "Gere and Timoshenko, Mechanics of Materials: beam and bar formulas",
+        "Clough and Penzien, Dynamics of Structures: beam vibration and discrete chains"
+      ],
+      "length": 7.0,
+      "segments": 12,
+      "load": 12200.0,
+      "uniform_load": 2800.0,
+      "mass_model": "lumped translational self-mass"
+    }
+  },
+  {
+    "id": "020_cantilever_udl_v5",
+    "family": "cantilever_udl",
+    "variant": 5,
+    "mf_file": "cases\\020_cantilever_udl_v5\\020_cantilever_udl_v5.mf",
+    "spec": {
+      "family": "cantilever_udl",
+      "variant": 5,
+      "analytical_static": [
+        {
+          "node_id": 15,
+          "dof": 1,
+          "value": -0.010931956219278914,
+          "label": "Cantilever UDL tip displacement",
+          "formula": "-qL\u2074/(8EI)",
+          "result": "displacements"
+        },
+        {
+          "node_id": 15,
+          "dof": 5,
+          "value": -0.0017148166618476725,
+          "label": "Cantilever UDL tip rotation",
+          "formula": "-qL\u00b3/(6EI)",
+          "result": "displacements"
+        },
+        {
+          "node_id": 1,
+          "dof": 1,
+          "value": 25925.0,
+          "label": "Root shear",
+          "formula": "qL",
+          "result": "reactions"
+        }
+      ],
+      "analytical_modal": [
+        {
+          "mode": 1,
+          "frequency_hz": 3.8070712408973577,
+          "tolerance": 0.02,
+          "formula": "\u03b21\u00b2/(2\u03c0L\u00b2)*sqrt(EI/(\u03c1m A)), \u03b21=1.8751040687",
+          "label": "Continuum first frequency"
+        }
+      ],
+      "node_order": "ascending IDs",
+      "shear_deformation": false,
+      "reference_sources": [
+        "Gere and Timoshenko, Mechanics of Materials: beam and bar formulas",
+        "Clough and Penzien, Dynamics of Structures: beam vibration and discrete chains"
+      ],
+      "length": 8.5,
+      "segments": 14,
+      "load": 13500.0,
+      "uniform_load": 3050.0,
+      "mass_model": "lumped translational self-mass"
+    }
+  },
+  {
+    "id": "021_cantilever_tip_moment_v1",
+    "family": "cantilever_tip_moment",
+    "variant": 1,
+    "mf_file": "cases\\021_cantilever_tip_moment_v1\\021_cantilever_tip_moment_v1.mf",
+    "spec": {
+      "family": "cantilever_tip_moment",
+      "variant": 1,
+      "analytical_static": [
+        {
+          "node_id": 7,
+          "dof": 1,
+          "value": 0.0004840355736987898,
+          "label": "Tip moment displacement",
+          "formula": "ML\u00b2/(2EI)",
+          "result": "displacements"
+        },
+        {
+          "node_id": 7,
+          "dof": 5,
+          "value": 0.00032269038246585986,
+          "label": "Tip moment rotation",
+          "formula": "ML/(EI)",
+          "result": "displacements"
+        }
+      ],
+      "analytical_modal": [
+        {
+          "mode": 1,
+          "frequency_hz": 25.820389006476784,
+          "tolerance": 0.02,
+          "formula": "\u03b21\u00b2/(2\u03c0L\u00b2)*sqrt(EI/(\u03c1m A)), \u03b21=1.8751040687",
+          "label": "Continuum first frequency"
+        }
+      ],
+      "node_order": "ascending IDs",
+      "shear_deformation": false,
+      "reference_sources": [
+        "Gere and Timoshenko, Mechanics of Materials: beam and bar formulas",
+        "Clough and Penzien, Dynamics of Structures: beam vibration and discrete chains"
+      ],
+      "length": 3.0,
+      "segments": 6,
+      "load": 8300.0,
+      "uniform_load": 2050.0,
+      "mass_model": "lumped translational self-mass"
+    }
+  },
+  {
+    "id": "022_cantilever_tip_moment_v2",
+    "family": "cantilever_tip_moment",
+    "variant": 2,
+    "mf_file": "cases\\022_cantilever_tip_moment_v2\\022_cantilever_tip_moment_v2.mf",
+    "spec": {
+      "family": "cantilever_tip_moment",
+      "variant": 2,
+      "analytical_static": [
+        {
+          "node_id": 9,
+          "dof": 1,
+          "value": 0.0029552669552669534,
+          "label": "Tip moment displacement",
+          "formula": "ML\u00b2/(2EI)",
+          "result": "displacements"
+        },
+        {
+          "node_id": 9,
+          "dof": 5,
+          "value": 0.0014776334776334767,
+          "label": "Tip moment rotation",
+          "formula": "ML/(EI)",
+          "result": "displacements"
+        }
+      ],
+      "analytical_modal": [
+        {
+          "mode": 1,
+          "frequency_hz": 15.422283098271386,
+          "tolerance": 0.02,
+          "formula": "\u03b21\u00b2/(2\u03c0L\u00b2)*sqrt(EI/(\u03c1m A)), \u03b21=1.8751040687",
+          "label": "Continuum first frequency"
+        }
+      ],
+      "node_order": "ascending IDs",
+      "shear_deformation": false,
+      "reference_sources": [
+        "Gere and Timoshenko, Mechanics of Materials: beam and bar formulas",
+        "Clough and Penzien, Dynamics of Structures: beam vibration and discrete chains"
+      ],
+      "length": 4.0,
+      "segments": 8,
+      "load": 9600.0,
+      "uniform_load": 2300.0,
+      "mass_model": "lumped translational self-mass"
+    }
+  },
+  {
+    "id": "023_cantilever_tip_moment_v3",
+    "family": "cantilever_tip_moment",
+    "variant": 3,
+    "mf_file": "cases\\023_cantilever_tip_moment_v3\\023_cantilever_tip_moment_v3.mf",
+    "spec": {
+      "family": "cantilever_tip_moment",
+      "variant": 3,
+      "analytical_static": [
+        {
+          "node_id": 11,
+          "dof": 1,
+          "value": 0.016116858919412037,
+          "label": "Tip moment displacement",
+          "formula": "ML\u00b2/(2EI)",
+          "result": "displacements"
+        },
+        {
+          "node_id": 11,
+          "dof": 5,
+          "value": 0.005860675970695286,
+          "label": "Tip moment rotation",
+          "formula": "ML/(EI)",
+          "result": "displacements"
+        }
+      ],
+      "analytical_modal": [
+        {
+          "mode": 1,
+          "frequency_hz": 5.947308162882744,
+          "tolerance": 0.02,
+          "formula": "\u03b21\u00b2/(2\u03c0L\u00b2)*sqrt(EI/(\u03c1m A)), \u03b21=1.8751040687",
+          "label": "Continuum first frequency"
+        }
+      ],
+      "node_order": "ascending IDs",
+      "shear_deformation": false,
+      "reference_sources": [
+        "Gere and Timoshenko, Mechanics of Materials: beam and bar formulas",
+        "Clough and Penzien, Dynamics of Structures: beam vibration and discrete chains"
+      ],
+      "length": 5.5,
+      "segments": 10,
+      "load": 10900.0,
+      "uniform_load": 2550.0,
+      "mass_model": "lumped translational self-mass"
+    }
+  },
+  {
+    "id": "024_cantilever_tip_moment_v4",
+    "family": "cantilever_tip_moment",
+    "variant": 4,
+    "mf_file": "cases\\024_cantilever_tip_moment_v4\\024_cantilever_tip_moment_v4.mf",
+    "spec": {
+      "family": "cantilever_tip_moment",
+      "variant": 4,
+      "analytical_static": [
+        {
+          "node_id": 13,
+          "dof": 1,
+          "value": 0.004265299031139251,
+          "label": "Tip moment displacement",
+          "formula": "ML\u00b2/(2EI)",
+          "result": "displacements"
+        },
+        {
+          "node_id": 13,
+          "dof": 5,
+          "value": 0.0012186568660397861,
+          "label": "Tip moment rotation",
+          "formula": "ML/(EI)",
+          "result": "displacements"
+        }
+      ],
+      "analytical_modal": [
+        {
+          "mode": 1,
+          "frequency_hz": 5.626948493194827,
+          "tolerance": 0.02,
+          "formula": "\u03b21\u00b2/(2\u03c0L\u00b2)*sqrt(EI/(\u03c1m A)), \u03b21=1.8751040687",
+          "label": "Continuum first frequency"
+        }
+      ],
+      "node_order": "ascending IDs",
+      "shear_deformation": false,
+      "reference_sources": [
+        "Gere and Timoshenko, Mechanics of Materials: beam and bar formulas",
+        "Clough and Penzien, Dynamics of Structures: beam vibration and discrete chains"
+      ],
+      "length": 7.0,
+      "segments": 12,
+      "load": 12200.0,
+      "uniform_load": 2800.0,
+      "mass_model": "lumped translational self-mass"
+    }
+  },
+  {
+    "id": "025_cantilever_tip_moment_v5",
+    "family": "cantilever_tip_moment",
+    "variant": 5,
+    "mf_file": "cases\\025_cantilever_tip_moment_v5\\025_cantilever_tip_moment_v5.mf",
+    "spec": {
+      "family": "cantilever_tip_moment",
+      "variant": 5,
+      "analytical_static": [
+        {
+          "node_id": 15,
+          "dof": 1,
+          "value": 0.007590172109817567,
+          "label": "Tip moment displacement",
+          "formula": "ML\u00b2/(2EI)",
+          "result": "displacements"
+        },
+        {
+          "node_id": 15,
+          "dof": 5,
+          "value": 0.0017859228493688395,
+          "label": "Tip moment rotation",
+          "formula": "ML/(EI)",
+          "result": "displacements"
+        }
+      ],
+      "analytical_modal": [
+        {
+          "mode": 1,
+          "frequency_hz": 3.8070712408973577,
+          "tolerance": 0.02,
+          "formula": "\u03b21\u00b2/(2\u03c0L\u00b2)*sqrt(EI/(\u03c1m A)), \u03b21=1.8751040687",
+          "label": "Continuum first frequency"
+        }
+      ],
+      "node_order": "ascending IDs",
+      "shear_deformation": false,
+      "reference_sources": [
+        "Gere and Timoshenko, Mechanics of Materials: beam and bar formulas",
+        "Clough and Penzien, Dynamics of Structures: beam vibration and discrete chains"
+      ],
+      "length": 8.5,
+      "segments": 14,
+      "load": 13500.0,
+      "uniform_load": 3050.0,
+      "mass_model": "lumped translational self-mass"
+    }
+  },
+  {
+    "id": "026_axial_bar_v1",
+    "family": "axial_bar",
+    "variant": 1,
+    "mf_file": "cases\\026_axial_bar_v1\\026_axial_bar_v1.mf",
+    "spec": {
+      "family": "axial_bar",
+      "variant": 1,
+      "analytical_static": [
+        {
+          "node_id": 7,
+          "dof": 0,
+          "value": 2.1929824561403507e-06,
+          "label": "Axial tip displacement",
+          "formula": "PL/(EA)",
+          "result": "displacements"
+        },
+        {
+          "node_id": 1,
+          "dof": 0,
+          "value": -10000.0,
+          "label": "Axial root reaction",
+          "formula": "-P",
+          "result": "reactions"
+        }
+      ],
+      "analytical_modal": [
+        {
+          "mode": 1,
+          "frequency_hz": 503.3142276817661,
+          "tolerance": 1e-06,
+          "formula": "sqrt(4k/m)*sin((2r-1)\u03c0/(4n))/(2\u03c0)",
+          "label": "Exact lumped axial bar frequency"
+        },
+        {
+          "mode": 2,
+          "frequency_hz": 1475.642650194875,
+          "tolerance": 1e-06,
+          "formula": "sqrt(4k/m)*sin((2r-1)\u03c0/(4n))/(2\u03c0)",
+          "label": "Exact lumped axial bar frequency"
+        },
+        {
+          "mode": 3,
+          "frequency_hz": 2347.408464711984,
+          "tolerance": 1e-06,
+          "formula": "sqrt(4k/m)*sin((2r-1)\u03c0/(4n))/(2\u03c0)",
+          "label": "Exact lumped axial bar frequency"
+        }
+      ],
+      "node_order": "ascending IDs",
+      "shear_deformation": false,
+      "reference_sources": [
+        "Gere and Timoshenko, Mechanics of Materials: beam and bar formulas",
+        "Clough and Penzien, Dynamics of Structures: beam vibration and discrete chains"
+      ],
+      "length": 2.5,
+      "segments": 6,
+      "load": 10000.0
+    }
+  },
+  {
+    "id": "027_axial_bar_v2",
+    "family": "axial_bar",
+    "variant": 2,
+    "mf_file": "cases\\027_axial_bar_v2\\027_axial_bar_v2.mf",
+    "spec": {
+      "family": "axial_bar",
+      "variant": 2,
+      "analytical_static": [
+        {
+          "node_id": 9,
+          "dof": 0,
+          "value": 8.333333333333332e-06,
+          "label": "Axial tip displacement",
+          "formula": "PL/(EA)",
+          "result": "displacements"
+        },
+        {
+          "node_id": 1,
+          "dof": 0,
+          "value": -11000.0,
+          "label": "Axial root reaction",
+          "formula": "-P",
+          "result": "reactions"
+        }
+      ],
+      "analytical_modal": [
+        {
+          "mode": 1,
+          "frequency_hz": 363.11253011946127,
+          "tolerance": 1e-06,
+          "formula": "sqrt(4k/m)*sin((2r-1)\u03c0/(4n))/(2\u03c0)",
+          "label": "Exact lumped axial bar frequency"
+        },
+        {
+          "mode": 2,
+          "frequency_hz": 1075.3833794617458,
+          "tolerance": 1e-06,
+          "formula": "sqrt(4k/m)*sin((2r-1)\u03c0/(4n))/(2\u03c0)",
+          "label": "Exact lumped axial bar frequency"
+        },
+        {
+          "mode": 3,
+          "frequency_hz": 1746.3278486132629,
+          "tolerance": 1e-06,
+          "formula": "sqrt(4k/m)*sin((2r-1)\u03c0/(4n))/(2\u03c0)",
+          "label": "Exact lumped axial bar frequency"
+        }
+      ],
+      "node_order": "ascending IDs",
+      "shear_deformation": false,
+      "reference_sources": [
+        "Gere and Timoshenko, Mechanics of Materials: beam and bar formulas",
+        "Clough and Penzien, Dynamics of Structures: beam vibration and discrete chains"
+      ],
+      "length": 3.5,
+      "segments": 8,
+      "load": 11000.0
+    }
+  },
+  {
+    "id": "028_axial_bar_v3",
+    "family": "axial_bar",
+    "variant": 3,
+    "mf_file": "cases\\028_axial_bar_v3\\028_axial_bar_v3.mf",
+    "spec": {
+      "family": "axial_bar",
+      "variant": 3,
+      "analytical_static": [
+        {
+          "node_id": 11,
+          "dof": 0,
+          "value": 2.6455026455026456e-05,
+          "label": "Axial tip displacement",
+          "formula": "PL/(EA)",
+          "result": "displacements"
+        },
+        {
+          "node_id": 1,
+          "dof": 0,
+          "value": -12000.0,
+          "label": "Axial root reaction",
+          "formula": "-P",
+          "result": "reactions"
+        }
+      ],
+      "analytical_modal": [
+        {
+          "mode": 1,
+          "frequency_hz": 176.59501008677776,
+          "tolerance": 1e-06,
+          "formula": "sqrt(4k/m)*sin((2r-1)\u03c0/(4n))/(2\u03c0)",
+          "label": "Exact lumped axial bar frequency"
+        },
+        {
+          "mode": 2,
+          "frequency_hz": 525.43667502676,
+          "tolerance": 1e-06,
+          "formula": "sqrt(4k/m)*sin((2r-1)\u03c0/(4n))/(2\u03c0)",
+          "label": "Exact lumped axial bar frequency"
+        },
+        {
+          "mode": 3,
+          "frequency_hz": 861.3403452032368,
+          "tolerance": 1e-06,
+          "formula": "sqrt(4k/m)*sin((2r-1)\u03c0/(4n))/(2\u03c0)",
+          "label": "Exact lumped axial bar frequency"
+        }
+      ],
+      "node_order": "ascending IDs",
+      "shear_deformation": false,
+      "reference_sources": [
+        "Gere and Timoshenko, Mechanics of Materials: beam and bar formulas",
+        "Clough and Penzien, Dynamics of Structures: beam vibration and discrete chains"
+      ],
+      "length": 5.0,
+      "segments": 10,
+      "load": 12000.0
+    }
+  },
+  {
+    "id": "029_axial_bar_v4",
+    "family": "axial_bar",
+    "variant": 4,
+    "mf_file": "cases\\029_axial_bar_v4\\029_axial_bar_v4.mf",
+    "spec": {
+      "family": "axial_bar",
+      "variant": 4,
+      "analytical_static": [
+        {
+          "node_id": 13,
+          "dof": 0,
+          "value": 4.329004329004329e-06,
+          "label": "Axial tip displacement",
+          "formula": "PL/(EA)",
+          "result": "displacements"
+        },
+        {
+          "node_id": 1,
+          "dof": 0,
+          "value": -13000.0,
+          "label": "Axial root reaction",
+          "formula": "-P",
+          "result": "reactions"
+        }
+      ],
+      "analytical_modal": [
+        {
+          "mode": 1,
+          "frequency_hz": 215.3542612902345,
+          "tolerance": 1e-06,
+          "formula": "sqrt(4k/m)*sin((2r-1)\u03c0/(4n))/(2\u03c0)",
+          "label": "Exact lumped axial bar frequency"
+        },
+        {
+          "mode": 2,
+          "frequency_hz": 642.3780127525463,
+          "tolerance": 1e-06,
+          "formula": "sqrt(4k/m)*sin((2r-1)\u03c0/(4n))/(2\u03c0)",
+          "label": "Exact lumped axial bar frequency"
+        },
+        {
+          "mode": 3,
+          "frequency_hz": 1058.4104983158297,
+          "tolerance": 1e-06,
+          "formula": "sqrt(4k/m)*sin((2r-1)\u03c0/(4n))/(2\u03c0)",
+          "label": "Exact lumped axial bar frequency"
+        }
+      ],
+      "node_order": "ascending IDs",
+      "shear_deformation": false,
+      "reference_sources": [
+        "Gere and Timoshenko, Mechanics of Materials: beam and bar formulas",
+        "Clough and Penzien, Dynamics of Structures: beam vibration and discrete chains"
+      ],
+      "length": 6.0,
+      "segments": 12,
+      "load": 13000.0
+    }
+  },
+  {
+    "id": "030_axial_bar_v5",
+    "family": "axial_bar",
+    "variant": 5,
+    "mf_file": "cases\\030_axial_bar_v5\\030_axial_bar_v5.mf",
+    "spec": {
+      "family": "axial_bar",
+      "variant": 5,
+      "analytical_static": [
+        {
+          "node_id": 15,
+          "dof": 0,
+          "value": 6.102212051868801e-06,
+          "label": "Axial tip displacement",
+          "formula": "PL/(EA)",
+          "result": "displacements"
+        },
+        {
+          "node_id": 1,
+          "dof": 0,
+          "value": -14000.0,
+          "label": "Axial root reaction",
+          "formula": "-P",
+          "result": "reactions"
+        }
+      ],
+      "analytical_modal": [
+        {
+          "mode": 1,
+          "frequency_hz": 154.15289858647117,
+          "tolerance": 1e-06,
+          "formula": "sqrt(4k/m)*sin((2r-1)\u03c0/(4n))/(2\u03c0)",
+          "label": "Exact lumped axial bar frequency"
+        },
+        {
+          "mode": 2,
+          "frequency_hz": 460.52013361809355,
+          "tolerance": 1e-06,
+          "formula": "sqrt(4k/m)*sin((2r-1)\u03c0/(4n))/(2\u03c0)",
+          "label": "Exact lumped axial bar frequency"
+        },
+        {
+          "mode": 3,
+          "frequency_hz": 761.096060769463,
+          "tolerance": 1e-06,
+          "formula": "sqrt(4k/m)*sin((2r-1)\u03c0/(4n))/(2\u03c0)",
+          "label": "Exact lumped axial bar frequency"
+        }
+      ],
+      "node_order": "ascending IDs",
+      "shear_deformation": false,
+      "reference_sources": [
+        "Gere and Timoshenko, Mechanics of Materials: beam and bar formulas",
+        "Clough and Penzien, Dynamics of Structures: beam vibration and discrete chains"
+      ],
+      "length": 8.0,
+      "segments": 14,
+      "load": 14000.0
+    }
+  },
+  {
+    "id": "031_torsion_bar_v1",
+    "family": "torsion_bar",
+    "variant": 1,
+    "mf_file": "cases\\031_torsion_bar_v1\\031_torsion_bar_v1.mf",
+    "spec": {
+      "family": "torsion_bar",
+      "variant": 1,
+      "analytical_static": [
+        {
+          "node_id": 7,
+          "dof": 3,
+          "value": 0.0011403508771929826,
+          "label": "Uniform bar twist",
+          "formula": "TL/(GJ)",
+          "result": "displacements"
+        },
+        {
+          "node_id": 1,
+          "dof": 3,
+          "value": -10000.0,
+          "label": "Root torque",
+          "formula": "-T",
+          "result": "reactions"
+        }
+      ],
+      "analytical_modal": [
+        {
+          "mode": 1,
+          "frequency_hz": 321.3624254658388,
+          "tolerance": 1e-06,
+          "formula": "sqrt(4k/Jm)*sin((2r-1)\u03c0/(4n+2))/(2\u03c0)",
+          "label": "Exact discrete torsional chain frequency"
+        },
+        {
+          "mode": 2,
+          "frequency_hz": 945.4108603343302,
+          "tolerance": 1e-06,
+          "formula": "sqrt(4k/Jm)*sin((2r-1)\u03c0/(4n+2))/(2\u03c0)",
+          "label": "Exact discrete torsional chain frequency"
+        },
+        {
+          "mode": 3,
+          "frequency_hz": 1514.5154524288453,
+          "tolerance": 1e-06,
+          "formula": "sqrt(4k/Jm)*sin((2r-1)\u03c0/(4n+2))/(2\u03c0)",
+          "label": "Exact discrete torsional chain frequency"
+        }
+      ],
+      "node_order": "ascending IDs",
+      "shear_deformation": false,
+      "reference_sources": [
+        "Gere and Timoshenko, Mechanics of Materials: beam and bar formulas",
+        "Clough and Penzien, Dynamics of Structures: beam vibration and discrete chains"
+      ],
+      "length": 2.5,
+      "segments": 6,
+      "load": 10000.0,
+      "mass_model": "explicit identical rotary inertias at each free node",
+      "rotary_inertia": 0.75
+    }
+  },
+  {
+    "id": "032_torsion_bar_v2",
+    "family": "torsion_bar",
+    "variant": 2,
+    "mf_file": "cases\\032_torsion_bar_v2\\032_torsion_bar_v2.mf",
+    "spec": {
+      "family": "torsion_bar",
+      "variant": 2,
+      "analytical_static": [
+        {
+          "node_id": 9,
+          "dof": 3,
+          "value": 0.003663911845730027,
+          "label": "Uniform bar twist",
+          "formula": "TL/(GJ)",
+          "result": "displacements"
+        },
+        {
+          "node_id": 1,
+          "dof": 3,
+          "value": -11000.0,
+          "label": "Root torque",
+          "formula": "-T",
+          "result": "reactions"
+        }
+      ],
+      "analytical_modal": [
+        {
+          "mode": 1,
+          "frequency_hz": 143.9367705301641,
+          "tolerance": 1e-06,
+          "formula": "sqrt(4k/Jm)*sin((2r-1)\u03c0/(4n+2))/(2\u03c0)",
+          "label": "Exact discrete torsional chain frequency"
+        },
+        {
+          "mode": 2,
+          "frequency_hz": 426.90871750321577,
+          "tolerance": 1e-06,
+          "formula": "sqrt(4k/Jm)*sin((2r-1)\u03c0/(4n+2))/(2\u03c0)",
+          "label": "Exact discrete torsional chain frequency"
+        },
+        {
+          "mode": 3,
+          "frequency_hz": 695.3428001222665,
+          "tolerance": 1e-06,
+          "formula": "sqrt(4k/Jm)*sin((2r-1)\u03c0/(4n+2))/(2\u03c0)",
+          "label": "Exact discrete torsional chain frequency"
+        }
+      ],
+      "node_order": "ascending IDs",
+      "shear_deformation": false,
+      "reference_sources": [
+        "Gere and Timoshenko, Mechanics of Materials: beam and bar formulas",
+        "Clough and Penzien, Dynamics of Structures: beam vibration and discrete chains"
+      ],
+      "length": 3.5,
+      "segments": 8,
+      "load": 11000.0,
+      "mass_model": "explicit identical rotary inertias at each free node",
+      "rotary_inertia": 1.0
+    }
+  },
+  {
+    "id": "033_torsion_bar_v3",
+    "family": "torsion_bar",
+    "variant": 3,
+    "mf_file": "cases\\033_torsion_bar_v3\\033_torsion_bar_v3.mf",
+    "spec": {
+      "family": "torsion_bar",
+      "variant": 3,
+      "analytical_static": [
+        {
+          "node_id": 11,
+          "dof": 3,
+          "value": 0.008818342151675486,
+          "label": "Uniform bar twist",
+          "formula": "TL/(GJ)",
+          "result": "displacements"
+        },
+        {
+          "node_id": 1,
+          "dof": 3,
+          "value": -12000.0,
+          "label": "Root torque",
+          "formula": "-T",
+          "result": "reactions"
+        }
+      ],
+      "analytical_modal": [
+        {
+          "mode": 1,
+          "frequency_hz": 78.48520504875735,
+          "tolerance": 1e-06,
+          "formula": "sqrt(4k/Jm)*sin((2r-1)\u03c0/(4n+2))/(2\u03c0)",
+          "label": "Exact discrete torsional chain frequency"
+        },
+        {
+          "mode": 2,
+          "frequency_hz": 233.70238535838004,
+          "tolerance": 1e-06,
+          "formula": "sqrt(4k/Jm)*sin((2r-1)\u03c0/(4n+2))/(2\u03c0)",
+          "label": "Exact discrete torsional chain frequency"
+        },
+        {
+          "mode": 3,
+          "frequency_hz": 383.6990405606633,
+          "tolerance": 1e-06,
+          "formula": "sqrt(4k/Jm)*sin((2r-1)\u03c0/(4n+2))/(2\u03c0)",
+          "label": "Exact discrete torsional chain frequency"
+        }
+      ],
+      "node_order": "ascending IDs",
+      "shear_deformation": false,
+      "reference_sources": [
+        "Gere and Timoshenko, Mechanics of Materials: beam and bar formulas",
+        "Clough and Penzien, Dynamics of Structures: beam vibration and discrete chains"
+      ],
+      "length": 5.0,
+      "segments": 10,
+      "load": 12000.0,
+      "mass_model": "explicit identical rotary inertias at each free node",
+      "rotary_inertia": 1.25
+    }
+  },
+  {
+    "id": "034_torsion_bar_v4",
+    "family": "torsion_bar",
+    "variant": 4,
+    "mf_file": "cases\\034_torsion_bar_v4\\034_torsion_bar_v4.mf",
+    "spec": {
+      "family": "torsion_bar",
+      "variant": 4,
+      "analytical_static": [
+        {
+          "node_id": 13,
+          "dof": 3,
+          "value": 0.0013115090038166959,
+          "label": "Uniform bar twist",
+          "formula": "TL/(GJ)",
+          "result": "displacements"
+        },
+        {
+          "node_id": 1,
+          "dof": 3,
+          "value": -13000.0,
+          "label": "Root torque",
+          "formula": "-T",
+          "result": "reactions"
+        }
+      ],
+      "analytical_modal": [
+        {
+          "mode": 1,
+          "frequency_hz": 177.9816526712708,
+          "tolerance": 1e-06,
+          "formula": "sqrt(4k/Jm)*sin((2r-1)\u03c0/(4n+2))/(2\u03c0)",
+          "label": "Exact discrete torsional chain frequency"
+        },
+        {
+          "mode": 2,
+          "frequency_hz": 531.1380810301007,
+          "tolerance": 1e-06,
+          "formula": "sqrt(4k/Jm)*sin((2r-1)\u03c0/(4n+2))/(2\u03c0)",
+          "label": "Exact discrete torsional chain frequency"
+        },
+        {
+          "mode": 3,
+          "frequency_hz": 875.9181445645759,
+          "tolerance": 1e-06,
+          "formula": "sqrt(4k/Jm)*sin((2r-1)\u03c0/(4n+2))/(2\u03c0)",
+          "label": "Exact discrete torsional chain frequency"
+        }
+      ],
+      "node_order": "ascending IDs",
+      "shear_deformation": false,
+      "reference_sources": [
+        "Gere and Timoshenko, Mechanics of Materials: beam and bar formulas",
+        "Clough and Penzien, Dynamics of Structures: beam vibration and discrete chains"
+      ],
+      "length": 6.0,
+      "segments": 12,
+      "load": 13000.0,
+      "mass_model": "explicit identical rotary inertias at each free node",
+      "rotary_inertia": 1.5
+    }
+  },
+  {
+    "id": "035_torsion_bar_v5",
+    "family": "torsion_bar",
+    "variant": 5,
+    "mf_file": "cases\\035_torsion_bar_v5\\035_torsion_bar_v5.mf",
+    "spec": {
+      "family": "torsion_bar",
+      "variant": 5,
+      "analytical_static": [
+        {
+          "node_id": 15,
+          "dof": 3,
+          "value": 0.0016065007238593371,
+          "label": "Uniform bar twist",
+          "formula": "TL/(GJ)",
+          "result": "displacements"
+        },
+        {
+          "node_id": 1,
+          "dof": 3,
+          "value": -14000.0,
+          "label": "Root torque",
+          "formula": "-T",
+          "result": "reactions"
+        }
+      ],
+      "analytical_modal": [
+        {
+          "mode": 1,
+          "frequency_hz": 143.88919145721857,
+          "tolerance": 1e-06,
+          "formula": "sqrt(4k/Jm)*sin((2r-1)\u03c0/(4n+2))/(2\u03c0)",
+          "label": "Exact discrete torsional chain frequency"
+        },
+        {
+          "mode": 2,
+          "frequency_hz": 429.98060516096217,
+          "tolerance": 1e-06,
+          "formula": "sqrt(4k/Jm)*sin((2r-1)\u03c0/(4n+2))/(2\u03c0)",
+          "label": "Exact discrete torsional chain frequency"
+        },
+        {
+          "mode": 3,
+          "frequency_hz": 711.0308894042098,
+          "tolerance": 1e-06,
+          "formula": "sqrt(4k/Jm)*sin((2r-1)\u03c0/(4n+2))/(2\u03c0)",
+          "label": "Exact discrete torsional chain frequency"
+        }
+      ],
+      "node_order": "ascending IDs",
+      "shear_deformation": false,
+      "reference_sources": [
+        "Gere and Timoshenko, Mechanics of Materials: beam and bar formulas",
+        "Clough and Penzien, Dynamics of Structures: beam vibration and discrete chains"
+      ],
+      "length": 8.0,
+      "segments": 14,
+      "load": 14000.0,
+      "mass_model": "explicit identical rotary inertias at each free node",
+      "rotary_inertia": 1.75
+    }
+  },
+  {
+    "id": "036_simply_supported_point_v1",
+    "family": "simply_supported_point",
+    "variant": 1,
+    "mf_file": "cases\\036_simply_supported_point_v1\\036_simply_supported_point_v1.mf",
+    "spec": {
+      "family": "simply_supported_point",
+      "variant": 1,
+      "analytical_static": [
+        {
+          "node_id": 1,
+          "dof": 1,
+          "value": 5727.000000000001,
+          "label": "Pin reaction",
+          "formula": "P*(L-a)/L",
+          "result": "reactions"
+        },
+        {
+          "node_id": 7,
+          "dof": 1,
+          "value": 2572.9999999999995,
+          "label": "Roller reaction",
+          "formula": "P*a/L",
+          "result": "reactions"
+        },
+        {
+          "node_id": 1,
+          "dof": 5,
+          "value": -5.832483452398307e-05,
+          "label": "Left support slope",
+          "formula": "-Pb(L\u00b2-b\u00b2)/(6LEI)",
+          "result": "displacements"
+        },
+        {
+          "node_id": 7,
+          "dof": 5,
+          "value": 4.521037469018806e-05,
+          "label": "Right support slope",
+          "formula": "Pa(L\u00b2-a\u00b2)/(6LEI)",
+          "result": "displacements"
+        }
+      ],
+      "analytical_modal": [
+        {
+          "mode": 1,
+          "frequency_hz": 72.47893012844341,
+          "tolerance": 0.02,
+          "formula": "\u03c0/(2L\u00b2)*sqrt(EI/(\u03c1m A))",
+          "label": "Continuum first frequency"
+        }
+      ],
+      "node_order": "ascending IDs",
+      "shear_deformation": false,
+      "reference_sources": [
+        "Gere and Timoshenko, Mechanics of Materials: beam and bar formulas",
+        "Clough and Penzien, Dynamics of Structures: beam vibration and discrete chains"
+      ],
+      "length": 3.0,
+      "segments": 6,
+      "load": 8300.0,
+      "uniform_load": 2050.0,
+      "mass_model": "lumped translational self-mass",
+      "point_location": 0.9299999999999999
+    }
+  },
+  {
+    "id": "037_simply_supported_point_v2",
+    "family": "simply_supported_point",
+    "variant": 2,
+    "mf_file": "cases\\037_simply_supported_point_v2\\037_simply_supported_point_v2.mf",
+    "spec": {
+      "family": "simply_supported_point",
+      "variant": 2,
+      "analytical_static": [
+        {
+          "node_id": 1,
+          "dof": 1,
+          "value": 5472.000000000001,
+          "label": "Pin reaction",
+          "formula": "P*(L-a)/L",
+          "result": "reactions"
+        },
+        {
+          "node_id": 9,
+          "dof": 1,
+          "value": 4128.0,
+          "label": "Roller reaction",
+          "formula": "P*a/L",
+          "result": "reactions"
+        },
+        {
+          "node_id": 1,
+          "dof": 5,
+          "value": -0.0002843018528138526,
+          "label": "Left support slope",
+          "formula": "-Pb(L\u00b2-b\u00b2)/(6LEI)",
+          "result": "displacements"
+        },
+        {
+          "node_id": 9,
+          "dof": 5,
+          "value": 0.00025895009523809506,
+          "label": "Right support slope",
+          "formula": "Pa(L\u00b2-a\u00b2)/(6LEI)",
+          "result": "displacements"
+        }
+      ],
+      "analytical_modal": [
+        {
+          "mode": 1,
+          "frequency_hz": 43.29100459409418,
+          "tolerance": 0.02,
+          "formula": "\u03c0/(2L\u00b2)*sqrt(EI/(\u03c1m A))",
+          "label": "Continuum first frequency"
+        }
+      ],
+      "node_order": "ascending IDs",
+      "shear_deformation": false,
+      "reference_sources": [
+        "Gere and Timoshenko, Mechanics of Materials: beam and bar formulas",
+        "Clough and Penzien, Dynamics of Structures: beam vibration and discrete chains"
+      ],
+      "length": 4.0,
+      "segments": 8,
+      "load": 9600.0,
+      "uniform_load": 2300.0,
+      "mass_model": "lumped translational self-mass",
+      "point_location": 1.72
+    }
+  },
+  {
+    "id": "038_simply_supported_point_v3",
+    "family": "simply_supported_point",
+    "variant": 3,
+    "mf_file": "cases\\038_simply_supported_point_v3\\038_simply_supported_point_v3.mf",
+    "spec": {
+      "family": "simply_supported_point",
+      "variant": 3,
+      "analytical_static": [
+        {
+          "node_id": 1,
+          "dof": 1,
+          "value": 4687.000000000001,
+          "label": "Pin reaction",
+          "formula": "P*(L-a)/L",
+          "result": "reactions"
+        },
+        {
+          "node_id": 11,
+          "dof": 1,
+          "value": 6213.0,
+          "label": "Roller reaction",
+          "formula": "P*a/L",
+          "result": "reactions"
+        },
+        {
+          "node_id": 1,
+          "dof": 5,
+          "value": -0.0010270629514984519,
+          "label": "Left support slope",
+          "formula": "-Pb(L\u00b2-b\u00b2)/(6LEI)",
+          "result": "displacements"
+        },
+        {
+          "node_id": 11,
+          "dof": 5,
+          "value": 0.0011276145691276709,
+          "label": "Right support slope",
+          "formula": "Pa(L\u00b2-a\u00b2)/(6LEI)",
+          "result": "displacements"
+        }
+      ],
+      "analytical_modal": [
+        {
+          "mode": 1,
+          "frequency_hz": 16.69434696285071,
+          "tolerance": 0.02,
+          "formula": "\u03c0/(2L\u00b2)*sqrt(EI/(\u03c1m A))",
+          "label": "Continuum first frequency"
+        }
+      ],
+      "node_order": "ascending IDs",
+      "shear_deformation": false,
+      "reference_sources": [
+        "Gere and Timoshenko, Mechanics of Materials: beam and bar formulas",
+        "Clough and Penzien, Dynamics of Structures: beam vibration and discrete chains"
+      ],
+      "length": 5.5,
+      "segments": 10,
+      "load": 10900.0,
+      "uniform_load": 2550.0,
+      "mass_model": "lumped translational self-mass",
+      "point_location": 3.135
+    }
+  },
+  {
+    "id": "039_simply_supported_point_v4",
+    "family": "simply_supported_point",
+    "variant": 4,
+    "mf_file": "cases\\039_simply_supported_point_v4\\039_simply_supported_point_v4.mf",
+    "spec": {
+      "family": "simply_supported_point",
+      "variant": 4,
+      "analytical_static": [
+        {
+          "node_id": 1,
+          "dof": 1,
+          "value": 4025.9999999999995,
+          "label": "Pin reaction",
+          "formula": "P*(L-a)/L",
+          "result": "reactions"
+        },
+        {
+          "node_id": 13,
+          "dof": 1,
+          "value": 8174.000000000001,
+          "label": "Roller reaction",
+          "formula": "P*a/L",
+          "result": "reactions"
+        },
+        {
+          "node_id": 1,
+          "dof": 5,
+          "value": -0.00017918094699912875,
+          "label": "Left support slope",
+          "formula": "-Pb(L\u00b2-b\u00b2)/(6LEI)",
+          "result": "displacements"
+        },
+        {
+          "node_id": 13,
+          "dof": 5,
+          "value": 0.0002249866026229662,
+          "label": "Right support slope",
+          "formula": "Pa(L\u00b2-a\u00b2)/(6LEI)",
+          "result": "displacements"
+        }
+      ],
+      "analytical_modal": [
+        {
+          "mode": 1,
+          "frequency_hz": 15.795083744567764,
+          "tolerance": 0.02,
+          "formula": "\u03c0/(2L\u00b2)*sqrt(EI/(\u03c1m A))",
+          "label": "Continuum first frequency"
+        }
+      ],
+      "node_order": "ascending IDs",
+      "shear_deformation": false,
+      "reference_sources": [
+        "Gere and Timoshenko, Mechanics of Materials: beam and bar formulas",
+        "Clough and Penzien, Dynamics of Structures: beam vibration and discrete chains"
+      ],
+      "length": 7.0,
+      "segments": 12,
+      "load": 12200.0,
+      "uniform_load": 2800.0,
+      "mass_model": "lumped translational self-mass",
+      "point_location": 4.69
+    }
+  },
+  {
+    "id": "040_simply_supported_point_v5",
+    "family": "simply_supported_point",
+    "variant": 5,
+    "mf_file": "cases\\040_simply_supported_point_v5\\040_simply_supported_point_v5.mf",
+    "spec": {
+      "family": "simply_supported_point",
+      "variant": 5,
+      "analytical_static": [
+        {
+          "node_id": 1,
+          "dof": 1,
+          "value": 8235.0,
+          "label": "Pin reaction",
+          "formula": "P*(L-a)/L",
+          "result": "reactions"
+        },
+        {
+          "node_id": 15,
+          "dof": 1,
+          "value": 5265.0,
+          "label": "Roller reaction",
+          "formula": "P*a/L",
+          "result": "reactions"
+        },
+        {
+          "node_id": 1,
+          "dof": 5,
+          "value": -0.0003420211919212018,
+          "label": "Left support slope",
+          "formula": "-Pb(L\u00b2-b\u00b2)/(6LEI)",
+          "result": "displacements"
+        },
+        {
+          "node_id": 15,
+          "dof": 5,
+          "value": 0.00029528537687606855,
+          "label": "Right support slope",
+          "formula": "Pa(L\u00b2-a\u00b2)/(6LEI)",
+          "result": "displacements"
+        }
+      ],
+      "analytical_modal": [
+        {
+          "mode": 1,
+          "frequency_hz": 10.68661089473869,
+          "tolerance": 0.02,
+          "formula": "\u03c0/(2L\u00b2)*sqrt(EI/(\u03c1m A))",
+          "label": "Continuum first frequency"
+        }
+      ],
+      "node_order": "ascending IDs",
+      "shear_deformation": false,
+      "reference_sources": [
+        "Gere and Timoshenko, Mechanics of Materials: beam and bar formulas",
+        "Clough and Penzien, Dynamics of Structures: beam vibration and discrete chains"
+      ],
+      "length": 8.5,
+      "segments": 14,
+      "load": 13500.0,
+      "uniform_load": 3050.0,
+      "mass_model": "lumped translational self-mass",
+      "point_location": 3.315
+    }
+  },
+  {
+    "id": "041_simply_supported_udl_v1",
+    "family": "simply_supported_udl",
+    "variant": 1,
+    "mf_file": "cases\\041_simply_supported_udl_v1\\041_simply_supported_udl_v1.mf",
+    "spec": {
+      "family": "simply_supported_udl",
+      "variant": 1,
+      "analytical_static": [
+        {
+          "node_id": 4,
+          "dof": 1,
+          "value": -2.8019755066336198e-05,
+          "label": "Simply supported center displacement",
+          "formula": "-5qL\u2074/(384EI)",
+          "result": "displacements"
+        },
+        {
+          "node_id": 1,
+          "dof": 5,
+          "value": -2.9887738737425277e-05,
+          "label": "Support slope",
+          "formula": "-qL\u00b3/(24EI)",
+          "result": "displacements"
+        },
+        {
+          "node_id": 1,
+          "dof": 1,
+          "value": 3075.0,
+          "label": "Support reaction",
+          "formula": "qL/2",
+          "result": "reactions"
+        }
+      ],
+      "analytical_modal": [
+        {
+          "mode": 1,
+          "frequency_hz": 72.47893012844341,
+          "tolerance": 0.02,
+          "formula": "\u03c0/(2L\u00b2)*sqrt(EI/(\u03c1m A))",
+          "label": "Continuum first frequency"
+        }
+      ],
+      "node_order": "ascending IDs",
+      "shear_deformation": false,
+      "reference_sources": [
+        "Gere and Timoshenko, Mechanics of Materials: beam and bar formulas",
+        "Clough and Penzien, Dynamics of Structures: beam vibration and discrete chains"
+      ],
+      "length": 3.0,
+      "segments": 6,
+      "load": 8300.0,
+      "uniform_load": 2050.0,
+      "mass_model": "lumped translational self-mass"
+    }
+  },
+  {
+    "id": "042_simply_supported_udl_v2",
+    "family": "simply_supported_udl",
+    "variant": 2,
+    "mf_file": "cases\\042_simply_supported_udl_v2\\042_simply_supported_udl_v2.mf",
+    "spec": {
+      "family": "simply_supported_udl",
+      "variant": 2,
+      "analytical_static": [
+        {
+          "node_id": 5,
+          "dof": 1,
+          "value": -0.0002212602212602211,
+          "label": "Simply supported center displacement",
+          "formula": "-5qL\u2074/(384EI)",
+          "result": "displacements"
+        },
+        {
+          "node_id": 1,
+          "dof": 5,
+          "value": -0.00017700817700817687,
+          "label": "Support slope",
+          "formula": "-qL\u00b3/(24EI)",
+          "result": "displacements"
+        },
+        {
+          "node_id": 1,
+          "dof": 1,
+          "value": 4600.0,
+          "label": "Support reaction",
+          "formula": "qL/2",
+          "result": "reactions"
+        }
+      ],
+      "analytical_modal": [
+        {
+          "mode": 1,
+          "frequency_hz": 43.29100459409418,
+          "tolerance": 0.02,
+          "formula": "\u03c0/(2L\u00b2)*sqrt(EI/(\u03c1m A))",
+          "label": "Continuum first frequency"
+        }
+      ],
+      "node_order": "ascending IDs",
+      "shear_deformation": false,
+      "reference_sources": [
+        "Gere and Timoshenko, Mechanics of Materials: beam and bar formulas",
+        "Clough and Penzien, Dynamics of Structures: beam vibration and discrete chains"
+      ],
+      "length": 4.0,
+      "segments": 8,
+      "load": 9600.0,
+      "uniform_load": 2300.0,
+      "mass_model": "lumped translational self-mass"
+    }
+  },
+  {
+    "id": "043_simply_supported_udl_v3",
+    "family": "simply_supported_udl",
+    "variant": 3,
+    "mf_file": "cases\\043_simply_supported_udl_v3\\043_simply_supported_udl_v3.mf",
+    "spec": {
+      "family": "simply_supported_udl",
+      "variant": 3,
+      "analytical_static": [
+        {
+          "node_id": 6,
+          "dof": 1,
+          "value": -0.0016201185947875133,
+          "label": "Simply supported center displacement",
+          "formula": "-5qL\u2074/(384EI)",
+          "result": "displacements"
+        },
+        {
+          "node_id": 1,
+          "dof": 5,
+          "value": -0.0009426144551490987,
+          "label": "Support slope",
+          "formula": "-qL\u00b3/(24EI)",
+          "result": "displacements"
+        },
+        {
+          "node_id": 1,
+          "dof": 1,
+          "value": 7012.5,
+          "label": "Support reaction",
+          "formula": "qL/2",
+          "result": "reactions"
+        }
+      ],
+      "analytical_modal": [
+        {
+          "mode": 1,
+          "frequency_hz": 16.69434696285071,
+          "tolerance": 0.02,
+          "formula": "\u03c0/(2L\u00b2)*sqrt(EI/(\u03c1m A))",
+          "label": "Continuum first frequency"
+        }
+      ],
+      "node_order": "ascending IDs",
+      "shear_deformation": false,
+      "reference_sources": [
+        "Gere and Timoshenko, Mechanics of Materials: beam and bar formulas",
+        "Clough and Penzien, Dynamics of Structures: beam vibration and discrete chains"
+      ],
+      "length": 5.5,
+      "segments": 10,
+      "load": 10900.0,
+      "uniform_load": 2550.0,
+      "mass_model": "lumped translational self-mass"
+    }
+  },
+  {
+    "id": "044_simply_supported_udl_v4",
+    "family": "simply_supported_udl",
+    "variant": 4,
+    "mf_file": "cases\\044_simply_supported_udl_v4\\044_simply_supported_udl_v4.mf",
+    "spec": {
+      "family": "simply_supported_udl",
+      "variant": 4,
+      "analytical_static": [
+        {
+          "node_id": 7,
+          "dof": 1,
+          "value": -0.0005353474706091785,
+          "label": "Simply supported center displacement",
+          "formula": "-5qL\u2074/(384EI)",
+          "result": "displacements"
+        },
+        {
+          "node_id": 1,
+          "dof": 5,
+          "value": -0.0002447302722784816,
+          "label": "Support slope",
+          "formula": "-qL\u00b3/(24EI)",
+          "result": "displacements"
+        },
+        {
+          "node_id": 1,
+          "dof": 1,
+          "value": 9800.0,
+          "label": "Support reaction",
+          "formula": "qL/2",
+          "result": "reactions"
+        }
+      ],
+      "analytical_modal": [
+        {
+          "mode": 1,
+          "frequency_hz": 15.795083744567764,
+          "tolerance": 0.02,
+          "formula": "\u03c0/(2L\u00b2)*sqrt(EI/(\u03c1m A))",
+          "label": "Continuum first frequency"
+        }
+      ],
+      "node_order": "ascending IDs",
+      "shear_deformation": false,
+      "reference_sources": [
+        "Gere and Timoshenko, Mechanics of Materials: beam and bar formulas",
+        "Clough and Penzien, Dynamics of Structures: beam vibration and discrete chains"
+      ],
+      "length": 7.0,
+      "segments": 12,
+      "load": 12200.0,
+      "uniform_load": 2800.0,
+      "mass_model": "lumped translational self-mass"
+    }
+  },
+  {
+    "id": "045_simply_supported_udl_v5",
+    "family": "simply_supported_udl",
+    "variant": 5,
+    "mf_file": "cases\\045_simply_supported_udl_v5\\045_simply_supported_udl_v5.mf",
+    "spec": {
+      "family": "simply_supported_udl",
+      "variant": 5,
+      "analytical_static": [
+        {
+          "node_id": 8,
+          "dof": 1,
+          "value": -0.00113874543950822,
+          "label": "Simply supported center displacement",
+          "formula": "-5qL\u2074/(384EI)",
+          "result": "displacements"
+        },
+        {
+          "node_id": 1,
+          "dof": 5,
+          "value": -0.0004287041654619181,
+          "label": "Support slope",
+          "formula": "-qL\u00b3/(24EI)",
+          "result": "displacements"
+        },
+        {
+          "node_id": 1,
+          "dof": 1,
+          "value": 12962.5,
+          "label": "Support reaction",
+          "formula": "qL/2",
+          "result": "reactions"
+        }
+      ],
+      "analytical_modal": [
+        {
+          "mode": 1,
+          "frequency_hz": 10.68661089473869,
+          "tolerance": 0.02,
+          "formula": "\u03c0/(2L\u00b2)*sqrt(EI/(\u03c1m A))",
+          "label": "Continuum first frequency"
+        }
+      ],
+      "node_order": "ascending IDs",
+      "shear_deformation": false,
+      "reference_sources": [
+        "Gere and Timoshenko, Mechanics of Materials: beam and bar formulas",
+        "Clough and Penzien, Dynamics of Structures: beam vibration and discrete chains"
+      ],
+      "length": 8.5,
+      "segments": 14,
+      "load": 13500.0,
+      "uniform_load": 3050.0,
+      "mass_model": "lumped translational self-mass"
+    }
+  },
+  {
+    "id": "046_fixed_fixed_point_v1",
+    "family": "fixed_fixed_point",
+    "variant": 1,
+    "mf_file": "cases\\046_fixed_fixed_point_v1\\046_fixed_fixed_point_v1.mf",
+    "spec": {
+      "family": "fixed_fixed_point",
+      "variant": 1,
+      "analytical_static": [
+        {
+          "node_id": 4,
+          "dof": 1,
+          "value": -1.5126111678087184e-05,
+          "label": "Fixed beam center displacement",
+          "formula": "-PL\u00b3/(192EI)",
+          "result": "displacements"
+        },
+        {
+          "node_id": 1,
+          "dof": 1,
+          "value": 4150.0,
+          "label": "Fixed beam shear",
+          "formula": "P/2",
+          "result": "reactions"
+        },
+        {
+          "node_id": 1,
+          "dof": 5,
+          "value": 3112.5,
+          "label": "Fixed beam root moment",
+          "formula": "PL/8",
+          "result": "reactions"
+        }
+      ],
+      "analytical_modal": [
+        {
+          "mode": 1,
+          "frequency_hz": 164.30159982448464,
+          "tolerance": 0.03,
+          "formula": "\u03b21\u00b2/(2\u03c0L\u00b2)*sqrt(EI/(\u03c1m A)), \u03b21=4.7300407449",
+          "label": "Continuum first frequency"
+        }
+      ],
+      "node_order": "ascending IDs",
+      "shear_deformation": false,
+      "reference_sources": [
+        "Gere and Timoshenko, Mechanics of Materials: beam and bar formulas",
+        "Clough and Penzien, Dynamics of Structures: beam vibration and discrete chains"
+      ],
+      "length": 3.0,
+      "segments": 6,
+      "load": 8300.0,
+      "uniform_load": 2050.0,
+      "mass_model": "lumped translational self-mass"
+    }
+  },
+  {
+    "id": "047_fixed_fixed_point_v2",
+    "family": "fixed_fixed_point",
+    "variant": 2,
+    "mf_file": "cases\\047_fixed_fixed_point_v2\\047_fixed_fixed_point_v2.mf",
+    "spec": {
+      "family": "fixed_fixed_point",
+      "variant": 2,
+      "analytical_static": [
+        {
+          "node_id": 5,
+          "dof": 1,
+          "value": -9.235209235209228e-05,
+          "label": "Fixed beam center displacement",
+          "formula": "-PL\u00b3/(192EI)",
+          "result": "displacements"
+        },
+        {
+          "node_id": 1,
+          "dof": 1,
+          "value": 4800.0,
+          "label": "Fixed beam shear",
+          "formula": "P/2",
+          "result": "reactions"
+        },
+        {
+          "node_id": 1,
+          "dof": 5,
+          "value": 4800.0,
+          "label": "Fixed beam root moment",
+          "formula": "PL/8",
+          "result": "reactions"
+        }
+      ],
+      "analytical_modal": [
+        {
+          "mode": 1,
+          "frequency_hz": 98.13584858680841,
+          "tolerance": 0.03,
+          "formula": "\u03b21\u00b2/(2\u03c0L\u00b2)*sqrt(EI/(\u03c1m A)), \u03b21=4.7300407449",
+          "label": "Continuum first frequency"
+        }
+      ],
+      "node_order": "ascending IDs",
+      "shear_deformation": false,
+      "reference_sources": [
+        "Gere and Timoshenko, Mechanics of Materials: beam and bar formulas",
+        "Clough and Penzien, Dynamics of Structures: beam vibration and discrete chains"
+      ],
+      "length": 4.0,
+      "segments": 8,
+      "load": 9600.0,
+      "uniform_load": 2300.0,
+      "mass_model": "lumped translational self-mass"
+    }
+  },
+  {
+    "id": "048_fixed_fixed_point_v3",
+    "family": "fixed_fixed_point",
+    "variant": 3,
+    "mf_file": "cases\\048_fixed_fixed_point_v3\\048_fixed_fixed_point_v3.mf",
+    "spec": {
+      "family": "fixed_fixed_point",
+      "variant": 3,
+      "analytical_static": [
+        {
+          "node_id": 6,
+          "dof": 1,
+          "value": -0.0005036518412316263,
+          "label": "Fixed beam center displacement",
+          "formula": "-PL\u00b3/(192EI)",
+          "result": "displacements"
+        },
+        {
+          "node_id": 1,
+          "dof": 1,
+          "value": 5450.0,
+          "label": "Fixed beam shear",
+          "formula": "P/2",
+          "result": "reactions"
+        },
+        {
+          "node_id": 1,
+          "dof": 5,
+          "value": 7493.75,
+          "label": "Fixed beam root moment",
+          "formula": "PL/8",
+          "result": "reactions"
+        }
+      ],
+      "analytical_modal": [
+        {
+          "mode": 1,
+          "frequency_hz": 37.844210850802554,
+          "tolerance": 0.03,
+          "formula": "\u03b21\u00b2/(2\u03c0L\u00b2)*sqrt(EI/(\u03c1m A)), \u03b21=4.7300407449",
+          "label": "Continuum first frequency"
+        }
+      ],
+      "node_order": "ascending IDs",
+      "shear_deformation": false,
+      "reference_sources": [
+        "Gere and Timoshenko, Mechanics of Materials: beam and bar formulas",
+        "Clough and Penzien, Dynamics of Structures: beam vibration and discrete chains"
+      ],
+      "length": 5.5,
+      "segments": 10,
+      "load": 10900.0,
+      "uniform_load": 2550.0,
+      "mass_model": "lumped translational self-mass"
+    }
+  },
+  {
+    "id": "049_fixed_fixed_point_v4",
+    "family": "fixed_fixed_point",
+    "variant": 4,
+    "mf_file": "cases\\049_fixed_fixed_point_v4\\049_fixed_fixed_point_v4.mf",
+    "spec": {
+      "family": "fixed_fixed_point",
+      "variant": 4,
+      "analytical_static": [
+        {
+          "node_id": 7,
+          "dof": 1,
+          "value": -0.00013329059472310157,
+          "label": "Fixed beam center displacement",
+          "formula": "-PL\u00b3/(192EI)",
+          "result": "displacements"
+        },
+        {
+          "node_id": 1,
+          "dof": 1,
+          "value": 6100.0,
+          "label": "Fixed beam shear",
+          "formula": "P/2",
+          "result": "reactions"
+        },
+        {
+          "node_id": 1,
+          "dof": 5,
+          "value": 10675.0,
+          "label": "Fixed beam root moment",
+          "formula": "PL/8",
+          "result": "reactions"
+        }
+      ],
+      "analytical_modal": [
+        {
+          "mode": 1,
+          "frequency_hz": 35.805682065052444,
+          "tolerance": 0.03,
+          "formula": "\u03b21\u00b2/(2\u03c0L\u00b2)*sqrt(EI/(\u03c1m A)), \u03b21=4.7300407449",
+          "label": "Continuum first frequency"
+        }
+      ],
+      "node_order": "ascending IDs",
+      "shear_deformation": false,
+      "reference_sources": [
+        "Gere and Timoshenko, Mechanics of Materials: beam and bar formulas",
+        "Clough and Penzien, Dynamics of Structures: beam vibration and discrete chains"
+      ],
+      "length": 7.0,
+      "segments": 12,
+      "load": 12200.0,
+      "uniform_load": 2800.0,
+      "mass_model": "lumped translational self-mass"
+    }
+  },
+  {
+    "id": "050_fixed_fixed_point_v5",
+    "family": "fixed_fixed_point",
+    "variant": 5,
+    "mf_file": "cases\\050_fixed_fixed_point_v5\\050_fixed_fixed_point_v5.mf",
+    "spec": {
+      "family": "fixed_fixed_point",
+      "variant": 5,
+      "analytical_static": [
+        {
+          "node_id": 8,
+          "dof": 1,
+          "value": -0.00023719287843179896,
+          "label": "Fixed beam center displacement",
+          "formula": "-PL\u00b3/(192EI)",
+          "result": "displacements"
+        },
+        {
+          "node_id": 1,
+          "dof": 1,
+          "value": 6750.0,
+          "label": "Fixed beam shear",
+          "formula": "P/2",
+          "result": "reactions"
+        },
+        {
+          "node_id": 1,
+          "dof": 5,
+          "value": 14343.75,
+          "label": "Fixed beam root moment",
+          "formula": "PL/8",
+          "result": "reactions"
+        }
+      ],
+      "analytical_modal": [
+        {
+          "mode": 1,
+          "frequency_hz": 24.225347471268517,
+          "tolerance": 0.03,
+          "formula": "\u03b21\u00b2/(2\u03c0L\u00b2)*sqrt(EI/(\u03c1m A)), \u03b21=4.7300407449",
+          "label": "Continuum first frequency"
+        }
+      ],
+      "node_order": "ascending IDs",
+      "shear_deformation": false,
+      "reference_sources": [
+        "Gere and Timoshenko, Mechanics of Materials: beam and bar formulas",
+        "Clough and Penzien, Dynamics of Structures: beam vibration and discrete chains"
+      ],
+      "length": 8.5,
+      "segments": 14,
+      "load": 13500.0,
+      "uniform_load": 3050.0,
+      "mass_model": "lumped translational self-mass"
+    }
+  },
+  {
+    "id": "051_fixed_fixed_udl_v1",
+    "family": "fixed_fixed_udl",
+    "variant": 1,
+    "mf_file": "cases\\051_fixed_fixed_udl_v1\\051_fixed_fixed_udl_v1.mf",
+    "spec": {
+      "family": "fixed_fixed_udl",
+      "variant": 1,
+      "analytical_static": [
+        {
+          "node_id": 4,
+          "dof": 1,
+          "value": -5.603951013267239e-06,
+          "label": "Fixed beam center displacement",
+          "formula": "-qL\u2074/(384EI)",
+          "result": "displacements"
+        },
+        {
+          "node_id": 1,
+          "dof": 5,
+          "value": 1537.5,
+          "label": "Fixed beam root moment",
+          "formula": "qL\u00b2/12",
+          "result": "reactions"
+        }
+      ],
+      "analytical_modal": [
+        {
+          "mode": 1,
+          "frequency_hz": 164.30159982448464,
+          "tolerance": 0.03,
+          "formula": "\u03b21\u00b2/(2\u03c0L\u00b2)*sqrt(EI/(\u03c1m A)), \u03b21=4.7300407449",
+          "label": "Continuum first frequency"
+        }
+      ],
+      "node_order": "ascending IDs",
+      "shear_deformation": false,
+      "reference_sources": [
+        "Gere and Timoshenko, Mechanics of Materials: beam and bar formulas",
+        "Clough and Penzien, Dynamics of Structures: beam vibration and discrete chains"
+      ],
+      "length": 3.0,
+      "segments": 6,
+      "load": 8300.0,
+      "uniform_load": 2050.0,
+      "mass_model": "lumped translational self-mass"
+    }
+  },
+  {
+    "id": "052_fixed_fixed_udl_v2",
+    "family": "fixed_fixed_udl",
+    "variant": 2,
+    "mf_file": "cases\\052_fixed_fixed_udl_v2\\052_fixed_fixed_udl_v2.mf",
+    "spec": {
+      "family": "fixed_fixed_udl",
+      "variant": 2,
+      "analytical_static": [
+        {
+          "node_id": 5,
+          "dof": 1,
+          "value": -4.425204425204422e-05,
+          "label": "Fixed beam center displacement",
+          "formula": "-qL\u2074/(384EI)",
+          "result": "displacements"
+        },
+        {
+          "node_id": 1,
+          "dof": 5,
+          "value": 3066.6666666666665,
+          "label": "Fixed beam root moment",
+          "formula": "qL\u00b2/12",
+          "result": "reactions"
+        }
+      ],
+      "analytical_modal": [
+        {
+          "mode": 1,
+          "frequency_hz": 98.13584858680841,
+          "tolerance": 0.03,
+          "formula": "\u03b21\u00b2/(2\u03c0L\u00b2)*sqrt(EI/(\u03c1m A)), \u03b21=4.7300407449",
+          "label": "Continuum first frequency"
+        }
+      ],
+      "node_order": "ascending IDs",
+      "shear_deformation": false,
+      "reference_sources": [
+        "Gere and Timoshenko, Mechanics of Materials: beam and bar formulas",
+        "Clough and Penzien, Dynamics of Structures: beam vibration and discrete chains"
+      ],
+      "length": 4.0,
+      "segments": 8,
+      "load": 9600.0,
+      "uniform_load": 2300.0,
+      "mass_model": "lumped translational self-mass"
+    }
+  },
+  {
+    "id": "053_fixed_fixed_udl_v3",
+    "family": "fixed_fixed_udl",
+    "variant": 3,
+    "mf_file": "cases\\053_fixed_fixed_udl_v3\\053_fixed_fixed_udl_v3.mf",
+    "spec": {
+      "family": "fixed_fixed_udl",
+      "variant": 3,
+      "analytical_static": [
+        {
+          "node_id": 6,
+          "dof": 1,
+          "value": -0.00032402371895750263,
+          "label": "Fixed beam center displacement",
+          "formula": "-qL\u2074/(384EI)",
+          "result": "displacements"
+        },
+        {
+          "node_id": 1,
+          "dof": 5,
+          "value": 6428.125,
+          "label": "Fixed beam root moment",
+          "formula": "qL\u00b2/12",
+          "result": "reactions"
+        }
+      ],
+      "analytical_modal": [
+        {
+          "mode": 1,
+          "frequency_hz": 37.844210850802554,
+          "tolerance": 0.03,
+          "formula": "\u03b21\u00b2/(2\u03c0L\u00b2)*sqrt(EI/(\u03c1m A)), \u03b21=4.7300407449",
+          "label": "Continuum first frequency"
+        }
+      ],
+      "node_order": "ascending IDs",
+      "shear_deformation": false,
+      "reference_sources": [
+        "Gere and Timoshenko, Mechanics of Materials: beam and bar formulas",
+        "Clough and Penzien, Dynamics of Structures: beam vibration and discrete chains"
+      ],
+      "length": 5.5,
+      "segments": 10,
+      "load": 10900.0,
+      "uniform_load": 2550.0,
+      "mass_model": "lumped translational self-mass"
+    }
+  },
+  {
+    "id": "054_fixed_fixed_udl_v4",
+    "family": "fixed_fixed_udl",
+    "variant": 4,
+    "mf_file": "cases\\054_fixed_fixed_udl_v4\\054_fixed_fixed_udl_v4.mf",
+    "spec": {
+      "family": "fixed_fixed_udl",
+      "variant": 4,
+      "analytical_static": [
+        {
+          "node_id": 7,
+          "dof": 1,
+          "value": -0.0001070694941218357,
+          "label": "Fixed beam center displacement",
+          "formula": "-qL\u2074/(384EI)",
+          "result": "displacements"
+        },
+        {
+          "node_id": 1,
+          "dof": 5,
+          "value": 11433.333333333334,
+          "label": "Fixed beam root moment",
+          "formula": "qL\u00b2/12",
+          "result": "reactions"
+        }
+      ],
+      "analytical_modal": [
+        {
+          "mode": 1,
+          "frequency_hz": 35.805682065052444,
+          "tolerance": 0.03,
+          "formula": "\u03b21\u00b2/(2\u03c0L\u00b2)*sqrt(EI/(\u03c1m A)), \u03b21=4.7300407449",
+          "label": "Continuum first frequency"
+        }
+      ],
+      "node_order": "ascending IDs",
+      "shear_deformation": false,
+      "reference_sources": [
+        "Gere and Timoshenko, Mechanics of Materials: beam and bar formulas",
+        "Clough and Penzien, Dynamics of Structures: beam vibration and discrete chains"
+      ],
+      "length": 7.0,
+      "segments": 12,
+      "load": 12200.0,
+      "uniform_load": 2800.0,
+      "mass_model": "lumped translational self-mass"
+    }
+  },
+  {
+    "id": "055_fixed_fixed_udl_v5",
+    "family": "fixed_fixed_udl",
+    "variant": 5,
+    "mf_file": "cases\\055_fixed_fixed_udl_v5\\055_fixed_fixed_udl_v5.mf",
+    "spec": {
+      "family": "fixed_fixed_udl",
+      "variant": 5,
+      "analytical_static": [
+        {
+          "node_id": 8,
+          "dof": 1,
+          "value": -0.00022774908790164402,
+          "label": "Fixed beam center displacement",
+          "formula": "-qL\u2074/(384EI)",
+          "result": "displacements"
+        },
+        {
+          "node_id": 1,
+          "dof": 5,
+          "value": 18363.541666666668,
+          "label": "Fixed beam root moment",
+          "formula": "qL\u00b2/12",
+          "result": "reactions"
+        }
+      ],
+      "analytical_modal": [
+        {
+          "mode": 1,
+          "frequency_hz": 24.225347471268517,
+          "tolerance": 0.03,
+          "formula": "\u03b21\u00b2/(2\u03c0L\u00b2)*sqrt(EI/(\u03c1m A)), \u03b21=4.7300407449",
+          "label": "Continuum first frequency"
+        }
+      ],
+      "node_order": "ascending IDs",
+      "shear_deformation": false,
+      "reference_sources": [
+        "Gere and Timoshenko, Mechanics of Materials: beam and bar formulas",
+        "Clough and Penzien, Dynamics of Structures: beam vibration and discrete chains"
+      ],
+      "length": 8.5,
+      "segments": 14,
+      "load": 13500.0,
+      "uniform_load": 3050.0,
+      "mass_model": "lumped translational self-mass"
+    }
+  },
+  {
+    "id": "056_propped_udl_v1",
+    "family": "propped_udl",
+    "variant": 1,
+    "mf_file": "cases\\056_propped_udl_v1\\056_propped_udl_v1.mf",
+    "spec": {
+      "family": "propped_udl",
+      "variant": 1,
+      "analytical_static": [
+        {
+          "node_id": 1,
+          "dof": 1,
+          "value": 3843.75,
+          "label": "Propped root shear",
+          "formula": "5qL/8",
+          "result": "reactions"
+        },
+        {
+          "node_id": 7,
+          "dof": 1,
+          "value": 2306.25,
+          "label": "Prop shear",
+          "formula": "3qL/8",
+          "result": "reactions"
+        },
+        {
+          "node_id": 1,
+          "dof": 5,
+          "value": 2306.25,
+          "label": "Propped root moment",
+          "formula": "qL\u00b2/8",
+          "result": "reactions"
+        }
+      ],
+      "analytical_modal": [],
+      "node_order": "ascending IDs",
+      "shear_deformation": false,
+      "reference_sources": [
+        "Gere and Timoshenko, Mechanics of Materials: beam and bar formulas",
+        "Clough and Penzien, Dynamics of Structures: beam vibration and discrete chains"
+      ],
+      "length": 3.0,
+      "segments": 6,
+      "load": 8300.0,
+      "uniform_load": 2050.0,
+      "mass_model": "lumped translational self-mass"
+    }
+  },
+  {
+    "id": "057_propped_udl_v2",
+    "family": "propped_udl",
+    "variant": 2,
+    "mf_file": "cases\\057_propped_udl_v2\\057_propped_udl_v2.mf",
+    "spec": {
+      "family": "propped_udl",
+      "variant": 2,
+      "analytical_static": [
+        {
+          "node_id": 1,
+          "dof": 1,
+          "value": 5750.0,
+          "label": "Propped root shear",
+          "formula": "5qL/8",
+          "result": "reactions"
+        },
+        {
+          "node_id": 9,
+          "dof": 1,
+          "value": 3450.0,
+          "label": "Prop shear",
+          "formula": "3qL/8",
+          "result": "reactions"
+        },
+        {
+          "node_id": 1,
+          "dof": 5,
+          "value": 4600.0,
+          "label": "Propped root moment",
+          "formula": "qL\u00b2/8",
+          "result": "reactions"
+        }
+      ],
+      "analytical_modal": [],
+      "node_order": "ascending IDs",
+      "shear_deformation": false,
+      "reference_sources": [
+        "Gere and Timoshenko, Mechanics of Materials: beam and bar formulas",
+        "Clough and Penzien, Dynamics of Structures: beam vibration and discrete chains"
+      ],
+      "length": 4.0,
+      "segments": 8,
+      "load": 9600.0,
+      "uniform_load": 2300.0,
+      "mass_model": "lumped translational self-mass"
+    }
+  },
+  {
+    "id": "058_propped_udl_v3",
+    "family": "propped_udl",
+    "variant": 3,
+    "mf_file": "cases\\058_propped_udl_v3\\058_propped_udl_v3.mf",
+    "spec": {
+      "family": "propped_udl",
+      "variant": 3,
+      "analytical_static": [
+        {
+          "node_id": 1,
+          "dof": 1,
+          "value": 8765.625,
+          "label": "Propped root shear",
+          "formula": "5qL/8",
+          "result": "reactions"
+        },
+        {
+          "node_id": 11,
+          "dof": 1,
+          "value": 5259.375,
+          "label": "Prop shear",
+          "formula": "3qL/8",
+          "result": "reactions"
+        },
+        {
+          "node_id": 1,
+          "dof": 5,
+          "value": 9642.1875,
+          "label": "Propped root moment",
+          "formula": "qL\u00b2/8",
+          "result": "reactions"
+        }
+      ],
+      "analytical_modal": [],
+      "node_order": "ascending IDs",
+      "shear_deformation": false,
+      "reference_sources": [
+        "Gere and Timoshenko, Mechanics of Materials: beam and bar formulas",
+        "Clough and Penzien, Dynamics of Structures: beam vibration and discrete chains"
+      ],
+      "length": 5.5,
+      "segments": 10,
+      "load": 10900.0,
+      "uniform_load": 2550.0,
+      "mass_model": "lumped translational self-mass"
+    }
+  },
+  {
+    "id": "059_propped_udl_v4",
+    "family": "propped_udl",
+    "variant": 4,
+    "mf_file": "cases\\059_propped_udl_v4\\059_propped_udl_v4.mf",
+    "spec": {
+      "family": "propped_udl",
+      "variant": 4,
+      "analytical_static": [
+        {
+          "node_id": 1,
+          "dof": 1,
+          "value": 12250.0,
+          "label": "Propped root shear",
+          "formula": "5qL/8",
+          "result": "reactions"
+        },
+        {
+          "node_id": 13,
+          "dof": 1,
+          "value": 7350.0,
+          "label": "Prop shear",
+          "formula": "3qL/8",
+          "result": "reactions"
+        },
+        {
+          "node_id": 1,
+          "dof": 5,
+          "value": 17150.0,
+          "label": "Propped root moment",
+          "formula": "qL\u00b2/8",
+          "result": "reactions"
+        }
+      ],
+      "analytical_modal": [],
+      "node_order": "ascending IDs",
+      "shear_deformation": false,
+      "reference_sources": [
+        "Gere and Timoshenko, Mechanics of Materials: beam and bar formulas",
+        "Clough and Penzien, Dynamics of Structures: beam vibration and discrete chains"
+      ],
+      "length": 7.0,
+      "segments": 12,
+      "load": 12200.0,
+      "uniform_load": 2800.0,
+      "mass_model": "lumped translational self-mass"
+    }
+  },
+  {
+    "id": "060_propped_udl_v5",
+    "family": "propped_udl",
+    "variant": 5,
+    "mf_file": "cases\\060_propped_udl_v5\\060_propped_udl_v5.mf",
+    "spec": {
+      "family": "propped_udl",
+      "variant": 5,
+      "analytical_static": [
+        {
+          "node_id": 1,
+          "dof": 1,
+          "value": 16203.125,
+          "label": "Propped root shear",
+          "formula": "5qL/8",
+          "result": "reactions"
+        },
+        {
+          "node_id": 15,
+          "dof": 1,
+          "value": 9721.875,
+          "label": "Prop shear",
+          "formula": "3qL/8",
+          "result": "reactions"
+        },
+        {
+          "node_id": 1,
+          "dof": 5,
+          "value": 27545.3125,
+          "label": "Propped root moment",
+          "formula": "qL\u00b2/8",
+          "result": "reactions"
+        }
+      ],
+      "analytical_modal": [],
+      "node_order": "ascending IDs",
+      "shear_deformation": false,
+      "reference_sources": [
+        "Gere and Timoshenko, Mechanics of Materials: beam and bar formulas",
+        "Clough and Penzien, Dynamics of Structures: beam vibration and discrete chains"
+      ],
+      "length": 8.5,
+      "segments": 14,
+      "load": 13500.0,
+      "uniform_load": 3050.0,
+      "mass_model": "lumped translational self-mass"
+    }
+  },
+  {
+    "id": "061_continuous_two_span_v1",
+    "family": "continuous_two_span",
+    "variant": 1,
+    "mf_file": "cases\\061_continuous_two_span_v1\\061_continuous_two_span_v1.mf",
+    "spec": {
+      "family": "continuous_two_span",
+      "variant": 1,
+      "analytical_static": [
+        {
+          "node_id": 1,
+          "dof": 1,
+          "value": 1153.125,
+          "label": "Two-span UDL support reaction",
+          "formula": "[3/8,5/4,3/8]*q*span",
+          "result": "reactions"
+        },
+        {
+          "node_id": 4,
+          "dof": 1,
+          "value": 3843.75,
+          "label": "Two-span UDL support reaction",
+          "formula": "[3/8,5/4,3/8]*q*span",
+          "result": "reactions"
+        },
+        {
+          "node_id": 7,
+          "dof": 1,
+          "value": 1153.125,
+          "label": "Two-span UDL support reaction",
+          "formula": "[3/8,5/4,3/8]*q*span",
+          "result": "reactions"
+        }
+      ],
+      "analytical_modal": [],
+      "node_order": "ascending IDs",
+      "shear_deformation": false,
+      "reference_sources": [
+        "Gere and Timoshenko, Mechanics of Materials: beam and bar formulas",
+        "Clough and Penzien, Dynamics of Structures: beam vibration and discrete chains"
+      ],
+      "length": 3.0,
+      "segments": 6,
+      "load": 8300.0,
+      "uniform_load": 2050.0,
+      "mass_model": "lumped translational self-mass"
+    }
+  },
+  {
+    "id": "062_continuous_two_span_v2",
+    "family": "continuous_two_span",
+    "variant": 2,
+    "mf_file": "cases\\062_continuous_two_span_v2\\062_continuous_two_span_v2.mf",
+    "spec": {
+      "family": "continuous_two_span",
+      "variant": 2,
+      "analytical_static": [
+        {
+          "node_id": 1,
+          "dof": 1,
+          "value": 1725.0,
+          "label": "Two-span UDL support reaction",
+          "formula": "[3/8,5/4,3/8]*q*span",
+          "result": "reactions"
+        },
+        {
+          "node_id": 5,
+          "dof": 1,
+          "value": 5750.0,
+          "label": "Two-span UDL support reaction",
+          "formula": "[3/8,5/4,3/8]*q*span",
+          "result": "reactions"
+        },
+        {
+          "node_id": 9,
+          "dof": 1,
+          "value": 1725.0,
+          "label": "Two-span UDL support reaction",
+          "formula": "[3/8,5/4,3/8]*q*span",
+          "result": "reactions"
+        }
+      ],
+      "analytical_modal": [],
+      "node_order": "ascending IDs",
+      "shear_deformation": false,
+      "reference_sources": [
+        "Gere and Timoshenko, Mechanics of Materials: beam and bar formulas",
+        "Clough and Penzien, Dynamics of Structures: beam vibration and discrete chains"
+      ],
+      "length": 4.0,
+      "segments": 8,
+      "load": 9600.0,
+      "uniform_load": 2300.0,
+      "mass_model": "lumped translational self-mass"
+    }
+  },
+  {
+    "id": "063_continuous_two_span_v3",
+    "family": "continuous_two_span",
+    "variant": 3,
+    "mf_file": "cases\\063_continuous_two_span_v3\\063_continuous_two_span_v3.mf",
+    "spec": {
+      "family": "continuous_two_span",
+      "variant": 3,
+      "analytical_static": [
+        {
+          "node_id": 1,
+          "dof": 1,
+          "value": 2629.6875,
+          "label": "Two-span UDL support reaction",
+          "formula": "[3/8,5/4,3/8]*q*span",
+          "result": "reactions"
+        },
+        {
+          "node_id": 6,
+          "dof": 1,
+          "value": 8765.625,
+          "label": "Two-span UDL support reaction",
+          "formula": "[3/8,5/4,3/8]*q*span",
+          "result": "reactions"
+        },
+        {
+          "node_id": 11,
+          "dof": 1,
+          "value": 2629.6875,
+          "label": "Two-span UDL support reaction",
+          "formula": "[3/8,5/4,3/8]*q*span",
+          "result": "reactions"
+        }
+      ],
+      "analytical_modal": [],
+      "node_order": "ascending IDs",
+      "shear_deformation": false,
+      "reference_sources": [
+        "Gere and Timoshenko, Mechanics of Materials: beam and bar formulas",
+        "Clough and Penzien, Dynamics of Structures: beam vibration and discrete chains"
+      ],
+      "length": 5.5,
+      "segments": 10,
+      "load": 10900.0,
+      "uniform_load": 2550.0,
+      "mass_model": "lumped translational self-mass"
+    }
+  },
+  {
+    "id": "064_continuous_two_span_v4",
+    "family": "continuous_two_span",
+    "variant": 4,
+    "mf_file": "cases\\064_continuous_two_span_v4\\064_continuous_two_span_v4.mf",
+    "spec": {
+      "family": "continuous_two_span",
+      "variant": 4,
+      "analytical_static": [
+        {
+          "node_id": 1,
+          "dof": 1,
+          "value": 3675.0,
+          "label": "Two-span UDL support reaction",
+          "formula": "[3/8,5/4,3/8]*q*span",
+          "result": "reactions"
+        },
+        {
+          "node_id": 7,
+          "dof": 1,
+          "value": 12250.0,
+          "label": "Two-span UDL support reaction",
+          "formula": "[3/8,5/4,3/8]*q*span",
+          "result": "reactions"
+        },
+        {
+          "node_id": 13,
+          "dof": 1,
+          "value": 3675.0,
+          "label": "Two-span UDL support reaction",
+          "formula": "[3/8,5/4,3/8]*q*span",
+          "result": "reactions"
+        }
+      ],
+      "analytical_modal": [],
+      "node_order": "ascending IDs",
+      "shear_deformation": false,
+      "reference_sources": [
+        "Gere and Timoshenko, Mechanics of Materials: beam and bar formulas",
+        "Clough and Penzien, Dynamics of Structures: beam vibration and discrete chains"
+      ],
+      "length": 7.0,
+      "segments": 12,
+      "load": 12200.0,
+      "uniform_load": 2800.0,
+      "mass_model": "lumped translational self-mass"
+    }
+  },
+  {
+    "id": "065_continuous_two_span_v5",
+    "family": "continuous_two_span",
+    "variant": 5,
+    "mf_file": "cases\\065_continuous_two_span_v5\\065_continuous_two_span_v5.mf",
+    "spec": {
+      "family": "continuous_two_span",
+      "variant": 5,
+      "analytical_static": [
+        {
+          "node_id": 1,
+          "dof": 1,
+          "value": 4860.9375,
+          "label": "Two-span UDL support reaction",
+          "formula": "[3/8,5/4,3/8]*q*span",
+          "result": "reactions"
+        },
+        {
+          "node_id": 8,
+          "dof": 1,
+          "value": 16203.125,
+          "label": "Two-span UDL support reaction",
+          "formula": "[3/8,5/4,3/8]*q*span",
+          "result": "reactions"
+        },
+        {
+          "node_id": 15,
+          "dof": 1,
+          "value": 4860.9375,
+          "label": "Two-span UDL support reaction",
+          "formula": "[3/8,5/4,3/8]*q*span",
+          "result": "reactions"
+        }
+      ],
+      "analytical_modal": [],
+      "node_order": "ascending IDs",
+      "shear_deformation": false,
+      "reference_sources": [
+        "Gere and Timoshenko, Mechanics of Materials: beam and bar formulas",
+        "Clough and Penzien, Dynamics of Structures: beam vibration and discrete chains"
+      ],
+      "length": 8.5,
+      "segments": 14,
+      "load": 13500.0,
+      "uniform_load": 3050.0,
+      "mass_model": "lumped translational self-mass"
+    }
+  },
+  {
+    "id": "066_rigid_portal_v1",
+    "family": "rigid_portal",
+    "variant": 1,
+    "mf_file": "cases\\066_rigid_portal_v1\\066_rigid_portal_v1.mf",
+    "spec": {
+      "family": "rigid_portal",
+      "variant": 1,
+      "analytical_static": [],
+      "analytical_modal": [],
+      "node_order": "ascending IDs",
+      "shear_deformation": false,
+      "reference_sources": [
+        "Gere and Timoshenko, Mechanics of Materials: beam and bar formulas",
+        "Clough and Penzien, Dynamics of Structures: beam vibration and discrete chains"
+      ],
+      "description": "1-story planar frame with lateral load and beam UDL",
+      "width": 3.0,
+      "height": 2.5,
+      "segments_per_member": 2,
+      "load": 10000.0,
+      "reference_method": "independent force-flexibility assembled frame solution"
+    }
+  },
+  {
+    "id": "067_rigid_portal_v2",
+    "family": "rigid_portal",
+    "variant": 2,
+    "mf_file": "cases\\067_rigid_portal_v2\\067_rigid_portal_v2.mf",
+    "spec": {
+      "family": "rigid_portal",
+      "variant": 2,
+      "analytical_static": [],
+      "analytical_modal": [],
+      "node_order": "ascending IDs",
+      "shear_deformation": false,
+      "reference_sources": [
+        "Gere and Timoshenko, Mechanics of Materials: beam and bar formulas",
+        "Clough and Penzien, Dynamics of Structures: beam vibration and discrete chains"
+      ],
+      "description": "1-story planar frame with lateral load and beam UDL",
+      "width": 4.0,
+      "height": 3.0,
+      "segments_per_member": 3,
+      "load": 12000.0,
+      "reference_method": "independent force-flexibility assembled frame solution"
+    }
+  },
+  {
+    "id": "068_rigid_portal_v3",
+    "family": "rigid_portal",
+    "variant": 3,
+    "mf_file": "cases\\068_rigid_portal_v3\\068_rigid_portal_v3.mf",
+    "spec": {
+      "family": "rigid_portal",
+      "variant": 3,
+      "analytical_static": [],
+      "analytical_modal": [],
+      "node_order": "ascending IDs",
+      "shear_deformation": false,
+      "reference_sources": [
+        "Gere and Timoshenko, Mechanics of Materials: beam and bar formulas",
+        "Clough and Penzien, Dynamics of Structures: beam vibration and discrete chains"
+      ],
+      "description": "1-story planar frame with lateral load and beam UDL",
+      "width": 5.0,
+      "height": 3.5,
+      "segments_per_member": 4,
+      "load": 14000.0,
+      "reference_method": "independent force-flexibility assembled frame solution"
+    }
+  },
+  {
+    "id": "069_rigid_portal_v4",
+    "family": "rigid_portal",
+    "variant": 4,
+    "mf_file": "cases\\069_rigid_portal_v4\\069_rigid_portal_v4.mf",
+    "spec": {
+      "family": "rigid_portal",
+      "variant": 4,
+      "analytical_static": [],
+      "analytical_modal": [],
+      "node_order": "ascending IDs",
+      "shear_deformation": false,
+      "reference_sources": [
+        "Gere and Timoshenko, Mechanics of Materials: beam and bar formulas",
+        "Clough and Penzien, Dynamics of Structures: beam vibration and discrete chains"
+      ],
+      "description": "1-story planar frame with lateral load and beam UDL",
+      "width": 6.5,
+      "height": 4.0,
+      "segments_per_member": 5,
+      "load": 16000.0,
+      "reference_method": "independent force-flexibility assembled frame solution"
+    }
+  },
+  {
+    "id": "070_rigid_portal_v5",
+    "family": "rigid_portal",
+    "variant": 5,
+    "mf_file": "cases\\070_rigid_portal_v5\\070_rigid_portal_v5.mf",
+    "spec": {
+      "family": "rigid_portal",
+      "variant": 5,
+      "analytical_static": [],
+      "analytical_modal": [],
+      "node_order": "ascending IDs",
+      "shear_deformation": false,
+      "reference_sources": [
+        "Gere and Timoshenko, Mechanics of Materials: beam and bar formulas",
+        "Clough and Penzien, Dynamics of Structures: beam vibration and discrete chains"
+      ],
+      "description": "1-story planar frame with lateral load and beam UDL",
+      "width": 8.0,
+      "height": 4.5,
+      "segments_per_member": 6,
+      "load": 18000.0,
+      "reference_method": "independent force-flexibility assembled frame solution"
+    }
+  },
+  {
+    "id": "071_pinned_base_portal_v1",
+    "family": "pinned_base_portal",
+    "variant": 1,
+    "mf_file": "cases\\071_pinned_base_portal_v1\\071_pinned_base_portal_v1.mf",
+    "spec": {
+      "family": "pinned_base_portal",
+      "variant": 1,
+      "analytical_static": [],
+      "analytical_modal": [],
+      "node_order": "ascending IDs",
+      "shear_deformation": false,
+      "reference_sources": [
+        "Gere and Timoshenko, Mechanics of Materials: beam and bar formulas",
+        "Clough and Penzien, Dynamics of Structures: beam vibration and discrete chains"
+      ],
+      "description": "1-story planar frame with lateral load",
+      "width": 3.0,
+      "height": 2.5,
+      "segments_per_member": 2,
+      "load": 10000.0,
+      "reference_method": "independent force-flexibility assembled frame solution"
+    }
+  },
+  {
+    "id": "072_pinned_base_portal_v2",
+    "family": "pinned_base_portal",
+    "variant": 2,
+    "mf_file": "cases\\072_pinned_base_portal_v2\\072_pinned_base_portal_v2.mf",
+    "spec": {
+      "family": "pinned_base_portal",
+      "variant": 2,
+      "analytical_static": [],
+      "analytical_modal": [],
+      "node_order": "ascending IDs",
+      "shear_deformation": false,
+      "reference_sources": [
+        "Gere and Timoshenko, Mechanics of Materials: beam and bar formulas",
+        "Clough and Penzien, Dynamics of Structures: beam vibration and discrete chains"
+      ],
+      "description": "1-story planar frame with lateral load",
+      "width": 4.0,
+      "height": 3.0,
+      "segments_per_member": 3,
+      "load": 12000.0,
+      "reference_method": "independent force-flexibility assembled frame solution"
+    }
+  },
+  {
+    "id": "073_pinned_base_portal_v3",
+    "family": "pinned_base_portal",
+    "variant": 3,
+    "mf_file": "cases\\073_pinned_base_portal_v3\\073_pinned_base_portal_v3.mf",
+    "spec": {
+      "family": "pinned_base_portal",
+      "variant": 3,
+      "analytical_static": [],
+      "analytical_modal": [],
+      "node_order": "ascending IDs",
+      "shear_deformation": false,
+      "reference_sources": [
+        "Gere and Timoshenko, Mechanics of Materials: beam and bar formulas",
+        "Clough and Penzien, Dynamics of Structures: beam vibration and discrete chains"
+      ],
+      "description": "1-story planar frame with lateral load",
+      "width": 5.0,
+      "height": 3.5,
+      "segments_per_member": 4,
+      "load": 14000.0,
+      "reference_method": "independent force-flexibility assembled frame solution"
+    }
+  },
+  {
+    "id": "074_pinned_base_portal_v4",
+    "family": "pinned_base_portal",
+    "variant": 4,
+    "mf_file": "cases\\074_pinned_base_portal_v4\\074_pinned_base_portal_v4.mf",
+    "spec": {
+      "family": "pinned_base_portal",
+      "variant": 4,
+      "analytical_static": [],
+      "analytical_modal": [],
+      "node_order": "ascending IDs",
+      "shear_deformation": false,
+      "reference_sources": [
+        "Gere and Timoshenko, Mechanics of Materials: beam and bar formulas",
+        "Clough and Penzien, Dynamics of Structures: beam vibration and discrete chains"
+      ],
+      "description": "1-story planar frame with lateral load",
+      "width": 6.5,
+      "height": 4.0,
+      "segments_per_member": 5,
+      "load": 16000.0,
+      "reference_method": "independent force-flexibility assembled frame solution"
+    }
+  },
+  {
+    "id": "075_pinned_base_portal_v5",
+    "family": "pinned_base_portal",
+    "variant": 5,
+    "mf_file": "cases\\075_pinned_base_portal_v5\\075_pinned_base_portal_v5.mf",
+    "spec": {
+      "family": "pinned_base_portal",
+      "variant": 5,
+      "analytical_static": [],
+      "analytical_modal": [],
+      "node_order": "ascending IDs",
+      "shear_deformation": false,
+      "reference_sources": [
+        "Gere and Timoshenko, Mechanics of Materials: beam and bar formulas",
+        "Clough and Penzien, Dynamics of Structures: beam vibration and discrete chains"
+      ],
+      "description": "1-story planar frame with lateral load",
+      "width": 8.0,
+      "height": 4.5,
+      "segments_per_member": 6,
+      "load": 18000.0,
+      "reference_method": "independent force-flexibility assembled frame solution"
+    }
+  },
+  {
+    "id": "076_released_beam_portal_v1",
+    "family": "released_beam_portal",
+    "variant": 1,
+    "mf_file": "cases\\076_released_beam_portal_v1\\076_released_beam_portal_v1.mf",
+    "spec": {
+      "family": "released_beam_portal",
+      "variant": 1,
+      "analytical_static": [
+        {
+          "node_id": 4,
+          "dof": 0,
+          "value": 0.0003374857581010081,
+          "label": "Released portal sway",
+          "formula": "(P/2)H\u00b3/(3EI33)",
+          "result": "displacements"
+        },
+        {
+          "node_id": 6,
+          "dof": 0,
+          "value": 0.0003374857581010081,
+          "label": "Released portal sway",
+          "formula": "(P/2)H\u00b3/(3EI33)",
+          "result": "displacements"
+        }
+      ],
+      "analytical_modal": [],
+      "node_order": "ascending IDs",
+      "shear_deformation": false,
+      "reference_sources": [
+        "Gere and Timoshenko, Mechanics of Materials: beam and bar formulas",
+        "Clough and Penzien, Dynamics of Structures: beam vibration and discrete chains"
+      ],
+      "description": "1-story planar frame with lateral load",
+      "width": 3.0,
+      "height": 2.5,
+      "segments_per_member": 2,
+      "load": 10000.0,
+      "reference_method": "independent force-flexibility assembled frame solution"
+    }
+  },
+  {
+    "id": "077_released_beam_portal_v2",
+    "family": "released_beam_portal",
+    "variant": 2,
+    "mf_file": "cases\\077_released_beam_portal_v2\\077_released_beam_portal_v2.mf",
+    "spec": {
+      "family": "released_beam_portal",
+      "variant": 2,
+      "analytical_static": [
+        {
+          "node_id": 5,
+          "dof": 0,
+          "value": 0.0015584415584415574,
+          "label": "Released portal sway",
+          "formula": "(P/2)H\u00b3/(3EI33)",
+          "result": "displacements"
+        },
+        {
+          "node_id": 8,
+          "dof": 0,
+          "value": 0.0015584415584415574,
+          "label": "Released portal sway",
+          "formula": "(P/2)H\u00b3/(3EI33)",
+          "result": "displacements"
+        }
+      ],
+      "analytical_modal": [],
+      "node_order": "ascending IDs",
+      "shear_deformation": false,
+      "reference_sources": [
+        "Gere and Timoshenko, Mechanics of Materials: beam and bar formulas",
+        "Clough and Penzien, Dynamics of Structures: beam vibration and discrete chains"
+      ],
+      "description": "1-story planar frame with lateral load",
+      "width": 4.0,
+      "height": 3.0,
+      "segments_per_member": 3,
+      "load": 12000.0,
+      "reference_method": "independent force-flexibility assembled frame solution"
+    }
+  },
+  {
+    "id": "078_released_beam_portal_v3",
+    "family": "released_beam_portal",
+    "variant": 3,
+    "mf_file": "cases\\078_released_beam_portal_v3\\078_released_beam_portal_v3.mf",
+    "spec": {
+      "family": "released_beam_portal",
+      "variant": 3,
+      "analytical_static": [
+        {
+          "node_id": 6,
+          "dof": 0,
+          "value": 0.0053345526596555405,
+          "label": "Released portal sway",
+          "formula": "(P/2)H\u00b3/(3EI33)",
+          "result": "displacements"
+        },
+        {
+          "node_id": 10,
+          "dof": 0,
+          "value": 0.0053345526596555405,
+          "label": "Released portal sway",
+          "formula": "(P/2)H\u00b3/(3EI33)",
+          "result": "displacements"
+        }
+      ],
+      "analytical_modal": [],
+      "node_order": "ascending IDs",
+      "shear_deformation": false,
+      "reference_sources": [
+        "Gere and Timoshenko, Mechanics of Materials: beam and bar formulas",
+        "Clough and Penzien, Dynamics of Structures: beam vibration and discrete chains"
+      ],
+      "description": "1-story planar frame with lateral load",
+      "width": 5.0,
+      "height": 3.5,
+      "segments_per_member": 4,
+      "load": 14000.0,
+      "reference_method": "independent force-flexibility assembled frame solution"
+    }
+  },
+  {
+    "id": "079_released_beam_portal_v4",
+    "family": "released_beam_portal",
+    "variant": 4,
+    "mf_file": "cases\\079_released_beam_portal_v4\\079_released_beam_portal_v4.mf",
+    "spec": {
+      "family": "released_beam_portal",
+      "variant": 4,
+      "analytical_static": [
+        {
+          "node_id": 7,
+          "dof": 0,
+          "value": 0.0010437476002214292,
+          "label": "Released portal sway",
+          "formula": "(P/2)H\u00b3/(3EI33)",
+          "result": "displacements"
+        },
+        {
+          "node_id": 12,
+          "dof": 0,
+          "value": 0.0010437476002214292,
+          "label": "Released portal sway",
+          "formula": "(P/2)H\u00b3/(3EI33)",
+          "result": "displacements"
+        }
+      ],
+      "analytical_modal": [],
+      "node_order": "ascending IDs",
+      "shear_deformation": false,
+      "reference_sources": [
+        "Gere and Timoshenko, Mechanics of Materials: beam and bar formulas",
+        "Clough and Penzien, Dynamics of Structures: beam vibration and discrete chains"
+      ],
+      "description": "1-story planar frame with lateral load",
+      "width": 6.5,
+      "height": 4.0,
+      "segments_per_member": 5,
+      "load": 16000.0,
+      "reference_method": "independent force-flexibility assembled frame solution"
+    }
+  },
+  {
+    "id": "080_released_beam_portal_v5",
+    "family": "released_beam_portal",
+    "variant": 5,
+    "mf_file": "cases\\080_released_beam_portal_v5\\080_released_beam_portal_v5.mf",
+    "spec": {
+      "family": "released_beam_portal",
+      "variant": 5,
+      "analytical_static": [
+        {
+          "node_id": 8,
+          "dof": 0,
+          "value": 0.0015016583127911002,
+          "label": "Released portal sway",
+          "formula": "(P/2)H\u00b3/(3EI33)",
+          "result": "displacements"
+        },
+        {
+          "node_id": 14,
+          "dof": 0,
+          "value": 0.0015016583127911002,
+          "label": "Released portal sway",
+          "formula": "(P/2)H\u00b3/(3EI33)",
+          "result": "displacements"
+        }
+      ],
+      "analytical_modal": [],
+      "node_order": "ascending IDs",
+      "shear_deformation": false,
+      "reference_sources": [
+        "Gere and Timoshenko, Mechanics of Materials: beam and bar formulas",
+        "Clough and Penzien, Dynamics of Structures: beam vibration and discrete chains"
+      ],
+      "description": "1-story planar frame with lateral load",
+      "width": 8.0,
+      "height": 4.5,
+      "segments_per_member": 6,
+      "load": 18000.0,
+      "reference_method": "independent force-flexibility assembled frame solution"
+    }
+  },
+  {
+    "id": "081_two_story_frame_v1",
+    "family": "two_story_frame",
+    "variant": 1,
+    "mf_file": "cases\\081_two_story_frame_v1\\081_two_story_frame_v1.mf",
+    "spec": {
+      "family": "two_story_frame",
+      "variant": 1,
+      "analytical_static": [],
+      "analytical_modal": [],
+      "node_order": "ascending IDs",
+      "shear_deformation": false,
+      "reference_sources": [
+        "Gere and Timoshenko, Mechanics of Materials: beam and bar formulas",
+        "Clough and Penzien, Dynamics of Structures: beam vibration and discrete chains"
+      ],
+      "description": "2-story planar frame with lateral load and beam UDL",
+      "width": 3.0,
+      "height": 2.5,
+      "segments_per_member": 2,
+      "load": 10000.0,
+      "reference_method": "independent force-flexibility assembled frame solution"
+    }
+  },
+  {
+    "id": "082_two_story_frame_v2",
+    "family": "two_story_frame",
+    "variant": 2,
+    "mf_file": "cases\\082_two_story_frame_v2\\082_two_story_frame_v2.mf",
+    "spec": {
+      "family": "two_story_frame",
+      "variant": 2,
+      "analytical_static": [],
+      "analytical_modal": [],
+      "node_order": "ascending IDs",
+      "shear_deformation": false,
+      "reference_sources": [
+        "Gere and Timoshenko, Mechanics of Materials: beam and bar formulas",
+        "Clough and Penzien, Dynamics of Structures: beam vibration and discrete chains"
+      ],
+      "description": "2-story planar frame with lateral load and beam UDL",
+      "width": 4.0,
+      "height": 3.0,
+      "segments_per_member": 3,
+      "load": 12000.0,
+      "reference_method": "independent force-flexibility assembled frame solution"
+    }
+  },
+  {
+    "id": "083_two_story_frame_v3",
+    "family": "two_story_frame",
+    "variant": 3,
+    "mf_file": "cases\\083_two_story_frame_v3\\083_two_story_frame_v3.mf",
+    "spec": {
+      "family": "two_story_frame",
+      "variant": 3,
+      "analytical_static": [],
+      "analytical_modal": [],
+      "node_order": "ascending IDs",
+      "shear_deformation": false,
+      "reference_sources": [
+        "Gere and Timoshenko, Mechanics of Materials: beam and bar formulas",
+        "Clough and Penzien, Dynamics of Structures: beam vibration and discrete chains"
+      ],
+      "description": "2-story planar frame with lateral load and beam UDL",
+      "width": 5.0,
+      "height": 3.5,
+      "segments_per_member": 4,
+      "load": 14000.0,
+      "reference_method": "independent force-flexibility assembled frame solution"
+    }
+  },
+  {
+    "id": "084_two_story_frame_v4",
+    "family": "two_story_frame",
+    "variant": 4,
+    "mf_file": "cases\\084_two_story_frame_v4\\084_two_story_frame_v4.mf",
+    "spec": {
+      "family": "two_story_frame",
+      "variant": 4,
+      "analytical_static": [],
+      "analytical_modal": [],
+      "node_order": "ascending IDs",
+      "shear_deformation": false,
+      "reference_sources": [
+        "Gere and Timoshenko, Mechanics of Materials: beam and bar formulas",
+        "Clough and Penzien, Dynamics of Structures: beam vibration and discrete chains"
+      ],
+      "description": "2-story planar frame with lateral load and beam UDL",
+      "width": 6.5,
+      "height": 4.0,
+      "segments_per_member": 5,
+      "load": 16000.0,
+      "reference_method": "independent force-flexibility assembled frame solution"
+    }
+  },
+  {
+    "id": "085_two_story_frame_v5",
+    "family": "two_story_frame",
+    "variant": 5,
+    "mf_file": "cases\\085_two_story_frame_v5\\085_two_story_frame_v5.mf",
+    "spec": {
+      "family": "two_story_frame",
+      "variant": 5,
+      "analytical_static": [],
+      "analytical_modal": [],
+      "node_order": "reversed input records; physical IDs/connectivity unchanged",
+      "shear_deformation": false,
+      "reference_sources": [
+        "Gere and Timoshenko, Mechanics of Materials: beam and bar formulas",
+        "Clough and Penzien, Dynamics of Structures: beam vibration and discrete chains"
+      ],
+      "description": "2-story planar frame with lateral load and beam UDL",
+      "width": 8.0,
+      "height": 4.5,
+      "segments_per_member": 6,
+      "load": 18000.0,
+      "reference_method": "independent force-flexibility assembled frame solution"
+    }
+  },
+  {
+    "id": "086_space_frame_v1",
+    "family": "space_frame",
+    "variant": 1,
+    "mf_file": "cases\\086_space_frame_v1\\086_space_frame_v1.mf",
+    "spec": {
+      "family": "space_frame",
+      "variant": 1,
+      "analytical_static": [],
+      "analytical_modal": [],
+      "node_order": "ascending IDs",
+      "shear_deformation": false,
+      "reference_sources": [
+        "Gere and Timoshenko, Mechanics of Materials: beam and bar formulas",
+        "Clough and Penzien, Dynamics of Structures: beam vibration and discrete chains"
+      ],
+      "depth": 1.92,
+      "description": "3D four-column roof frame; biaxial lateral and gravity loading",
+      "width": 3.0,
+      "height": 2.5,
+      "segments_per_member": 2,
+      "load": 10000.0,
+      "reference_method": "independent force-flexibility assembled frame solution"
+    }
+  },
+  {
+    "id": "087_space_frame_v2",
+    "family": "space_frame",
+    "variant": 2,
+    "mf_file": "cases\\087_space_frame_v2\\087_space_frame_v2.mf",
+    "spec": {
+      "family": "space_frame",
+      "variant": 2,
+      "analytical_static": [],
+      "analytical_modal": [],
+      "node_order": "ascending IDs",
+      "shear_deformation": false,
+      "reference_sources": [
+        "Gere and Timoshenko, Mechanics of Materials: beam and bar formulas",
+        "Clough and Penzien, Dynamics of Structures: beam vibration and discrete chains"
+      ],
+      "depth": 2.7199999999999998,
+      "description": "3D four-column roof frame; biaxial lateral and gravity loading",
+      "width": 4.0,
+      "height": 3.0,
+      "segments_per_member": 3,
+      "load": 12000.0,
+      "reference_method": "independent force-flexibility assembled frame solution"
+    }
+  },
+  {
+    "id": "088_space_frame_v3",
+    "family": "space_frame",
+    "variant": 3,
+    "mf_file": "cases\\088_space_frame_v3\\088_space_frame_v3.mf",
+    "spec": {
+      "family": "space_frame",
+      "variant": 3,
+      "analytical_static": [],
+      "analytical_modal": [],
+      "node_order": "ascending IDs",
+      "shear_deformation": false,
+      "reference_sources": [
+        "Gere and Timoshenko, Mechanics of Materials: beam and bar formulas",
+        "Clough and Penzien, Dynamics of Structures: beam vibration and discrete chains"
+      ],
+      "depth": 3.5999999999999996,
+      "description": "3D four-column roof frame; biaxial lateral and gravity loading",
+      "width": 5.0,
+      "height": 3.5,
+      "segments_per_member": 4,
+      "load": 14000.0,
+      "reference_method": "independent force-flexibility assembled frame solution"
+    }
+  },
+  {
+    "id": "089_space_frame_v4",
+    "family": "space_frame",
+    "variant": 4,
+    "mf_file": "cases\\089_space_frame_v4\\089_space_frame_v4.mf",
+    "spec": {
+      "family": "space_frame",
+      "variant": 4,
+      "analytical_static": [],
+      "analytical_modal": [],
+      "node_order": "ascending IDs",
+      "shear_deformation": false,
+      "reference_sources": [
+        "Gere and Timoshenko, Mechanics of Materials: beam and bar formulas",
+        "Clough and Penzien, Dynamics of Structures: beam vibration and discrete chains"
+      ],
+      "depth": 4.94,
+      "description": "3D four-column roof frame; biaxial lateral and gravity loading",
+      "width": 6.5,
+      "height": 4.0,
+      "segments_per_member": 5,
+      "load": 16000.0,
+      "reference_method": "independent force-flexibility assembled frame solution"
+    }
+  },
+  {
+    "id": "090_space_frame_v5",
+    "family": "space_frame",
+    "variant": 5,
+    "mf_file": "cases\\090_space_frame_v5\\090_space_frame_v5.mf",
+    "spec": {
+      "family": "space_frame",
+      "variant": 5,
+      "analytical_static": [],
+      "analytical_modal": [],
+      "node_order": "ascending IDs",
+      "shear_deformation": false,
+      "reference_sources": [
+        "Gere and Timoshenko, Mechanics of Materials: beam and bar formulas",
+        "Clough and Penzien, Dynamics of Structures: beam vibration and discrete chains"
+      ],
+      "depth": 6.4,
+      "description": "3D four-column roof frame; biaxial lateral and gravity loading",
+      "width": 8.0,
+      "height": 4.5,
+      "segments_per_member": 6,
+      "load": 18000.0,
+      "reference_method": "independent force-flexibility assembled frame solution"
+    }
+  },
+  {
+    "id": "091_stepped_axial_chain_v1",
+    "family": "stepped_axial_chain",
+    "variant": 1,
+    "mf_file": "cases\\091_stepped_axial_chain_v1\\091_stepped_axial_chain_v1.mf",
+    "spec": {
+      "family": "stepped_axial_chain",
+      "variant": 1,
+      "analytical_static": [
+        {
+          "node_id": 7,
+          "dof": 0,
+          "value": 2.6063422445001398e-06,
+          "label": "Stepped bar tip displacement",
+          "formula": "P \u03a3(Li/(Ei Ai))",
+          "result": "displacements"
+        },
+        {
+          "node_id": 1,
+          "dof": 0,
+          "value": -10000.0,
+          "label": "Axial root reaction",
+          "formula": "-P",
+          "result": "reactions"
+        }
+      ],
+      "analytical_modal": [],
+      "node_order": "ascending IDs",
+      "shear_deformation": false,
+      "reference_sources": [
+        "Gere and Timoshenko, Mechanics of Materials: beam and bar formulas",
+        "Clough and Penzien, Dynamics of Structures: beam vibration and discrete chains"
+      ],
+      "length": 2.5,
+      "segments": 6,
+      "load": 10000.0,
+      "mass_model": "self-mass from each stepped gross area"
+    }
+  },
+  {
+    "id": "092_stepped_axial_chain_v2",
+    "family": "stepped_axial_chain",
+    "variant": 2,
+    "mf_file": "cases\\092_stepped_axial_chain_v2\\092_stepped_axial_chain_v2.mf",
+    "spec": {
+      "family": "stepped_axial_chain",
+      "variant": 2,
+      "analytical_static": [
+        {
+          "node_id": 9,
+          "dof": 0,
+          "value": 8.60615079365079e-06,
+          "label": "Stepped bar tip displacement",
+          "formula": "P \u03a3(Li/(Ei Ai))",
+          "result": "displacements"
+        },
+        {
+          "node_id": 1,
+          "dof": 0,
+          "value": -11000.0,
+          "label": "Axial root reaction",
+          "formula": "-P",
+          "result": "reactions"
+        }
+      ],
+      "analytical_modal": [],
+      "node_order": "ascending IDs",
+      "shear_deformation": false,
+      "reference_sources": [
+        "Gere and Timoshenko, Mechanics of Materials: beam and bar formulas",
+        "Clough and Penzien, Dynamics of Structures: beam vibration and discrete chains"
+      ],
+      "length": 3.5,
+      "segments": 8,
+      "load": 11000.0,
+      "mass_model": "self-mass from each stepped gross area"
+    }
+  },
+  {
+    "id": "093_stepped_axial_chain_v3",
+    "family": "stepped_axial_chain",
+    "variant": 3,
+    "mf_file": "cases\\093_stepped_axial_chain_v3\\093_stepped_axial_chain_v3.mf",
+    "spec": {
+      "family": "stepped_axial_chain",
+      "variant": 3,
+      "analytical_static": [
+        {
+          "node_id": 11,
+          "dof": 0,
+          "value": 2.8911564625850335e-05,
+          "label": "Stepped bar tip displacement",
+          "formula": "P \u03a3(Li/(Ei Ai))",
+          "result": "displacements"
+        },
+        {
+          "node_id": 1,
+          "dof": 0,
+          "value": -12000.0,
+          "label": "Axial root reaction",
+          "formula": "-P",
+          "result": "reactions"
+        }
+      ],
+      "analytical_modal": [],
+      "node_order": "ascending IDs",
+      "shear_deformation": false,
+      "reference_sources": [
+        "Gere and Timoshenko, Mechanics of Materials: beam and bar formulas",
+        "Clough and Penzien, Dynamics of Structures: beam vibration and discrete chains"
+      ],
+      "length": 5.0,
+      "segments": 10,
+      "load": 12000.0,
+      "mass_model": "self-mass from each stepped gross area"
+    }
+  },
+  {
+    "id": "094_stepped_axial_chain_v4",
+    "family": "stepped_axial_chain",
+    "variant": 4,
+    "mf_file": "cases\\094_stepped_axial_chain_v4\\094_stepped_axial_chain_v4.mf",
+    "spec": {
+      "family": "stepped_axial_chain",
+      "variant": 4,
+      "analytical_static": [
+        {
+          "node_id": 13,
+          "dof": 0,
+          "value": 4.60386174671889e-06,
+          "label": "Stepped bar tip displacement",
+          "formula": "P \u03a3(Li/(Ei Ai))",
+          "result": "displacements"
+        },
+        {
+          "node_id": 1,
+          "dof": 0,
+          "value": -13000.0,
+          "label": "Axial root reaction",
+          "formula": "-P",
+          "result": "reactions"
+        }
+      ],
+      "analytical_modal": [],
+      "node_order": "ascending IDs",
+      "shear_deformation": false,
+      "reference_sources": [
+        "Gere and Timoshenko, Mechanics of Materials: beam and bar formulas",
+        "Clough and Penzien, Dynamics of Structures: beam vibration and discrete chains"
+      ],
+      "length": 6.0,
+      "segments": 12,
+      "load": 13000.0,
+      "mass_model": "self-mass from each stepped gross area"
+    }
+  },
+  {
+    "id": "095_stepped_axial_chain_v5",
+    "family": "stepped_axial_chain",
+    "variant": 5,
+    "mf_file": "cases\\095_stepped_axial_chain_v5\\095_stepped_axial_chain_v5.mf",
+    "spec": {
+      "family": "stepped_axial_chain",
+      "variant": 5,
+      "analytical_static": [
+        {
+          "node_id": 15,
+          "dof": 0,
+          "value": 6.781965265129696e-06,
+          "label": "Stepped bar tip displacement",
+          "formula": "P \u03a3(Li/(Ei Ai))",
+          "result": "displacements"
+        },
+        {
+          "node_id": 1,
+          "dof": 0,
+          "value": -14000.0,
+          "label": "Axial root reaction",
+          "formula": "-P",
+          "result": "reactions"
+        }
+      ],
+      "analytical_modal": [],
+      "node_order": "ascending IDs",
+      "shear_deformation": false,
+      "reference_sources": [
+        "Gere and Timoshenko, Mechanics of Materials: beam and bar formulas",
+        "Clough and Penzien, Dynamics of Structures: beam vibration and discrete chains"
+      ],
+      "length": 8.0,
+      "segments": 14,
+      "load": 14000.0,
+      "mass_model": "self-mass from each stepped gross area"
+    }
+  },
+  {
+    "id": "096_elastic_support_beam_v1",
+    "family": "elastic_support_beam",
+    "variant": 1,
+    "mf_file": "cases\\096_elastic_support_beam_v1\\096_elastic_support_beam_v1.mf",
+    "spec": {
+      "family": "elastic_support_beam",
+      "variant": 1,
+      "analytical_static": [
+        {
+          "node_id": 7,
+          "dof": 1,
+          "value": -0.00020744381729948135,
+          "label": "Elastic roller settlement",
+          "formula": "-P/(2k)",
+          "result": "displacements"
+        },
+        {
+          "node_id": 1,
+          "dof": 1,
+          "value": 4150.0,
+          "label": "Left reaction",
+          "formula": "P/2",
+          "result": "reactions"
+        },
+        {
+          "node_id": 7,
+          "dof": 1,
+          "value": 4150.0,
+          "label": "Spring reaction",
+          "formula": "P/2",
+          "result": "reactions"
+        }
+      ],
+      "analytical_modal": [],
+      "node_order": "ascending IDs",
+      "shear_deformation": false,
+      "reference_sources": [
+        "Gere and Timoshenko, Mechanics of Materials: beam and bar formulas",
+        "Clough and Penzien, Dynamics of Structures: beam vibration and discrete chains"
+      ],
+      "length": 3.0,
+      "segments": 6,
+      "load": 8300.0,
+      "uniform_load": 2050.0,
+      "mass_model": "lumped translational self-mass",
+      "support_stiffness": 20005416.66666667
+    }
+  },
+  {
+    "id": "097_elastic_support_beam_v2",
+    "family": "elastic_support_beam",
+    "variant": 2,
+    "mf_file": "cases\\097_elastic_support_beam_v2\\097_elastic_support_beam_v2.mf",
+    "spec": {
+      "family": "elastic_support_beam",
+      "variant": 2,
+      "analytical_static": [
+        {
+          "node_id": 9,
+          "dof": 1,
+          "value": -0.0011082251082251075,
+          "label": "Elastic roller settlement",
+          "formula": "-P/(2k)",
+          "result": "displacements"
+        },
+        {
+          "node_id": 1,
+          "dof": 1,
+          "value": 4800.0,
+          "label": "Left reaction",
+          "formula": "P/2",
+          "result": "reactions"
+        },
+        {
+          "node_id": 9,
+          "dof": 1,
+          "value": 4800.0,
+          "label": "Spring reaction",
+          "formula": "P/2",
+          "result": "reactions"
+        }
+      ],
+      "analytical_modal": [],
+      "node_order": "ascending IDs",
+      "shear_deformation": false,
+      "reference_sources": [
+        "Gere and Timoshenko, Mechanics of Materials: beam and bar formulas",
+        "Clough and Penzien, Dynamics of Structures: beam vibration and discrete chains"
+      ],
+      "length": 4.0,
+      "segments": 8,
+      "load": 9600.0,
+      "uniform_load": 2300.0,
+      "mass_model": "lumped translational self-mass",
+      "support_stiffness": 4331250.000000003
+    }
+  },
+  {
+    "id": "098_elastic_support_beam_v3",
+    "family": "elastic_support_beam",
+    "variant": 3,
+    "mf_file": "cases\\098_elastic_support_beam_v3\\098_elastic_support_beam_v3.mf",
+    "spec": {
+      "family": "elastic_support_beam",
+      "variant": 3,
+      "analytical_static": [
+        {
+          "node_id": 11,
+          "dof": 1,
+          "value": -0.00537228630647068,
+          "label": "Elastic roller settlement",
+          "formula": "-P/(2k)",
+          "result": "displacements"
+        },
+        {
+          "node_id": 1,
+          "dof": 1,
+          "value": 5450.0,
+          "label": "Left reaction",
+          "formula": "P/2",
+          "result": "reactions"
+        },
+        {
+          "node_id": 11,
+          "dof": 1,
+          "value": 5450.0,
+          "label": "Spring reaction",
+          "formula": "P/2",
+          "result": "reactions"
+        }
+      ],
+      "analytical_modal": [],
+      "node_order": "ascending IDs",
+      "shear_deformation": false,
+      "reference_sources": [
+        "Gere and Timoshenko, Mechanics of Materials: beam and bar formulas",
+        "Clough and Penzien, Dynamics of Structures: beam vibration and discrete chains"
+      ],
+      "length": 5.5,
+      "segments": 10,
+      "load": 10900.0,
+      "uniform_load": 2550.0,
+      "mass_model": "lumped translational self-mass",
+      "support_stiffness": 1014465.6649135988
+    }
+  },
+  {
+    "id": "099_elastic_support_beam_v4",
+    "family": "elastic_support_beam",
+    "variant": 4,
+    "mf_file": "cases\\099_elastic_support_beam_v4\\099_elastic_support_beam_v4.mf",
+    "spec": {
+      "family": "elastic_support_beam",
+      "variant": 4,
+      "analytical_static": [
+        {
+          "node_id": 13,
+          "dof": 1,
+          "value": -0.001279589709341775,
+          "label": "Elastic roller settlement",
+          "formula": "-P/(2k)",
+          "result": "displacements"
+        },
+        {
+          "node_id": 1,
+          "dof": 1,
+          "value": 6100.0,
+          "label": "Left reaction",
+          "formula": "P/2",
+          "result": "reactions"
+        },
+        {
+          "node_id": 13,
+          "dof": 1,
+          "value": 6100.0,
+          "label": "Spring reaction",
+          "formula": "P/2",
+          "result": "reactions"
+        }
+      ],
+      "analytical_modal": [],
+      "node_order": "ascending IDs",
+      "shear_deformation": false,
+      "reference_sources": [
+        "Gere and Timoshenko, Mechanics of Materials: beam and bar formulas",
+        "Clough and Penzien, Dynamics of Structures: beam vibration and discrete chains"
+      ],
+      "length": 7.0,
+      "segments": 12,
+      "load": 12200.0,
+      "uniform_load": 2800.0,
+      "mass_model": "lumped translational self-mass",
+      "support_stiffness": 4767153.061224491
+    }
+  },
+  {
+    "id": "100_elastic_support_beam_v5",
+    "family": "elastic_support_beam",
+    "variant": 5,
+    "mf_file": "cases\\100_elastic_support_beam_v5\\100_elastic_support_beam_v5.mf",
+    "spec": {
+      "family": "elastic_support_beam",
+      "variant": 5,
+      "analytical_static": [
+        {
+          "node_id": 15,
+          "dof": 1,
+          "value": -0.0020700469390411546,
+          "label": "Elastic roller settlement",
+          "formula": "-P/(2k)",
+          "result": "displacements"
+        },
+        {
+          "node_id": 1,
+          "dof": 1,
+          "value": 6750.0,
+          "label": "Left reaction",
+          "formula": "P/2",
+          "result": "reactions"
+        },
+        {
+          "node_id": 15,
+          "dof": 1,
+          "value": 6750.0,
+          "label": "Spring reaction",
+          "formula": "P/2",
+          "result": "reactions"
+        }
+      ],
+      "analytical_modal": [],
+      "node_order": "ascending IDs",
+      "shear_deformation": false,
+      "reference_sources": [
+        "Gere and Timoshenko, Mechanics of Materials: beam and bar formulas",
+        "Clough and Penzien, Dynamics of Structures: beam vibration and discrete chains"
+      ],
+      "length": 8.5,
+      "segments": 14,
+      "load": 13500.0,
+      "uniform_load": 3050.0,
+      "mass_model": "lumped translational self-mass",
+      "support_stiffness": 3260795.6238550795
+    }
+  }
+]

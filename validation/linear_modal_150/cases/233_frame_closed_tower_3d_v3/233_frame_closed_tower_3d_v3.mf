@@ -1,0 +1,1137 @@
+{
+  "info": {
+    "name": "233_frame_closed_tower_3d_v3",
+    "units": "N, m, C",
+    "active_dofs": [
+      true,
+      true,
+      true,
+      true,
+      true,
+      true
+    ],
+    "analysis_engine": "native",
+    "last_run_case": "STATIC",
+    "show_analysis_log": true
+  },
+  "grid": {
+    "x_lines": [],
+    "y_lines": [],
+    "z_lines": []
+  },
+  "nodes": [
+    {
+      "id": 135,
+      "x": 0.0,
+      "y": 0.0,
+      "z": 0.0,
+      "restraints": [
+        true,
+        true,
+        true,
+        true,
+        true,
+        true
+      ],
+      "diaphragm": null
+    },
+    {
+      "id": 173,
+      "x": 3.6999999999999997,
+      "y": 2.8000000000000003,
+      "z": 0.0,
+      "restraints": [
+        true,
+        true,
+        true,
+        true,
+        true,
+        true
+      ],
+      "diaphragm": null
+    },
+    {
+      "id": 211,
+      "x": 0.36,
+      "y": 0.36,
+      "z": 3.1100000000000003,
+      "restraints": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
+      "diaphragm": null
+    },
+    {
+      "id": 249,
+      "x": 3.34,
+      "y": 2.4400000000000004,
+      "z": 3.1100000000000003,
+      "restraints": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
+      "diaphragm": null
+    },
+    {
+      "id": 287,
+      "x": 0.72,
+      "y": 0.72,
+      "z": 6.220000000000001,
+      "restraints": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
+      "diaphragm": null
+    },
+    {
+      "id": 325,
+      "x": 2.9799999999999995,
+      "y": 2.08,
+      "z": 6.220000000000001,
+      "restraints": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
+      "diaphragm": null
+    },
+    {
+      "id": 154,
+      "x": 3.6999999999999997,
+      "y": 0.0,
+      "z": 0.0,
+      "restraints": [
+        true,
+        true,
+        true,
+        true,
+        true,
+        true
+      ],
+      "diaphragm": null
+    },
+    {
+      "id": 192,
+      "x": 0.0,
+      "y": 2.8000000000000003,
+      "z": 0.0,
+      "restraints": [
+        true,
+        true,
+        true,
+        true,
+        true,
+        true
+      ],
+      "diaphragm": null
+    },
+    {
+      "id": 230,
+      "x": 3.34,
+      "y": 0.36,
+      "z": 3.1100000000000003,
+      "restraints": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
+      "diaphragm": null
+    },
+    {
+      "id": 268,
+      "x": 0.36,
+      "y": 2.4400000000000004,
+      "z": 3.1100000000000003,
+      "restraints": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
+      "diaphragm": null
+    },
+    {
+      "id": 306,
+      "x": 2.9799999999999995,
+      "y": 0.72,
+      "z": 6.220000000000001,
+      "restraints": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
+      "diaphragm": null
+    },
+    {
+      "id": 344,
+      "x": 0.72,
+      "y": 2.08,
+      "z": 6.220000000000001,
+      "restraints": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
+      "diaphragm": null
+    }
+  ],
+  "elements": [
+    {
+      "id": 1,
+      "n1_id": 135,
+      "n2_id": 211,
+      "sec_name": "Beam",
+      "beta": -11.0,
+      "rel_i": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
+      "rel_j": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
+      "off_i": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "off_j": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "end_off_i": 0.0,
+      "end_off_j": 0.0,
+      "rz_factor": 0.0
+    },
+    {
+      "id": 2,
+      "n1_id": 211,
+      "n2_id": 230,
+      "sec_name": "Beam",
+      "beta": -4.0,
+      "rel_i": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
+      "rel_j": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
+      "off_i": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "off_j": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "end_off_i": 0.0,
+      "end_off_j": 0.0,
+      "rz_factor": 0.0
+    },
+    {
+      "id": 3,
+      "n1_id": 154,
+      "n2_id": 230,
+      "sec_name": "Beam",
+      "beta": 3.0,
+      "rel_i": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
+      "rel_j": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
+      "off_i": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "off_j": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "end_off_i": 0.0,
+      "end_off_j": 0.0,
+      "rz_factor": 0.0
+    },
+    {
+      "id": 4,
+      "n1_id": 230,
+      "n2_id": 249,
+      "sec_name": "Beam",
+      "beta": 10.0,
+      "rel_i": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
+      "rel_j": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
+      "off_i": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "off_j": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "end_off_i": 0.0,
+      "end_off_j": 0.0,
+      "rz_factor": 0.0
+    },
+    {
+      "id": 5,
+      "n1_id": 173,
+      "n2_id": 249,
+      "sec_name": "Beam",
+      "beta": 17.0,
+      "rel_i": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
+      "rel_j": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
+      "off_i": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "off_j": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "end_off_i": 0.0,
+      "end_off_j": 0.0,
+      "rz_factor": 0.0
+    },
+    {
+      "id": 6,
+      "n1_id": 249,
+      "n2_id": 268,
+      "sec_name": "Beam",
+      "beta": 24.0,
+      "rel_i": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
+      "rel_j": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
+      "off_i": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "off_j": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "end_off_i": 0.0,
+      "end_off_j": 0.0,
+      "rz_factor": 0.0
+    },
+    {
+      "id": 7,
+      "n1_id": 192,
+      "n2_id": 268,
+      "sec_name": "Beam",
+      "beta": 31.0,
+      "rel_i": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
+      "rel_j": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
+      "off_i": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "off_j": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "end_off_i": 0.0,
+      "end_off_j": 0.0,
+      "rz_factor": 0.0
+    },
+    {
+      "id": 8,
+      "n1_id": 268,
+      "n2_id": 211,
+      "sec_name": "Beam",
+      "beta": 38.0,
+      "rel_i": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
+      "rel_j": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
+      "off_i": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "off_j": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "end_off_i": 0.0,
+      "end_off_j": 0.0,
+      "rz_factor": 0.0
+    },
+    {
+      "id": 9,
+      "n1_id": 135,
+      "n2_id": 230,
+      "sec_name": "Beam",
+      "beta": 45.0,
+      "rel_i": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
+      "rel_j": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
+      "off_i": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "off_j": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "end_off_i": 0.0,
+      "end_off_j": 0.0,
+      "rz_factor": 0.0
+    },
+    {
+      "id": 10,
+      "n1_id": 173,
+      "n2_id": 268,
+      "sec_name": "Beam",
+      "beta": -48.0,
+      "rel_i": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
+      "rel_j": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
+      "off_i": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "off_j": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "end_off_i": 0.0,
+      "end_off_j": 0.0,
+      "rz_factor": 0.0
+    },
+    {
+      "id": 11,
+      "n1_id": 211,
+      "n2_id": 287,
+      "sec_name": "Beam",
+      "beta": -41.0,
+      "rel_i": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
+      "rel_j": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
+      "off_i": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "off_j": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "end_off_i": 0.0,
+      "end_off_j": 0.0,
+      "rz_factor": 0.0
+    },
+    {
+      "id": 12,
+      "n1_id": 287,
+      "n2_id": 306,
+      "sec_name": "Beam",
+      "beta": -34.0,
+      "rel_i": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
+      "rel_j": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
+      "off_i": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "off_j": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "end_off_i": 0.0,
+      "end_off_j": 0.0,
+      "rz_factor": 0.0
+    },
+    {
+      "id": 13,
+      "n1_id": 230,
+      "n2_id": 306,
+      "sec_name": "Beam",
+      "beta": -27.0,
+      "rel_i": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
+      "rel_j": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
+      "off_i": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "off_j": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "end_off_i": 0.0,
+      "end_off_j": 0.0,
+      "rz_factor": 0.0
+    },
+    {
+      "id": 14,
+      "n1_id": 306,
+      "n2_id": 325,
+      "sec_name": "Beam",
+      "beta": -20.0,
+      "rel_i": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
+      "rel_j": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
+      "off_i": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "off_j": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "end_off_i": 0.0,
+      "end_off_j": 0.0,
+      "rz_factor": 0.0
+    },
+    {
+      "id": 15,
+      "n1_id": 249,
+      "n2_id": 325,
+      "sec_name": "Beam",
+      "beta": -13.0,
+      "rel_i": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
+      "rel_j": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
+      "off_i": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "off_j": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "end_off_i": 0.0,
+      "end_off_j": 0.0,
+      "rz_factor": 0.0
+    },
+    {
+      "id": 16,
+      "n1_id": 325,
+      "n2_id": 344,
+      "sec_name": "Beam",
+      "beta": -6.0,
+      "rel_i": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
+      "rel_j": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
+      "off_i": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "off_j": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "end_off_i": 0.0,
+      "end_off_j": 0.0,
+      "rz_factor": 0.0
+    },
+    {
+      "id": 17,
+      "n1_id": 268,
+      "n2_id": 344,
+      "sec_name": "Beam",
+      "beta": 1.0,
+      "rel_i": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
+      "rel_j": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
+      "off_i": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "off_j": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "end_off_i": 0.0,
+      "end_off_j": 0.0,
+      "rz_factor": 0.0
+    },
+    {
+      "id": 18,
+      "n1_id": 344,
+      "n2_id": 287,
+      "sec_name": "Beam",
+      "beta": 8.0,
+      "rel_i": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
+      "rel_j": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
+      "off_i": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "off_j": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "end_off_i": 0.0,
+      "end_off_j": 0.0,
+      "rz_factor": 0.0
+    },
+    {
+      "id": 19,
+      "n1_id": 211,
+      "n2_id": 306,
+      "sec_name": "Beam",
+      "beta": 15.0,
+      "rel_i": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
+      "rel_j": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
+      "off_i": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "off_j": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "end_off_i": 0.0,
+      "end_off_j": 0.0,
+      "rz_factor": 0.0
+    },
+    {
+      "id": 20,
+      "n1_id": 249,
+      "n2_id": 344,
+      "sec_name": "Beam",
+      "beta": 22.0,
+      "rel_i": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
+      "rel_j": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
+      "off_i": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "off_j": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "end_off_i": 0.0,
+      "end_off_j": 0.0,
+      "rz_factor": 0.0
+    }
+  ],
+  "materials": [
+    {
+      "name": "Elastic",
+      "type": "Concrete",
+      "E": 30000000000.0,
+      "nu": 0.2,
+      "G": 12500000000.0,
+      "rho": 23535.96
+    }
+  ],
+  "sections": [
+    {
+      "name": "Beam",
+      "type": "general",
+      "mat_name": "Elastic",
+      "properties": {
+        "A": 0.0756,
+        "J": 0.0005443199999999999,
+        "I22": 0.00036287999999999994,
+        "I33": 0.0006251175,
+        "As2": 0.063,
+        "As3": 0.063,
+        "theta_p": 0.0
+      },
+      "modifiers": {
+        "A": 1.0,
+        "I2": 1.0,
+        "I3": 1.0,
+        "As2": 1.0,
+        "As3": 1.0,
+        "J": 1.0,
+        "Mass": 1.0,
+        "Weight": 1.0
+      },
+      "color": [
+        0.25,
+        0.7,
+        1.0,
+        1.0
+      ]
+    }
+  ],
+  "load_patterns": [
+    {
+      "name": "TEST",
+      "type": "Other",
+      "sw_mult": 0.0
+    }
+  ],
+  "load_cases": [
+    {
+      "name": "STATIC",
+      "type": "Linear Static",
+      "loads": [
+        [
+          "TEST",
+          1.0
+        ]
+      ]
+    },
+    {
+      "name": "MODAL",
+      "type": "Modal",
+      "loads": [],
+      "mass_source": "Default",
+      "num_modes": 3
+    }
+  ],
+  "load_combinations": [],
+  "loads": [
+    {
+      "type": "member_dist",
+      "pattern": "TEST",
+      "element_id": 2,
+      "wx": 0.0,
+      "wy": 0.0,
+      "wz": -350.0,
+      "coord": "Global",
+      "projected": false
+    },
+    {
+      "type": "member_dist",
+      "pattern": "TEST",
+      "element_id": 4,
+      "wx": 0.0,
+      "wy": 0.0,
+      "wz": -350.0,
+      "coord": "Global",
+      "projected": false
+    },
+    {
+      "type": "member_dist",
+      "pattern": "TEST",
+      "element_id": 6,
+      "wx": 0.0,
+      "wy": 0.0,
+      "wz": -350.0,
+      "coord": "Global",
+      "projected": false
+    },
+    {
+      "type": "member_dist",
+      "pattern": "TEST",
+      "element_id": 8,
+      "wx": 0.0,
+      "wy": 0.0,
+      "wz": -350.0,
+      "coord": "Global",
+      "projected": false
+    },
+    {
+      "type": "member_dist",
+      "pattern": "TEST",
+      "element_id": 12,
+      "wx": 0.0,
+      "wy": 0.0,
+      "wz": -350.0,
+      "coord": "Global",
+      "projected": false
+    },
+    {
+      "type": "member_dist",
+      "pattern": "TEST",
+      "element_id": 14,
+      "wx": 0.0,
+      "wy": 0.0,
+      "wz": -350.0,
+      "coord": "Global",
+      "projected": false
+    },
+    {
+      "type": "member_dist",
+      "pattern": "TEST",
+      "element_id": 16,
+      "wx": 0.0,
+      "wy": 0.0,
+      "wz": -350.0,
+      "coord": "Global",
+      "projected": false
+    },
+    {
+      "type": "member_dist",
+      "pattern": "TEST",
+      "element_id": 18,
+      "wx": 0.0,
+      "wy": 0.0,
+      "wz": -350.0,
+      "coord": "Global",
+      "projected": false
+    },
+    {
+      "type": "nodal",
+      "pattern": "TEST",
+      "node_id": 287,
+      "fx": 6300.0,
+      "fy": 1700.0,
+      "fz": -1800.0,
+      "mx": 0.0,
+      "my": 0.0,
+      "mz": 0.0
+    },
+    {
+      "type": "nodal",
+      "pattern": "TEST",
+      "node_id": 306,
+      "fx": 6300.0,
+      "fy": 1950.0,
+      "fz": -1800.0,
+      "mx": 0.0,
+      "my": 0.0,
+      "mz": 0.0
+    },
+    {
+      "type": "nodal",
+      "pattern": "TEST",
+      "node_id": 325,
+      "fx": 6300.0,
+      "fy": 2200.0,
+      "fz": -1800.0,
+      "mx": 0.0,
+      "my": 0.0,
+      "mz": 0.0
+    },
+    {
+      "type": "nodal",
+      "pattern": "TEST",
+      "node_id": 344,
+      "fx": 6300.0,
+      "fy": 2450.0,
+      "fz": -1800.0,
+      "mx": 0.0,
+      "my": 0.0,
+      "mz": 0.0
+    }
+  ],
+  "constraints": [],
+  "mass_sources": [
+    {
+      "name": "Default",
+      "include_self_mass": true,
+      "include_patterns": false,
+      "load_patterns": []
+    }
+  ],
+  "link_properties": [],
+  "links": [],
+  "area_elements": [],
+  "area_sections": [],
+  "slabs": [],
+  "tendons": [],
+  "cables": []
+}

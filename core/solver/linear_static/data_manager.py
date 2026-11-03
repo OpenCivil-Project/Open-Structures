@@ -23,6 +23,7 @@ class DataManager:
         self.elements = []   
         self.link_properties = {}
         self.links_1j = []
+        self.shells = []                                                                             
         self.links_2j = []                                   
         self.load_case = None                                       
         self.total_dofs = 0                                      
@@ -46,6 +47,9 @@ class DataManager:
         print(f"      Generating self-weight for patterns: {[p['name'] for p in target_patterns]}")
 
         count = 0
+
+        from shell_element import generate_shell_self_weight_loads
+        count += generate_shell_self_weight_loads(self, target_patterns)
         
         for el in self.elements:
                                                         
@@ -114,6 +118,7 @@ class DataManager:
         self._parse_properties()
         self._map_nodes()
         self._parse_elements()
+        self._parse_shells()
         self._parse_links()
         self._parse_cables()
         self._prepare_load_case(case_name)
@@ -123,6 +128,14 @@ class DataManager:
         
         from auto_seismic import AutoSeismicGenerator
         AutoSeismicGenerator(self).generate_loads()
+
+    def _parse_shells(self):
+        """
+        Additive hook -> shell_element.py. No-op (touches nothing) if the .mf has no
+        "area_elements", so every frame-only model is completely unaffected.
+        """
+        from shell_element import build_shell_elements
+        build_shell_elements(self)
 
     def _parse_cables(self):
         """
@@ -144,12 +157,14 @@ class DataManager:
         generate_cable_self_weight_loads(self)
 
     def _map_nodes(self):
-                                         
-        user_ids = sorted([n['id'] for n in self.raw['nodes']])
+        # List positions must match DOF indices: the batched assembler and
+        # element parsers access self.nodes[node_idx] for member coordinates.
+        ordered_nodes = sorted(self.raw['nodes'], key=lambda node: node['id'])
+        user_ids = [node['id'] for node in ordered_nodes]
         for idx, u_id in enumerate(user_ids):
             self.node_id_to_idx[u_id] = idx
             
-        for n_data in self.raw['nodes']:
+        for n_data in ordered_nodes:
             self.nodes.append({
                 'id': n_data['id'],
                 'idx': self.node_id_to_idx[n_data['id']],
@@ -163,8 +178,11 @@ class DataManager:
         self.total_dofs = len(user_ids) * 6
 
         self.diaphragm_groups = {}
+        self.diaphragm_axis = {}
         for c in self.raw.get('constraints', []):
             self.diaphragm_groups[c['name']] = []
+                                                                         
+            self.diaphragm_axis[c['name']] = c.get('axis', 'Z')
         for node in self.nodes:
             dia = node['diaphragm']
             if dia and dia in self.diaphragm_groups:
@@ -213,14 +231,23 @@ class DataManager:
                 'r3': lp.get('r3', 0.0)
             }
         
+    def _coords_by_idx(self):
+        """idx -> coords. FIRST node with a given idx wins, exactly like the old
+        next(... for n in self.nodes if n['idx'] == i) scans, but O(1) per lookup."""
+        d = {}
+        for n in self.nodes:
+            d.setdefault(n['idx'], n['coords'])
+        return d
+
     def _parse_elements(self):
+        coords_by_idx = self._coords_by_idx()
         for el_data in self.raw['elements']:
                               
             idx_i = self.node_id_to_idx[el_data['n1_id']]
             idx_j = self.node_id_to_idx[el_data['n2_id']]
             
-            p1 = next(n['coords'] for n in self.nodes if n['idx'] == idx_i)
-            p2 = next(n['coords'] for n in self.nodes if n['idx'] == idx_j)
+            p1 = coords_by_idx[idx_i]
+            p2 = coords_by_idx[idx_j]
             
             off_i = np.array(el_data.get('off_i', [0,0,0]))
             off_j = np.array(el_data.get('off_j', [0,0,0]))
@@ -293,6 +320,10 @@ class DataManager:
                 forces = np.array([load['fx'], load['fy'], load['fz'], load['mx'], load['my'], load['mz']])
                 P[start_row : start_row + 6] += forces * scale
 
+        node_by_id = {}
+        for _n in self.nodes:
+            node_by_id.setdefault(_n['id'], _n)
+
         for pat_data in self.raw.get('load_patterns', []):
             pat_name = pat_data['name']
             if pat_name not in active_patterns: continue
@@ -311,7 +342,7 @@ class DataManager:
                 if len(node_ids) < 2: continue
 
                 master_id = min(node_ids)
-                master_node = next(n for n in self.nodes if n['id'] == master_id)
+                master_node = node_by_id[master_id]
                 m_idx = master_node['idx'] * 6
                 Xm, Ym = master_node['coords'][0], master_node['coords'][1]
 
@@ -322,7 +353,7 @@ class DataManager:
                 X_max, Y_max = float('-inf'), float('-inf')
 
                 for nid in node_ids:
-                    n = next(node for node in self.nodes if node['id'] == nid)
+                    n = node_by_id[nid]
                     x, y = n['coords'][0], n['coords'][1]
                     
                     X_min, X_max = min(X_min, x), max(X_max, x)
@@ -363,6 +394,7 @@ class DataManager:
     
     def _parse_links(self):
         """Routes links into 1-Joint or 2-Joint categories. Generates phantom nodes for 1-Joint links."""
+        coords_by_idx = self._coords_by_idx()
         for link_data in self.raw.get('links', []):
             prop = self.link_properties[link_data['prop_name']]
 
@@ -370,7 +402,7 @@ class DataManager:
                                               
                 parent_id = link_data['nodes'][0]
                 parent_idx = self.node_id_to_idx[parent_id]
-                parent_node = next(n for n in self.nodes if n['idx'] == parent_idx)
+                parent_node = {'coords': coords_by_idx[parent_idx]}
                 
                 phantom_id = f"{parent_id}~Link"
                 phantom_idx = len(self.nodes)                       
@@ -386,6 +418,7 @@ class DataManager:
                 })
                 
                 self.total_dofs += 6 
+                coords_by_idx.setdefault(phantom_idx, self.nodes[-1]['coords'])
                 
                 self.links_2j.append({
                     'id': link_data['id'],
@@ -400,8 +433,8 @@ class DataManager:
                 idx_i = self.node_id_to_idx[link_data['nodes'][0]]
                 idx_j = self.node_id_to_idx[link_data['nodes'][1]]
 
-                p1 = next(n['coords'] for n in self.nodes if n['idx'] == idx_i)
-                p2 = next(n['coords'] for n in self.nodes if n['idx'] == idx_j)
+                p1 = coords_by_idx[idx_i]
+                p2 = coords_by_idx[idx_j]
                 
                 self.links_2j.append({
                     'id': link_data['id'],

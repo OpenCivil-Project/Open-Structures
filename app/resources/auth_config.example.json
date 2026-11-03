@@ -1,0 +1,6 @@
+{
+  "api_key": "YOUR_FIREBASE_WEB_API_KEY",
+  "project_id": "YOUR_FIREBASE_PROJECT_ID",
+  "auth_domain": "YOUR_FIREBASE_PROJECT_ID.firebaseapp.com",
+  "google_sign_in_url": "https://YOUR_FIREBASE_PROJECT_ID.web.app/google-sign-in.html"
+}

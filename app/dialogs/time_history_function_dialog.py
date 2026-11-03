@@ -2,11 +2,12 @@ import numpy as np
 from PyQt6.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, QLabel,
                              QLineEdit, QGroupBox, QPushButton, QFormLayout,
                              QMessageBox, QFileDialog, QSpinBox, QRadioButton,
-                             QButtonGroup, QWidget)
+                             QButtonGroup, QWidget, QSizePolicy)
 from PyQt6.QtCore import Qt
 from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.figure import Figure
-from app.ui.theme import apply_dialog_style
+from app.ui.theme import (apply_dialog_style, style_plot_axes, PlotNavigator, COLORS,
+                          on_theme_changed, off_theme_changed)
 
 class TimeHistoryFunctionDialog(QDialog):
     """
@@ -29,14 +30,14 @@ class TimeHistoryFunctionDialog(QDialog):
         super().__init__(parent)
         apply_dialog_style(self)
         self.setWindowTitle("Time History Function Definition")
-        self.resize(1000, 600)
+        self.resize(1300, 780)
 
         self._raw_values = []                                           
 
         main_layout = QHBoxLayout(self)
 
         left = QVBoxLayout()
-        main_layout.addLayout(left, stretch=1)
+        main_layout.addLayout(left, stretch=2)
 
         form_name = QFormLayout()
         self.input_name = QLineEdit("THFUNC1")
@@ -58,7 +59,7 @@ class TimeHistoryFunctionDialog(QDialog):
         f_file.addRow("File Name:", h_browse)
 
         self.lbl_loaded = QLabel("No file specified or file not found.")
-        self.lbl_loaded.setStyleSheet("color: gray; font-style: italic;")
+        self._style_loaded(False)
         f_file.addRow("File Loaded From:", self.lbl_loaded)
 
         self.spin_header = QSpinBox()
@@ -90,6 +91,7 @@ class TimeHistoryFunctionDialog(QDialog):
         h_dt.addWidget(self.radio_equal)
         self.input_dt = QLineEdit("0.005")
         self.input_dt.setFixedWidth(90)
+        self.input_dt.editingFinished.connect(self._update_graph)
         h_dt.addWidget(self.input_dt)
         h_dt.addWidget(QLabel("s"))
         h_dt.addStretch()
@@ -109,29 +111,83 @@ class TimeHistoryFunctionDialog(QDialog):
         left.addLayout(h_btns)
 
         right = QVBoxLayout()
-        main_layout.addLayout(right, stretch=2)
-
-        right.addWidget(QLabel("Function Graph"))
-
-        graph_container = QWidget()
-        graph_layout = QVBoxLayout(graph_container)
-        graph_layout.setContentsMargins(0, 0, 0, 0)
+        main_layout.addLayout(right, stretch=5)
 
         self.figure = Figure(figsize=(5, 4), dpi=100)
         self.canvas_mpl = FigureCanvas(self.figure)
+        self.canvas_mpl.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
         self.ax = self.figure.add_subplot(111)
-        self.ax.set_xlabel("Time (s)")
-        self.ax.set_ylabel("Acceleration (m/s²)")
-        self.ax.set_title("No data loaded")
-        self.ax.grid(True, linestyle='--', alpha=0.5)
-        self.figure.tight_layout()
+        self.nav = PlotNavigator(self.canvas_mpl, self.ax)
+        self.canvas_mpl.setToolTip("Mouse wheel: zoom   |   Drag: pan   |   Double-click: reset view")
+        self.canvas_mpl.mpl_connect("motion_notify_event", self._on_mouse_move)
+        self._t = np.array([])
+        self._a = np.array([])
+        self._draw_empty()
 
-        graph_layout.addWidget(self.canvas_mpl)
-        right.addWidget(graph_container)
+        head = QHBoxLayout()
+        head.addWidget(QLabel("Function Graph"))
+        head.addStretch(1)
+        self.btn_reset_view = QPushButton("Reset View")
+        self.btn_reset_view.setObjectName("secondary")
+        self.btn_reset_view.setToolTip("Back to the full record (or double-click the plot)")
+        self.btn_reset_view.clicked.connect(self.nav.reset_view)
+        head.addWidget(self.btn_reset_view)
+        right.addLayout(head)
 
+        right.addWidget(self.canvas_mpl, stretch=1)
+
+        foot = QHBoxLayout()
+        self.lbl_cursor = QLabel("")
+        foot.addWidget(self.lbl_cursor)
+        foot.addStretch(1)
         self.lbl_stats = QLabel("")
         self.lbl_stats.setAlignment(Qt.AlignmentFlag.AlignRight)
-        right.addWidget(self.lbl_stats)
+        foot.addWidget(self.lbl_stats)
+        right.addLayout(foot)
+
+        on_theme_changed(self._on_theme_changed)
+
+    def _on_theme_changed(self, _name):
+        apply_dialog_style(self)
+        self._style_loaded(bool(self.input_path.text().strip()))
+        zoom = (self.ax.get_xlim(), self.ax.get_ylim()) if self.nav.user_zoomed else None
+        self._update_graph()
+        if zoom is not None:
+            self.ax.set_xlim(*zoom[0])
+            self.ax.set_ylim(*zoom[1])
+            self.nav.user_zoomed = True
+            self.canvas_mpl.draw_idle()
+
+    def _on_mouse_move(self, ev):
+        if ev.inaxes is not self.ax or ev.xdata is None or len(self._t) == 0:
+            self.lbl_cursor.setText("")
+            return
+        i = int(np.clip(np.searchsorted(self._t, ev.xdata), 0, len(self._t) - 1))
+        if i > 0 and abs(self._t[i - 1] - ev.xdata) < abs(self._t[i] - ev.xdata):
+            i -= 1
+        self.lbl_cursor.setText(f"t = {self._t[i]:.3f} s    a = {self._a[i]:.5g} m/s²")
+
+    def done(self, r):
+        off_theme_changed(self._on_theme_changed)
+        super().done(r)
+
+    def _style_loaded(self, has_file):
+        if has_file:
+            self.lbl_loaded.setStyleSheet(f"color: {COLORS['text_primary']}; font-style: normal;")
+        else:
+            self.lbl_loaded.setStyleSheet(f"color: {COLORS['text_secondary']}; font-style: italic;")
+
+    def _draw_empty(self):
+        self.ax.clear()
+        style_plot_axes(self.figure, self.ax)
+        self.ax.set_xlabel("Time (s)")
+        self.ax.set_ylabel("Acceleration (m/s²)")
+        self.ax.set_title("No data loaded", fontsize=9)
+        self._t = np.array([])
+        self._a = np.array([])
+        self.figure.tight_layout()
+        self.nav.mark_home()
+        self.canvas_mpl.draw_idle()
 
     def _browse_file(self):
         path, _ = QFileDialog.getOpenFileName(
@@ -142,7 +198,7 @@ class TimeHistoryFunctionDialog(QDialog):
             return
         self.input_path.setText(path)
         self.lbl_loaded.setText(path)
-        self.lbl_loaded.setStyleSheet("color: black; font-style: normal;")
+        self._style_loaded(True)
         self._reload_and_plot()
 
     def _read_file(self):
@@ -197,18 +253,16 @@ class TimeHistoryFunctionDialog(QDialog):
         self._update_graph()
 
     def _update_graph(self):
-        self.ax.clear()
-        self.ax.set_xlabel("Time (s)")
-        self.ax.set_ylabel("Acceleration (m/s²)")
-        self.ax.grid(True, linestyle='--', alpha=0.5)
-
         vals = self._raw_values
         if not vals:
-            self.ax.set_title("No data loaded")
+            self._draw_empty()
             self.lbl_stats.setText("")
-            self.figure.tight_layout()
-            self.canvas_mpl.draw()
             return
+
+        self.ax.clear()
+        style_plot_axes(self.figure, self.ax)
+        self.ax.set_xlabel("Time (s)")
+        self.ax.set_ylabel("Acceleration (m/s²)")
 
         try:
             dt = float(self.input_dt.text())
@@ -218,22 +272,27 @@ class TimeHistoryFunctionDialog(QDialog):
         t = np.arange(len(vals)) * dt
         a = np.array(vals)
 
-        self.ax.plot(t, a, color='steelblue', linewidth=0.8)
-        self.ax.axhline(0, color='gray', linewidth=0.6, linestyle='--')
-        self.ax.set_title(f"{self.input_name.text()} — {len(vals)} points")
+        self.ax.plot(t, a, color=COLORS["accent"], linewidth=0.8)
+        self.ax.axhline(0, color=COLORS["text_secondary"], linewidth=0.8)
+        self.ax.set_title(f"{self.input_name.text()} — {len(vals)} points", fontsize=9)
 
+        self._t, self._a = t, a
+        if len(t) > 1:
+            self.ax.set_xlim(t[0], t[-1])
         pga = float(np.max(np.abs(a)))
         self.lbl_stats.setText(
             f"Points: {len(vals)}    Duration: {t[-1]:.2f}s    PGA: {pga:.4f} m/s²"
         )
         self.figure.tight_layout()
-        self.canvas_mpl.draw()
+        self.nav.mark_home()
+        self.canvas_mpl.draw_idle()
 
     def populate(self, data: dict):
         """Fill the dialog from a saved data dict (for Modify/Show)."""
         self.input_name.setText(data.get("name", "THFUNC1"))
         self.input_path.setText(data.get("file_path", ""))
         self.lbl_loaded.setText(data.get("file_path", "No file specified or file not found."))
+        self._style_loaded(bool(data.get("file_path", "")))
 
         dt = data.get("dt", 0.005)
         self.input_dt.setText(str(dt))

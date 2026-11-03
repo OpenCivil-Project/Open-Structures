@@ -1,17 +1,20 @@
 import sys
+import os
+import csv
 from PyQt6.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, QLabel, 
                              QLineEdit, QComboBox, QGroupBox, QTableWidget, 
                              QTableWidgetItem, QPushButton, QHeaderView, 
-                             QFormLayout, QFrame, QMessageBox, QWidget)
+                             QFormLayout, QFrame, QMessageBox, QWidget,
+                             QFileDialog)
 from PyQt6.QtCore import Qt
 from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.backends.backend_qtagg import NavigationToolbar2QT as NavigationToolbar
 from matplotlib.figure import Figure
 import numpy as np
-from PyQt6.QtWidgets import QFileDialog
                          
 from core.solver.RSA.tsc2018_generator import TSC2018SpectrumGenerator
-from app.ui.theme import apply_dialog_style
+from app.ui.theme import (apply_dialog_style, style_plot_axes, COLORS, plot_color,
+                          on_theme_changed, off_theme_changed)
 
 class ResponseSpectrumDialog(QDialog):
     def __init__(self, parent=None):
@@ -61,7 +64,7 @@ class ResponseSpectrumDialog(QDialog):
 
         self.combo_interp = QComboBox()
         self.combo_interp.addItems(["Linear (Standard)", "Cubic / Exact (TBDY)"])
-        self.combo_interp.setToolTip("Linear: Matches SAP2000's straight-line approximation.\nExact: Uses the curved 1/R formula from TBDY-2018.")
+        self.combo_interp.setToolTip("Linear: Straight-line approximation.\nExact: Uses the curved 1/R formula from TBDY-2018.")
         layout_params.addRow("Interpolation Method", self.combo_interp)
 
         line = QFrame(); line.setFrameShape(QFrame.Shape.HLine)
@@ -115,7 +118,7 @@ class ResponseSpectrumDialog(QDialog):
         self.canvas = FigureCanvas(self.figure)
         
         self.toolbar = NavigationToolbar(self.canvas, self)
-        self.toolbar.setStyleSheet("background-color: white; border: none;")             
+        self.toolbar.setStyleSheet("border: none;")
         
         graph_layout.addWidget(self.toolbar)                     
         graph_layout.addWidget(self.canvas)                    
@@ -130,6 +133,15 @@ class ResponseSpectrumDialog(QDialog):
         self.right_panel.addWidget(self.lbl_coords)
 
         self.update_graph()
+        on_theme_changed(self._on_theme_changed)
+
+    def _on_theme_changed(self, _name):
+        apply_dialog_style(self)
+        self.update_graph()
+
+    def done(self, r):
+        off_theme_changed(self._on_theme_changed)
+        super().done(r)
 
     def create_input(self, default_val):
         le = QLineEdit(default_val)
@@ -155,8 +167,6 @@ class ResponseSpectrumDialog(QDialog):
 
     def export_spectrum(self):
         """Exports the current spectrum curve to a CSV file"""
-        import csv
-        
         filepath, _ = QFileDialog.getSaveFileName(
             self, 
             "Export Response Spectrum", 
@@ -203,7 +213,6 @@ class ResponseSpectrumDialog(QDialog):
             QMessageBox.critical(self, "Export Failed", f"Could not write file:\n{e}")
 
     def update_graph(self):
-                       
         ss = self.get_float(self.in_ss); s1 = self.get_float(self.in_s1)
         tl = self.get_float(self.in_tl); R = self.get_float(self.in_R)
         D = self.get_float(self.in_D); I = self.get_float(self.in_I)
@@ -220,14 +229,14 @@ class ResponseSpectrumDialog(QDialog):
         self.lbl_sd1.setText(f"{params['SD1']:.3f}")
 
         self.ax.clear()
-        self.ax.grid(True, which='both', linestyle='--', linewidth=0.5, alpha=0.7)
+        style_plot_axes(self.figure, self.ax)
         self.ax.set_xlabel("Period (sec)")
         self.ax.set_ylabel("Spectral Accel (g)")
         title = f"Response Spectrum TSC-2018 ({direction})"
-        self.ax.set_title(title, fontsize=10)
+        self.ax.set_title(title, fontsize=9)
         
-        color = 'blue' if direction == "Horizontal" else 'red'
-        self.ax.plot(periods, accels, color=color, linewidth=1.5)
+        color = COLORS["accent"] if direction == "Horizontal" else plot_color("vertical")
+        self.ax.plot(periods, accels, color=color, linewidth=2.2)
         
         self.ax.set_aspect('auto') 
         self.figure.tight_layout()
@@ -237,7 +246,6 @@ class ResponseSpectrumDialog(QDialog):
         self.table.setRowCount(len(periods))
         
         for r, (t, sa) in enumerate(zip(periods, accels)):
-                                                             
             self.table.setItem(r, 0, QTableWidgetItem(f"{t:.4f}"))
             self.table.setItem(r, 1, QTableWidgetItem(f"{sa:.4f}"))
             

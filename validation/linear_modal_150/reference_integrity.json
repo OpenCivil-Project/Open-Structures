@@ -1,0 +1,7 @@
+{
+  "case_count": 150,
+  "valid": 150,
+  "errors": {},
+  "scalar_analytical_static_checks": 735,
+  "scalar_analytical_modal_checks": 95
+}

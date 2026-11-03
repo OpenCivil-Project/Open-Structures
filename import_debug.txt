@@ -1,0 +1,24 @@
+FAILED: FileNotFoundError: [Errno 2] No such file or directory: 'E:\\MetuFire\\OpenCivil\\obspy\\RELEASE-VERSION'
+
+Traceback (most recent call last):
+  File "Main.py", line 212, in import_modules
+  File "<frozen importlib._bootstrap>", line 1027, in _find_and_load
+  File "<frozen importlib._bootstrap>", line 1006, in _find_and_load_unlocked
+  File "<frozen importlib._bootstrap>", line 688, in _load_unlocked
+  File "pyimod02_importers.py", line 457, in exec_module
+  File "EventDataFetcher.py", line 8, in <module>
+    import tdvms
+  File "<frozen importlib._bootstrap>", line 1027, in _find_and_load
+  File "<frozen importlib._bootstrap>", line 1006, in _find_and_load_unlocked
+  File "<frozen importlib._bootstrap>", line 688, in _load_unlocked
+  File "pyimod02_importers.py", line 457, in exec_module
+  File "tdvms.py", line 20, in <module>
+    from obspy.geodetics import calc_vincenty_inverse
+  File "<frozen importlib._bootstrap>", line 1027, in _find_and_load
+  File "<frozen importlib._bootstrap>", line 1006, in _find_and_load_unlocked
+  File "<frozen importlib._bootstrap>", line 688, in _load_unlocked
+  File "pyimod02_importers.py", line 457, in exec_module
+  File "obspy\__init__.py", line 46, in <module>
+  File "obspy\core\util\version.py", line 171, in get_git_version
+  File "obspy\core\util\version.py", line 137, in write_release_version
+FileNotFoundError: [Errno 2] No such file or directory: 'E:\\MetuFire\\OpenCivil\\obspy\\RELEASE-VERSION'

@@ -1,7 +1,7 @@
 """
 section_designer_dialog.py
 --------------------------
-Section Designer — redesigned UI (SAP2000-inspired).
+Section Designer — redesigned UI.
 
 Layout
 ------
@@ -704,7 +704,7 @@ class SectionDesignerDialog(QDialog):
         return mb
 
     def _build_icon_toolbar(self) -> QWidget:
-        """SAP2000-style icon strip below the menu bar."""
+        """icon strip below the menu bar."""
         bar = QWidget()
         bar.setFixedHeight(34)
         bar.setStyleSheet("background: #f5f5f5;")

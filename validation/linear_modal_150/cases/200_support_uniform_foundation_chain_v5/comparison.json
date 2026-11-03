@@ -1,0 +1,755 @@
+{
+  "id": "200_support_uniform_foundation_chain_v5",
+  "family": "support_uniform_foundation_chain",
+  "variant": 5,
+  "model_file": "200_support_uniform_foundation_chain_v5.mf",
+  "static": {
+    "passed": true,
+    "checks": [
+      {
+        "name": "nodal displacement and rotation",
+        "passed": true,
+        "max_tolerance_ratio": 1.0562026306705785e-12,
+        "relative_tolerance": 2e-06,
+        "absolute_tolerances_per_dof": [
+          1e-10,
+          1e-10,
+          1e-10,
+          1e-10,
+          1e-10,
+          1e-10
+        ],
+        "worst_components": []
+      },
+      {
+        "name": "support force and moment",
+        "passed": true,
+        "max_tolerance_ratio": 6.014214625511592e-10,
+        "relative_tolerance": 2e-06,
+        "absolute_tolerances_per_dof": [
+          0.0001,
+          0.0001,
+          0.0001,
+          0.0001,
+          0.0001,
+          0.0001
+        ],
+        "worst_components": []
+      },
+      {
+        "name": "independent free-DOF equilibrium residual",
+        "passed": true,
+        "value": 1.0674805441736909e-16,
+        "limit": 2e-06
+      },
+      {
+        "name": "analytical: Uniform foundation chain displacement",
+        "passed": true,
+        "actual": 3.0287716345150753e-09,
+        "expected": 3.0287716345150716e-09,
+        "absolute_error": 3.7223127564886245e-24,
+        "tolerance": 1.0000605754326903e-10,
+        "formula": "u_i=C sinh(i\u03b1); cosh\u03b1=1+ks/(2k); C=P/[(k+ks)sinh(n\u03b1)\u2212k sinh((n\u22121)\u03b1)]",
+        "reference_kind": "continuum or exact discrete formula as labelled"
+      },
+      {
+        "name": "analytical: Foundation spring reaction",
+        "passed": true,
+        "actual": -14.966558540739536,
+        "expected": -14.966558540739516,
+        "absolute_error": 1.9539925233402755e-14,
+        "tolerance": 0.00012993311708147905,
+        "formula": "-ks*u_i",
+        "reference_kind": "continuum or exact discrete formula as labelled"
+      },
+      {
+        "name": "analytical: Uniform foundation chain displacement",
+        "passed": true,
+        "actual": 6.511859014207411e-09,
+        "expected": 6.511859014207404e-09,
+        "absolute_error": 7.444625512977249e-24,
+        "tolerance": 1.0001302371802842e-10,
+        "formula": "u_i=C sinh(i\u03b1); cosh\u03b1=1+ks/(2k); C=P/[(k+ks)sinh(n\u03b1)\u2212k sinh((n\u22121)\u03b1)]",
+        "reference_kind": "continuum or exact discrete formula as labelled"
+      },
+      {
+        "name": "analytical: Foundation spring reaction",
+        "passed": true,
+        "actual": -32.17810086259,
+        "expected": -32.17810086258996,
+        "absolute_error": 4.263256414560601e-14,
+        "tolerance": 0.0001643562017251799,
+        "formula": "-ks*u_i",
+        "reference_kind": "continuum or exact discrete formula as labelled"
+      },
+      {
+        "name": "analytical: Uniform foundation chain displacement",
+        "passed": true,
+        "actual": 1.0971725246030855e-08,
+        "expected": 1.0971725246030846e-08,
+        "absolute_error": 8.271806125530277e-24,
+        "tolerance": 1.0002194345049206e-10,
+        "formula": "u_i=C sinh(i\u03b1); cosh\u03b1=1+ks/(2k); C=P/[(k+ks)sinh(n\u03b1)\u2212k sinh((n\u22121)\u03b1)]",
+        "reference_kind": "continuum or exact discrete formula as labelled"
+      },
+      {
+        "name": "analytical: Foundation spring reaction",
+        "passed": true,
+        "actual": -54.21635831382894,
+        "expected": -54.2163583138289,
+        "absolute_error": 4.263256414560601e-14,
+        "tolerance": 0.0002084327166276578,
+        "formula": "-ks*u_i",
+        "reference_kind": "continuum or exact discrete formula as labelled"
+      },
+      {
+        "name": "analytical: Uniform foundation chain displacement",
+        "passed": true,
+        "actual": 1.707735026475893e-08,
+        "expected": 1.7077350264758915e-08,
+        "absolute_error": 1.3234889800848443e-23,
+        "tolerance": 1.0003415470052952e-10,
+        "formula": "u_i=C sinh(i\u03b1); cosh\u03b1=1+ks/(2k); C=P/[(k+ks)sinh(n\u03b1)\u2212k sinh((n\u22121)\u03b1)]",
+        "reference_kind": "continuum or exact discrete formula as labelled"
+      },
+      {
+        "name": "analytical: Foundation spring reaction",
+        "passed": true,
+        "actual": -84.38706951214223,
+        "expected": -84.38706951214216,
+        "absolute_error": 7.105427357601002e-14,
+        "tolerance": 0.0002687741390242843,
+        "formula": "-ks*u_i",
+        "reference_kind": "continuum or exact discrete formula as labelled"
+      },
+      {
+        "name": "analytical: Uniform foundation chain displacement",
+        "passed": true,
+        "actual": 2.574457782320083e-08,
+        "expected": 2.574457782320082e-08,
+        "absolute_error": 9.926167350636332e-24,
+        "tolerance": 1.0005148915564641e-10,
+        "formula": "u_i=C sinh(i\u03b1); cosh\u03b1=1+ks/(2k); C=P/[(k+ks)sinh(n\u03b1)\u2212k sinh((n\u22121)\u03b1)]",
+        "reference_kind": "continuum or exact discrete formula as labelled"
+      },
+      {
+        "name": "analytical: Foundation spring reaction",
+        "passed": true,
+        "actual": -127.2158411372768,
+        "expected": -127.21584113727674,
+        "absolute_error": 5.684341886080802e-14,
+        "tolerance": 0.00035443168227455347,
+        "formula": "-ks*u_i",
+        "reference_kind": "continuum or exact discrete formula as labelled"
+      },
+      {
+        "name": "analytical: Uniform foundation chain displacement",
+        "passed": true,
+        "actual": 3.827349205512285e-08,
+        "expected": 3.827349205512285e-08,
+        "absolute_error": 0.0,
+        "tolerance": 1.0007654698411024e-10,
+        "formula": "u_i=C sinh(i\u03b1); cosh\u03b1=1+ks/(2k); C=P/[(k+ks)sinh(n\u03b1)\u2212k sinh((n\u22121)\u03b1)]",
+        "reference_kind": "continuum or exact discrete formula as labelled"
+      },
+      {
+        "name": "analytical: Foundation spring reaction",
+        "passed": true,
+        "actual": -189.12698893300288,
+        "expected": -189.12698893300288,
+        "absolute_error": 0.0,
+        "tolerance": 0.0004782539778660057,
+        "formula": "-ks*u_i",
+        "reference_kind": "continuum or exact discrete formula as labelled"
+      },
+      {
+        "name": "analytical: Uniform foundation chain displacement",
+        "passed": true,
+        "actual": 5.6543430095313306e-08,
+        "expected": 5.65434300953133e-08,
+        "absolute_error": 6.617444900424222e-24,
+        "tolerance": 1.0011308686019063e-10,
+        "formula": "u_i=C sinh(i\u03b1); cosh\u03b1=1+ks/(2k); C=P/[(k+ks)sinh(n\u03b1)\u2212k sinh((n\u22121)\u03b1)]",
+        "reference_kind": "continuum or exact discrete formula as labelled"
+      },
+      {
+        "name": "analytical: Foundation spring reaction",
+        "passed": true,
+        "actual": -279.4071850686794,
+        "expected": -279.4071850686794,
+        "absolute_error": 0.0,
+        "tolerance": 0.0006588143701373588,
+        "formula": "-ks*u_i",
+        "reference_kind": "continuum or exact discrete formula as labelled"
+      },
+      {
+        "name": "analytical: Uniform foundation chain displacement",
+        "passed": true,
+        "actual": 8.329488264980077e-08,
+        "expected": 8.329488264980073e-08,
+        "absolute_error": 3.970466940254533e-23,
+        "tolerance": 1.0016658976529961e-10,
+        "formula": "u_i=C sinh(i\u03b1); cosh\u03b1=1+ks/(2k); C=P/[(k+ks)sinh(n\u03b1)\u2212k sinh((n\u22121)\u03b1)]",
+        "reference_kind": "continuum or exact discrete formula as labelled"
+      },
+      {
+        "name": "analytical: Foundation spring reaction",
+        "passed": true,
+        "actual": -411.5984589646579,
+        "expected": -411.5984589646577,
+        "absolute_error": 1.7053025658242404e-13,
+        "tolerance": 0.0009231969179293154,
+        "formula": "-ks*u_i",
+        "reference_kind": "continuum or exact discrete formula as labelled"
+      },
+      {
+        "name": "analytical: Uniform foundation chain displacement",
+        "passed": true,
+        "actual": 1.225405676017583e-07,
+        "expected": 1.2254056760175828e-07,
+        "absolute_error": 2.6469779601696886e-23,
+        "tolerance": 1.0024508113520352e-10,
+        "formula": "u_i=C sinh(i\u03b1); cosh\u03b1=1+ks/(2k); C=P/[(k+ks)sinh(n\u03b1)\u2212k sinh((n\u22121)\u03b1)]",
+        "reference_kind": "continuum or exact discrete formula as labelled"
+      },
+      {
+        "name": "analytical: Foundation spring reaction",
+        "passed": true,
+        "actual": -605.5295017053348,
+        "expected": -605.5295017053347,
+        "absolute_error": 1.1368683772161603e-13,
+        "tolerance": 0.0013110590034106694,
+        "formula": "-ks*u_i",
+        "reference_kind": "continuum or exact discrete formula as labelled"
+      },
+      {
+        "name": "analytical: Uniform foundation chain displacement",
+        "passed": true,
+        "actual": 1.8016733769397958e-07,
+        "expected": 1.8016733769397955e-07,
+        "absolute_error": 2.6469779601696886e-23,
+        "tolerance": 1.0036033467538796e-10,
+        "formula": "u_i=C sinh(i\u03b1); cosh\u03b1=1+ks/(2k); C=P/[(k+ks)sinh(n\u03b1)\u2212k sinh((n\u22121)\u03b1)]",
+        "reference_kind": "continuum or exact discrete formula as labelled"
+      },
+      {
+        "name": "analytical: Foundation spring reaction",
+        "passed": true,
+        "actual": -890.289969701812,
+        "expected": -890.2899697018119,
+        "absolute_error": 1.1368683772161603e-13,
+        "tolerance": 0.0018805799394036237,
+        "formula": "-ks*u_i",
+        "reference_kind": "continuum or exact discrete formula as labelled"
+      },
+      {
+        "name": "analytical: Uniform foundation chain displacement",
+        "passed": true,
+        "actual": 2.648192084402978e-07,
+        "expected": 2.6481920844029773e-07,
+        "absolute_error": 5.293955920339377e-23,
+        "tolerance": 1.005296384168806e-10,
+        "formula": "u_i=C sinh(i\u03b1); cosh\u03b1=1+ks/(2k); C=P/[(k+ks)sinh(n\u03b1)\u2212k sinh((n\u22121)\u03b1)]",
+        "reference_kind": "continuum or exact discrete formula as labelled"
+      },
+      {
+        "name": "analytical: Foundation spring reaction",
+        "passed": true,
+        "actual": -1308.593933153561,
+        "expected": -1308.5939331535606,
+        "absolute_error": 4.547473508864641e-13,
+        "tolerance": 0.002717187866307121,
+        "formula": "-ks*u_i",
+        "reference_kind": "continuum or exact discrete formula as labelled"
+      },
+      {
+        "name": "analytical: Uniform foundation chain displacement",
+        "passed": true,
+        "actual": 3.8919396045266057e-07,
+        "expected": 3.8919396045266057e-07,
+        "absolute_error": 0.0,
+        "tolerance": 1.0077838792090533e-10,
+        "formula": "u_i=C sinh(i\u03b1); cosh\u03b1=1+ks/(2k); C=P/[(k+ks)sinh(n\u03b1)\u2212k sinh((n\u22121)\u03b1)]",
+        "reference_kind": "continuum or exact discrete formula as labelled"
+      },
+      {
+        "name": "analytical: Foundation spring reaction",
+        "passed": true,
+        "actual": -1923.1869865783435,
+        "expected": -1923.1869865783435,
+        "absolute_error": 0.0,
+        "tolerance": 0.003946373973156687,
+        "formula": "-ks*u_i",
+        "reference_kind": "continuum or exact discrete formula as labelled"
+      },
+      {
+        "name": "analytical: Uniform foundation chain displacement",
+        "passed": true,
+        "actual": 5.719478065329223e-07,
+        "expected": 5.719478065329225e-07,
+        "absolute_error": 2.117582368135751e-22,
+        "tolerance": 1.0114389561306585e-10,
+        "formula": "u_i=C sinh(i\u03b1); cosh\u03b1=1+ks/(2k); C=P/[(k+ks)sinh(n\u03b1)\u2212k sinh((n\u22121)\u03b1)]",
+        "reference_kind": "continuum or exact discrete formula as labelled"
+      },
+      {
+        "name": "analytical: Foundation spring reaction",
+        "passed": true,
+        "actual": -2826.258087989877,
+        "expected": -2826.258087989878,
+        "absolute_error": 9.094947017729282e-13,
+        "tolerance": 0.005752516175979756,
+        "formula": "-ks*u_i",
+        "reference_kind": "continuum or exact discrete formula as labelled"
+      },
+      {
+        "name": "analytical: Uniform foundation chain displacement",
+        "passed": true,
+        "actual": 8.404938235931228e-07,
+        "expected": 8.404938235931226e-07,
+        "absolute_error": 2.117582368135751e-22,
+        "tolerance": 1.0168098764718625e-10,
+        "formula": "u_i=C sinh(i\u03b1); cosh\u03b1=1+ks/(2k); C=P/[(k+ks)sinh(n\u03b1)\u2212k sinh((n\u22121)\u03b1)]",
+        "reference_kind": "continuum or exact discrete formula as labelled"
+      },
+      {
+        "name": "analytical: Foundation spring reaction",
+        "passed": true,
+        "actual": -4153.267902599894,
+        "expected": -4153.267902599893,
+        "absolute_error": 9.094947017729282e-13,
+        "tolerance": 0.008406535805199785,
+        "formula": "-ks*u_i",
+        "reference_kind": "continuum or exact discrete formula as labelled"
+      },
+      {
+        "name": "analytical: Foundation chain root reaction",
+        "passed": true,
+        "actual": -99.77705693826356,
+        "expected": -99.77705693826344,
+        "absolute_error": 1.1368683772161603e-13,
+        "tolerance": 0.00029955411387652686,
+        "formula": "-k*u_1",
+        "reference_kind": "continuum or exact discrete formula as labelled"
+      }
+    ]
+  },
+  "modal": {
+    "passed": true,
+    "checks": [
+      {
+        "name": "mode count",
+        "passed": true,
+        "actual": 3,
+        "expected": 3
+      },
+      {
+        "name": "finite positive sorted frequencies",
+        "passed": true
+      },
+      {
+        "name": "maximum relative frequency error",
+        "passed": true,
+        "value": 1.957269452472527e-16,
+        "limit": 2e-05
+      },
+      {
+        "name": "period/frequency/omega/eigenvalue consistency",
+        "passed": true,
+        "value": 2.220446049250313e-16,
+        "limit": 1e-09
+      },
+      {
+        "name": "maximum independent eigen residual",
+        "passed": true,
+        "value": 2.3515841262082974e-15,
+        "limit": 2e-05
+      },
+      {
+        "name": "mass normalization and orthogonality",
+        "passed": true,
+        "value": 2.220446049250313e-16,
+        "limit": 2e-05
+      },
+      {
+        "name": "worst modal subspace mismatch (1-MAC)",
+        "passed": true,
+        "value": 4.440892098500626e-16,
+        "limit": 0.0002
+      },
+      {
+        "name": "assembled physical nodal mass",
+        "passed": true,
+        "max_tolerance_ratio": 0.0,
+        "relative_tolerance": 1e-08,
+        "absolute_tolerances_per_dof": [
+          1e-10,
+          1e-10,
+          1e-10,
+          1e-10,
+          1e-10,
+          1e-10
+        ],
+        "worst_components": []
+      },
+      {
+        "name": "analytical: Exact discrete axial chain frequency",
+        "passed": true,
+        "actual": 1161.6881628434019,
+        "expected": 1161.6881628434023,
+        "absolute_error": 4.547473508864641e-13,
+        "tolerance": 0.0011616891628434022,
+        "formula": "sqrt(ks/m + 4k/m*sin\u00b2((2r-1)\u03c0/(4n+2)))/(2\u03c0)",
+        "reference_kind": "continuum or exact discrete formula as labelled"
+      },
+      {
+        "name": "analytical: Exact discrete axial chain frequency",
+        "passed": true,
+        "actual": 1457.8447492686087,
+        "expected": 1457.844749268609,
+        "absolute_error": 2.2737367544323206e-13,
+        "tolerance": 0.0014578457492686087,
+        "formula": "sqrt(ks/m + 4k/m*sin\u00b2((2r-1)\u03c0/(4n+2)))/(2\u03c0)",
+        "reference_kind": "continuum or exact discrete formula as labelled"
+      },
+      {
+        "name": "analytical: Exact discrete axial chain frequency",
+        "passed": true,
+        "actual": 1908.0408788424643,
+        "expected": 1908.040878842465,
+        "absolute_error": 6.821210263296962e-13,
+        "tolerance": 0.0019080418788424648,
+        "formula": "sqrt(ks/m + 4k/m*sin\u00b2((2r-1)\u03c0/(4n+2)))/(2\u03c0)",
+        "reference_kind": "continuum or exact discrete formula as labelled"
+      }
+    ]
+  },
+  "analytical": [
+    {
+      "name": "analytical: Uniform foundation chain displacement",
+      "passed": true,
+      "actual": 3.0287716345150753e-09,
+      "expected": 3.0287716345150716e-09,
+      "absolute_error": 3.7223127564886245e-24,
+      "tolerance": 1.0000605754326903e-10,
+      "formula": "u_i=C sinh(i\u03b1); cosh\u03b1=1+ks/(2k); C=P/[(k+ks)sinh(n\u03b1)\u2212k sinh((n\u22121)\u03b1)]",
+      "reference_kind": "continuum or exact discrete formula as labelled"
+    },
+    {
+      "name": "analytical: Foundation spring reaction",
+      "passed": true,
+      "actual": -14.966558540739536,
+      "expected": -14.966558540739516,
+      "absolute_error": 1.9539925233402755e-14,
+      "tolerance": 0.00012993311708147905,
+      "formula": "-ks*u_i",
+      "reference_kind": "continuum or exact discrete formula as labelled"
+    },
+    {
+      "name": "analytical: Uniform foundation chain displacement",
+      "passed": true,
+      "actual": 6.511859014207411e-09,
+      "expected": 6.511859014207404e-09,
+      "absolute_error": 7.444625512977249e-24,
+      "tolerance": 1.0001302371802842e-10,
+      "formula": "u_i=C sinh(i\u03b1); cosh\u03b1=1+ks/(2k); C=P/[(k+ks)sinh(n\u03b1)\u2212k sinh((n\u22121)\u03b1)]",
+      "reference_kind": "continuum or exact discrete formula as labelled"
+    },
+    {
+      "name": "analytical: Foundation spring reaction",
+      "passed": true,
+      "actual": -32.17810086259,
+      "expected": -32.17810086258996,
+      "absolute_error": 4.263256414560601e-14,
+      "tolerance": 0.0001643562017251799,
+      "formula": "-ks*u_i",
+      "reference_kind": "continuum or exact discrete formula as labelled"
+    },
+    {
+      "name": "analytical: Uniform foundation chain displacement",
+      "passed": true,
+      "actual": 1.0971725246030855e-08,
+      "expected": 1.0971725246030846e-08,
+      "absolute_error": 8.271806125530277e-24,
+      "tolerance": 1.0002194345049206e-10,
+      "formula": "u_i=C sinh(i\u03b1); cosh\u03b1=1+ks/(2k); C=P/[(k+ks)sinh(n\u03b1)\u2212k sinh((n\u22121)\u03b1)]",
+      "reference_kind": "continuum or exact discrete formula as labelled"
+    },
+    {
+      "name": "analytical: Foundation spring reaction",
+      "passed": true,
+      "actual": -54.21635831382894,
+      "expected": -54.2163583138289,
+      "absolute_error": 4.263256414560601e-14,
+      "tolerance": 0.0002084327166276578,
+      "formula": "-ks*u_i",
+      "reference_kind": "continuum or exact discrete formula as labelled"
+    },
+    {
+      "name": "analytical: Uniform foundation chain displacement",
+      "passed": true,
+      "actual": 1.707735026475893e-08,
+      "expected": 1.7077350264758915e-08,
+      "absolute_error": 1.3234889800848443e-23,
+      "tolerance": 1.0003415470052952e-10,
+      "formula": "u_i=C sinh(i\u03b1); cosh\u03b1=1+ks/(2k); C=P/[(k+ks)sinh(n\u03b1)\u2212k sinh((n\u22121)\u03b1)]",
+      "reference_kind": "continuum or exact discrete formula as labelled"
+    },
+    {
+      "name": "analytical: Foundation spring reaction",
+      "passed": true,
+      "actual": -84.38706951214223,
+      "expected": -84.38706951214216,
+      "absolute_error": 7.105427357601002e-14,
+      "tolerance": 0.0002687741390242843,
+      "formula": "-ks*u_i",
+      "reference_kind": "continuum or exact discrete formula as labelled"
+    },
+    {
+      "name": "analytical: Uniform foundation chain displacement",
+      "passed": true,
+      "actual": 2.574457782320083e-08,
+      "expected": 2.574457782320082e-08,
+      "absolute_error": 9.926167350636332e-24,
+      "tolerance": 1.0005148915564641e-10,
+      "formula": "u_i=C sinh(i\u03b1); cosh\u03b1=1+ks/(2k); C=P/[(k+ks)sinh(n\u03b1)\u2212k sinh((n\u22121)\u03b1)]",
+      "reference_kind": "continuum or exact discrete formula as labelled"
+    },
+    {
+      "name": "analytical: Foundation spring reaction",
+      "passed": true,
+      "actual": -127.2158411372768,
+      "expected": -127.21584113727674,
+      "absolute_error": 5.684341886080802e-14,
+      "tolerance": 0.00035443168227455347,
+      "formula": "-ks*u_i",
+      "reference_kind": "continuum or exact discrete formula as labelled"
+    },
+    {
+      "name": "analytical: Uniform foundation chain displacement",
+      "passed": true,
+      "actual": 3.827349205512285e-08,
+      "expected": 3.827349205512285e-08,
+      "absolute_error": 0.0,
+      "tolerance": 1.0007654698411024e-10,
+      "formula": "u_i=C sinh(i\u03b1); cosh\u03b1=1+ks/(2k); C=P/[(k+ks)sinh(n\u03b1)\u2212k sinh((n\u22121)\u03b1)]",
+      "reference_kind": "continuum or exact discrete formula as labelled"
+    },
+    {
+      "name": "analytical: Foundation spring reaction",
+      "passed": true,
+      "actual": -189.12698893300288,
+      "expected": -189.12698893300288,
+      "absolute_error": 0.0,
+      "tolerance": 0.0004782539778660057,
+      "formula": "-ks*u_i",
+      "reference_kind": "continuum or exact discrete formula as labelled"
+    },
+    {
+      "name": "analytical: Uniform foundation chain displacement",
+      "passed": true,
+      "actual": 5.6543430095313306e-08,
+      "expected": 5.65434300953133e-08,
+      "absolute_error": 6.617444900424222e-24,
+      "tolerance": 1.0011308686019063e-10,
+      "formula": "u_i=C sinh(i\u03b1); cosh\u03b1=1+ks/(2k); C=P/[(k+ks)sinh(n\u03b1)\u2212k sinh((n\u22121)\u03b1)]",
+      "reference_kind": "continuum or exact discrete formula as labelled"
+    },
+    {
+      "name": "analytical: Foundation spring reaction",
+      "passed": true,
+      "actual": -279.4071850686794,
+      "expected": -279.4071850686794,
+      "absolute_error": 0.0,
+      "tolerance": 0.0006588143701373588,
+      "formula": "-ks*u_i",
+      "reference_kind": "continuum or exact discrete formula as labelled"
+    },
+    {
+      "name": "analytical: Uniform foundation chain displacement",
+      "passed": true,
+      "actual": 8.329488264980077e-08,
+      "expected": 8.329488264980073e-08,
+      "absolute_error": 3.970466940254533e-23,
+      "tolerance": 1.0016658976529961e-10,
+      "formula": "u_i=C sinh(i\u03b1); cosh\u03b1=1+ks/(2k); C=P/[(k+ks)sinh(n\u03b1)\u2212k sinh((n\u22121)\u03b1)]",
+      "reference_kind": "continuum or exact discrete formula as labelled"
+    },
+    {
+      "name": "analytical: Foundation spring reaction",
+      "passed": true,
+      "actual": -411.5984589646579,
+      "expected": -411.5984589646577,
+      "absolute_error": 1.7053025658242404e-13,
+      "tolerance": 0.0009231969179293154,
+      "formula": "-ks*u_i",
+      "reference_kind": "continuum or exact discrete formula as labelled"
+    },
+    {
+      "name": "analytical: Uniform foundation chain displacement",
+      "passed": true,
+      "actual": 1.225405676017583e-07,
+      "expected": 1.2254056760175828e-07,
+      "absolute_error": 2.6469779601696886e-23,
+      "tolerance": 1.0024508113520352e-10,
+      "formula": "u_i=C sinh(i\u03b1); cosh\u03b1=1+ks/(2k); C=P/[(k+ks)sinh(n\u03b1)\u2212k sinh((n\u22121)\u03b1)]",
+      "reference_kind": "continuum or exact discrete formula as labelled"
+    },
+    {
+      "name": "analytical: Foundation spring reaction",
+      "passed": true,
+      "actual": -605.5295017053348,
+      "expected": -605.5295017053347,
+      "absolute_error": 1.1368683772161603e-13,
+      "tolerance": 0.0013110590034106694,
+      "formula": "-ks*u_i",
+      "reference_kind": "continuum or exact discrete formula as labelled"
+    },
+    {
+      "name": "analytical: Uniform foundation chain displacement",
+      "passed": true,
+      "actual": 1.8016733769397958e-07,
+      "expected": 1.8016733769397955e-07,
+      "absolute_error": 2.6469779601696886e-23,
+      "tolerance": 1.0036033467538796e-10,
+      "formula": "u_i=C sinh(i\u03b1); cosh\u03b1=1+ks/(2k); C=P/[(k+ks)sinh(n\u03b1)\u2212k sinh((n\u22121)\u03b1)]",
+      "reference_kind": "continuum or exact discrete formula as labelled"
+    },
+    {
+      "name": "analytical: Foundation spring reaction",
+      "passed": true,
+      "actual": -890.289969701812,
+      "expected": -890.2899697018119,
+      "absolute_error": 1.1368683772161603e-13,
+      "tolerance": 0.0018805799394036237,
+      "formula": "-ks*u_i",
+      "reference_kind": "continuum or exact discrete formula as labelled"
+    },
+    {
+      "name": "analytical: Uniform foundation chain displacement",
+      "passed": true,
+      "actual": 2.648192084402978e-07,
+      "expected": 2.6481920844029773e-07,
+      "absolute_error": 5.293955920339377e-23,
+      "tolerance": 1.005296384168806e-10,
+      "formula": "u_i=C sinh(i\u03b1); cosh\u03b1=1+ks/(2k); C=P/[(k+ks)sinh(n\u03b1)\u2212k sinh((n\u22121)\u03b1)]",
+      "reference_kind": "continuum or exact discrete formula as labelled"
+    },
+    {
+      "name": "analytical: Foundation spring reaction",
+      "passed": true,
+      "actual": -1308.593933153561,
+      "expected": -1308.5939331535606,
+      "absolute_error": 4.547473508864641e-13,
+      "tolerance": 0.002717187866307121,
+      "formula": "-ks*u_i",
+      "reference_kind": "continuum or exact discrete formula as labelled"
+    },
+    {
+      "name": "analytical: Uniform foundation chain displacement",
+      "passed": true,
+      "actual": 3.8919396045266057e-07,
+      "expected": 3.8919396045266057e-07,
+      "absolute_error": 0.0,
+      "tolerance": 1.0077838792090533e-10,
+      "formula": "u_i=C sinh(i\u03b1); cosh\u03b1=1+ks/(2k); C=P/[(k+ks)sinh(n\u03b1)\u2212k sinh((n\u22121)\u03b1)]",
+      "reference_kind": "continuum or exact discrete formula as labelled"
+    },
+    {
+      "name": "analytical: Foundation spring reaction",
+      "passed": true,
+      "actual": -1923.1869865783435,
+      "expected": -1923.1869865783435,
+      "absolute_error": 0.0,
+      "tolerance": 0.003946373973156687,
+      "formula": "-ks*u_i",
+      "reference_kind": "continuum or exact discrete formula as labelled"
+    },
+    {
+      "name": "analytical: Uniform foundation chain displacement",
+      "passed": true,
+      "actual": 5.719478065329223e-07,
+      "expected": 5.719478065329225e-07,
+      "absolute_error": 2.117582368135751e-22,
+      "tolerance": 1.0114389561306585e-10,
+      "formula": "u_i=C sinh(i\u03b1); cosh\u03b1=1+ks/(2k); C=P/[(k+ks)sinh(n\u03b1)\u2212k sinh((n\u22121)\u03b1)]",
+      "reference_kind": "continuum or exact discrete formula as labelled"
+    },
+    {
+      "name": "analytical: Foundation spring reaction",
+      "passed": true,
+      "actual": -2826.258087989877,
+      "expected": -2826.258087989878,
+      "absolute_error": 9.094947017729282e-13,
+      "tolerance": 0.005752516175979756,
+      "formula": "-ks*u_i",
+      "reference_kind": "continuum or exact discrete formula as labelled"
+    },
+    {
+      "name": "analytical: Uniform foundation chain displacement",
+      "passed": true,
+      "actual": 8.404938235931228e-07,
+      "expected": 8.404938235931226e-07,
+      "absolute_error": 2.117582368135751e-22,
+      "tolerance": 1.0168098764718625e-10,
+      "formula": "u_i=C sinh(i\u03b1); cosh\u03b1=1+ks/(2k); C=P/[(k+ks)sinh(n\u03b1)\u2212k sinh((n\u22121)\u03b1)]",
+      "reference_kind": "continuum or exact discrete formula as labelled"
+    },
+    {
+      "name": "analytical: Foundation spring reaction",
+      "passed": true,
+      "actual": -4153.267902599894,
+      "expected": -4153.267902599893,
+      "absolute_error": 9.094947017729282e-13,
+      "tolerance": 0.008406535805199785,
+      "formula": "-ks*u_i",
+      "reference_kind": "continuum or exact discrete formula as labelled"
+    },
+    {
+      "name": "analytical: Foundation chain root reaction",
+      "passed": true,
+      "actual": -99.77705693826356,
+      "expected": -99.77705693826344,
+      "absolute_error": 1.1368683772161603e-13,
+      "tolerance": 0.00029955411387652686,
+      "formula": "-k*u_1",
+      "reference_kind": "continuum or exact discrete formula as labelled"
+    },
+    {
+      "name": "analytical: Exact discrete axial chain frequency",
+      "passed": true,
+      "actual": 1161.6881628434019,
+      "expected": 1161.6881628434023,
+      "absolute_error": 4.547473508864641e-13,
+      "tolerance": 0.0011616891628434022,
+      "formula": "sqrt(ks/m + 4k/m*sin\u00b2((2r-1)\u03c0/(4n+2)))/(2\u03c0)",
+      "reference_kind": "continuum or exact discrete formula as labelled"
+    },
+    {
+      "name": "analytical: Exact discrete axial chain frequency",
+      "passed": true,
+      "actual": 1457.8447492686087,
+      "expected": 1457.844749268609,
+      "absolute_error": 2.2737367544323206e-13,
+      "tolerance": 0.0014578457492686087,
+      "formula": "sqrt(ks/m + 4k/m*sin\u00b2((2r-1)\u03c0/(4n+2)))/(2\u03c0)",
+      "reference_kind": "continuum or exact discrete formula as labelled"
+    },
+    {
+      "name": "analytical: Exact discrete axial chain frequency",
+      "passed": true,
+      "actual": 1908.0408788424643,
+      "expected": 1908.040878842465,
+      "absolute_error": 6.821210263296962e-13,
+      "tolerance": 0.0019080418788424648,
+      "formula": "sqrt(ks/m + 4k/m*sin\u00b2((2r-1)\u03c0/(4n+2)))/(2\u03c0)",
+      "reference_kind": "continuum or exact discrete formula as labelled"
+    }
+  ],
+  "reference_error": null,
+  "execution": {
+    "returncode": 0,
+    "model_sha256": "8b544a658890ec7a311d037a0cb665ce3173347e53bf3865709b49ed40e3d2c7",
+    "solver_source_sha256": "b2dcefa0108c3e5d25eebdc3c19f4cd8586716bf63074a9bf5dead876a6ea0cf"
+  }
+}

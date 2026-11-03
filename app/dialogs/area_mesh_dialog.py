@@ -27,6 +27,15 @@ class AreaMeshDialog(QDialog):
 
         root.addWidget(QLabel("Select meshing parameters for the selected Area Objects:"))
 
+        self.radio_solver = QRadioButton("Solver mesh")
+        self.radio_divide = QRadioButton("Divide shells")
+        self.radio_solver.setChecked(True)
+        self.bg_apply = QButtonGroup(self)
+        self.bg_apply.addButton(self.radio_solver)
+        self.bg_apply.addButton(self.radio_divide)
+        root.addWidget(self.radio_solver)
+        root.addWidget(self.radio_divide)
+
         self.radio_div = QRadioButton("Mesh by Divisions (N x M)")
         self.radio_size = QRadioButton("Mesh by Max Element Size")
         
@@ -76,7 +85,6 @@ class AreaMeshDialog(QDialog):
         root.addWidget(self.form_size_widget)
 
         self.chk_frames = QCheckBox("Add Points to Selected/Adjacent Frames")
-        self.chk_frames.setToolTip("Divides any bordering frame elements so they share the new mesh nodes.")
         self.chk_frames.setChecked(True)
         root.addWidget(self.chk_frames)
 
@@ -87,6 +95,16 @@ class AreaMeshDialog(QDialog):
         btn_layout = QHBoxLayout()
         btn_layout.addStretch()
         
+        self.btn_clear = QPushButton("Clear Solver Mesh")
+        self.btn_clear.setObjectName("secondary")
+        self.btn_clear.clicked.connect(self._on_clear)
+        btn_layout.addWidget(self.btn_clear)
+
+        self.btn_join = QPushButton("Join Areas")
+        self.btn_join.setObjectName("secondary")
+        self.btn_join.clicked.connect(self._on_join)
+        btn_layout.addWidget(self.btn_join)
+
         self.btn_apply = QPushButton("Apply")
         self.btn_apply.setObjectName("primary")
         self.btn_close = QPushButton("Close")
@@ -108,6 +126,7 @@ class AreaMeshDialog(QDialog):
     def _on_apply(self):
         """Packages the UI state into a dictionary and emits it."""
         settings = {
+            "apply_as": "solver" if self.radio_solver.isChecked() else "divide",
             "mode": "divisions" if self.radio_div.isChecked() else "size",
             "n": self.spin_n.value(),
             "m": self.spin_m.value(),
@@ -116,3 +135,17 @@ class AreaMeshDialog(QDialog):
             "divide_frames": self.chk_frames.isChecked()
         }
         self.signal_apply_mesh.emit(settings)
+
+    def _on_clear(self):
+        """Asks the main window to remove the solver mesh from the selected shells."""
+        self.signal_apply_mesh.emit({
+            "apply_as": "clear", "mode": "divisions", "n": 1, "m": 1,
+            "max_x": 0.5, "max_y": 0.5, "divide_frames": False
+        })
+
+    def _on_join(self):
+        """Asks the main window to join the selected shells (solver mesh -> clear, real shells -> merge)."""
+        self.signal_apply_mesh.emit({
+            "apply_as": "join", "mode": "divisions", "n": 1, "m": 1,
+            "max_x": 0.5, "max_y": 0.5, "divide_frames": self.chk_frames.isChecked()
+        })

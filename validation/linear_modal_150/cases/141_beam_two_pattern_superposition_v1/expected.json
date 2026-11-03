@@ -1,0 +1,482 @@
+{
+  "static": {
+    "displacements": {
+      "126": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "133": [
+        0.0,
+        -1.6065851469775234e-05,
+        0.0,
+        0.0,
+        0.0,
+        -8.403256710567049e-05
+      ],
+      "140": [
+        0.0,
+        -5.888209700755593e-05,
+        0.0,
+        0.0,
+        0.0,
+        -0.00015327885179245853
+      ],
+      "147": [
+        0.0,
+        -0.00012341705868815033,
+        0.0,
+        0.0,
+        0.0,
+        -0.00020855897361131903
+      ],
+      "154": [
+        0.0,
+        -0.000204926100429201,
+        0.0,
+        0.0,
+        0.0,
+        -0.00025069305211320716
+      ],
+      "161": [
+        0.0,
+        -0.0002989516279911846,
+        0.0,
+        0.0,
+        0.0,
+        -0.00028050120684907764
+      ],
+      "168": [
+        0.0,
+        -0.00040132308897741217,
+        0.0,
+        0.0,
+        0.0,
+        -0.0002988035573698858
+      ]
+    },
+    "reactions": {
+      "126": [
+        0.0,
+        9830.600000000306,
+        0.0,
+        0.0,
+        0.0,
+        20216.700000000576
+      ],
+      "133": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "140": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "147": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "154": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "161": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "168": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ]
+    }
+  },
+  "modal": {
+    "frequencies_hz": [
+      51.475347100347385,
+      294.9573906841474,
+      599.1836043830571
+    ],
+    "regularized_frequencies_hz": [
+      51.475332618791846,
+      294.95687257607534,
+      599.1836043830565
+    ],
+    "regularization_relative_shift": [
+      -2.813299249931435e-07,
+      -1.7565522629218203e-06,
+      -9.48681146229564e-16
+    ],
+    "mode_shapes": {
+      "1": {
+        "126": [
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0
+        ],
+        "133": [
+          -1.2103424340195081e-17,
+          0.003070946536429379,
+          0.0,
+          0.0,
+          0.0,
+          0.015512591275171852
+        ],
+        "140": [
+          -8.3171632861575e-18,
+          0.010874615882644751,
+          0.0,
+          0.0,
+          0.0,
+          0.027084978834659594
+        ],
+        "147": [
+          1.1921267376825751e-17,
+          0.022045506365986667,
+          0.0,
+          0.0,
+          0.0,
+          0.03489850467314598
+        ],
+        "154": [
+          1.081231227200475e-17,
+          0.035316926944147724,
+          0.0,
+          0.0,
+          0.0,
+          0.03938124838770563
+        ],
+        "161": [
+          2.7723877620525e-19,
+          0.04962274651310154,
+          0.0,
+          0.0,
+          0.0,
+          0.04127912757612201
+        ],
+        "168": [
+          -2.5484864426136952e-18,
+          0.06421825285570315,
+          0.0,
+          0.0,
+          0.0,
+          0.04169666315265526
+        ]
+      },
+      "2": {
+        "126": [
+          -0.0,
+          -0.0,
+          -0.0,
+          -0.0,
+          -0.0,
+          -0.0
+        ],
+        "133": [
+          -1.1031730925023151e-17,
+          -0.01614427397483534,
+          -0.0,
+          -0.0,
+          -0.0,
+          -0.054339314147351256
+        ],
+        "140": [
+          2.3288057201241002e-17,
+          -0.03830715538439382,
+          -0.0,
+          -0.0,
+          -0.0,
+          -0.04144288507287006
+        ],
+        "147": [
+          -1.6634326572315e-17,
+          -0.0453306949670642,
+          -0.0,
+          -0.0,
+          -0.0,
+          0.01544096163260561
+        ],
+        "154": [
+          1.3307461257852001e-17,
+          -0.0275316833330722,
+          -0.0,
+          -0.0,
+          -0.0,
+          0.0806025584322566
+        ],
+        "161": [
+          -6.653730628926001e-18,
+          0.01118264266286644,
+          -0.0,
+          -0.0,
+          -0.0,
+          0.12293286932875941
+        ],
+        "168": [
+          -9.409796095804412e-18,
+          0.05864085723328346,
+          -0.0,
+          -0.0,
+          -0.0,
+          0.135451538074277
+        ]
+      },
+      "3": {
+        "126": [
+          -0.0,
+          -0.0,
+          -0.0,
+          -0.0,
+          -0.0,
+          -0.0
+        ],
+        "133": [
+          0.011940687287328347,
+          -0.0,
+          -0.0,
+          -0.0,
+          -0.0,
+          -3.1365986986014707e-15
+        ],
+        "140": [
+          0.023067636468943997,
+          -2.8585978903057497e-18,
+          -0.0,
+          -0.0,
+          -0.0,
+          -4.862853028339556e-18
+        ],
+        "147": [
+          0.032622564346272816,
+          -3.544005709452676e-18,
+          -0.0,
+          -0.0,
+          -0.0,
+          5.880656838318636e-19
+        ],
+        "154": [
+          0.039954318374739735,
+          -7.940260135723324e-20,
+          -0.0,
+          -0.0,
+          -0.0,
+          4.955579400371481e-19
+        ],
+        "161": [
+          0.04456325163360114,
+          -8.271269873413318e-19,
+          -0.0,
+          -0.0,
+          -0.0,
+          -4.579688389431266e-18
+        ],
+        "168": [
+          0.04613527293788799,
+          -6.286705329092074e-18,
+          -0.0,
+          -0.0,
+          -0.0,
+          -5.270277387373703e-18
+        ]
+      }
+    },
+    "assembled_mass": {
+      "126": [
+        78.30375000000001,
+        78.30375000000001,
+        78.30375000000001,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "133": [
+        156.60750000000002,
+        156.60750000000002,
+        156.60750000000002,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "140": [
+        156.60750000000002,
+        156.60750000000002,
+        156.60750000000002,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "147": [
+        156.60750000000002,
+        156.60750000000002,
+        156.60750000000002,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "154": [
+        156.6075,
+        156.6075,
+        156.6075,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "161": [
+        156.6075,
+        156.6075,
+        156.6075,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "168": [
+        78.30375000000002,
+        78.30375000000002,
+        78.30375000000002,
+        0.0,
+        0.0,
+        0.0
+      ]
+    }
+  },
+  "metadata": {
+    "reference_kind": "Independent discretized force-flexibility reference with separate analytical checks",
+    "mass_model": "Translational nodal lumping; rho denotes weight density; explicit link rotary inertia allowed",
+    "regularized_reference": "Native-only numerical terms: released rotational diagonal=max(abs(k_local))*1e-12; massless free diagonal=min_positive_free_mass*1e-6",
+    "mass_floor": 7.830375000000002e-05,
+    "requested_modes": 3,
+    "native_clamped_modes": 3,
+    "sources": [
+      {
+        "title": "Scott Whitney, University of Nebraska: Vibrations of Cantilever Beams (1999)",
+        "url": "https://emweb.unl.edu/mechanics-pages/Scott-Whitney/325hweb/Beams.htm",
+        "use": "Euler-Bernoulli cantilever deflection and frequency derivation"
+      },
+      {
+        "title": "CALFEM for Python: core.py, bar2e/beam2e/beam3e/beam2de",
+        "url": "https://github.com/CALFEM/calfem-python/blob/master/src/calfem/core.py",
+        "use": "Public independent FE library and beam/bar reference formulations; not imported"
+      },
+      {
+        "title": "OpenSees public examples: Example3.1.tcl",
+        "url": "https://github.com/OpenSees/OpenSees/blob/master/EXAMPLES/ExampleScripts/Example3.1.tcl",
+        "use": "Public portal-frame modelling benchmark example; not an analytical oracle"
+      },
+      {
+        "title": "Gere and Timoshenko, Mechanics of Materials; Clough and Penzien, Dynamics of Structures",
+        "url": null,
+        "use": "Force-flexibility integration, beam boundary conditions, modal generalized eigenproblem"
+      }
+    ],
+    "batch": "second_150",
+    "case_id": "141_beam_two_pattern_superposition_v1",
+    "model_sha256": "fb50b297ac744bb4bd951c0ba5bd3ec38c24bd68eba28e8d561c30692fe872e8",
+    "reference_source_sha256": "4736d758c26c4b124dcdce5079c195fdb918049f5e38449de09279d4234f29d4",
+    "reference_wrapper_sha256": "344814f8988ecf6abaeb5633fc08aaf9e4c546dd6db4343b5338b12a3fae1d1f"
+  },
+  "analytical_checks": [
+    {
+      "node_id": 168,
+      "dof": 1,
+      "value": -0.00040132308897740187,
+      "label": "Scaled-pattern superposition tip",
+      "formula": "q(L\u2074/8EI+L\u00b2/2GAs)+P(L\u00b3/3EI+L/GAs)+ML\u00b2/2EI",
+      "result": "displacements"
+    },
+    {
+      "node_id": 168,
+      "dof": 5,
+      "value": -0.000298803557369879,
+      "label": "Scaled-pattern superposition rotation",
+      "formula": "qL\u00b3/6EI+PL\u00b2/2EI+ML/EI",
+      "result": "displacements"
+    },
+    {
+      "node_id": 126,
+      "dof": 1,
+      "value": 9830.6,
+      "label": "Scaled-pattern support shear",
+      "formula": "-qL-P",
+      "result": "reactions"
+    },
+    {
+      "node_id": 126,
+      "dof": 5,
+      "value": 20216.7,
+      "label": "Scaled-pattern support moment",
+      "formula": "-qL\u00b2/2-PL-M",
+      "result": "reactions"
+    }
+  ],
+  "analytical_reference_checks": [
+    {
+      "name": "analytical: Scaled-pattern superposition tip",
+      "passed": true,
+      "actual": -0.00040132308897741217,
+      "expected": -0.00040132308897740187,
+      "absolute_error": 1.0299920638612292e-17,
+      "tolerance": 9.026461779548037e-10,
+      "formula": "q(L\u2074/8EI+L\u00b2/2GAs)+P(L\u00b3/3EI+L/GAs)+ML\u00b2/2EI",
+      "reference_kind": "continuum or exact discrete formula as labelled"
+    },
+    {
+      "name": "analytical: Scaled-pattern superposition rotation",
+      "passed": true,
+      "actual": -0.0002988035573698858,
+      "expected": -0.000298803557369879,
+      "absolute_error": 6.830473686658678e-18,
+      "tolerance": 6.976071147397579e-10,
+      "formula": "qL\u00b3/6EI+PL\u00b2/2EI+ML/EI",
+      "reference_kind": "continuum or exact discrete formula as labelled"
+    },
+    {
+      "name": "analytical: Scaled-pattern support shear",
+      "passed": true,
+      "actual": 9830.600000000306,
+      "expected": 9830.6,
+      "absolute_error": 3.055902197957039e-10,
+      "tolerance": 0.0197612,
+      "formula": "-qL-P",
+      "reference_kind": "continuum or exact discrete formula as labelled"
+    },
+    {
+      "name": "analytical: Scaled-pattern support moment",
+      "passed": true,
+      "actual": 20216.700000000576,
+      "expected": 20216.7,
+      "absolute_error": 5.748006515204906e-10,
+      "tolerance": 0.040533400000000004,
+      "formula": "-qL\u00b2/2-PL-M",
+      "reference_kind": "continuum or exact discrete formula as labelled"
+    }
+  ]
+}

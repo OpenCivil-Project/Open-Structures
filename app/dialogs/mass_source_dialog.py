@@ -10,7 +10,7 @@ from app.ui.theme import apply_dialog_style
 class MassSourceDataDialog(QDialog):
     """
     The 'Define/Modify Mass Source' window.
-    Mimics SAP2000 'Mass Source Data' dialog.
+    
     """
     def __init__(self, model, mass_source, parent=None):
         super().__init__(parent)

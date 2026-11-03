@@ -63,7 +63,8 @@ class MemberPointLoad:
 class AreaGravityLoad:
     """
     Gravity multiplier load applied to an AreaElement (shell/plane/asolid).
-    Scales the element's self-weight independently in each global direction.
+    Scales the element's self-weight independently along the chosen coordinate
+    axes. GLOBAL uses X/Y/Z; Local uses the shell's rotated local 1/2/3 axes.
 
     Usage:
         gz = -1.0  → full self-weight downward  (standard dead load)
@@ -91,8 +92,8 @@ class AreaUniformLoad:
 
     load_direction options:
         'Gravity'             → global −Z (downward)
-        'Local 1'             → shell normal (outward positive)
-        'Local 2' / 'Local 3' → in-plane shear
+        'Local 1' / 'Local 2' → in-plane axes, rotated by section material_angle
+        'Local 3'             → shell normal (positive follows node winding)
         'Global X/Y/Z'        → explicit global axis
     """
     area_id: int

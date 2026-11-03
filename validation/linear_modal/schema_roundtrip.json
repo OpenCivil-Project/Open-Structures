@@ -1,0 +1,1002 @@
+[
+  {
+    "id": "001_cantilever_tip_y_v1",
+    "status": "PASS",
+    "nodes": 7,
+    "elements": 6,
+    "extra_cases_created_by_loader": [
+      "DEAD",
+      "TEST"
+    ]
+  },
+  {
+    "id": "002_cantilever_tip_y_v2",
+    "status": "PASS",
+    "nodes": 9,
+    "elements": 8,
+    "extra_cases_created_by_loader": [
+      "DEAD",
+      "TEST"
+    ]
+  },
+  {
+    "id": "003_cantilever_tip_y_v3",
+    "status": "PASS",
+    "nodes": 11,
+    "elements": 10,
+    "extra_cases_created_by_loader": [
+      "DEAD",
+      "TEST"
+    ]
+  },
+  {
+    "id": "004_cantilever_tip_y_v4",
+    "status": "PASS",
+    "nodes": 13,
+    "elements": 12,
+    "extra_cases_created_by_loader": [
+      "DEAD",
+      "TEST"
+    ]
+  },
+  {
+    "id": "005_cantilever_tip_y_v5",
+    "status": "PASS",
+    "nodes": 15,
+    "elements": 14,
+    "extra_cases_created_by_loader": [
+      "DEAD",
+      "TEST"
+    ]
+  },
+  {
+    "id": "006_cantilever_tip_z_v1",
+    "status": "PASS",
+    "nodes": 7,
+    "elements": 6,
+    "extra_cases_created_by_loader": [
+      "DEAD",
+      "TEST"
+    ]
+  },
+  {
+    "id": "007_cantilever_tip_z_v2",
+    "status": "PASS",
+    "nodes": 9,
+    "elements": 8,
+    "extra_cases_created_by_loader": [
+      "DEAD",
+      "TEST"
+    ]
+  },
+  {
+    "id": "008_cantilever_tip_z_v3",
+    "status": "PASS",
+    "nodes": 11,
+    "elements": 10,
+    "extra_cases_created_by_loader": [
+      "DEAD",
+      "TEST"
+    ]
+  },
+  {
+    "id": "009_cantilever_tip_z_v4",
+    "status": "PASS",
+    "nodes": 13,
+    "elements": 12,
+    "extra_cases_created_by_loader": [
+      "DEAD",
+      "TEST"
+    ]
+  },
+  {
+    "id": "010_cantilever_tip_z_v5",
+    "status": "PASS",
+    "nodes": 15,
+    "elements": 14,
+    "extra_cases_created_by_loader": [
+      "DEAD",
+      "TEST"
+    ]
+  },
+  {
+    "id": "011_inclined_cantilever_v1",
+    "status": "PASS",
+    "nodes": 7,
+    "elements": 6,
+    "extra_cases_created_by_loader": [
+      "DEAD",
+      "TEST"
+    ]
+  },
+  {
+    "id": "012_inclined_cantilever_v2",
+    "status": "PASS",
+    "nodes": 9,
+    "elements": 8,
+    "extra_cases_created_by_loader": [
+      "DEAD",
+      "TEST"
+    ]
+  },
+  {
+    "id": "013_inclined_cantilever_v3",
+    "status": "PASS",
+    "nodes": 11,
+    "elements": 10,
+    "extra_cases_created_by_loader": [
+      "DEAD",
+      "TEST"
+    ]
+  },
+  {
+    "id": "014_inclined_cantilever_v4",
+    "status": "PASS",
+    "nodes": 13,
+    "elements": 12,
+    "extra_cases_created_by_loader": [
+      "DEAD",
+      "TEST"
+    ]
+  },
+  {
+    "id": "015_inclined_cantilever_v5",
+    "status": "PASS",
+    "nodes": 15,
+    "elements": 14,
+    "extra_cases_created_by_loader": [
+      "DEAD",
+      "TEST"
+    ]
+  },
+  {
+    "id": "016_cantilever_udl_v1",
+    "status": "PASS",
+    "nodes": 7,
+    "elements": 6,
+    "extra_cases_created_by_loader": [
+      "DEAD",
+      "TEST"
+    ]
+  },
+  {
+    "id": "017_cantilever_udl_v2",
+    "status": "PASS",
+    "nodes": 9,
+    "elements": 8,
+    "extra_cases_created_by_loader": [
+      "DEAD",
+      "TEST"
+    ]
+  },
+  {
+    "id": "018_cantilever_udl_v3",
+    "status": "PASS",
+    "nodes": 11,
+    "elements": 10,
+    "extra_cases_created_by_loader": [
+      "DEAD",
+      "TEST"
+    ]
+  },
+  {
+    "id": "019_cantilever_udl_v4",
+    "status": "PASS",
+    "nodes": 13,
+    "elements": 12,
+    "extra_cases_created_by_loader": [
+      "DEAD",
+      "TEST"
+    ]
+  },
+  {
+    "id": "020_cantilever_udl_v5",
+    "status": "PASS",
+    "nodes": 15,
+    "elements": 14,
+    "extra_cases_created_by_loader": [
+      "DEAD",
+      "TEST"
+    ]
+  },
+  {
+    "id": "021_cantilever_tip_moment_v1",
+    "status": "PASS",
+    "nodes": 7,
+    "elements": 6,
+    "extra_cases_created_by_loader": [
+      "DEAD",
+      "TEST"
+    ]
+  },
+  {
+    "id": "022_cantilever_tip_moment_v2",
+    "status": "PASS",
+    "nodes": 9,
+    "elements": 8,
+    "extra_cases_created_by_loader": [
+      "DEAD",
+      "TEST"
+    ]
+  },
+  {
+    "id": "023_cantilever_tip_moment_v3",
+    "status": "PASS",
+    "nodes": 11,
+    "elements": 10,
+    "extra_cases_created_by_loader": [
+      "DEAD",
+      "TEST"
+    ]
+  },
+  {
+    "id": "024_cantilever_tip_moment_v4",
+    "status": "PASS",
+    "nodes": 13,
+    "elements": 12,
+    "extra_cases_created_by_loader": [
+      "DEAD",
+      "TEST"
+    ]
+  },
+  {
+    "id": "025_cantilever_tip_moment_v5",
+    "status": "PASS",
+    "nodes": 15,
+    "elements": 14,
+    "extra_cases_created_by_loader": [
+      "DEAD",
+      "TEST"
+    ]
+  },
+  {
+    "id": "026_axial_bar_v1",
+    "status": "PASS",
+    "nodes": 7,
+    "elements": 6,
+    "extra_cases_created_by_loader": [
+      "DEAD",
+      "TEST"
+    ]
+  },
+  {
+    "id": "027_axial_bar_v2",
+    "status": "PASS",
+    "nodes": 9,
+    "elements": 8,
+    "extra_cases_created_by_loader": [
+      "DEAD",
+      "TEST"
+    ]
+  },
+  {
+    "id": "028_axial_bar_v3",
+    "status": "PASS",
+    "nodes": 11,
+    "elements": 10,
+    "extra_cases_created_by_loader": [
+      "DEAD",
+      "TEST"
+    ]
+  },
+  {
+    "id": "029_axial_bar_v4",
+    "status": "PASS",
+    "nodes": 13,
+    "elements": 12,
+    "extra_cases_created_by_loader": [
+      "DEAD",
+      "TEST"
+    ]
+  },
+  {
+    "id": "030_axial_bar_v5",
+    "status": "PASS",
+    "nodes": 15,
+    "elements": 14,
+    "extra_cases_created_by_loader": [
+      "DEAD",
+      "TEST"
+    ]
+  },
+  {
+    "id": "031_torsion_bar_v1",
+    "status": "PASS",
+    "nodes": 7,
+    "elements": 6,
+    "extra_cases_created_by_loader": [
+      "DEAD",
+      "TEST"
+    ]
+  },
+  {
+    "id": "032_torsion_bar_v2",
+    "status": "PASS",
+    "nodes": 9,
+    "elements": 8,
+    "extra_cases_created_by_loader": [
+      "DEAD",
+      "TEST"
+    ]
+  },
+  {
+    "id": "033_torsion_bar_v3",
+    "status": "PASS",
+    "nodes": 11,
+    "elements": 10,
+    "extra_cases_created_by_loader": [
+      "DEAD",
+      "TEST"
+    ]
+  },
+  {
+    "id": "034_torsion_bar_v4",
+    "status": "PASS",
+    "nodes": 13,
+    "elements": 12,
+    "extra_cases_created_by_loader": [
+      "DEAD",
+      "TEST"
+    ]
+  },
+  {
+    "id": "035_torsion_bar_v5",
+    "status": "PASS",
+    "nodes": 15,
+    "elements": 14,
+    "extra_cases_created_by_loader": [
+      "DEAD",
+      "TEST"
+    ]
+  },
+  {
+    "id": "036_simply_supported_point_v1",
+    "status": "PASS",
+    "nodes": 7,
+    "elements": 6,
+    "extra_cases_created_by_loader": [
+      "DEAD",
+      "TEST"
+    ]
+  },
+  {
+    "id": "037_simply_supported_point_v2",
+    "status": "PASS",
+    "nodes": 9,
+    "elements": 8,
+    "extra_cases_created_by_loader": [
+      "DEAD",
+      "TEST"
+    ]
+  },
+  {
+    "id": "038_simply_supported_point_v3",
+    "status": "PASS",
+    "nodes": 11,
+    "elements": 10,
+    "extra_cases_created_by_loader": [
+      "DEAD",
+      "TEST"
+    ]
+  },
+  {
+    "id": "039_simply_supported_point_v4",
+    "status": "PASS",
+    "nodes": 13,
+    "elements": 12,
+    "extra_cases_created_by_loader": [
+      "DEAD",
+      "TEST"
+    ]
+  },
+  {
+    "id": "040_simply_supported_point_v5",
+    "status": "PASS",
+    "nodes": 15,
+    "elements": 14,
+    "extra_cases_created_by_loader": [
+      "DEAD",
+      "TEST"
+    ]
+  },
+  {
+    "id": "041_simply_supported_udl_v1",
+    "status": "PASS",
+    "nodes": 7,
+    "elements": 6,
+    "extra_cases_created_by_loader": [
+      "DEAD",
+      "TEST"
+    ]
+  },
+  {
+    "id": "042_simply_supported_udl_v2",
+    "status": "PASS",
+    "nodes": 9,
+    "elements": 8,
+    "extra_cases_created_by_loader": [
+      "DEAD",
+      "TEST"
+    ]
+  },
+  {
+    "id": "043_simply_supported_udl_v3",
+    "status": "PASS",
+    "nodes": 11,
+    "elements": 10,
+    "extra_cases_created_by_loader": [
+      "DEAD",
+      "TEST"
+    ]
+  },
+  {
+    "id": "044_simply_supported_udl_v4",
+    "status": "PASS",
+    "nodes": 13,
+    "elements": 12,
+    "extra_cases_created_by_loader": [
+      "DEAD",
+      "TEST"
+    ]
+  },
+  {
+    "id": "045_simply_supported_udl_v5",
+    "status": "PASS",
+    "nodes": 15,
+    "elements": 14,
+    "extra_cases_created_by_loader": [
+      "DEAD",
+      "TEST"
+    ]
+  },
+  {
+    "id": "046_fixed_fixed_point_v1",
+    "status": "PASS",
+    "nodes": 7,
+    "elements": 6,
+    "extra_cases_created_by_loader": [
+      "DEAD",
+      "TEST"
+    ]
+  },
+  {
+    "id": "047_fixed_fixed_point_v2",
+    "status": "PASS",
+    "nodes": 9,
+    "elements": 8,
+    "extra_cases_created_by_loader": [
+      "DEAD",
+      "TEST"
+    ]
+  },
+  {
+    "id": "048_fixed_fixed_point_v3",
+    "status": "PASS",
+    "nodes": 11,
+    "elements": 10,
+    "extra_cases_created_by_loader": [
+      "DEAD",
+      "TEST"
+    ]
+  },
+  {
+    "id": "049_fixed_fixed_point_v4",
+    "status": "PASS",
+    "nodes": 13,
+    "elements": 12,
+    "extra_cases_created_by_loader": [
+      "DEAD",
+      "TEST"
+    ]
+  },
+  {
+    "id": "050_fixed_fixed_point_v5",
+    "status": "PASS",
+    "nodes": 15,
+    "elements": 14,
+    "extra_cases_created_by_loader": [
+      "DEAD",
+      "TEST"
+    ]
+  },
+  {
+    "id": "051_fixed_fixed_udl_v1",
+    "status": "PASS",
+    "nodes": 7,
+    "elements": 6,
+    "extra_cases_created_by_loader": [
+      "DEAD",
+      "TEST"
+    ]
+  },
+  {
+    "id": "052_fixed_fixed_udl_v2",
+    "status": "PASS",
+    "nodes": 9,
+    "elements": 8,
+    "extra_cases_created_by_loader": [
+      "DEAD",
+      "TEST"
+    ]
+  },
+  {
+    "id": "053_fixed_fixed_udl_v3",
+    "status": "PASS",
+    "nodes": 11,
+    "elements": 10,
+    "extra_cases_created_by_loader": [
+      "DEAD",
+      "TEST"
+    ]
+  },
+  {
+    "id": "054_fixed_fixed_udl_v4",
+    "status": "PASS",
+    "nodes": 13,
+    "elements": 12,
+    "extra_cases_created_by_loader": [
+      "DEAD",
+      "TEST"
+    ]
+  },
+  {
+    "id": "055_fixed_fixed_udl_v5",
+    "status": "PASS",
+    "nodes": 15,
+    "elements": 14,
+    "extra_cases_created_by_loader": [
+      "DEAD",
+      "TEST"
+    ]
+  },
+  {
+    "id": "056_propped_udl_v1",
+    "status": "PASS",
+    "nodes": 7,
+    "elements": 6,
+    "extra_cases_created_by_loader": [
+      "DEAD",
+      "TEST"
+    ]
+  },
+  {
+    "id": "057_propped_udl_v2",
+    "status": "PASS",
+    "nodes": 9,
+    "elements": 8,
+    "extra_cases_created_by_loader": [
+      "DEAD",
+      "TEST"
+    ]
+  },
+  {
+    "id": "058_propped_udl_v3",
+    "status": "PASS",
+    "nodes": 11,
+    "elements": 10,
+    "extra_cases_created_by_loader": [
+      "DEAD",
+      "TEST"
+    ]
+  },
+  {
+    "id": "059_propped_udl_v4",
+    "status": "PASS",
+    "nodes": 13,
+    "elements": 12,
+    "extra_cases_created_by_loader": [
+      "DEAD",
+      "TEST"
+    ]
+  },
+  {
+    "id": "060_propped_udl_v5",
+    "status": "PASS",
+    "nodes": 15,
+    "elements": 14,
+    "extra_cases_created_by_loader": [
+      "DEAD",
+      "TEST"
+    ]
+  },
+  {
+    "id": "061_continuous_two_span_v1",
+    "status": "PASS",
+    "nodes": 7,
+    "elements": 6,
+    "extra_cases_created_by_loader": [
+      "DEAD",
+      "TEST"
+    ]
+  },
+  {
+    "id": "062_continuous_two_span_v2",
+    "status": "PASS",
+    "nodes": 9,
+    "elements": 8,
+    "extra_cases_created_by_loader": [
+      "DEAD",
+      "TEST"
+    ]
+  },
+  {
+    "id": "063_continuous_two_span_v3",
+    "status": "PASS",
+    "nodes": 11,
+    "elements": 10,
+    "extra_cases_created_by_loader": [
+      "DEAD",
+      "TEST"
+    ]
+  },
+  {
+    "id": "064_continuous_two_span_v4",
+    "status": "PASS",
+    "nodes": 13,
+    "elements": 12,
+    "extra_cases_created_by_loader": [
+      "DEAD",
+      "TEST"
+    ]
+  },
+  {
+    "id": "065_continuous_two_span_v5",
+    "status": "PASS",
+    "nodes": 15,
+    "elements": 14,
+    "extra_cases_created_by_loader": [
+      "DEAD",
+      "TEST"
+    ]
+  },
+  {
+    "id": "066_rigid_portal_v1",
+    "status": "PASS",
+    "nodes": 7,
+    "elements": 6,
+    "extra_cases_created_by_loader": [
+      "DEAD",
+      "TEST"
+    ]
+  },
+  {
+    "id": "067_rigid_portal_v2",
+    "status": "PASS",
+    "nodes": 10,
+    "elements": 9,
+    "extra_cases_created_by_loader": [
+      "DEAD",
+      "TEST"
+    ]
+  },
+  {
+    "id": "068_rigid_portal_v3",
+    "status": "PASS",
+    "nodes": 13,
+    "elements": 12,
+    "extra_cases_created_by_loader": [
+      "DEAD",
+      "TEST"
+    ]
+  },
+  {
+    "id": "069_rigid_portal_v4",
+    "status": "PASS",
+    "nodes": 16,
+    "elements": 15,
+    "extra_cases_created_by_loader": [
+      "DEAD",
+      "TEST"
+    ]
+  },
+  {
+    "id": "070_rigid_portal_v5",
+    "status": "PASS",
+    "nodes": 19,
+    "elements": 18,
+    "extra_cases_created_by_loader": [
+      "DEAD",
+      "TEST"
+    ]
+  },
+  {
+    "id": "071_pinned_base_portal_v1",
+    "status": "PASS",
+    "nodes": 7,
+    "elements": 6,
+    "extra_cases_created_by_loader": [
+      "DEAD",
+      "TEST"
+    ]
+  },
+  {
+    "id": "072_pinned_base_portal_v2",
+    "status": "PASS",
+    "nodes": 10,
+    "elements": 9,
+    "extra_cases_created_by_loader": [
+      "DEAD",
+      "TEST"
+    ]
+  },
+  {
+    "id": "073_pinned_base_portal_v3",
+    "status": "PASS",
+    "nodes": 13,
+    "elements": 12,
+    "extra_cases_created_by_loader": [
+      "DEAD",
+      "TEST"
+    ]
+  },
+  {
+    "id": "074_pinned_base_portal_v4",
+    "status": "PASS",
+    "nodes": 16,
+    "elements": 15,
+    "extra_cases_created_by_loader": [
+      "DEAD",
+      "TEST"
+    ]
+  },
+  {
+    "id": "075_pinned_base_portal_v5",
+    "status": "PASS",
+    "nodes": 19,
+    "elements": 18,
+    "extra_cases_created_by_loader": [
+      "DEAD",
+      "TEST"
+    ]
+  },
+  {
+    "id": "076_released_beam_portal_v1",
+    "status": "PASS",
+    "nodes": 7,
+    "elements": 6,
+    "extra_cases_created_by_loader": [
+      "DEAD",
+      "TEST"
+    ]
+  },
+  {
+    "id": "077_released_beam_portal_v2",
+    "status": "PASS",
+    "nodes": 10,
+    "elements": 9,
+    "extra_cases_created_by_loader": [
+      "DEAD",
+      "TEST"
+    ]
+  },
+  {
+    "id": "078_released_beam_portal_v3",
+    "status": "PASS",
+    "nodes": 13,
+    "elements": 12,
+    "extra_cases_created_by_loader": [
+      "DEAD",
+      "TEST"
+    ]
+  },
+  {
+    "id": "079_released_beam_portal_v4",
+    "status": "PASS",
+    "nodes": 16,
+    "elements": 15,
+    "extra_cases_created_by_loader": [
+      "DEAD",
+      "TEST"
+    ]
+  },
+  {
+    "id": "080_released_beam_portal_v5",
+    "status": "PASS",
+    "nodes": 19,
+    "elements": 18,
+    "extra_cases_created_by_loader": [
+      "DEAD",
+      "TEST"
+    ]
+  },
+  {
+    "id": "081_two_story_frame_v1",
+    "status": "PASS",
+    "nodes": 12,
+    "elements": 12,
+    "extra_cases_created_by_loader": [
+      "DEAD",
+      "TEST"
+    ]
+  },
+  {
+    "id": "082_two_story_frame_v2",
+    "status": "PASS",
+    "nodes": 18,
+    "elements": 18,
+    "extra_cases_created_by_loader": [
+      "DEAD",
+      "TEST"
+    ]
+  },
+  {
+    "id": "083_two_story_frame_v3",
+    "status": "PASS",
+    "nodes": 24,
+    "elements": 24,
+    "extra_cases_created_by_loader": [
+      "DEAD",
+      "TEST"
+    ]
+  },
+  {
+    "id": "084_two_story_frame_v4",
+    "status": "PASS",
+    "nodes": 30,
+    "elements": 30,
+    "extra_cases_created_by_loader": [
+      "DEAD",
+      "TEST"
+    ]
+  },
+  {
+    "id": "085_two_story_frame_v5",
+    "status": "PASS",
+    "nodes": 36,
+    "elements": 36,
+    "extra_cases_created_by_loader": [
+      "DEAD",
+      "TEST"
+    ]
+  },
+  {
+    "id": "086_space_frame_v1",
+    "status": "PASS",
+    "nodes": 16,
+    "elements": 16,
+    "extra_cases_created_by_loader": [
+      "DEAD",
+      "TEST"
+    ]
+  },
+  {
+    "id": "087_space_frame_v2",
+    "status": "PASS",
+    "nodes": 24,
+    "elements": 24,
+    "extra_cases_created_by_loader": [
+      "DEAD",
+      "TEST"
+    ]
+  },
+  {
+    "id": "088_space_frame_v3",
+    "status": "PASS",
+    "nodes": 32,
+    "elements": 32,
+    "extra_cases_created_by_loader": [
+      "DEAD",
+      "TEST"
+    ]
+  },
+  {
+    "id": "089_space_frame_v4",
+    "status": "PASS",
+    "nodes": 40,
+    "elements": 40,
+    "extra_cases_created_by_loader": [
+      "DEAD",
+      "TEST"
+    ]
+  },
+  {
+    "id": "090_space_frame_v5",
+    "status": "PASS",
+    "nodes": 48,
+    "elements": 48,
+    "extra_cases_created_by_loader": [
+      "DEAD",
+      "TEST"
+    ]
+  },
+  {
+    "id": "091_stepped_axial_chain_v1",
+    "status": "PASS",
+    "nodes": 7,
+    "elements": 6,
+    "extra_cases_created_by_loader": [
+      "DEAD",
+      "TEST"
+    ]
+  },
+  {
+    "id": "092_stepped_axial_chain_v2",
+    "status": "PASS",
+    "nodes": 9,
+    "elements": 8,
+    "extra_cases_created_by_loader": [
+      "DEAD",
+      "TEST"
+    ]
+  },
+  {
+    "id": "093_stepped_axial_chain_v3",
+    "status": "PASS",
+    "nodes": 11,
+    "elements": 10,
+    "extra_cases_created_by_loader": [
+      "DEAD",
+      "TEST"
+    ]
+  },
+  {
+    "id": "094_stepped_axial_chain_v4",
+    "status": "PASS",
+    "nodes": 13,
+    "elements": 12,
+    "extra_cases_created_by_loader": [
+      "DEAD",
+      "TEST"
+    ]
+  },
+  {
+    "id": "095_stepped_axial_chain_v5",
+    "status": "PASS",
+    "nodes": 15,
+    "elements": 14,
+    "extra_cases_created_by_loader": [
+      "DEAD",
+      "TEST"
+    ]
+  },
+  {
+    "id": "096_elastic_support_beam_v1",
+    "status": "PASS",
+    "nodes": 7,
+    "elements": 6,
+    "extra_cases_created_by_loader": [
+      "DEAD",
+      "TEST"
+    ]
+  },
+  {
+    "id": "097_elastic_support_beam_v2",
+    "status": "PASS",
+    "nodes": 9,
+    "elements": 8,
+    "extra_cases_created_by_loader": [
+      "DEAD",
+      "TEST"
+    ]
+  },
+  {
+    "id": "098_elastic_support_beam_v3",
+    "status": "PASS",
+    "nodes": 11,
+    "elements": 10,
+    "extra_cases_created_by_loader": [
+      "DEAD",
+      "TEST"
+    ]
+  },
+  {
+    "id": "099_elastic_support_beam_v4",
+    "status": "PASS",
+    "nodes": 13,
+    "elements": 12,
+    "extra_cases_created_by_loader": [
+      "DEAD",
+      "TEST"
+    ]
+  },
+  {
+    "id": "100_elastic_support_beam_v5",
+    "status": "PASS",
+    "nodes": 15,
+    "elements": 14,
+    "extra_cases_created_by_loader": [
+      "DEAD",
+      "TEST"
+    ]
+  }
+]

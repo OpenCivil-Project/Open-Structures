@@ -4,6 +4,7 @@ from element_library import get_local_stiffness_matrix, get_link_stiffness_matri
 from matrix_spy import MatrixSpy
 from error_definitions import SolverException
 from element_library import get_local_stiffness_matrix, get_link_stiffness_matrix, get_rotation_matrix, get_eccentricity_matrix, get_exact_fef_via_stiffness, condense_fef
+from element_library import get_local_stiffness_matrix_batch, get_rotation_matrix_batch, get_eccentricity_matrix_batch
 from core.solver.modal.mass_assembler import GlobalMassAssembler
 
 class GlobalAssembler:
@@ -18,6 +19,9 @@ class GlobalAssembler:
         self.P = np.zeros(self.dm.total_dofs)
 
         self.element_by_id = {e['id']: e for e in self.dm.elements}
+
+        self.modal_hinge_elements = None
+        self.modal_hinge_report = []
 
     def assemble_system(self, exact_diaphragm=True):
         """Master function to build K and P."""
@@ -70,6 +74,7 @@ class GlobalAssembler:
         
         print("Assembler: Processing Member Loads (FEF)...")
         self._add_member_loads()
+        self._add_shell_loads()
         self.spy.save_to_json()
         return self.K, self.P
 
@@ -99,60 +104,10 @@ class GlobalAssembler:
             cols_buf.append(c_idx.ravel())
             data_buf.append(np.asarray(block).ravel())
 
-        for el in self.dm.elements:
-            mat = el['material']
-            sec = el['section']
-            L = el['L_clear']
-            L_total = el['L_total']
+        self._build_beam_stiffness_batched(rows_buf, cols_buf, data_buf)
 
-            k_local = get_local_stiffness_matrix(
-                E=mat['E'], G=mat['G'], A=sec['A'], J=sec['J'],
-                I22=sec['I22'], I33=sec['I33'],
-                As2=sec['As2'], As3=sec['As3'], L=L, L_tor=L_total
-            )
-
-            if any(el['releases'][0]) or any(el['releases'][1]):
-                k_local = self._condense_matrix(k_local, el['releases'])
-
-            idx_i, idx_j = el['node_indices']
-            p1 = self.dm.nodes[idx_i]['coords']
-            p2 = self.dm.nodes[idx_j]['coords']
-
-            global_off_i = np.array(el['offsets'][0])
-            global_off_j = np.array(el['offsets'][1])
-
-            p1_adj = p1 + global_off_i
-            p2_adj = p2 + global_off_j
-
-            beta_eff = el['beta'] - np.degrees(sec.get('theta_p', 0.0))
-            R_3x3 = get_rotation_matrix(p1_adj, p2_adj, beta_eff)
-
-            T_rot = np.zeros((12, 12))
-            for i in range(4):
-                T_rot[i*3:(i+1)*3, i*3:(i+1)*3] = R_3x3
-
-            global_off_i = np.array(el['offsets'][0])
-            global_off_j = np.array(el['offsets'][1])
-
-            local_off_i = R_3x3 @ global_off_i
-            local_off_j = R_3x3 @ global_off_j
-
-            rz = el.get('rz_factor', 0.0)
-            local_off_i[0] += el.get('end_off_i', 0.0) * rz
-            local_off_j[0] -= el.get('end_off_j', 0.0) * rz
-
-            T_ecc = get_eccentricity_matrix(local_off_i, local_off_j)
-
-            T_total = T_ecc @ T_rot
-
-            self.spy.record_matrices(el['id'], k_local, T_total)
-
-            k_global = T_total.T @ k_local @ T_total
-
-            start_i = idx_i * 6
-            start_j = idx_j * 6
-            dof_map = list(range(start_i, start_i + 6)) + list(range(start_j, start_j + 6))
-            add_block(dof_map, k_global)
+        for sh in getattr(self.dm, 'shells', []):
+            add_block(sh.dof_map, sh.k_global)
 
         for link in self.dm.links_1j:
             prop = link['property']
@@ -202,6 +157,198 @@ class GlobalAssembler:
             K_coo = coo_matrix((n, n))
 
         self.K = K_coo.tolil()
+
+    def _hinge_zero_state_stiffness(self, el, hd, k_elastic, R=None, node_idx=None):
+        """Local 12x12 stiffness of an element carrying a fiber hinge, evaluated at ZERO
+        deformation: the unstressed initial tangent of the hinge's fibers (whatever the fiber
+        materials define at zero strain). Same compute_hinge_element the nonlinear engine uses,
+        so nothing about fibers / materials is duplicated here."""
+        from hinge_element import compute_hinge_element
+        _f, K, _N = compute_hinge_element(
+            hd['fiber_section'], hd['rel_dist'], hd['length'],
+            np.zeros(12), el['material'], el['section'], el['L_clear'],
+            failed=None, residual_stiffness=hd.get('residual_stiffness'))
+        K = np.array(K, dtype=float)
+        for a, b in ((3, 3), (3, 9), (9, 3), (9, 9)):                                               
+            K[a, b] = k_elastic[a, b]
+                                                                                                   
+        w_h = np.sort(np.abs(np.linalg.eigvalsh(0.5 * (K + K.T))))
+        w_e = np.sort(np.abs(np.linalg.eigvalsh(0.5 * (k_elastic + k_elastic.T))))
+        ratio = float(w_h[6] / w_e[6]) if w_e[6] > 0 else 1.0
+        rep = {
+            'element': str(el['id']), 'hinge': hd.get('_hinge_name', ''),
+            'softest_mode_stiffness_ratio': ratio,
+            'near_mechanism': bool(ratio < 1e-3)}
+        if node_idx is not None:
+            rep['nodes'] = [int(node_idx[0]), int(node_idx[1])]
+        try:
+                                                                                                          
+            fs = hd['fiber_section']
+            gross = np.array([el['material']['E'] * el['section']['A'],
+                              el['material']['E'] * el['section']['I22'],
+                              el['material']['E'] * el['section']['I33']])
+            def _ratio(e0):
+                Ks = np.array(fs.state(e0, 0.0, 0.0, failed=None)[3], dtype=float)
+                return [float(v) for v in (np.diag(Ks) / gross)]
+            rep['fiber_vs_gross'] = {'as_used': _ratio(0.0), 'tension_side': _ratio(1e-9),
+                                     'compression_side': _ratio(-1e-9)}                               
+        except Exception:
+            pass
+        if rep['near_mechanism'] and R is not None:
+                                                                                                       
+            try:
+                rep.update(self._hinge_weak_direction(K, el['L_clear'], R))
+            except Exception as exc:
+                rep['weak_mode'] = f'unknown ({exc})'
+        self.modal_hinge_report.append(rep)
+        return K
+
+    @staticmethod
+    def _hinge_weak_direction(K, L, R):
+        """Softest non-rigid, non-torsion deformation mode of a hinged element's local 12x12 K, and
+        where it points in GLOBAL axes.
+
+        Local DOFs: [u1,u2,u3,th1,th2,th3] at each end.  The mode is one of
+          axial                    u1                   (translation dir = local 1)
+          bending about local 2    u3 + th2             (rotation axis local 2, translation dir local 3)
+          bending about local 3    u2 + th3             (rotation axis local 3, translation dir local 2)
+        R is the element's 3x3 global->local rotation (u_local = R @ u_global), so local axis k, written
+        in global coordinates, is the ROW R[k, :].  Rigid offsets / eccentricities are ignored here."""
+        from hinge_element import _kinematic_matrix
+        Bv = _kinematic_matrix(L)                                                                       
+        Q, _ = np.linalg.qr(Bv.T)                                                                           
+        Kr = Q.T @ (0.5 * (K + K.T)) @ Q                                                           
+        w, U = np.linalg.eigh(Kr)
+        x = Q @ U[:, 0]                                                                         
+        groups = {'axial': (0, 6),
+                  'bending about local 2': (2, 8, 4, 10),
+                  'bending about local 3': (1, 7, 5, 11)}
+        wt = {name: float(np.sum(x[list(ix)] ** 2)) for name, ix in groups.items()}
+        tot = sum(wt.values()) or 1.0
+        wt = {k: v / tot for k, v in wt.items()}
+        mode = max(wt, key=wt.get)
+        R = np.asarray(R, dtype=float)
+        if mode == 'axial':
+            rot_axis, trans_dir = None, R[0, :]
+        elif mode == 'bending about local 2':
+            rot_axis, trans_dir = R[1, :], R[2, :]
+        else:
+            rot_axis, trans_dir = R[2, :], R[1, :]
+        return {'weak_mode': mode, 'weak_mode_weights': wt,
+                'weak_rot_axis': None if rot_axis is None else [float(v) for v in rot_axis],
+                'weak_trans_dir': [float(v) for v in trans_dir]}
+
+    def _build_beam_stiffness_batched(self, rows_buf, cols_buf, data_buf):
+        """
+        Vectorized replacement for the old per-element Python loop that used
+        to live directly inside _build_stiffness() (still available,
+        unchanged, as the scalar reference in the per-element branch below
+        and in _build_stiffness_legacy()).
+
+        Does EXACTLY the same math as the scalar loop, element-by-element,
+        for every element that has NO releases: same get_local_stiffness_matrix
+        formula (via the batched get_local_stiffness_matrix_batch), same
+        get_rotation_matrix branch logic (via get_rotation_matrix_batch),
+        same eccentricity transform (via get_eccentricity_matrix_batch), same
+        T_total = T_ecc @ T_rot and k_global = T_total.T @ k_local @ T_total
+        composition - just performed as one set of numpy/einsum calls over
+        all N elements instead of N separate small-matrix Python calls.
+
+        Elements WITH releases fall back to the original scalar path one at
+        a time (self._condense_matrix has an eigenvector-order / inversion
+        step that isn't worth vectorizing - releases are typically a small
+        minority of elements in a model), so the result is bit-for-bit
+        the same as the pre-vectorization loop, just reordered accumulation
+        into the same coo_matrix scatter (already established as numerically
+        identical to lil_matrix += accumulation - see _build_stiffness()
+        docstring).
+        """
+        elements = self.dm.elements
+        n_el = len(elements)
+        if n_el == 0:
+            return
+
+        has_release = np.array([any(el['releases'][0]) or any(el['releases'][1]) for el in elements])
+
+        E   = np.array([el['material']['E'] for el in elements])
+        G   = np.array([el['material']['G'] for el in elements])
+        A   = np.array([el['section']['A'] for el in elements])
+        J   = np.array([el['section']['J'] for el in elements])
+        I22 = np.array([el['section']['I22'] for el in elements])
+        I33 = np.array([el['section']['I33'] for el in elements])
+        As2 = np.array([el['section']['As2'] for el in elements])
+        As3 = np.array([el['section']['As3'] for el in elements])
+        L        = np.array([el['L_clear'] for el in elements])
+        L_total  = np.array([el['L_total'] for el in elements])
+
+        idx_i = np.array([el['node_indices'][0] for el in elements])
+        idx_j = np.array([el['node_indices'][1] for el in elements])
+        p1 = np.array([self.dm.nodes[i]['coords'] for i in idx_i], dtype=float)
+        p2 = np.array([self.dm.nodes[j]['coords'] for j in idx_j], dtype=float)
+
+        off_i = np.array([el['offsets'][0] for el in elements], dtype=float)
+        off_j = np.array([el['offsets'][1] for el in elements], dtype=float)
+
+        theta_p = np.array([el['section'].get('theta_p', 0.0) for el in elements])
+        beta_eff = np.array([el['beta'] for el in elements]) - np.degrees(theta_p)
+
+        rz = np.array([el.get('rz_factor', 0.0) for el in elements])
+        end_off_i = np.array([el.get('end_off_i', 0.0) for el in elements])
+        end_off_j = np.array([el.get('end_off_j', 0.0) for el in elements])
+
+        k_local = get_local_stiffness_matrix_batch(
+            E=E, G=G, A=A, J=J, I22=I22, I33=I33, As2=As2, As3=As3,
+            L=L, L_tor=L_total
+        )
+
+        p1_adj = p1 + off_i
+        p2_adj = p2 + off_j
+        R_3x3 = get_rotation_matrix_batch(p1_adj, p2_adj, beta_eff)            
+
+        hinge_map = self.modal_hinge_elements
+        if hinge_map:
+            for n, el in enumerate(elements):
+                hd = hinge_map.get(str(el['id']))
+                if hd is not None:
+                    k_local[n] = self._hinge_zero_state_stiffness(
+                        el, hd, k_local[n], R=R_3x3[n], node_idx=(idx_i[n], idx_j[n]))
+
+        if np.any(has_release):
+            for n in np.where(has_release)[0]:
+                el = elements[n]
+                k_local[n] = self._condense_matrix(k_local[n], el['releases'])
+
+        T_rot = np.zeros((n_el, 12, 12))
+        for blk in range(4):
+            T_rot[:, blk*3:(blk+1)*3, blk*3:(blk+1)*3] = R_3x3
+
+        local_off_i = (R_3x3 @ off_i[:, :, None])[:, :, 0]
+        local_off_j = (R_3x3 @ off_j[:, :, None])[:, :, 0]
+        local_off_i[:, 0] += end_off_i * rz
+        local_off_j[:, 0] -= end_off_j * rz
+
+        T_ecc = get_eccentricity_matrix_batch(local_off_i, local_off_j)
+        T_total = T_ecc @ T_rot
+
+        T_total_T = np.transpose(T_total, (0, 2, 1))
+        k_global = T_total_T @ k_local @ T_total
+
+        for n in range(n_el):
+            self.spy.record_matrices(elements[n]['id'], k_local[n], T_total[n])
+
+        start_i = idx_i * 6
+        start_j = idx_j * 6
+        dof_map = np.concatenate([
+            start_i[:, None] + np.arange(6)[None, :],
+            start_j[:, None] + np.arange(6)[None, :]
+        ], axis=1)           
+
+        r_idx = np.broadcast_to(dof_map[:, :, None], (n_el, 12, 12))
+        c_idx = np.broadcast_to(dof_map[:, None, :], (n_el, 12, 12))
+
+        rows_buf.append(r_idx.ravel())
+        cols_buf.append(c_idx.ravel())
+        data_buf.append(k_global.ravel())
 
     def _build_stiffness_legacy(self):
         """
@@ -412,6 +559,12 @@ class GlobalAssembler:
 
             print(f"      Diaphragm '{dia_name}': {len(node_ids)} nodes, master=Node {master_id}, α={alpha:.2e}")
 
+    _DIAPHRAGM_AXIS_DOFS = {
+        "Z": (0, 1, 5),                               
+        "X": (1, 2, 3),                               
+        "Y": (2, 0, 4),                               
+    }
+
     def build_diaphragm_transformation(self):
         """
         Builds an EXACT rigid-diaphragm constraint as a sparse transformation
@@ -419,15 +572,20 @@ class GlobalAssembler:
 
             U_full = T @ U_reduced
 
-        Slave UX, UY, RZ DOFs are removed from the system entirely (not
-        penalized) and re-expressed as an exact linear combination of the
-        diaphragm master's UX, UY, RZ:
+        For a diaphragm on axis N, the two slave translations perpendicular
+        to N and the slave rotation about N are removed from the system
+        entirely (not penalized) and re-expressed as an exact linear
+        combination of the master's matching DOFs:
 
-            UX_s = UX_m - dY * RZ_m   (dY = Ys - Ym)
-            UY_s = UY_m + dX * RZ_m   (dX = Xs - Xm)
-            RZ_s = RZ_m
+            perp1_s = perp1_m - d_perp2 * rot_m
+            perp2_s = perp2_m + d_perp1 * rot_m
+            rot_s   = rot_m
 
-        UZ, RX, RY remain independent per node (out-of-plane bending is free).
+        where d_perp1/d_perp2 are the slave's offset from the master along
+        the two in-plane directions. For axis="Z" this is exactly
+        UX_s = UX_m - dY*RZ_m, UY_s = UY_m + dX*RZ_m, RZ_s = RZ_m - the
+        original Z-only formula, unchanged. The remaining 3 DOFs per node
+        stay independent (out-of-plane bending is free), same as before.
 
         This has no tunable stiffness ratio and no penalty-induced ill
         conditioning: the constraint is satisfied to machine precision,
@@ -448,33 +606,42 @@ class GlobalAssembler:
             if len(node_ids) < 2:
                 continue
 
+            axis = getattr(self.dm, 'diaphragm_axis', {}).get(dia_name, 'Z')
+            if axis not in self._DIAPHRAGM_AXIS_DOFS:
+                raise SolverException(
+                    "E205",
+                    f"Diaphragm '{dia_name}': unsupported axis '{axis}'. "
+                    f"Supported axes are X, Y, Z."
+                )
+            p1, p2, rot = self._DIAPHRAGM_AXIS_DOFS[axis]
+
             master_id = min(node_ids)
             master = node_by_id[master_id]
             mi = master['idx'] * 6
-            Xm, Ym = master['coords'][0], master['coords'][1]
-            ux_m, uy_m, rz_m = mi + 0, mi + 1, mi + 5
+            coord_m = master['coords']
+            m_p1, m_p2, m_rot = mi + p1, mi + p2, mi + rot
 
             for slave_id in node_ids:
                 if slave_id == master_id:
                     continue
                 slave = node_by_id[slave_id]
                 si = slave['idx'] * 6
-                dX = slave['coords'][0] - Xm
-                dY = slave['coords'][1] - Ym
+                d_p1 = slave['coords'][p1] - coord_m[p1]
+                d_p2 = slave['coords'][p2] - coord_m[p2]
 
-                ux_s, uy_s, rz_s = si + 0, si + 1, si + 5
+                s_p1, s_p2, s_rot = si + p1, si + p2, si + rot
 
-                if ux_s in eliminated or uy_s in eliminated or rz_s in eliminated:
+                if s_p1 in eliminated or s_p2 in eliminated or s_rot in eliminated:
                     raise SolverException(
                         "E205",
                         f"Node {slave_id} appears in more than one diaphragm group."
                     )
 
-                eliminated[ux_s] = {ux_m: 1.0, rz_m: -dY}
-                eliminated[uy_s] = {uy_m: 1.0, rz_m:  dX}
-                eliminated[rz_s] = {rz_m: 1.0}
+                eliminated[s_p1] = {m_p1: 1.0, m_rot: -d_p2}
+                eliminated[s_p2] = {m_p2: 1.0, m_rot:  d_p1}
+                eliminated[s_rot] = {m_rot: 1.0}
 
-            print(f"      Diaphragm '{dia_name}': {len(node_ids)} nodes, "
+            print(f"      Diaphragm '{dia_name}' (axis={axis}): {len(node_ids)} nodes, "
                   f"master=Node {master_id} (exact elimination)")
 
         kept_dofs = [i for i in range(n) if i not in eliminated]
@@ -491,6 +658,11 @@ class GlobalAssembler:
         self.eliminated_dofs = eliminated
         return T.tocsr(), kept_dofs
     
+    def _add_shell_loads(self):
+        """area_uniform / area_gravity loads on shells -> consistent nodal forces into P."""
+        from shell_element import add_shell_area_loads
+        add_shell_area_loads(self.dm, self.P)
+
     def _add_member_loads(self):
         """
         Calculates FEF for all member loads, condenses them for releases,

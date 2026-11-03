@@ -1,0 +1,497 @@
+{
+  "static": {
+    "displacements": {
+      "1": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "2": [
+        3.029239766081869e-07,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "3": [
+        6.058479532163738e-07,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "4": [
+        9.087719298245604e-07,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "5": [
+        1.2116959064327474e-06,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "6": [
+        1.5146198830409344e-06,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "7": [
+        1.817543859649121e-06,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ]
+    },
+    "reactions": {
+      "1": [
+        -7399.9999999999945,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "2": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "3": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "4": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "5": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "6": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "7": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ]
+    }
+  },
+  "modal": {
+    "frequencies_hz": [
+      948.1747658036131,
+      2789.4198264973757,
+      4468.55394600364
+    ],
+    "regularized_frequencies_hz": [
+      948.1747658036137,
+      2789.4198264973766,
+      4468.553946003639
+    ],
+    "regularization_relative_shift": [
+      5.995036032479847e-16,
+      3.26051565681658e-16,
+      -2.0353221931813451e-16
+    ],
+    "mode_shapes": {
+      "1": {
+        "1": [
+          -0.0,
+          -0.0,
+          -0.0,
+          -0.0,
+          -0.0,
+          -0.0
+        ],
+        "2": [
+          0.02098937225091913,
+          -0.0,
+          -0.0,
+          -0.0,
+          -0.0,
+          -0.0
+        ],
+        "3": [
+          0.04075891847987878,
+          -0.0,
+          -0.0,
+          -0.0,
+          -0.0,
+          -0.0
+        ],
+        "4": [
+          0.05815970451942837,
+          -0.0,
+          -0.0,
+          -0.0,
+          -0.0,
+          -0.0
+        ],
+        "5": [
+          0.07218045993423321,
+          -0.0,
+          -0.0,
+          -0.0,
+          -0.0,
+          -0.0
+        ],
+        "6": [
+          0.08200634938295705,
+          -0.0,
+          -0.0,
+          -0.0,
+          -0.0,
+          -0.0
+        ],
+        "7": [
+          0.08706632788649502,
+          -0.0,
+          -0.0,
+          -0.0,
+          -0.0,
+          -0.0
+        ]
+      },
+      "2": {
+        "1": [
+          -0.0,
+          -0.0,
+          -0.0,
+          -0.0,
+          -0.0,
+          -0.0
+        ],
+        "2": [
+          0.058159704519428465,
+          -0.0,
+          -0.0,
+          -0.0,
+          -0.0,
+          -0.0
+        ],
+        "3": [
+          0.087066327886495,
+          -0.0,
+          -0.0,
+          -0.0,
+          -0.0,
+          -0.0
+        ],
+        "4": [
+          0.07218045993423317,
+          -0.0,
+          -0.0,
+          -0.0,
+          -0.0,
+          -0.0
+        ],
+        "5": [
+          0.020989372250919187,
+          -0.0,
+          -0.0,
+          -0.0,
+          -0.0,
+          -0.0
+        ],
+        "6": [
+          -0.040758918479878795,
+          -0.0,
+          -0.0,
+          -0.0,
+          -0.0,
+          -0.0
+        ],
+        "7": [
+          -0.082006349382957,
+          -0.0,
+          -0.0,
+          -0.0,
+          -0.0,
+          -0.0
+        ]
+      },
+      "3": {
+        "1": [
+          -0.0,
+          -0.0,
+          -0.0,
+          -0.0,
+          -0.0,
+          -0.0
+        ],
+        "2": [
+          -0.08200634938295723,
+          -0.0,
+          -0.0,
+          -0.0,
+          -0.0,
+          -0.0
+        ],
+        "3": [
+          -0.058159704519428236,
+          -0.0,
+          -0.0,
+          -0.0,
+          -0.0,
+          -0.0
+        ],
+        "4": [
+          0.04075891847987885,
+          -0.0,
+          -0.0,
+          -0.0,
+          -0.0,
+          -0.0
+        ],
+        "5": [
+          0.08706632788649508,
+          -0.0,
+          -0.0,
+          -0.0,
+          -0.0,
+          -0.0
+        ],
+        "6": [
+          0.020989372250918896,
+          -0.0,
+          -0.0,
+          -0.0,
+          -0.0,
+          -0.0
+        ],
+        "7": [
+          -0.07218045993423308,
+          -0.0,
+          -0.0,
+          -0.0,
+          -0.0,
+          -0.0
+        ]
+      }
+    },
+    "assembled_mass": {
+      "1": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "2": [
+        40.0,
+        40.0,
+        40.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "3": [
+        40.0,
+        40.0,
+        40.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "4": [
+        40.0,
+        40.0,
+        40.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "5": [
+        40.0,
+        40.0,
+        40.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "6": [
+        40.0,
+        40.0,
+        40.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "7": [
+        40.0,
+        40.0,
+        40.0,
+        0.0,
+        0.0,
+        0.0
+      ]
+    }
+  },
+  "metadata": {
+    "reference_kind": "Independent discretized force-flexibility reference with separate analytical checks",
+    "mass_model": "Translational nodal lumping; rho denotes weight density; explicit link rotary inertia allowed",
+    "regularized_reference": "Native-only numerical terms: released rotational diagonal=max(abs(k_local))*1e-12; massless free diagonal=min_positive_free_mass*1e-6",
+    "mass_floor": 3.9999999999999996e-05,
+    "requested_modes": 3,
+    "native_clamped_modes": 3,
+    "sources": [
+      {
+        "title": "Scott Whitney, University of Nebraska: Vibrations of Cantilever Beams (1999)",
+        "url": "https://emweb.unl.edu/mechanics-pages/Scott-Whitney/325hweb/Beams.htm",
+        "use": "Euler-Bernoulli cantilever deflection and frequency derivation"
+      },
+      {
+        "title": "CALFEM for Python: core.py, bar2e/beam2e/beam3e/beam2de",
+        "url": "https://github.com/CALFEM/calfem-python/blob/master/src/calfem/core.py",
+        "use": "Public independent FE library and beam/bar reference formulations; not imported"
+      },
+      {
+        "title": "OpenSees public examples: Example3.1.tcl",
+        "url": "https://github.com/OpenSees/OpenSees/blob/master/EXAMPLES/ExampleScripts/Example3.1.tcl",
+        "use": "Public portal-frame modelling benchmark example; not an analytical oracle"
+      },
+      {
+        "title": "Gere and Timoshenko, Mechanics of Materials; Clough and Penzien, Dynamics of Structures",
+        "url": null,
+        "use": "Force-flexibility integration, beam boundary conditions, modal generalized eigenproblem"
+      }
+    ],
+    "batch": "second_150",
+    "case_id": "156_mass_nodal_pattern_chain_v1",
+    "model_sha256": "3f9da3b378c2e2cb6a50299f8a07cde7b3ce63b440427bcf33be98389378d8eb",
+    "reference_source_sha256": "4736d758c26c4b124dcdce5079c195fdb918049f5e38449de09279d4234f29d4",
+    "reference_wrapper_sha256": "344814f8988ecf6abaeb5633fc08aaf9e4c546dd6db4343b5338b12a3fae1d1f"
+  },
+  "analytical_checks": [
+    {
+      "node_id": 7,
+      "dof": 0,
+      "value": 1.8175438596491228e-06,
+      "label": "Axial tip displacement",
+      "formula": "PL/(EA)",
+      "result": "displacements"
+    },
+    {
+      "node_id": 1,
+      "dof": 0,
+      "value": -7400.0,
+      "label": "Axial fixed-end reaction",
+      "formula": "-P",
+      "result": "reactions"
+    },
+    {
+      "mode": 1,
+      "frequency_hz": 948.1747658036137,
+      "tolerance": 1e-06,
+      "formula": "sqrt(ks/m + 4k/m*sin\u00b2((2r-1)\u03c0/(4n+2)))/(2\u03c0)",
+      "label": "Exact discrete axial chain frequency"
+    },
+    {
+      "mode": 2,
+      "frequency_hz": 2789.4198264973775,
+      "tolerance": 1e-06,
+      "formula": "sqrt(ks/m + 4k/m*sin\u00b2((2r-1)\u03c0/(4n+2)))/(2\u03c0)",
+      "label": "Exact discrete axial chain frequency"
+    },
+    {
+      "mode": 3,
+      "frequency_hz": 4468.55394600364,
+      "tolerance": 1e-06,
+      "formula": "sqrt(ks/m + 4k/m*sin\u00b2((2r-1)\u03c0/(4n+2)))/(2\u03c0)",
+      "label": "Exact discrete axial chain frequency"
+    }
+  ],
+  "analytical_reference_checks": [
+    {
+      "name": "analytical: Axial tip displacement",
+      "passed": true,
+      "actual": 1.817543859649121e-06,
+      "expected": 1.8175438596491228e-06,
+      "absolute_error": 1.6940658945086007e-21,
+      "tolerance": 1.0363508771929825e-10,
+      "formula": "PL/(EA)",
+      "reference_kind": "continuum or exact discrete formula as labelled"
+    },
+    {
+      "name": "analytical: Axial fixed-end reaction",
+      "passed": true,
+      "actual": -7399.9999999999945,
+      "expected": -7400.0,
+      "absolute_error": 5.4569682106375694e-12,
+      "tolerance": 0.014899999999999998,
+      "formula": "-P",
+      "reference_kind": "continuum or exact discrete formula as labelled"
+    },
+    {
+      "name": "analytical: Exact discrete axial chain frequency",
+      "passed": true,
+      "actual": 948.1747658036137,
+      "expected": 948.1747658036137,
+      "absolute_error": 0.0,
+      "tolerance": 0.0009481757658036137,
+      "formula": "sqrt(ks/m + 4k/m*sin\u00b2((2r-1)\u03c0/(4n+2)))/(2\u03c0)",
+      "reference_kind": "continuum or exact discrete formula as labelled"
+    },
+    {
+      "name": "analytical: Exact discrete axial chain frequency",
+      "passed": true,
+      "actual": 2789.4198264973766,
+      "expected": 2789.4198264973775,
+      "absolute_error": 9.094947017729282e-13,
+      "tolerance": 0.0027894208264973774,
+      "formula": "sqrt(ks/m + 4k/m*sin\u00b2((2r-1)\u03c0/(4n+2)))/(2\u03c0)",
+      "reference_kind": "continuum or exact discrete formula as labelled"
+    },
+    {
+      "name": "analytical: Exact discrete axial chain frequency",
+      "passed": true,
+      "actual": 4468.553946003639,
+      "expected": 4468.55394600364,
+      "absolute_error": 9.094947017729282e-13,
+      "tolerance": 0.00446855494600364,
+      "formula": "sqrt(ks/m + 4k/m*sin\u00b2((2r-1)\u03c0/(4n+2)))/(2\u03c0)",
+      "reference_kind": "continuum or exact discrete formula as labelled"
+    }
+  ]
+}

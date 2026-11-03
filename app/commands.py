@@ -1,6 +1,8 @@
 from PyQt6.QtGui import QUndoCommand
 import copy
-from core.loads import NodalLoad, MemberLoad, MemberPointLoad, GroundDisplacement, CableDistributedLoad
+from core.loads import MemberPointLoad, GroundDisplacement, CableDistributedLoad
+                                                                         
+from core.model import NodalLoad, MemberLoad
 
 class CmdDrawFrame(QUndoCommand):
 
@@ -302,6 +304,9 @@ class CmdDeleteSelection(QUndoCommand):
                 should_save = True
             elif hasattr(load, 'cable_id') and load.cable_id in self.cable_ids_to_del:                         
                 should_save = True
+            elif hasattr(load, 'area_id') and load.area_id in self.area_elem_ids_to_del:
+                should_save = True
+                
             if should_save:
                 self.saved_loads.append(copy.deepcopy(load))
 
@@ -391,6 +396,7 @@ class CmdDeleteSelection(QUndoCommand):
             if not (hasattr(load, 'element_id') and load.element_id in self.elem_ids_to_del)
             and not (hasattr(load, 'node_id') and load.node_id in self.node_ids_to_del)
             and not (hasattr(load, 'cable_id') and load.cable_id in self.cable_ids_to_del)                         
+            and not (hasattr(load, 'area_id') and load.area_id in self.area_elem_ids_to_del)
         ]
 
         self.main_window.selected_ids = []
@@ -483,17 +489,17 @@ class CmdAssignRestraints(QUndoCommand):
                 self.old_states[nid] = model.nodes[nid].restraints[:]
 
     def redo(self):
+        self.main_window._supports_only_refresh = True
         for nid in self.node_ids:
             if nid in self.model.nodes:
                 self.model.nodes[nid].restraints = self.new_restraints[:]
-        self.main_window.draw_both_canvases()
-
+                                                                                                                     
     def undo(self):
+        self.main_window._supports_only_refresh = True
         for nid, old_res in self.old_states.items():
             if nid in self.model.nodes:
                 self.model.nodes[nid].restraints = old_res[:]
-        self.main_window.draw_both_canvases()
-
+                                                                                                                     
 class CmdAssignDiaphragm(QUndoCommand):
     def __init__(self, model, main_window, node_ids, diaphragm_name):
         super().__init__("Assign Diaphragm")
@@ -714,7 +720,8 @@ class CmdAssignFrameLoad(QUndoCommand):
         super().__init__("Assign Distributed Load")
         self.model = model
         self.main_window = main_window
-        self.elem_ids = elem_ids
+        self.elem_ids = list(elem_ids)
+        self._elem_id_set = set(self.elem_ids)
         self.pattern_name = pattern_name
         self.mode = mode
         
@@ -724,35 +731,46 @@ class CmdAssignFrameLoad(QUndoCommand):
         
         self.old_loads = []
         for load in model.loads:
-            if isinstance(load, MemberLoad):
-                if load.element_id in elem_ids and load.pattern_name == pattern_name:
+            if hasattr(load, 'element_id'):
+                if load.element_id in self._elem_id_set and load.pattern_name == pattern_name:
                     self.old_loads.append(copy.deepcopy(load))
 
     def redo(self):
                                              
         (wx, wy, wz, proj, cs, dists, mags, is_rel, l_dir, l_type) = self.params
-        
-        for eid in self.elem_ids:
-            self.model.assign_member_load(
-                eid, self.pattern_name, wx, wy, wz, 
-                proj, cs, self.mode,
-                distances=dists, magnitudes=mags, is_relative=is_rel, 
-                load_direction=l_dir, load_type=l_type
-            )
-        self.main_window.draw_both_canvases()
+        assign_many = getattr(self.model, 'assign_member_loads', None)
+        if callable(assign_many):
+            assign_many(self.elem_ids, self.pattern_name, wx, wy, wz, proj, cs, self.mode,
+                        distances=dists, magnitudes=mags, is_relative=is_rel,
+                        load_direction=l_dir, load_type=l_type)
+        else:
+            for eid in self.elem_ids:
+                self.model.assign_member_load(
+                    eid, self.pattern_name, wx, wy, wz,
+                    proj, cs, self.mode,
+                    distances=dists, magnitudes=mags, is_relative=is_rel,
+                    load_direction=l_dir, load_type=l_type)
+        refresh = (getattr(self.main_window, 'request_load_refresh', None) or
+                   getattr(self.main_window, 'refresh_load_display', None))
+        if callable(refresh):
+            refresh()
+        else:
+            self.main_window.draw_both_canvases()
 
     def undo(self):
                                                                        
-        for i in range(len(self.model.loads) - 1, -1, -1):
-            load = self.model.loads[i]
-            if isinstance(load, MemberLoad):
-                if load.element_id in self.elem_ids and load.pattern_name == self.pattern_name:
-                    del self.model.loads[i]
+        self.model.loads[:] = [load for load in self.model.loads
+            if not (getattr(load, 'element_id', None) in self._elem_id_set
+                    and getattr(load, 'pattern_name', None) == self.pattern_name)]
         
         for old_load in self.old_loads:
             self.model.loads.append(copy.deepcopy(old_load))
-            
-        self.main_window.draw_both_canvases()
+        refresh = (getattr(self.main_window, 'request_load_refresh', None) or
+                   getattr(self.main_window, 'refresh_load_display', None))
+        if callable(refresh):
+            refresh()
+        else:
+            self.main_window.draw_both_canvases()
 
 class CmdAssignPointLoad(QUndoCommand):
     """
@@ -792,6 +810,44 @@ class CmdAssignPointLoad(QUndoCommand):
         for old_load in self.old_loads:
             self.model.loads.append(copy.deepcopy(old_load))
             
+        self.main_window.draw_both_canvases()
+
+class CmdAssignFrameHinge(QUndoCommand):
+    """
+    Assigns a (user-defined) hinge property to one or more frame
+    elements at a relative distance. Data-only - not wired to the
+    solver or the OpenSees converter.
+    """
+    def __init__(self, model, main_window, elem_ids, hinge_name, rel_dist, mode="replace"):
+        super().__init__("Assign Frame Hinge")
+        self.model = model
+        self.main_window = main_window
+        self.elem_ids = elem_ids
+        self.hinge_name = hinge_name
+        self.rel_dist = rel_dist
+        self.mode = mode
+
+        self.old_hinges = [
+            copy.deepcopy(h) for h in model.frame_hinges.values()
+            if h.element_id in elem_ids
+        ]
+
+    def redo(self):
+        for eid in self.elem_ids:
+            self.model.assign_frame_hinge(eid, self.hinge_name, self.rel_dist, self.mode)
+        self.main_window.draw_both_canvases()
+
+    def undo(self):
+        for hid in [hid for hid, h in self.model.frame_hinges.items()
+                    if h.element_id in self.elem_ids]:
+            del self.model.frame_hinges[hid]
+
+        for old_h in self.old_hinges:
+            self.model.frame_hinges[old_h.id] = copy.deepcopy(old_h)
+            self.model._hinge_assign_counter = max(
+                self.model._hinge_assign_counter, old_h.id + 1
+            )
+
         self.main_window.draw_both_canvases()
 
 class CmdAssignEndOffsets(QUndoCommand):
@@ -871,6 +927,8 @@ class CmdReplicate(QUndoCommand):
         self.skipped_node_ids = []
         self.skipped_link_ids = []
 
+        nodes_before_ids = set(self.model.nodes.keys())
+
         involved_node_ids = set(self.node_ids_src)
         carried_node_ids = set()
         for eid in self.elem_ids_src:
@@ -938,16 +996,16 @@ class CmdReplicate(QUndoCommand):
                     continue
                 
                 new_node = self.model.get_or_create_node(nx, ny, nz)
-                
-                if new_node.id not in self.created_node_ids:
+                is_new = new_node.id not in nodes_before_ids
+
+                if is_new and new_node.id not in self.created_node_ids:
                     self.created_node_ids.append(new_node.id)
 
                 node_map[nid] = new_node
 
-                if nid not in explicit_node_ids:
-                                                                              
+                if not is_new or nid not in explicit_node_ids:
                     continue
-                
+
                 new_node.restraints = original_node.restraints[:]
                 
                 if abs(self.dz) > 0.001:
@@ -967,7 +1025,7 @@ class CmdReplicate(QUndoCommand):
                                 old_load.rx, old_load.ry, old_load.rz,
                                 mode="add"
                             )
-                        elif isinstance(old_load, NodalLoad):
+                        elif hasattr(old_load, 'fx'):
                             self.model.assign_joint_load(
                                 new_node.id, old_load.pattern_name,
                                 old_load.fx, old_load.fy, old_load.fz,
@@ -993,22 +1051,23 @@ class CmdReplicate(QUndoCommand):
                 
                 new_elem.releases_i = orig.releases_i[:]
                 new_elem.releases_j = orig.releases_j[:]
-                new_elem.cardinal_point = orig.cardinal_point
-                new_elem.joint_offset_i = orig.joint_offset_i.copy()
-                new_elem.joint_offset_j = orig.joint_offset_j.copy()
-                new_elem.end_offset_i = getattr(orig, 'end_offset_i', 0.0)
-                new_elem.end_offset_j = getattr(orig, 'end_offset_j', 0.0)
-                new_elem.rigid_zone_factor = getattr(orig, 'rigid_zone_factor', 0.0)
+                                                                                
+                self.model._copy_frame_properties(new_elem, orig)
 
                 if eid in elem_load_map:
                     for old_load in elem_load_map[eid]:
-                        if hasattr(old_load, 'wx'):              
-                             self.model.assign_member_load(
+                        if hasattr(old_load, 'wx'):
+                            self.model.assign_member_load(
                                 new_elem.id, old_load.pattern_name,
                                 old_load.wx, old_load.wy, old_load.wz,
                                 projected=getattr(old_load, 'projected', False),
                                 coord_system=getattr(old_load, 'coord_system', "Global"),
-                                mode="add"
+                                mode="add",
+                                distances=list(old_load.distances),
+                                magnitudes=list(old_load.magnitudes),
+                                is_relative=old_load.is_relative,
+                                load_direction=old_load.load_direction,
+                                load_type=old_load.load_type
                             )
                         elif hasattr(old_load, 'force'):        
                             self.model.assign_member_point_load(
@@ -1018,6 +1077,11 @@ class CmdReplicate(QUndoCommand):
                                 getattr(old_load, 'load_type', "Force"),
                                 mode="add"
                             )
+
+                for h in list(self.model.frame_hinges.values()):
+                    if h.element_id == eid:
+                        self.model.assign_frame_hinge(
+                            new_elem.id, h.hinge_name, h.rel_dist, mode="add")
 
             if hasattr(self.model, 'area_elements'):
                 for aeid in self.area_elem_ids_src:
@@ -1040,6 +1104,7 @@ class CmdReplicate(QUndoCommand):
                         continue
 
                     new_ae = self.model.add_area_element(mapped_nodes, orig_ae.section)
+                    new_ae.insertion_offset = getattr(orig_ae, 'insertion_offset', 0.0)
                     self.created_area_elem_ids.append(new_ae.id)
 
                     if aeid in area_load_map:
@@ -1108,6 +1173,11 @@ class CmdReplicate(QUndoCommand):
                 if lid in self.model.links:
                     del self.model.links[lid]
 
+        created_elems = set(self.created_elem_ids)
+        for hid in [hid for hid, h in self.model.frame_hinges.items()
+                    if h.element_id in created_elems]:
+            del self.model.frame_hinges[hid]
+
         for eid in reversed(self.created_elem_ids):
             if eid in self.model.elements:
                 self.model.remove_element(eid)
@@ -1116,6 +1186,12 @@ class CmdReplicate(QUndoCommand):
             for aeid in reversed(self.created_area_elem_ids):
                 if aeid in self.model.area_elements:
                     del self.model.area_elements[aeid]
+
+        self.model.loads = [
+            l for l in self.model.loads
+            if not (hasattr(l, 'element_id') and l.element_id in self.created_elem_ids)
+            and not (hasattr(l, 'area_id') and l.area_id in self.created_area_elem_ids)
+        ]
         
         for nid in reversed(self.created_node_ids):
             if nid not in self.model.nodes: continue
@@ -1140,6 +1216,10 @@ class CmdReplicate(QUndoCommand):
             
             if not is_connected:
                 del self.model.nodes[nid]
+                self.model.loads = [
+                    l for l in self.model.loads
+                    if not (hasattr(l, 'node_id') and l.node_id == nid)
+                ]
 
         self.main_window.draw_both_canvases()
 
@@ -1271,10 +1351,14 @@ class CmdMeshAreaElements(QUndoCommand):
         self.pre_nodes = {k: copy.deepcopy(v) for k, v in model.nodes.items()}
         self.pre_elements = {k: copy.deepcopy(v) for k, v in model.elements.items()}
         self.pre_area_elements = {k: copy.deepcopy(v) for k, v in getattr(model, 'area_elements', {}).items()}
+        self.pre_loads = copy.deepcopy(model.loads)
+        self.pre_hinges = copy.deepcopy(getattr(model, 'frame_hinges', {}))
         
         self.post_nodes = None
         self.post_elements = None
         self.post_area_elements = None
+        self.post_loads = None
+        self.post_hinges = None
         
         self.first_run = True
 
@@ -1294,22 +1378,28 @@ class CmdMeshAreaElements(QUndoCommand):
             self.post_nodes = {k: copy.deepcopy(v) for k, v in self.model.nodes.items()}
             self.post_elements = {k: copy.deepcopy(v) for k, v in self.model.elements.items()}
             self.post_area_elements = {k: copy.deepcopy(v) for k, v in getattr(self.model, 'area_elements', {}).items()}
+            self.post_loads = copy.deepcopy(self.model.loads)
+            self.post_hinges = copy.deepcopy(getattr(self.model, 'frame_hinges', {}))
             self.first_run = False
         else:
                                                                                
-            self._restore_snapshot(self.post_nodes, self.post_elements, self.post_area_elements)
+            self._restore_snapshot(self.post_nodes, self.post_elements, self.post_area_elements, self.post_loads, self.post_hinges)
             
         self.window.draw_both_canvases()
 
     def undo(self):
                                                          
-        self._restore_snapshot(self.pre_nodes, self.pre_elements, self.pre_area_elements)
+        self._restore_snapshot(self.pre_nodes, self.pre_elements, self.pre_area_elements, self.pre_loads, self.pre_hinges)
         self.window.draw_both_canvases()
         
-    def _restore_snapshot(self, nodes, elements, areas):
+    def _restore_snapshot(self, nodes, elements, areas, loads=None, hinges=None):
         self.model.nodes = {k: copy.deepcopy(v) for k, v in nodes.items()}
         self.model.elements = {k: copy.deepcopy(v) for k, v in elements.items()}
         self.model.area_elements = {k: copy.deepcopy(v) for k, v in areas.items()}
+        if loads is not None:
+            self.model.loads = copy.deepcopy(loads)
+        if hinges is not None:
+            self.model.frame_hinges = copy.deepcopy(hinges)
         
         for el in self.model.elements.values():
             if el.node_i.id in self.model.nodes: el.node_i = self.model.nodes[el.node_i.id]
@@ -1320,6 +1410,33 @@ class CmdMeshAreaElements(QUndoCommand):
             ae.nodes = [self.model.nodes.get(n.id, n) for n in ae.nodes]
             if ae.section.name in self.model.area_sections: 
                 ae.section = self.model.area_sections[ae.section.name]
+
+class CmdJoinAreaElements(CmdMeshAreaElements):
+    """
+    Joins real (divided) shells back into one shell. Snapshot based, like CmdMeshAreaElements.
+    Call prepare() first: it performs the join and raises ValueError/KeyError (model unchanged)
+    if the selection cannot be joined. Only after it succeeds push the command on the stack.
+    """
+    def __init__(self, model, window, area_ids, rejoin_frames=True):
+        super().__init__(model, window, list(area_ids), {})
+        self.setText("Join Area Elements")
+        self.rejoin_frames = rejoin_frames
+        self.result = None
+
+    def prepare(self):
+        self.result = self.model.join_area_elements(self.area_ids, rejoin_frames=self.rejoin_frames)
+        self.post_nodes = {k: copy.deepcopy(v) for k, v in self.model.nodes.items()}
+        self.post_elements = {k: copy.deepcopy(v) for k, v in self.model.elements.items()}
+        self.post_area_elements = {k: copy.deepcopy(v) for k, v in getattr(self.model, 'area_elements', {}).items()}
+        self.post_loads = copy.deepcopy(self.model.loads)
+        self.post_hinges = copy.deepcopy(getattr(self.model, 'frame_hinges', {}))
+        self.first_run = False
+        return self.result
+
+    def redo(self):
+        if self.first_run:
+            self.prepare()
+        super().redo()
 
 class CmdAssignJointDisplacement(QUndoCommand):
     """
@@ -1380,6 +1497,7 @@ class CmdAssignJointSpring(QUndoCommand):
         self.previous_states = {}
 
     def redo(self):
+        self.main_window._supports_only_refresh = True
         for nid in self.node_ids:
             node = self.model.nodes[nid]
             
@@ -1399,6 +1517,7 @@ class CmdAssignJointSpring(QUndoCommand):
                 node.spring_matrix = None
 
     def undo(self):
+        self.main_window._supports_only_refresh = True
         for nid in self.node_ids:
             node = self.model.nodes[nid]
                                               
@@ -1647,3 +1766,254 @@ class CmdAssignCableLoad(QUndoCommand):
             self.model.loads.append(copy.deepcopy(old_load))
             
         self.main_window.draw_both_canvases()
+
+class CmdDivideFrame(QUndoCommand):
+    """
+    Divides a single frame element into two or more collinear sub-frames.
+
+    `divide_fn(model, element_id)` performs the actual split (one of
+    StructuralModel.divide_frame_by_number / _at_distance /
+    _at_coordinate_plane / _at_grid_planes / _at_intersections) and returns
+    {"created_node_ids": [...], "created_elem_ids": [...]}, or raises
+    ValueError/KeyError on invalid input.
+
+    On failure, redo() leaves the model untouched and sets self.error to
+    the message; the caller should check cmd.error after add_command().
+    """
+    def __init__(self, model, main_window, element_id, divide_fn, description="Divide Frame"):
+        super().__init__(description)
+        self.model = model
+        self.main_window = main_window
+        self.element_id = element_id
+        self.divide_fn = divide_fn
+
+        self.saved_elem = None
+        self.saved_loads = []
+        self.created_node_ids = []
+        self.created_elem_ids = []
+        self.error = None
+
+    def redo(self):
+        self.error = None
+
+        if self.element_id not in self.model.elements:
+            self.error = "The frame no longer exists."
+            return
+
+        orig = self.model.elements[self.element_id]
+        self.saved_elem = copy.deepcopy(orig)
+        self.saved_loads = [
+            copy.deepcopy(l) for l in self.model.loads
+            if getattr(l, 'element_id', None) == self.element_id
+        ]
+
+        try:
+            result = self.divide_fn(self.model, self.element_id)
+        except (ValueError, KeyError) as e:
+            self.error = str(e)
+            self.saved_elem = None
+            self.saved_loads = []
+            self._refresh_view()
+            return
+
+        self.created_node_ids = result.get("created_node_ids", [])
+        self.created_elem_ids = result.get("created_elem_ids", [])
+        self._refresh_view()
+
+    def undo(self):
+        if self.saved_elem is None:
+            return
+
+        for eid in self.created_elem_ids:
+            if eid in self.model.elements:
+                self.model.remove_element(eid)
+
+        for nid in self.created_node_ids:
+            if nid in self.model.nodes:
+                del self.model.nodes[nid]
+                self.model.loads = [
+                    l for l in self.model.loads
+                    if not (hasattr(l, 'node_id') and l.node_id == nid)
+                ]
+
+        el = self.saved_elem
+        if el.node_i.id in self.model.nodes:
+            el.node_i = self.model.nodes[el.node_i.id]
+        else:
+            self.model.nodes[el.node_i.id] = el.node_i
+            self.model._node_counter = max(self.model._node_counter, el.node_i.id + 1)
+
+        if el.node_j.id in self.model.nodes:
+            el.node_j = self.model.nodes[el.node_j.id]
+        else:
+            self.model.nodes[el.node_j.id] = el.node_j
+            self.model._node_counter = max(self.model._node_counter, el.node_j.id + 1)
+
+        if getattr(el, 'section', None) is not None and el.section.name in self.model.sections:
+            el.section = self.model.sections[el.section.name]
+
+        self.model.elements[self.element_id] = el
+        self.model._elem_counter = max(self.model._elem_counter, self.element_id + 1)
+
+        for l in self.saved_loads:
+            self.model.loads.append(copy.deepcopy(l))
+
+        self.created_node_ids = []
+        self.created_elem_ids = []
+
+        self._refresh_view()
+
+    def _refresh_view(self):
+        self.main_window.draw_both_canvases()
+
+class CmdJoinFrames(QUndoCommand):
+    """
+    Joins two or more connected, collinear frame elements into a single frame
+    (SAP2000-style "Join Frames" — acts directly on the current selection,
+    no dialog). keep_props_from_id picks which selected frame's section /
+    beta / offsets / cardinal point / rigid-zone-factor the merged frame
+    inherits.
+
+    On failure, redo() leaves the model untouched and sets self.error to
+    the message; the caller should check cmd.error after add_command().
+    """
+    def __init__(self, model, main_window, element_ids, keep_props_from_id, description="Join Frames"):
+        super().__init__(description)
+        self.model = model
+        self.main_window = main_window
+        self.element_ids = list(element_ids)
+        self.keep_props_from_id = keep_props_from_id
+
+        self.saved_elems = {}
+        self.saved_nodes = {}
+        self.saved_loads = []
+        self.created_elem_id = None
+        self.error = None
+
+    def redo(self):
+        self.error = None
+
+        missing = [eid for eid in self.element_ids if eid not in self.model.elements]
+        if missing:
+            self.error = "One or more selected frames no longer exist."
+            return
+
+        self.saved_elems = {eid: copy.deepcopy(self.model.elements[eid]) for eid in self.element_ids}
+
+        touched_node_ids = set()
+        for el in self.saved_elems.values():
+            touched_node_ids.add(el.node_i.id)
+            touched_node_ids.add(el.node_j.id)
+        self.saved_nodes = {
+            nid: copy.deepcopy(self.model.nodes[nid])
+            for nid in touched_node_ids if nid in self.model.nodes
+        }
+
+        id_set = set(self.element_ids)
+        self.saved_loads = [
+            copy.deepcopy(l) for l in self.model.loads
+            if getattr(l, 'element_id', None) in id_set
+        ]
+
+        try:
+            result = self.model.join_frames(self.element_ids, self.keep_props_from_id)
+        except (ValueError, KeyError) as e:
+            self.error = str(e)
+            self.saved_elems = {}
+            self.saved_nodes = {}
+            self.saved_loads = []
+            self._refresh_view()
+            return
+
+        self.created_elem_id = result["created_elem_id"]
+        self._refresh_view()
+
+    def undo(self):
+        if not self.saved_elems:
+            return
+
+        if self.created_elem_id is not None and self.created_elem_id in self.model.elements:
+            self.model.remove_element(self.created_elem_id)
+
+        for nid, node_obj in self.saved_nodes.items():
+            if nid not in self.model.nodes:
+                self.model.nodes[nid] = node_obj
+                self.model._node_counter = max(self.model._node_counter, nid + 1)
+
+        for eid, el_obj in self.saved_elems.items():
+            if el_obj.node_i.id in self.model.nodes:
+                el_obj.node_i = self.model.nodes[el_obj.node_i.id]
+            if el_obj.node_j.id in self.model.nodes:
+                el_obj.node_j = self.model.nodes[el_obj.node_j.id]
+            if getattr(el_obj, 'section', None) is not None and el_obj.section.name in self.model.sections:
+                el_obj.section = self.model.sections[el_obj.section.name]
+            self.model.elements[eid] = el_obj
+            self.model._elem_counter = max(self.model._elem_counter, eid + 1)
+
+        for l in self.saved_loads:
+            self.model.loads.append(copy.deepcopy(l))
+
+        self.created_elem_id = None
+
+        self._refresh_view()
+
+    def _refresh_view(self):
+        self.main_window.draw_both_canvases()
+
+class CmdEditPushoverParamSets(QUndoCommand):
+    """
+    Define > Pushover Parameter Sets > Force vs Displacement...
+    Replaces model.pushover_param_sets with the edited list. Going through
+    the undo stack is what marks the model as modified (so closing prompts
+    to save) and gives Ctrl+Z / Ctrl+Y for set edits.
+    """
+    def __init__(self, model, main_window, new_sets, description="Edit Pushover Parameter Sets"):
+        super().__init__(description)
+        self.model = model
+        self.main_window = main_window
+        self.old_sets = copy.deepcopy(model.pushover_param_sets)
+        self.new_sets = copy.deepcopy(new_sets)
+
+    def redo(self):
+        self.model.pushover_param_sets = copy.deepcopy(self.new_sets)
+        self._refresh_view()
+
+    def undo(self):
+        self.model.pushover_param_sets = copy.deepcopy(self.old_sets)
+        self._refresh_view()
+
+    def _refresh_view(self):
+                                                    
+        try:
+            pdlg = getattr(self.main_window, '_pushover_dlg', None)
+            if pdlg is not None and pdlg.isVisible():
+                pdlg.reload_sets()
+        except RuntimeError:
+            pass
+
+class CmdAssignAreaSolverMesh(QUndoCommand):
+    """
+    Assigns (or clears) an analysis-time mesh on shells.
+    Nothing in the UI model changes except the 'solver_mesh' attribute, so undo/redo
+    only has to remember the old and new value per shell.
+    """
+    def __init__(self, model, window, area_ids, solver_mesh):
+        super().__init__("Assign Solver Mesh" if solver_mesh else "Clear Solver Mesh")
+        self.model = model
+        self.window = window
+        self.new_value = copy.deepcopy(solver_mesh)
+        self.old_values = {
+            aid: copy.deepcopy(getattr(model.area_elements[aid], 'solver_mesh', None))
+            for aid in area_ids if aid in model.area_elements
+        }
+
+    def redo(self):
+        self.model.assign_area_solver_mesh(list(self.old_values.keys()), self.new_value)
+        self.window.draw_both_canvases()
+
+    def undo(self):
+        for aid, old in self.old_values.items():
+            ae = self.model.area_elements.get(aid)
+            if ae is not None:
+                ae.solver_mesh = copy.deepcopy(old)
+        self.window.draw_both_canvases()

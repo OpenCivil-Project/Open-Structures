@@ -1,0 +1,980 @@
+{
+  "info": {
+    "name": "125_beam_patch_trapezoid_load_v5",
+    "units": "N, m, C",
+    "active_dofs": [
+      true,
+      true,
+      false,
+      false,
+      false,
+      true
+    ],
+    "analysis_engine": "native",
+    "last_run_case": "STATIC",
+    "show_analysis_log": true
+  },
+  "grid": {
+    "x_lines": [],
+    "y_lines": [],
+    "z_lines": []
+  },
+  "nodes": [
+    {
+      "id": 237,
+      "x": 3.875,
+      "y": 0.0,
+      "z": 0.0,
+      "restraints": [
+        false,
+        false,
+        true,
+        true,
+        true,
+        false
+      ],
+      "diaphragm": null
+    },
+    {
+      "id": 244,
+      "x": 4.65,
+      "y": 0.0,
+      "z": 0.0,
+      "restraints": [
+        false,
+        false,
+        true,
+        true,
+        true,
+        false
+      ],
+      "diaphragm": null
+    },
+    {
+      "id": 251,
+      "x": 5.425000000000001,
+      "y": 0.0,
+      "z": 0.0,
+      "restraints": [
+        false,
+        false,
+        true,
+        true,
+        true,
+        false
+      ],
+      "diaphragm": null
+    },
+    {
+      "id": 258,
+      "x": 6.2,
+      "y": 0.0,
+      "z": 0.0,
+      "restraints": [
+        false,
+        false,
+        true,
+        true,
+        true,
+        false
+      ],
+      "diaphragm": null
+    },
+    {
+      "id": 265,
+      "x": 6.9750000000000005,
+      "y": 0.0,
+      "z": 0.0,
+      "restraints": [
+        false,
+        false,
+        true,
+        true,
+        true,
+        false
+      ],
+      "diaphragm": null
+    },
+    {
+      "id": 272,
+      "x": 7.75,
+      "y": 0.0,
+      "z": 0.0,
+      "restraints": [
+        false,
+        false,
+        true,
+        true,
+        true,
+        false
+      ],
+      "diaphragm": null
+    },
+    {
+      "id": 279,
+      "x": 8.525,
+      "y": 0.0,
+      "z": 0.0,
+      "restraints": [
+        false,
+        false,
+        true,
+        true,
+        true,
+        false
+      ],
+      "diaphragm": null
+    },
+    {
+      "id": 286,
+      "x": 9.3,
+      "y": 0.0,
+      "z": 0.0,
+      "restraints": [
+        false,
+        false,
+        true,
+        true,
+        true,
+        false
+      ],
+      "diaphragm": null
+    },
+    {
+      "id": 202,
+      "x": 0.0,
+      "y": 0.0,
+      "z": 0.0,
+      "restraints": [
+        true,
+        true,
+        true,
+        true,
+        true,
+        true
+      ],
+      "diaphragm": null
+    },
+    {
+      "id": 209,
+      "x": 0.775,
+      "y": 0.0,
+      "z": 0.0,
+      "restraints": [
+        false,
+        false,
+        true,
+        true,
+        true,
+        false
+      ],
+      "diaphragm": null
+    },
+    {
+      "id": 216,
+      "x": 1.55,
+      "y": 0.0,
+      "z": 0.0,
+      "restraints": [
+        false,
+        false,
+        true,
+        true,
+        true,
+        false
+      ],
+      "diaphragm": null
+    },
+    {
+      "id": 223,
+      "x": 2.325,
+      "y": 0.0,
+      "z": 0.0,
+      "restraints": [
+        false,
+        false,
+        true,
+        true,
+        true,
+        false
+      ],
+      "diaphragm": null
+    },
+    {
+      "id": 230,
+      "x": 3.1,
+      "y": 0.0,
+      "z": 0.0,
+      "restraints": [
+        false,
+        false,
+        true,
+        true,
+        true,
+        false
+      ],
+      "diaphragm": null
+    }
+  ],
+  "elements": [
+    {
+      "id": 276,
+      "n1_id": 202,
+      "n2_id": 209,
+      "sec_name": "Beam",
+      "beta": 0.0,
+      "rel_i": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
+      "rel_j": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
+      "off_i": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "off_j": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "end_off_i": 0.0,
+      "end_off_j": 0.0,
+      "rz_factor": 0.0
+    },
+    {
+      "id": 287,
+      "n1_id": 209,
+      "n2_id": 216,
+      "sec_name": "Beam",
+      "beta": 0.0,
+      "rel_i": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
+      "rel_j": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
+      "off_i": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "off_j": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "end_off_i": 0.0,
+      "end_off_j": 0.0,
+      "rz_factor": 0.0
+    },
+    {
+      "id": 298,
+      "n1_id": 216,
+      "n2_id": 223,
+      "sec_name": "Beam",
+      "beta": 0.0,
+      "rel_i": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
+      "rel_j": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
+      "off_i": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "off_j": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "end_off_i": 0.0,
+      "end_off_j": 0.0,
+      "rz_factor": 0.0
+    },
+    {
+      "id": 309,
+      "n1_id": 223,
+      "n2_id": 230,
+      "sec_name": "Beam",
+      "beta": 0.0,
+      "rel_i": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
+      "rel_j": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
+      "off_i": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "off_j": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "end_off_i": 0.0,
+      "end_off_j": 0.0,
+      "rz_factor": 0.0
+    },
+    {
+      "id": 320,
+      "n1_id": 230,
+      "n2_id": 237,
+      "sec_name": "Beam",
+      "beta": 0.0,
+      "rel_i": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
+      "rel_j": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
+      "off_i": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "off_j": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "end_off_i": 0.0,
+      "end_off_j": 0.0,
+      "rz_factor": 0.0
+    },
+    {
+      "id": 331,
+      "n1_id": 237,
+      "n2_id": 244,
+      "sec_name": "Beam",
+      "beta": 0.0,
+      "rel_i": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
+      "rel_j": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
+      "off_i": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "off_j": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "end_off_i": 0.0,
+      "end_off_j": 0.0,
+      "rz_factor": 0.0
+    },
+    {
+      "id": 342,
+      "n1_id": 244,
+      "n2_id": 251,
+      "sec_name": "Beam",
+      "beta": 0.0,
+      "rel_i": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
+      "rel_j": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
+      "off_i": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "off_j": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "end_off_i": 0.0,
+      "end_off_j": 0.0,
+      "rz_factor": 0.0
+    },
+    {
+      "id": 353,
+      "n1_id": 251,
+      "n2_id": 258,
+      "sec_name": "Beam",
+      "beta": 0.0,
+      "rel_i": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
+      "rel_j": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
+      "off_i": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "off_j": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "end_off_i": 0.0,
+      "end_off_j": 0.0,
+      "rz_factor": 0.0
+    },
+    {
+      "id": 364,
+      "n1_id": 258,
+      "n2_id": 265,
+      "sec_name": "Beam",
+      "beta": 0.0,
+      "rel_i": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
+      "rel_j": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
+      "off_i": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "off_j": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "end_off_i": 0.0,
+      "end_off_j": 0.0,
+      "rz_factor": 0.0
+    },
+    {
+      "id": 375,
+      "n1_id": 265,
+      "n2_id": 272,
+      "sec_name": "Beam",
+      "beta": 0.0,
+      "rel_i": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
+      "rel_j": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
+      "off_i": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "off_j": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "end_off_i": 0.0,
+      "end_off_j": 0.0,
+      "rz_factor": 0.0
+    },
+    {
+      "id": 386,
+      "n1_id": 272,
+      "n2_id": 279,
+      "sec_name": "Beam",
+      "beta": 0.0,
+      "rel_i": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
+      "rel_j": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
+      "off_i": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "off_j": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "end_off_i": 0.0,
+      "end_off_j": 0.0,
+      "rz_factor": 0.0
+    },
+    {
+      "id": 397,
+      "n1_id": 279,
+      "n2_id": 286,
+      "sec_name": "Beam",
+      "beta": 0.0,
+      "rel_i": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
+      "rel_j": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
+      "off_i": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "off_j": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "end_off_i": 0.0,
+      "end_off_j": 0.0,
+      "rz_factor": 0.0
+    }
+  ],
+  "materials": [
+    {
+      "name": "Elastic",
+      "type": "Steel",
+      "E": 190000000000.0,
+      "nu": 0.29,
+      "G": 73643410852.71318,
+      "rho": 76491.87
+    }
+  ],
+  "sections": [
+    {
+      "name": "Beam",
+      "type": "general",
+      "mat_name": "Elastic",
+      "properties": {
+        "A": 0.09660000000000002,
+        "J": 0.0009466800000000003,
+        "I22": 0.0006311200000000002,
+        "I33": 0.0009581512500000004,
+        "As2": 0.08050000000000002,
+        "As3": 0.08050000000000002,
+        "theta_p": 0.0
+      },
+      "modifiers": {
+        "A": 1.0,
+        "I2": 1.0,
+        "I3": 1.0,
+        "As2": 1.0,
+        "As3": 1.0,
+        "J": 1.0,
+        "Mass": 1.0,
+        "Weight": 1.0
+      },
+      "color": [
+        0.25,
+        0.7,
+        1.0,
+        1.0
+      ]
+    }
+  ],
+  "load_patterns": [
+    {
+      "name": "TEST",
+      "type": "Other",
+      "sw_mult": 0.0
+    }
+  ],
+  "load_cases": [
+    {
+      "name": "STATIC",
+      "type": "Linear Static",
+      "loads": [
+        [
+          "TEST",
+          1.0
+        ]
+      ]
+    },
+    {
+      "name": "MODAL",
+      "type": "Modal",
+      "loads": [],
+      "mass_source": "Default",
+      "num_modes": 3
+    }
+  ],
+  "load_combinations": [],
+  "loads": [
+    {
+      "type": "member_dist",
+      "pattern": "TEST",
+      "element_id": 287,
+      "wx": 0.0,
+      "wy": 0.0,
+      "wz": 0.0,
+      "coord": "Global",
+      "projected": false,
+      "is_relative": true,
+      "distances": [
+        0.0,
+        0.4400000000000001,
+        0.7200000000000002,
+        1.0
+      ],
+      "magnitudes": [
+        0.0,
+        0.0,
+        -311.1111111111112,
+        -622.2222222222221
+      ],
+      "load_direction": "Y"
+    },
+    {
+      "type": "member_dist",
+      "pattern": "TEST",
+      "element_id": 298,
+      "wx": 0.0,
+      "wy": 0.0,
+      "wz": 0.0,
+      "coord": "Global",
+      "projected": false,
+      "is_relative": true,
+      "distances": [
+        0.0,
+        0.49999999999999994,
+        0.75,
+        1.0000000000000002
+      ],
+      "magnitudes": [
+        -622.2222222222221,
+        -1177.7777777777776,
+        -1455.5555555555554,
+        -1733.3333333333333
+      ],
+      "load_direction": "Y"
+    },
+    {
+      "type": "member_dist",
+      "pattern": "TEST",
+      "element_id": 309,
+      "wx": 0.0,
+      "wy": 0.0,
+      "wz": 0.0,
+      "coord": "Global",
+      "projected": false,
+      "is_relative": true,
+      "distances": [
+        0.0,
+        0.2500000000000001,
+        0.5000000000000002,
+        0.9999999999999999
+      ],
+      "magnitudes": [
+        -1733.3333333333333,
+        -2011.111111111111,
+        -2288.888888888889,
+        -2844.4444444444443
+      ],
+      "load_direction": "Y"
+    },
+    {
+      "type": "member_dist",
+      "pattern": "TEST",
+      "element_id": 320,
+      "wx": 0.0,
+      "wy": 0.0,
+      "wz": 0.0,
+      "coord": "Global",
+      "projected": false,
+      "is_relative": true,
+      "distances": [
+        0.0,
+        0.3200000000000003,
+        0.6600000000000004,
+        0.9999999999999999
+      ],
+      "magnitudes": [
+        -2844.4444444444443,
+        -3200.0,
+        -3065.679012345679,
+        -2931.3580246913584
+      ],
+      "load_direction": "Y"
+    },
+    {
+      "type": "member_dist",
+      "pattern": "TEST",
+      "element_id": 331,
+      "wx": 0.0,
+      "wy": 0.0,
+      "wz": 0.0,
+      "coord": "Global",
+      "projected": false,
+      "is_relative": true,
+      "distances": [
+        0.0,
+        0.24999999999999953,
+        0.5000000000000002,
+        1.0000000000000004
+      ],
+      "magnitudes": [
+        -2931.3580246913584,
+        -2832.592592592593,
+        -2733.8271604938273,
+        -2536.2962962962965
+      ],
+      "load_direction": "Y"
+    },
+    {
+      "type": "member_dist",
+      "pattern": "TEST",
+      "element_id": 342,
+      "wx": 0.0,
+      "wy": 0.0,
+      "wz": 0.0,
+      "coord": "Global",
+      "projected": false,
+      "is_relative": true,
+      "distances": [
+        0.0,
+        0.49999999999999906,
+        0.7499999999999986,
+        0.9999999999999993
+      ],
+      "magnitudes": [
+        -2536.2962962962965,
+        -2338.765432098766,
+        -2240.000000000001,
+        -2141.234567901235
+      ],
+      "load_direction": "Y"
+    },
+    {
+      "type": "member_dist",
+      "pattern": "TEST",
+      "element_id": 353,
+      "wx": 0.0,
+      "wy": 0.0,
+      "wz": 0.0,
+      "coord": "Global",
+      "projected": false,
+      "is_relative": true,
+      "distances": [
+        0.0,
+        0.2800000000000007,
+        0.5600000000000014,
+        1.0000000000000004
+      ],
+      "magnitudes": [
+        -2141.234567901235,
+        -2030.6172839506175,
+        -1920.0,
+        -1626.6666666666674
+      ],
+      "load_direction": "Y"
+    },
+    {
+      "type": "member_dist",
+      "pattern": "TEST",
+      "element_id": 364,
+      "wx": 0.0,
+      "wy": 0.0,
+      "wz": 0.0,
+      "coord": "Global",
+      "projected": false,
+      "is_relative": true,
+      "distances": [
+        0.0,
+        0.25000000000000067,
+        0.5000000000000002,
+        1.0000000000000004
+      ],
+      "magnitudes": [
+        -1626.6666666666674,
+        -1460.0,
+        -1293.333333333334,
+        -960.0000000000003
+      ],
+      "load_direction": "Y"
+    },
+    {
+      "type": "member_dist",
+      "pattern": "TEST",
+      "element_id": 375,
+      "wx": 0.0,
+      "wy": 0.0,
+      "wz": 0.0,
+      "coord": "Global",
+      "projected": false,
+      "is_relative": true,
+      "distances": [
+        0.0,
+        0.25000000000000067,
+        0.5000000000000002,
+        0.9999999999999993
+      ],
+      "magnitudes": [
+        -960.0000000000003,
+        -793.3333333333333,
+        -626.666666666667,
+        -293.33333333333417
+      ],
+      "load_direction": "Y"
+    },
+    {
+      "type": "member_dist",
+      "pattern": "TEST",
+      "element_id": 386,
+      "wx": 0.0,
+      "wy": 0.0,
+      "wz": 0.0,
+      "coord": "Global",
+      "projected": false,
+      "is_relative": true,
+      "distances": [
+        0.0,
+        0.4400000000000014,
+        0.7199999999999998,
+        1.0000000000000004
+      ],
+      "magnitudes": [
+        -293.33333333333417,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "load_direction": "Y"
+    }
+  ],
+  "constraints": [],
+  "mass_sources": [
+    {
+      "name": "Default",
+      "include_self_mass": true,
+      "include_patterns": false,
+      "load_patterns": []
+    }
+  ],
+  "link_properties": [],
+  "links": [],
+  "area_elements": [],
+  "area_sections": [],
+  "slabs": [],
+  "tendons": [],
+  "cables": []
+}

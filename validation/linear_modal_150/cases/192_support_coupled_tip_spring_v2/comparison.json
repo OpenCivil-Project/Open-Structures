@@ -1,0 +1,355 @@
+{
+  "id": "192_support_coupled_tip_spring_v2",
+  "family": "support_coupled_tip_spring",
+  "variant": 2,
+  "model_file": "192_support_coupled_tip_spring_v2.mf",
+  "static": {
+    "passed": true,
+    "checks": [
+      {
+        "name": "nodal displacement and rotation",
+        "passed": true,
+        "max_tolerance_ratio": 3.0197134025829404e-10,
+        "relative_tolerance": 2e-06,
+        "absolute_tolerances_per_dof": [
+          1e-10,
+          1e-10,
+          1e-10,
+          1e-10,
+          1e-10,
+          1e-10
+        ],
+        "worst_components": []
+      },
+      {
+        "name": "support force and moment",
+        "passed": true,
+        "max_tolerance_ratio": 4.223326405669054e-10,
+        "relative_tolerance": 2e-06,
+        "absolute_tolerances_per_dof": [
+          0.0001,
+          0.0001,
+          0.0001,
+          0.0001,
+          0.0001,
+          0.0001
+        ],
+        "worst_components": []
+      },
+      {
+        "name": "independent free-DOF equilibrium residual",
+        "passed": true,
+        "value": 2.985184474941503e-16,
+        "limit": 2e-06
+      },
+      {
+        "name": "analytical: Coupled-spring tip response",
+        "passed": true,
+        "actual": 6.31924340028772e-06,
+        "expected": 6.319243400287719e-06,
+        "absolute_error": 8.470329472543003e-22,
+        "tolerance": 1.1263848680057544e-10,
+        "formula": "u=(F_tip^\u22121+Kspring)^\u22121 P; F_tip from Castigliano",
+        "reference_kind": "continuum or exact discrete formula as labelled"
+      },
+      {
+        "name": "analytical: Coupled spring nodal reaction",
+        "passed": true,
+        "actual": 1026.7516104747374,
+        "expected": 1026.7516104747378,
+        "absolute_error": 4.547473508864641e-13,
+        "tolerance": 0.0021535032209494755,
+        "formula": "-Kspring*u",
+        "reference_kind": "continuum or exact discrete formula as labelled"
+      },
+      {
+        "name": "analytical: Coupled-spring tip response",
+        "passed": true,
+        "actual": -0.0004960483848234098,
+        "expected": -0.0004960483848234098,
+        "absolute_error": 0.0,
+        "tolerance": 1.0920967696468196e-09,
+        "formula": "u=(F_tip^\u22121+Kspring)^\u22121 P; F_tip from Castigliano",
+        "reference_kind": "continuum or exact discrete formula as labelled"
+      },
+      {
+        "name": "analytical: Coupled spring nodal reaction",
+        "passed": true,
+        "actual": 2580.556202816513,
+        "expected": 2580.556202816513,
+        "absolute_error": 0.0,
+        "tolerance": 0.005261112405633026,
+        "formula": "-Kspring*u",
+        "reference_kind": "continuum or exact discrete formula as labelled"
+      },
+      {
+        "name": "analytical: Coupled-spring tip response",
+        "passed": true,
+        "actual": 0.0005185253609578724,
+        "expected": 0.0005185253609578722,
+        "absolute_error": 1.0842021724855044e-19,
+        "tolerance": 1.1370507219157445e-09,
+        "formula": "u=(F_tip^\u22121+Kspring)^\u22121 P; F_tip from Castigliano",
+        "reference_kind": "continuum or exact discrete formula as labelled"
+      },
+      {
+        "name": "analytical: Coupled spring nodal reaction",
+        "passed": true,
+        "actual": -1605.2888307121345,
+        "expected": -1605.2888307121343,
+        "absolute_error": 2.2737367544323206e-13,
+        "tolerance": 0.003310577661424268,
+        "formula": "-Kspring*u",
+        "reference_kind": "continuum or exact discrete formula as labelled"
+      },
+      {
+        "name": "analytical: Coupled-spring tip response",
+        "passed": true,
+        "actual": 6.335656194067086e-05,
+        "expected": 6.335656194067087e-05,
+        "absolute_error": 1.3552527156068805e-20,
+        "tolerance": 2.2671312388134172e-10,
+        "formula": "u=(F_tip^\u22121+Kspring)^\u22121 P; F_tip from Castigliano",
+        "reference_kind": "continuum or exact discrete formula as labelled"
+      },
+      {
+        "name": "analytical: Coupled spring nodal reaction",
+        "passed": true,
+        "actual": 2.765744200280878,
+        "expected": 2.765744200280878,
+        "absolute_error": 0.0,
+        "tolerance": 0.00010553148840056176,
+        "formula": "-Kspring*u",
+        "reference_kind": "continuum or exact discrete formula as labelled"
+      },
+      {
+        "name": "analytical: Coupled-spring tip response",
+        "passed": true,
+        "actual": -0.00021928106113268598,
+        "expected": -0.0002192810611326861,
+        "absolute_error": 1.0842021724855044e-19,
+        "tolerance": 5.385621222653721e-10,
+        "formula": "u=(F_tip^\u22121+Kspring)^\u22121 P; F_tip from Castigliano",
+        "reference_kind": "continuum or exact discrete formula as labelled"
+      },
+      {
+        "name": "analytical: Coupled spring nodal reaction",
+        "passed": true,
+        "actual": 1933.280175164987,
+        "expected": 1933.2801751649877,
+        "absolute_error": 6.821210263296962e-13,
+        "tolerance": 0.003966560350329975,
+        "formula": "-Kspring*u",
+        "reference_kind": "continuum or exact discrete formula as labelled"
+      },
+      {
+        "name": "analytical: Coupled-spring tip response",
+        "passed": true,
+        "actual": -0.00020349949868377992,
+        "expected": -0.00020349949868377998,
+        "absolute_error": 5.421010862427522e-20,
+        "tolerance": 5.069989973675599e-10,
+        "formula": "u=(F_tip^\u22121+Kspring)^\u22121 P; F_tip from Castigliano",
+        "reference_kind": "continuum or exact discrete formula as labelled"
+      },
+      {
+        "name": "analytical: Coupled spring nodal reaction",
+        "passed": true,
+        "actual": 2798.915019845102,
+        "expected": 2798.9150198451025,
+        "absolute_error": 4.547473508864641e-13,
+        "tolerance": 0.005697830039690205,
+        "formula": "-Kspring*u",
+        "reference_kind": "continuum or exact discrete formula as labelled"
+      }
+    ]
+  },
+  "modal": {
+    "passed": true,
+    "checks": [
+      {
+        "name": "mode count",
+        "passed": true,
+        "actual": 3,
+        "expected": 3
+      },
+      {
+        "name": "finite positive sorted frequencies",
+        "passed": true
+      },
+      {
+        "name": "maximum relative frequency error",
+        "passed": true,
+        "value": 2.321154543870467e-15,
+        "limit": 2e-05
+      },
+      {
+        "name": "period/frequency/omega/eigenvalue consistency",
+        "passed": true,
+        "value": 2.220446049250313e-16,
+        "limit": 1e-09
+      },
+      {
+        "name": "maximum independent eigen residual",
+        "passed": true,
+        "value": 1.5502960087013968e-15,
+        "limit": 2e-05
+      },
+      {
+        "name": "mass normalization and orthogonality",
+        "passed": true,
+        "value": 4.188553947313967e-16,
+        "limit": 2e-05
+      },
+      {
+        "name": "worst modal subspace mismatch (1-MAC)",
+        "passed": true,
+        "value": 2.220446049250313e-16,
+        "limit": 0.0002
+      },
+      {
+        "name": "assembled physical nodal mass",
+        "passed": true,
+        "max_tolerance_ratio": 0.0,
+        "relative_tolerance": 1e-08,
+        "absolute_tolerances_per_dof": [
+          1e-10,
+          1e-10,
+          1e-10,
+          1e-10,
+          1e-10,
+          1e-10
+        ],
+        "worst_components": []
+      }
+    ]
+  },
+  "analytical": [
+    {
+      "name": "analytical: Coupled-spring tip response",
+      "passed": true,
+      "actual": 6.31924340028772e-06,
+      "expected": 6.319243400287719e-06,
+      "absolute_error": 8.470329472543003e-22,
+      "tolerance": 1.1263848680057544e-10,
+      "formula": "u=(F_tip^\u22121+Kspring)^\u22121 P; F_tip from Castigliano",
+      "reference_kind": "continuum or exact discrete formula as labelled"
+    },
+    {
+      "name": "analytical: Coupled spring nodal reaction",
+      "passed": true,
+      "actual": 1026.7516104747374,
+      "expected": 1026.7516104747378,
+      "absolute_error": 4.547473508864641e-13,
+      "tolerance": 0.0021535032209494755,
+      "formula": "-Kspring*u",
+      "reference_kind": "continuum or exact discrete formula as labelled"
+    },
+    {
+      "name": "analytical: Coupled-spring tip response",
+      "passed": true,
+      "actual": -0.0004960483848234098,
+      "expected": -0.0004960483848234098,
+      "absolute_error": 0.0,
+      "tolerance": 1.0920967696468196e-09,
+      "formula": "u=(F_tip^\u22121+Kspring)^\u22121 P; F_tip from Castigliano",
+      "reference_kind": "continuum or exact discrete formula as labelled"
+    },
+    {
+      "name": "analytical: Coupled spring nodal reaction",
+      "passed": true,
+      "actual": 2580.556202816513,
+      "expected": 2580.556202816513,
+      "absolute_error": 0.0,
+      "tolerance": 0.005261112405633026,
+      "formula": "-Kspring*u",
+      "reference_kind": "continuum or exact discrete formula as labelled"
+    },
+    {
+      "name": "analytical: Coupled-spring tip response",
+      "passed": true,
+      "actual": 0.0005185253609578724,
+      "expected": 0.0005185253609578722,
+      "absolute_error": 1.0842021724855044e-19,
+      "tolerance": 1.1370507219157445e-09,
+      "formula": "u=(F_tip^\u22121+Kspring)^\u22121 P; F_tip from Castigliano",
+      "reference_kind": "continuum or exact discrete formula as labelled"
+    },
+    {
+      "name": "analytical: Coupled spring nodal reaction",
+      "passed": true,
+      "actual": -1605.2888307121345,
+      "expected": -1605.2888307121343,
+      "absolute_error": 2.2737367544323206e-13,
+      "tolerance": 0.003310577661424268,
+      "formula": "-Kspring*u",
+      "reference_kind": "continuum or exact discrete formula as labelled"
+    },
+    {
+      "name": "analytical: Coupled-spring tip response",
+      "passed": true,
+      "actual": 6.335656194067086e-05,
+      "expected": 6.335656194067087e-05,
+      "absolute_error": 1.3552527156068805e-20,
+      "tolerance": 2.2671312388134172e-10,
+      "formula": "u=(F_tip^\u22121+Kspring)^\u22121 P; F_tip from Castigliano",
+      "reference_kind": "continuum or exact discrete formula as labelled"
+    },
+    {
+      "name": "analytical: Coupled spring nodal reaction",
+      "passed": true,
+      "actual": 2.765744200280878,
+      "expected": 2.765744200280878,
+      "absolute_error": 0.0,
+      "tolerance": 0.00010553148840056176,
+      "formula": "-Kspring*u",
+      "reference_kind": "continuum or exact discrete formula as labelled"
+    },
+    {
+      "name": "analytical: Coupled-spring tip response",
+      "passed": true,
+      "actual": -0.00021928106113268598,
+      "expected": -0.0002192810611326861,
+      "absolute_error": 1.0842021724855044e-19,
+      "tolerance": 5.385621222653721e-10,
+      "formula": "u=(F_tip^\u22121+Kspring)^\u22121 P; F_tip from Castigliano",
+      "reference_kind": "continuum or exact discrete formula as labelled"
+    },
+    {
+      "name": "analytical: Coupled spring nodal reaction",
+      "passed": true,
+      "actual": 1933.280175164987,
+      "expected": 1933.2801751649877,
+      "absolute_error": 6.821210263296962e-13,
+      "tolerance": 0.003966560350329975,
+      "formula": "-Kspring*u",
+      "reference_kind": "continuum or exact discrete formula as labelled"
+    },
+    {
+      "name": "analytical: Coupled-spring tip response",
+      "passed": true,
+      "actual": -0.00020349949868377992,
+      "expected": -0.00020349949868377998,
+      "absolute_error": 5.421010862427522e-20,
+      "tolerance": 5.069989973675599e-10,
+      "formula": "u=(F_tip^\u22121+Kspring)^\u22121 P; F_tip from Castigliano",
+      "reference_kind": "continuum or exact discrete formula as labelled"
+    },
+    {
+      "name": "analytical: Coupled spring nodal reaction",
+      "passed": true,
+      "actual": 2798.915019845102,
+      "expected": 2798.9150198451025,
+      "absolute_error": 4.547473508864641e-13,
+      "tolerance": 0.005697830039690205,
+      "formula": "-Kspring*u",
+      "reference_kind": "continuum or exact discrete formula as labelled"
+    }
+  ],
+  "reference_error": null,
+  "execution": {
+    "returncode": 0,
+    "model_sha256": "11f3672cfad7faf73bf178cf263da6f5ef84079dc53a54372feb62bd4f19cda6",
+    "solver_source_sha256": "b2dcefa0108c3e5d25eebdc3c19f4cd8586716bf63074a9bf5dead876a6ea0cf"
+  }
+}

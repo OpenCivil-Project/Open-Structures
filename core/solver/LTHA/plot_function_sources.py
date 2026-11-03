@@ -45,21 +45,54 @@ class LTHACaseData:
         if self.results.get("status") != "SUCCESS":
             raise ValueError(f"Cannot plot — case did not complete successfully: {results_json_path}")
 
-        info = self.results["info"]
-        self.case_name = info["case_name"]
-        self.dt = info["dt"]
-        self.n_steps = info["n_steps"]
-        self.directions = info["directions"]
-        self.time = np.arange(self.n_steps) * self.dt
+        info = self.results.get("info", {})
+        self.case_name = info.get("case_name", "Unknown")
 
-        history_path = self.results["history_path"]
-        self._npz = np.load(history_path)
-
-        self.ground_accel = {
-            d: np.array(v, dtype=float)
-            for d, v in self.results.get("accel_history", {}).items()
-        }
-        self._ground_vel_cache = {}
+        if "saved_states" in self.results:
+            self.is_multistep = True
+            states = self.results["saved_states"]
+            self.n_steps = len(states)
+            self.dt = 1.0 
+            self.time = np.array([st["step_frac"] for st in states])
+            self.directions = []
+            self.ground_accel = {}
+            self._ground_vel_cache = {}
+            self._npz = {}
+            
+            if self.n_steps > 0:
+                for nid in states[0].get("displacements", {}):
+                    self._npz[f"node_{nid}"] = np.zeros((self.n_steps, 6))
+                for nid in states[0].get("reactions", {}):
+                    self._npz[f"reac_node_{nid}"] = np.zeros((self.n_steps, 6))
+                self._npz["base_reaction_history"] = np.zeros((self.n_steps, 6))
+                
+                for i, st in enumerate(states):
+                    for nid, dofs in st.get("displacements", {}).items():
+                        self._npz[f"node_{nid}"][i] = dofs
+                    for nid, dofs in st.get("reactions", {}).items():
+                        self._npz[f"reac_node_{nid}"][i] = dofs
+                    br = st.get("base_reaction", {})
+                    self._npz["base_reaction_history"][i] = [
+                        br.get("Fx", 0), br.get("Fy", 0), br.get("Fz", 0), 
+                        br.get("Mx", 0), br.get("My", 0), br.get("Mz", 0)
+                    ]
+        else:
+            self.is_multistep = False
+            self.dt = info.get("dt", 0.01)
+            self.n_steps = info.get("n_steps", 0)
+            self.directions = info.get("directions", [])
+            self.time = np.arange(self.n_steps) * self.dt
+            history_path = self.results.get("history_path", "")
+            if history_path and __import__("os").path.exists(history_path):
+                self._npz = np.load(history_path)
+            else:
+                self._npz = {}
+                
+            self.ground_accel = {
+                d: np.array(v, dtype=float)
+                for d, v in self.results.get("accel_history", {}).items()
+            }
+            self._ground_vel_cache = {}
 
     def npz_array(self, key):
         if key not in self._npz:
@@ -244,10 +277,74 @@ class ElementForceSource(PlotFunctionSource):
         n = len(values)
         return case.time[:n], values, self.display_name()
     
+class VirtualMeasurementSource(PlotFunctionSource):
+    """Custom linear combination of joint DOFs — drifts, relative story
+    responses, etc. — as defined once in the Virtual Measurements dialog
+    (Define menu) and reused here as a time-history trace.
+
+    Unlike the other sources, the combination itself (which joints, which
+    DOFs, which factors) isn't case data — it lives on the model. So this
+    source is handed a frozen snapshot of the measurement's `factors` dict
+    at construction time (see plot_function_dialog.py), and from then on
+    behaves exactly like the others: everything else is re-derived from the
+    case on demand.
+    """
+    type_name = "Virtual Measurement"
+
+    _VM_DOF_TO_CASE_DOF = {
+        "U1": "UX", "U2": "UY", "U3": "UZ",
+        "R1": "RX", "R2": "RY", "R3": "RZ",
+    }
+    _NPZ_PREFIX = {"Displ": "node_", "Vel": "vel_node_", "Accel": "acc_node_"}
+
+    def __init__(self, measurement_id, factors, vector_type="Displ", name=None):
+        if vector_type not in self._NPZ_PREFIX:
+            raise ValueError(f"vector_type must be one of {list(self._NPZ_PREFIX)}")
+        if not factors:
+            raise ValueError("This measurement has no joints/factors defined yet.")
+        self.measurement_id = measurement_id
+        self.factors = factors                                                         
+        self.vector_type = vector_type
+        self.name = name or self._auto_name()
+
+    def _auto_name(self):
+        return f"{self.vector_type} - Virtual Measurement"
+
+    def display_name(self):
+        return self.name
+
+    def get_series(self, case: LTHACaseData):
+        prefix = self._NPZ_PREFIX[self.vector_type]
+
+        arrays = {}
+        for joint_id in self.factors:
+            key = prefix + str(joint_id)
+            arr = case.npz_array(key)
+            if arr is None:
+                raise ValueError(
+                    f"No {self.vector_type} history for Joint {joint_id} in this case "
+                    f"(referenced by this virtual measurement)."
+                )
+            arrays[joint_id] = arr
+
+        n = min(arr.shape[0] for arr in arrays.values())
+        values = np.zeros(n)
+
+        for joint_id, dof_factors in self.factors.items():
+            arr = arrays[joint_id]
+            for vm_dof, factor in dof_factors.items():
+                case_dof = self._VM_DOF_TO_CASE_DOF.get(vm_dof)
+                if case_dof is None or not factor:
+                    continue
+                values += arr[:n, DOF_INDEX[case_dof]] * factor
+
+        return case.time[:n], values, self.display_name()
+
 PLOT_FUNCTION_TYPES = {
     "Joint Response": JointResponseSource,
     "Joint Reaction": ReactionSource,
     "Base Reaction": BaseReactionSource,
     "Ground Motion": GroundMotionSource,
     "Element Force": ElementForceSource,                    
+    "Virtual Measurement": VirtualMeasurementSource,
 }

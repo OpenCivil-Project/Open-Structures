@@ -1,0 +1,1367 @@
+{
+  "static": {
+    "displacements": {
+      "11": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "18": [
+        3.0287716345150794e-09,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "25": [
+        6.5118590142074205e-09,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "32": [
+        1.0971725246030873e-08,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "39": [
+        1.7077350264758955e-08,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "46": [
+        2.5744577823200872e-08,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "53": [
+        3.8273492055122905e-08,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "60": [
+        5.654343009531338e-08,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "67": [
+        8.329488264980086e-08,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "74": [
+        1.2254056760175841e-07,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "81": [
+        1.8016733769397968e-07,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "88": [
+        2.6481920844029783e-07,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "95": [
+        3.891939604526606e-07,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "102": [
+        5.719478065329224e-07,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "109": [
+        8.404938235931229e-07,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ]
+    },
+    "reactions": {
+      "11": [
+        -99.7770569382637,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "18": [
+        -14.966558540739555,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "25": [
+        -32.17810086259004,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "32": [
+        -54.216358313829026,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "39": [
+        -84.38706951214236,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "46": [
+        -127.21584113727701,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "53": [
+        -189.12698893300313,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "60": [
+        -279.4071850686797,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "67": [
+        -411.59845896465833,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "74": [
+        -605.5295017053354,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "81": [
+        -890.2899697018125,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "88": [
+        -1308.5939331535612,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "95": [
+        -1923.1869865783437,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "102": [
+        -2826.2580879898774,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "109": [
+        -4153.267902599895,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ]
+    }
+  },
+  "modal": {
+    "frequencies_hz": [
+      1161.6881628434016,
+      1457.844749268609,
+      1908.040878842465
+    ],
+    "regularized_frequencies_hz": [
+      1161.6881628434016,
+      1457.8447492686084,
+      1908.0408788424643
+    ],
+    "regularization_relative_shift": [
+      0.0,
+      -3.119312609347517e-16,
+      -3.574981196123601e-16
+    ],
+    "mode_shapes": {
+      "1": {
+        "11": [
+          -0.0,
+          -0.0,
+          -0.0,
+          -0.0,
+          -0.0,
+          -0.0
+        ],
+        "18": [
+          0.00401543953792096,
+          -0.0,
+          -0.0,
+          -0.0,
+          -0.0,
+          -0.0
+        ],
+        "25": [
+          0.007983801718611194,
+          -0.0,
+          -0.0,
+          -0.0,
+          -0.0,
+          -0.0
+        ],
+        "32": [
+          0.011858561123810236,
+          -0.0,
+          -0.0,
+          -0.0,
+          -0.0,
+          -0.0
+        ],
+        "39": [
+          0.015594289742218432,
+          -0.0,
+          -0.0,
+          -0.0,
+          -0.0,
+          -0.0
+        ],
+        "46": [
+          0.019147189571394187,
+          -0.0,
+          -0.0,
+          -0.0,
+          -0.0,
+          -0.0
+        ],
+        "53": [
+          0.022475606109287716,
+          -0.0,
+          -0.0,
+          -0.0,
+          -0.0,
+          -0.0
+        ],
+        "60": [
+          0.025540516715192467,
+          -0.0,
+          -0.0,
+          -0.0,
+          -0.0,
+          -0.0
+        ],
+        "67": [
+          0.028305988114528717,
+          -0.0,
+          -0.0,
+          -0.0,
+          -0.0,
+          -0.0
+        ],
+        "74": [
+          0.03073959768363385,
+          -0.0,
+          -0.0,
+          -0.0,
+          -0.0,
+          -0.0
+        ],
+        "81": [
+          0.03281281357538055,
+          -0.0,
+          -0.0,
+          -0.0,
+          -0.0,
+          -0.0
+        ],
+        "88": [
+          0.03450132922899747,
+          -0.0,
+          -0.0,
+          -0.0,
+          -0.0,
+          -0.0
+        ],
+        "95": [
+          0.03578534834227053,
+          -0.0,
+          -0.0,
+          -0.0,
+          -0.0,
+          -0.0
+        ],
+        "102": [
+          0.036649816965086485,
+          -0.0,
+          -0.0,
+          -0.0,
+          -0.0,
+          -0.0
+        ],
+        "109": [
+          0.03708459999323401,
+          -0.0,
+          -0.0,
+          -0.0,
+          -0.0,
+          -0.0
+        ]
+      },
+      "2": {
+        "11": [
+          -0.0,
+          -0.0,
+          -0.0,
+          -0.0,
+          -0.0,
+          -0.0
+        ],
+        "18": [
+          0.011858561123810212,
+          -0.0,
+          -0.0,
+          -0.0,
+          -0.0,
+          -0.0
+        ],
+        "25": [
+          0.02247560610928766,
+          -0.0,
+          -0.0,
+          -0.0,
+          -0.0,
+          -0.0
+        ],
+        "32": [
+          0.030739597683633844,
+          -0.0,
+          -0.0,
+          -0.0,
+          -0.0,
+          -0.0
+        ],
+        "39": [
+          0.035785348342270575,
+          -0.0,
+          -0.0,
+          -0.0,
+          -0.0,
+          -0.0
+        ],
+        "46": [
+          0.0370845999932341,
+          -0.0,
+          -0.0,
+          -0.0,
+          -0.0,
+          -0.0
+        ],
+        "53": [
+          0.03450132922899747,
+          -0.0,
+          -0.0,
+          -0.0,
+          -0.0,
+          -0.0
+        ],
+        "60": [
+          0.028305988114528596,
+          -0.0,
+          -0.0,
+          -0.0,
+          -0.0,
+          -0.0
+        ],
+        "67": [
+          0.019147189571394035,
+          -0.0,
+          -0.0,
+          -0.0,
+          -0.0,
+          -0.0
+        ],
+        "74": [
+          0.00798380171861108,
+          -0.0,
+          -0.0,
+          -0.0,
+          -0.0,
+          -0.0
+        ],
+        "81": [
+          -0.004015439537921032,
+          -0.0,
+          -0.0,
+          -0.0,
+          -0.0,
+          -0.0
+        ],
+        "88": [
+          -0.01559428974221844,
+          -0.0,
+          -0.0,
+          -0.0,
+          -0.0,
+          -0.0
+        ],
+        "95": [
+          -0.025540516715192463,
+          -0.0,
+          -0.0,
+          -0.0,
+          -0.0,
+          -0.0
+        ],
+        "102": [
+          -0.03281281357538056,
+          -0.0,
+          -0.0,
+          -0.0,
+          -0.0,
+          -0.0
+        ],
+        "109": [
+          -0.03664981696508658,
+          -0.0,
+          -0.0,
+          -0.0,
+          -0.0,
+          -0.0
+        ]
+      },
+      "3": {
+        "11": [
+          -0.0,
+          -0.0,
+          -0.0,
+          -0.0,
+          -0.0,
+          -0.0
+        ],
+        "18": [
+          0.01914718957139407,
+          -0.0,
+          -0.0,
+          -0.0,
+          -0.0,
+          -0.0
+        ],
+        "25": [
+          0.032812813575380496,
+          -0.0,
+          -0.0,
+          -0.0,
+          -0.0,
+          -0.0
+        ],
+        "32": [
+          0.037084599993234095,
+          -0.0,
+          -0.0,
+          -0.0,
+          -0.0,
+          -0.0
+        ],
+        "39": [
+          0.030739597683633803,
+          -0.0,
+          -0.0,
+          -0.0,
+          -0.0,
+          -0.0
+        ],
+        "46": [
+          0.015594289742218343,
+          -0.0,
+          -0.0,
+          -0.0,
+          -0.0,
+          -0.0
+        ],
+        "53": [
+          -0.004015439537920972,
+          -0.0,
+          -0.0,
+          -0.0,
+          -0.0,
+          -0.0
+        ],
+        "60": [
+          -0.02247560610928766,
+          -0.0,
+          -0.0,
+          -0.0,
+          -0.0,
+          -0.0
+        ],
+        "67": [
+          -0.0345013292289975,
+          -0.0,
+          -0.0,
+          -0.0,
+          -0.0,
+          -0.0
+        ],
+        "74": [
+          -0.03664981696508653,
+          -0.0,
+          -0.0,
+          -0.0,
+          -0.0,
+          -0.0
+        ],
+        "81": [
+          -0.028305988114528596,
+          -0.0,
+          -0.0,
+          -0.0,
+          -0.0,
+          -0.0
+        ],
+        "88": [
+          -0.011858561123810112,
+          -0.0,
+          -0.0,
+          -0.0,
+          -0.0,
+          -0.0
+        ],
+        "95": [
+          0.007983801718611228,
+          -0.0,
+          -0.0,
+          -0.0,
+          -0.0,
+          -0.0
+        ],
+        "102": [
+          0.02554051671519242,
+          -0.0,
+          -0.0,
+          -0.0,
+          -0.0,
+          -0.0
+        ],
+        "109": [
+          0.0357853483422706,
+          -0.0,
+          -0.0,
+          -0.0,
+          -0.0,
+          -0.0
+        ]
+      }
+    },
+    "assembled_mass": {
+      "11": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "18": [
+        100.0,
+        100.0,
+        100.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "25": [
+        100.0,
+        100.0,
+        100.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "32": [
+        100.0,
+        100.0,
+        100.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "39": [
+        100.0,
+        100.0,
+        100.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "46": [
+        100.0,
+        100.0,
+        100.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "53": [
+        100.0,
+        100.0,
+        100.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "60": [
+        100.0,
+        100.0,
+        100.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "67": [
+        100.0,
+        100.0,
+        100.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "74": [
+        100.0,
+        100.0,
+        100.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "81": [
+        100.0,
+        100.0,
+        100.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "88": [
+        100.0,
+        100.0,
+        100.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "95": [
+        100.0,
+        100.0,
+        100.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "102": [
+        100.0,
+        100.0,
+        100.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "109": [
+        100.0,
+        100.0,
+        100.0,
+        0.0,
+        0.0,
+        0.0
+      ]
+    }
+  },
+  "metadata": {
+    "reference_kind": "Independent discretized force-flexibility reference with separate analytical checks",
+    "mass_model": "Translational nodal lumping; rho denotes weight density; explicit link rotary inertia allowed",
+    "regularized_reference": "Native-only numerical terms: released rotational diagonal=max(abs(k_local))*1e-12; massless free diagonal=min_positive_free_mass*1e-6",
+    "mass_floor": 9.999999999999999e-05,
+    "requested_modes": 3,
+    "native_clamped_modes": 3,
+    "sources": [
+      {
+        "title": "Scott Whitney, University of Nebraska: Vibrations of Cantilever Beams (1999)",
+        "url": "https://emweb.unl.edu/mechanics-pages/Scott-Whitney/325hweb/Beams.htm",
+        "use": "Euler-Bernoulli cantilever deflection and frequency derivation"
+      },
+      {
+        "title": "CALFEM for Python: core.py, bar2e/beam2e/beam3e/beam2de",
+        "url": "https://github.com/CALFEM/calfem-python/blob/master/src/calfem/core.py",
+        "use": "Public independent FE library and beam/bar reference formulations; not imported"
+      },
+      {
+        "title": "OpenSees public examples: Example3.1.tcl",
+        "url": "https://github.com/OpenSees/OpenSees/blob/master/EXAMPLES/ExampleScripts/Example3.1.tcl",
+        "use": "Public portal-frame modelling benchmark example; not an analytical oracle"
+      },
+      {
+        "title": "Gere and Timoshenko, Mechanics of Materials; Clough and Penzien, Dynamics of Structures",
+        "url": null,
+        "use": "Force-flexibility integration, beam boundary conditions, modal generalized eigenproblem"
+      }
+    ],
+    "batch": "second_150",
+    "case_id": "200_support_uniform_foundation_chain_v5",
+    "model_sha256": "8b544a658890ec7a311d037a0cb665ce3173347e53bf3865709b49ed40e3d2c7",
+    "reference_source_sha256": "4736d758c26c4b124dcdce5079c195fdb918049f5e38449de09279d4234f29d4",
+    "reference_wrapper_sha256": "344814f8988ecf6abaeb5633fc08aaf9e4c546dd6db4343b5338b12a3fae1d1f"
+  },
+  "analytical_checks": [
+    {
+      "node_id": 18,
+      "dof": 0,
+      "value": 3.0287716345150716e-09,
+      "label": "Uniform foundation chain displacement",
+      "formula": "u_i=C sinh(i\u03b1); cosh\u03b1=1+ks/(2k); C=P/[(k+ks)sinh(n\u03b1)\u2212k sinh((n\u22121)\u03b1)]",
+      "result": "displacements"
+    },
+    {
+      "node_id": 18,
+      "dof": 0,
+      "value": -14.966558540739516,
+      "label": "Foundation spring reaction",
+      "formula": "-ks*u_i",
+      "result": "reactions"
+    },
+    {
+      "node_id": 25,
+      "dof": 0,
+      "value": 6.511859014207404e-09,
+      "label": "Uniform foundation chain displacement",
+      "formula": "u_i=C sinh(i\u03b1); cosh\u03b1=1+ks/(2k); C=P/[(k+ks)sinh(n\u03b1)\u2212k sinh((n\u22121)\u03b1)]",
+      "result": "displacements"
+    },
+    {
+      "node_id": 25,
+      "dof": 0,
+      "value": -32.17810086258996,
+      "label": "Foundation spring reaction",
+      "formula": "-ks*u_i",
+      "result": "reactions"
+    },
+    {
+      "node_id": 32,
+      "dof": 0,
+      "value": 1.0971725246030846e-08,
+      "label": "Uniform foundation chain displacement",
+      "formula": "u_i=C sinh(i\u03b1); cosh\u03b1=1+ks/(2k); C=P/[(k+ks)sinh(n\u03b1)\u2212k sinh((n\u22121)\u03b1)]",
+      "result": "displacements"
+    },
+    {
+      "node_id": 32,
+      "dof": 0,
+      "value": -54.2163583138289,
+      "label": "Foundation spring reaction",
+      "formula": "-ks*u_i",
+      "result": "reactions"
+    },
+    {
+      "node_id": 39,
+      "dof": 0,
+      "value": 1.7077350264758915e-08,
+      "label": "Uniform foundation chain displacement",
+      "formula": "u_i=C sinh(i\u03b1); cosh\u03b1=1+ks/(2k); C=P/[(k+ks)sinh(n\u03b1)\u2212k sinh((n\u22121)\u03b1)]",
+      "result": "displacements"
+    },
+    {
+      "node_id": 39,
+      "dof": 0,
+      "value": -84.38706951214216,
+      "label": "Foundation spring reaction",
+      "formula": "-ks*u_i",
+      "result": "reactions"
+    },
+    {
+      "node_id": 46,
+      "dof": 0,
+      "value": 2.574457782320082e-08,
+      "label": "Uniform foundation chain displacement",
+      "formula": "u_i=C sinh(i\u03b1); cosh\u03b1=1+ks/(2k); C=P/[(k+ks)sinh(n\u03b1)\u2212k sinh((n\u22121)\u03b1)]",
+      "result": "displacements"
+    },
+    {
+      "node_id": 46,
+      "dof": 0,
+      "value": -127.21584113727674,
+      "label": "Foundation spring reaction",
+      "formula": "-ks*u_i",
+      "result": "reactions"
+    },
+    {
+      "node_id": 53,
+      "dof": 0,
+      "value": 3.827349205512285e-08,
+      "label": "Uniform foundation chain displacement",
+      "formula": "u_i=C sinh(i\u03b1); cosh\u03b1=1+ks/(2k); C=P/[(k+ks)sinh(n\u03b1)\u2212k sinh((n\u22121)\u03b1)]",
+      "result": "displacements"
+    },
+    {
+      "node_id": 53,
+      "dof": 0,
+      "value": -189.12698893300288,
+      "label": "Foundation spring reaction",
+      "formula": "-ks*u_i",
+      "result": "reactions"
+    },
+    {
+      "node_id": 60,
+      "dof": 0,
+      "value": 5.65434300953133e-08,
+      "label": "Uniform foundation chain displacement",
+      "formula": "u_i=C sinh(i\u03b1); cosh\u03b1=1+ks/(2k); C=P/[(k+ks)sinh(n\u03b1)\u2212k sinh((n\u22121)\u03b1)]",
+      "result": "displacements"
+    },
+    {
+      "node_id": 60,
+      "dof": 0,
+      "value": -279.4071850686794,
+      "label": "Foundation spring reaction",
+      "formula": "-ks*u_i",
+      "result": "reactions"
+    },
+    {
+      "node_id": 67,
+      "dof": 0,
+      "value": 8.329488264980073e-08,
+      "label": "Uniform foundation chain displacement",
+      "formula": "u_i=C sinh(i\u03b1); cosh\u03b1=1+ks/(2k); C=P/[(k+ks)sinh(n\u03b1)\u2212k sinh((n\u22121)\u03b1)]",
+      "result": "displacements"
+    },
+    {
+      "node_id": 67,
+      "dof": 0,
+      "value": -411.5984589646577,
+      "label": "Foundation spring reaction",
+      "formula": "-ks*u_i",
+      "result": "reactions"
+    },
+    {
+      "node_id": 74,
+      "dof": 0,
+      "value": 1.2254056760175828e-07,
+      "label": "Uniform foundation chain displacement",
+      "formula": "u_i=C sinh(i\u03b1); cosh\u03b1=1+ks/(2k); C=P/[(k+ks)sinh(n\u03b1)\u2212k sinh((n\u22121)\u03b1)]",
+      "result": "displacements"
+    },
+    {
+      "node_id": 74,
+      "dof": 0,
+      "value": -605.5295017053347,
+      "label": "Foundation spring reaction",
+      "formula": "-ks*u_i",
+      "result": "reactions"
+    },
+    {
+      "node_id": 81,
+      "dof": 0,
+      "value": 1.8016733769397955e-07,
+      "label": "Uniform foundation chain displacement",
+      "formula": "u_i=C sinh(i\u03b1); cosh\u03b1=1+ks/(2k); C=P/[(k+ks)sinh(n\u03b1)\u2212k sinh((n\u22121)\u03b1)]",
+      "result": "displacements"
+    },
+    {
+      "node_id": 81,
+      "dof": 0,
+      "value": -890.2899697018119,
+      "label": "Foundation spring reaction",
+      "formula": "-ks*u_i",
+      "result": "reactions"
+    },
+    {
+      "node_id": 88,
+      "dof": 0,
+      "value": 2.6481920844029773e-07,
+      "label": "Uniform foundation chain displacement",
+      "formula": "u_i=C sinh(i\u03b1); cosh\u03b1=1+ks/(2k); C=P/[(k+ks)sinh(n\u03b1)\u2212k sinh((n\u22121)\u03b1)]",
+      "result": "displacements"
+    },
+    {
+      "node_id": 88,
+      "dof": 0,
+      "value": -1308.5939331535606,
+      "label": "Foundation spring reaction",
+      "formula": "-ks*u_i",
+      "result": "reactions"
+    },
+    {
+      "node_id": 95,
+      "dof": 0,
+      "value": 3.8919396045266057e-07,
+      "label": "Uniform foundation chain displacement",
+      "formula": "u_i=C sinh(i\u03b1); cosh\u03b1=1+ks/(2k); C=P/[(k+ks)sinh(n\u03b1)\u2212k sinh((n\u22121)\u03b1)]",
+      "result": "displacements"
+    },
+    {
+      "node_id": 95,
+      "dof": 0,
+      "value": -1923.1869865783435,
+      "label": "Foundation spring reaction",
+      "formula": "-ks*u_i",
+      "result": "reactions"
+    },
+    {
+      "node_id": 102,
+      "dof": 0,
+      "value": 5.719478065329225e-07,
+      "label": "Uniform foundation chain displacement",
+      "formula": "u_i=C sinh(i\u03b1); cosh\u03b1=1+ks/(2k); C=P/[(k+ks)sinh(n\u03b1)\u2212k sinh((n\u22121)\u03b1)]",
+      "result": "displacements"
+    },
+    {
+      "node_id": 102,
+      "dof": 0,
+      "value": -2826.258087989878,
+      "label": "Foundation spring reaction",
+      "formula": "-ks*u_i",
+      "result": "reactions"
+    },
+    {
+      "node_id": 109,
+      "dof": 0,
+      "value": 8.404938235931226e-07,
+      "label": "Uniform foundation chain displacement",
+      "formula": "u_i=C sinh(i\u03b1); cosh\u03b1=1+ks/(2k); C=P/[(k+ks)sinh(n\u03b1)\u2212k sinh((n\u22121)\u03b1)]",
+      "result": "displacements"
+    },
+    {
+      "node_id": 109,
+      "dof": 0,
+      "value": -4153.267902599893,
+      "label": "Foundation spring reaction",
+      "formula": "-ks*u_i",
+      "result": "reactions"
+    },
+    {
+      "node_id": 11,
+      "dof": 0,
+      "value": -99.77705693826344,
+      "label": "Foundation chain root reaction",
+      "formula": "-k*u_1",
+      "result": "reactions"
+    },
+    {
+      "mode": 1,
+      "frequency_hz": 1161.6881628434023,
+      "tolerance": 1e-06,
+      "formula": "sqrt(ks/m + 4k/m*sin\u00b2((2r-1)\u03c0/(4n+2)))/(2\u03c0)",
+      "label": "Exact discrete axial chain frequency"
+    },
+    {
+      "mode": 2,
+      "frequency_hz": 1457.844749268609,
+      "tolerance": 1e-06,
+      "formula": "sqrt(ks/m + 4k/m*sin\u00b2((2r-1)\u03c0/(4n+2)))/(2\u03c0)",
+      "label": "Exact discrete axial chain frequency"
+    },
+    {
+      "mode": 3,
+      "frequency_hz": 1908.040878842465,
+      "tolerance": 1e-06,
+      "formula": "sqrt(ks/m + 4k/m*sin\u00b2((2r-1)\u03c0/(4n+2)))/(2\u03c0)",
+      "label": "Exact discrete axial chain frequency"
+    }
+  ],
+  "analytical_reference_checks": [
+    {
+      "name": "analytical: Uniform foundation chain displacement",
+      "passed": true,
+      "actual": 3.0287716345150794e-09,
+      "expected": 3.0287716345150716e-09,
+      "absolute_error": 7.858215819253763e-24,
+      "tolerance": 1.0000605754326903e-10,
+      "formula": "u_i=C sinh(i\u03b1); cosh\u03b1=1+ks/(2k); C=P/[(k+ks)sinh(n\u03b1)\u2212k sinh((n\u22121)\u03b1)]",
+      "reference_kind": "continuum or exact discrete formula as labelled"
+    },
+    {
+      "name": "analytical: Foundation spring reaction",
+      "passed": true,
+      "actual": -14.966558540739555,
+      "expected": -14.966558540739516,
+      "absolute_error": 3.907985046680551e-14,
+      "tolerance": 0.00012993311708147905,
+      "formula": "-ks*u_i",
+      "reference_kind": "continuum or exact discrete formula as labelled"
+    },
+    {
+      "name": "analytical: Uniform foundation chain displacement",
+      "passed": true,
+      "actual": 6.5118590142074205e-09,
+      "expected": 6.511859014207404e-09,
+      "absolute_error": 1.6543612251060553e-23,
+      "tolerance": 1.0001302371802842e-10,
+      "formula": "u_i=C sinh(i\u03b1); cosh\u03b1=1+ks/(2k); C=P/[(k+ks)sinh(n\u03b1)\u2212k sinh((n\u22121)\u03b1)]",
+      "reference_kind": "continuum or exact discrete formula as labelled"
+    },
+    {
+      "name": "analytical: Foundation spring reaction",
+      "passed": true,
+      "actual": -32.17810086259004,
+      "expected": -32.17810086258996,
+      "absolute_error": 8.526512829121202e-14,
+      "tolerance": 0.0001643562017251799,
+      "formula": "-ks*u_i",
+      "reference_kind": "continuum or exact discrete formula as labelled"
+    },
+    {
+      "name": "analytical: Uniform foundation chain displacement",
+      "passed": true,
+      "actual": 1.0971725246030873e-08,
+      "expected": 1.0971725246030846e-08,
+      "absolute_error": 2.6469779601696886e-23,
+      "tolerance": 1.0002194345049206e-10,
+      "formula": "u_i=C sinh(i\u03b1); cosh\u03b1=1+ks/(2k); C=P/[(k+ks)sinh(n\u03b1)\u2212k sinh((n\u22121)\u03b1)]",
+      "reference_kind": "continuum or exact discrete formula as labelled"
+    },
+    {
+      "name": "analytical: Foundation spring reaction",
+      "passed": true,
+      "actual": -54.216358313829026,
+      "expected": -54.2163583138289,
+      "absolute_error": 1.2789769243681803e-13,
+      "tolerance": 0.0002084327166276578,
+      "formula": "-ks*u_i",
+      "reference_kind": "continuum or exact discrete formula as labelled"
+    },
+    {
+      "name": "analytical: Uniform foundation chain displacement",
+      "passed": true,
+      "actual": 1.7077350264758955e-08,
+      "expected": 1.7077350264758915e-08,
+      "absolute_error": 3.970466940254533e-23,
+      "tolerance": 1.0003415470052952e-10,
+      "formula": "u_i=C sinh(i\u03b1); cosh\u03b1=1+ks/(2k); C=P/[(k+ks)sinh(n\u03b1)\u2212k sinh((n\u22121)\u03b1)]",
+      "reference_kind": "continuum or exact discrete formula as labelled"
+    },
+    {
+      "name": "analytical: Foundation spring reaction",
+      "passed": true,
+      "actual": -84.38706951214236,
+      "expected": -84.38706951214216,
+      "absolute_error": 1.9895196601282805e-13,
+      "tolerance": 0.0002687741390242843,
+      "formula": "-ks*u_i",
+      "reference_kind": "continuum or exact discrete formula as labelled"
+    },
+    {
+      "name": "analytical: Uniform foundation chain displacement",
+      "passed": true,
+      "actual": 2.5744577823200872e-08,
+      "expected": 2.574457782320082e-08,
+      "absolute_error": 5.293955920339377e-23,
+      "tolerance": 1.0005148915564641e-10,
+      "formula": "u_i=C sinh(i\u03b1); cosh\u03b1=1+ks/(2k); C=P/[(k+ks)sinh(n\u03b1)\u2212k sinh((n\u22121)\u03b1)]",
+      "reference_kind": "continuum or exact discrete formula as labelled"
+    },
+    {
+      "name": "analytical: Foundation spring reaction",
+      "passed": true,
+      "actual": -127.21584113727701,
+      "expected": -127.21584113727674,
+      "absolute_error": 2.7000623958883807e-13,
+      "tolerance": 0.00035443168227455347,
+      "formula": "-ks*u_i",
+      "reference_kind": "continuum or exact discrete formula as labelled"
+    },
+    {
+      "name": "analytical: Uniform foundation chain displacement",
+      "passed": true,
+      "actual": 3.8273492055122905e-08,
+      "expected": 3.827349205512285e-08,
+      "absolute_error": 5.293955920339377e-23,
+      "tolerance": 1.0007654698411024e-10,
+      "formula": "u_i=C sinh(i\u03b1); cosh\u03b1=1+ks/(2k); C=P/[(k+ks)sinh(n\u03b1)\u2212k sinh((n\u22121)\u03b1)]",
+      "reference_kind": "continuum or exact discrete formula as labelled"
+    },
+    {
+      "name": "analytical: Foundation spring reaction",
+      "passed": true,
+      "actual": -189.12698893300313,
+      "expected": -189.12698893300288,
+      "absolute_error": 2.5579538487363607e-13,
+      "tolerance": 0.0004782539778660057,
+      "formula": "-ks*u_i",
+      "reference_kind": "continuum or exact discrete formula as labelled"
+    },
+    {
+      "name": "analytical: Uniform foundation chain displacement",
+      "passed": true,
+      "actual": 5.654343009531338e-08,
+      "expected": 5.65434300953133e-08,
+      "absolute_error": 7.940933880509066e-23,
+      "tolerance": 1.0011308686019063e-10,
+      "formula": "u_i=C sinh(i\u03b1); cosh\u03b1=1+ks/(2k); C=P/[(k+ks)sinh(n\u03b1)\u2212k sinh((n\u22121)\u03b1)]",
+      "reference_kind": "continuum or exact discrete formula as labelled"
+    },
+    {
+      "name": "analytical: Foundation spring reaction",
+      "passed": true,
+      "actual": -279.4071850686797,
+      "expected": -279.4071850686794,
+      "absolute_error": 3.410605131648481e-13,
+      "tolerance": 0.0006588143701373588,
+      "formula": "-ks*u_i",
+      "reference_kind": "continuum or exact discrete formula as labelled"
+    },
+    {
+      "name": "analytical: Uniform foundation chain displacement",
+      "passed": true,
+      "actual": 8.329488264980086e-08,
+      "expected": 8.329488264980073e-08,
+      "absolute_error": 1.3234889800848443e-22,
+      "tolerance": 1.0016658976529961e-10,
+      "formula": "u_i=C sinh(i\u03b1); cosh\u03b1=1+ks/(2k); C=P/[(k+ks)sinh(n\u03b1)\u2212k sinh((n\u22121)\u03b1)]",
+      "reference_kind": "continuum or exact discrete formula as labelled"
+    },
+    {
+      "name": "analytical: Foundation spring reaction",
+      "passed": true,
+      "actual": -411.59845896465833,
+      "expected": -411.5984589646577,
+      "absolute_error": 6.252776074688882e-13,
+      "tolerance": 0.0009231969179293154,
+      "formula": "-ks*u_i",
+      "reference_kind": "continuum or exact discrete formula as labelled"
+    },
+    {
+      "name": "analytical: Uniform foundation chain displacement",
+      "passed": true,
+      "actual": 1.2254056760175841e-07,
+      "expected": 1.2254056760175828e-07,
+      "absolute_error": 1.3234889800848443e-22,
+      "tolerance": 1.0024508113520352e-10,
+      "formula": "u_i=C sinh(i\u03b1); cosh\u03b1=1+ks/(2k); C=P/[(k+ks)sinh(n\u03b1)\u2212k sinh((n\u22121)\u03b1)]",
+      "reference_kind": "continuum or exact discrete formula as labelled"
+    },
+    {
+      "name": "analytical: Foundation spring reaction",
+      "passed": true,
+      "actual": -605.5295017053354,
+      "expected": -605.5295017053347,
+      "absolute_error": 6.821210263296962e-13,
+      "tolerance": 0.0013110590034106694,
+      "formula": "-ks*u_i",
+      "reference_kind": "continuum or exact discrete formula as labelled"
+    },
+    {
+      "name": "analytical: Uniform foundation chain displacement",
+      "passed": true,
+      "actual": 1.8016733769397968e-07,
+      "expected": 1.8016733769397955e-07,
+      "absolute_error": 1.3234889800848443e-22,
+      "tolerance": 1.0036033467538796e-10,
+      "formula": "u_i=C sinh(i\u03b1); cosh\u03b1=1+ks/(2k); C=P/[(k+ks)sinh(n\u03b1)\u2212k sinh((n\u22121)\u03b1)]",
+      "reference_kind": "continuum or exact discrete formula as labelled"
+    },
+    {
+      "name": "analytical: Foundation spring reaction",
+      "passed": true,
+      "actual": -890.2899697018125,
+      "expected": -890.2899697018119,
+      "absolute_error": 6.821210263296962e-13,
+      "tolerance": 0.0018805799394036237,
+      "formula": "-ks*u_i",
+      "reference_kind": "continuum or exact discrete formula as labelled"
+    },
+    {
+      "name": "analytical: Uniform foundation chain displacement",
+      "passed": true,
+      "actual": 2.6481920844029783e-07,
+      "expected": 2.6481920844029773e-07,
+      "absolute_error": 1.0587911840678754e-22,
+      "tolerance": 1.005296384168806e-10,
+      "formula": "u_i=C sinh(i\u03b1); cosh\u03b1=1+ks/(2k); C=P/[(k+ks)sinh(n\u03b1)\u2212k sinh((n\u22121)\u03b1)]",
+      "reference_kind": "continuum or exact discrete formula as labelled"
+    },
+    {
+      "name": "analytical: Foundation spring reaction",
+      "passed": true,
+      "actual": -1308.5939331535612,
+      "expected": -1308.5939331535606,
+      "absolute_error": 6.821210263296962e-13,
+      "tolerance": 0.002717187866307121,
+      "formula": "-ks*u_i",
+      "reference_kind": "continuum or exact discrete formula as labelled"
+    },
+    {
+      "name": "analytical: Uniform foundation chain displacement",
+      "passed": true,
+      "actual": 3.891939604526606e-07,
+      "expected": 3.8919396045266057e-07,
+      "absolute_error": 5.293955920339377e-23,
+      "tolerance": 1.0077838792090533e-10,
+      "formula": "u_i=C sinh(i\u03b1); cosh\u03b1=1+ks/(2k); C=P/[(k+ks)sinh(n\u03b1)\u2212k sinh((n\u22121)\u03b1)]",
+      "reference_kind": "continuum or exact discrete formula as labelled"
+    },
+    {
+      "name": "analytical: Foundation spring reaction",
+      "passed": true,
+      "actual": -1923.1869865783437,
+      "expected": -1923.1869865783435,
+      "absolute_error": 2.2737367544323206e-13,
+      "tolerance": 0.003946373973156687,
+      "formula": "-ks*u_i",
+      "reference_kind": "continuum or exact discrete formula as labelled"
+    },
+    {
+      "name": "analytical: Uniform foundation chain displacement",
+      "passed": true,
+      "actual": 5.719478065329224e-07,
+      "expected": 5.719478065329225e-07,
+      "absolute_error": 1.0587911840678754e-22,
+      "tolerance": 1.0114389561306585e-10,
+      "formula": "u_i=C sinh(i\u03b1); cosh\u03b1=1+ks/(2k); C=P/[(k+ks)sinh(n\u03b1)\u2212k sinh((n\u22121)\u03b1)]",
+      "reference_kind": "continuum or exact discrete formula as labelled"
+    },
+    {
+      "name": "analytical: Foundation spring reaction",
+      "passed": true,
+      "actual": -2826.2580879898774,
+      "expected": -2826.258087989878,
+      "absolute_error": 4.547473508864641e-13,
+      "tolerance": 0.005752516175979756,
+      "formula": "-ks*u_i",
+      "reference_kind": "continuum or exact discrete formula as labelled"
+    },
+    {
+      "name": "analytical: Uniform foundation chain displacement",
+      "passed": true,
+      "actual": 8.404938235931229e-07,
+      "expected": 8.404938235931226e-07,
+      "absolute_error": 3.1763735522036263e-22,
+      "tolerance": 1.0168098764718625e-10,
+      "formula": "u_i=C sinh(i\u03b1); cosh\u03b1=1+ks/(2k); C=P/[(k+ks)sinh(n\u03b1)\u2212k sinh((n\u22121)\u03b1)]",
+      "reference_kind": "continuum or exact discrete formula as labelled"
+    },
+    {
+      "name": "analytical: Foundation spring reaction",
+      "passed": true,
+      "actual": -4153.267902599895,
+      "expected": -4153.267902599893,
+      "absolute_error": 1.8189894035458565e-12,
+      "tolerance": 0.008406535805199785,
+      "formula": "-ks*u_i",
+      "reference_kind": "continuum or exact discrete formula as labelled"
+    },
+    {
+      "name": "analytical: Foundation chain root reaction",
+      "passed": true,
+      "actual": -99.7770569382637,
+      "expected": -99.77705693826344,
+      "absolute_error": 2.5579538487363607e-13,
+      "tolerance": 0.00029955411387652686,
+      "formula": "-k*u_1",
+      "reference_kind": "continuum or exact discrete formula as labelled"
+    },
+    {
+      "name": "analytical: Exact discrete axial chain frequency",
+      "passed": true,
+      "actual": 1161.6881628434016,
+      "expected": 1161.6881628434023,
+      "absolute_error": 6.821210263296962e-13,
+      "tolerance": 0.0011616891628434022,
+      "formula": "sqrt(ks/m + 4k/m*sin\u00b2((2r-1)\u03c0/(4n+2)))/(2\u03c0)",
+      "reference_kind": "continuum or exact discrete formula as labelled"
+    },
+    {
+      "name": "analytical: Exact discrete axial chain frequency",
+      "passed": true,
+      "actual": 1457.8447492686084,
+      "expected": 1457.844749268609,
+      "absolute_error": 4.547473508864641e-13,
+      "tolerance": 0.0014578457492686087,
+      "formula": "sqrt(ks/m + 4k/m*sin\u00b2((2r-1)\u03c0/(4n+2)))/(2\u03c0)",
+      "reference_kind": "continuum or exact discrete formula as labelled"
+    },
+    {
+      "name": "analytical: Exact discrete axial chain frequency",
+      "passed": true,
+      "actual": 1908.0408788424643,
+      "expected": 1908.040878842465,
+      "absolute_error": 6.821210263296962e-13,
+      "tolerance": 0.0019080418788424648,
+      "formula": "sqrt(ks/m + 4k/m*sin\u00b2((2r-1)\u03c0/(4n+2)))/(2\u03c0)",
+      "reference_kind": "continuum or exact discrete formula as labelled"
+    }
+  ]
+}

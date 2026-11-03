@@ -1,0 +1,588 @@
+{
+  "static": {
+    "displacements": {
+      "1": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "2": [
+        0.0,
+        0.0,
+        0.0,
+        0.00045798898071625337,
+        0.0,
+        0.0
+      ],
+      "3": [
+        0.0,
+        0.0,
+        0.0,
+        0.0009159779614325067,
+        0.0,
+        0.0
+      ],
+      "4": [
+        0.0,
+        0.0,
+        0.0,
+        0.0013739669421487602,
+        0.0,
+        0.0
+      ],
+      "5": [
+        0.0,
+        0.0,
+        0.0,
+        0.0018319559228650135,
+        0.0,
+        0.0
+      ],
+      "6": [
+        0.0,
+        0.0,
+        0.0,
+        0.002289944903581267,
+        0.0,
+        0.0
+      ],
+      "7": [
+        0.0,
+        0.0,
+        0.0,
+        0.0027479338842975203,
+        0.0,
+        0.0
+      ],
+      "8": [
+        0.0,
+        0.0,
+        0.0,
+        0.0032059228650137737,
+        0.0,
+        0.0
+      ],
+      "9": [
+        0.0,
+        0.0,
+        0.0,
+        0.003663911845730027,
+        0.0,
+        0.0
+      ]
+    },
+    "reactions": {
+      "1": [
+        0.0,
+        0.0,
+        0.0,
+        -11000.0,
+        0.0,
+        0.0
+      ],
+      "2": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "3": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "4": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "5": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "6": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "7": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "8": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "9": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ]
+    }
+  },
+  "modal": {
+    "frequencies_hz": [
+      143.9367705301647,
+      426.9087175032158,
+      695.3428001222665
+    ],
+    "regularized_frequencies_hz": [
+      143.9367705301639,
+      426.908717503216,
+      695.3428001222665
+    ],
+    "regularization_relative_shift": [
+      -5.528871191983118e-15,
+      3.994536761389499e-16,
+      0.0
+    ],
+    "mode_shapes": {
+      "1": {
+        "1": [
+          -0.0,
+          -0.0,
+          -0.0,
+          -0.0,
+          -0.0,
+          -0.0
+        ],
+        "2": [
+          -0.0,
+          -0.0,
+          -0.0,
+          0.08913160830753342,
+          -0.0,
+          -0.0
+        ],
+        "3": [
+          -0.0,
+          -0.0,
+          -0.0,
+          0.1752279465957347,
+          -0.0,
+          -0.0
+        ],
+        "4": [
+          -0.0,
+          -0.0,
+          -0.0,
+          0.2553571073253763,
+          -0.0,
+          -0.0
+        ],
+        "5": [
+          -0.0,
+          -0.0,
+          -0.0,
+          0.32679038803214483,
+          -0.0,
+          -0.0
+        ],
+        "6": [
+          -0.0,
+          -0.0,
+          -0.0,
+          0.3870952140163485,
+          -0.0,
+          -0.0
+        ],
+        "7": [
+          -0.0,
+          -0.0,
+          -0.0,
+          0.4342179767567621,
+          -0.0,
+          -0.0
+        ],
+        "8": [
+          -0.0,
+          -0.0,
+          -0.0,
+          0.4665539670857851,
+          -0.0,
+          -0.0
+        ],
+        "9": [
+          -0.0,
+          -0.0,
+          -0.0,
+          0.48300202163550865,
+          -0.0,
+          -0.0
+        ]
+      },
+      "2": {
+        "1": [
+          -0.0,
+          -0.0,
+          -0.0,
+          -0.0,
+          -0.0,
+          -0.0
+        ],
+        "2": [
+          -0.0,
+          -0.0,
+          -0.0,
+          0.2553571073253763,
+          -0.0,
+          -0.0
+        ],
+        "3": [
+          -0.0,
+          -0.0,
+          -0.0,
+          0.43421797675676155,
+          -0.0,
+          -0.0
+        ],
+        "4": [
+          -0.0,
+          -0.0,
+          -0.0,
+          0.48300202163550876,
+          -0.0,
+          -0.0
+        ],
+        "5": [
+          -0.0,
+          -0.0,
+          -0.0,
+          0.3870952140163489,
+          -0.0,
+          -0.0
+        ],
+        "6": [
+          -0.0,
+          -0.0,
+          -0.0,
+          0.1752279465957354,
+          -0.0,
+          -0.0
+        ],
+        "7": [
+          -0.0,
+          -0.0,
+          -0.0,
+          -0.08913160830753361,
+          -0.0,
+          -0.0
+        ],
+        "8": [
+          -0.0,
+          -0.0,
+          -0.0,
+          -0.32679038803214533,
+          -0.0,
+          -0.0
+        ],
+        "9": [
+          -0.0,
+          -0.0,
+          -0.0,
+          -0.46655396708578556,
+          -0.0,
+          -0.0
+        ]
+      },
+      "3": {
+        "1": [
+          -0.0,
+          -0.0,
+          -0.0,
+          -0.0,
+          -0.0,
+          -0.0
+        ],
+        "2": [
+          -0.0,
+          -0.0,
+          -0.0,
+          -0.38709521401634717,
+          -0.0,
+          -0.0
+        ],
+        "3": [
+          -0.0,
+          -0.0,
+          -0.0,
+          -0.46655396708578534,
+          -0.0,
+          -0.0
+        ],
+        "4": [
+          -0.0,
+          -0.0,
+          -0.0,
+          -0.17522794659573654,
+          -0.0,
+          -0.0
+        ],
+        "5": [
+          -0.0,
+          -0.0,
+          -0.0,
+          0.255357107325376,
+          -0.0,
+          -0.0
+        ],
+        "6": [
+          -0.0,
+          -0.0,
+          -0.0,
+          0.4830020216355095,
+          -0.0,
+          -0.0
+        ],
+        "7": [
+          -0.0,
+          -0.0,
+          -0.0,
+          0.3267903880321447,
+          -0.0,
+          -0.0
+        ],
+        "8": [
+          -0.0,
+          -0.0,
+          -0.0,
+          -0.08913160830753271,
+          -0.0,
+          -0.0
+        ],
+        "9": [
+          -0.0,
+          -0.0,
+          -0.0,
+          -0.43421797675676255,
+          -0.0,
+          -0.0
+        ]
+      }
+    },
+    "assembled_mass": {
+      "1": [
+        38.98125000000001,
+        38.98125000000001,
+        38.98125000000001,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "2": [
+        77.96250000000002,
+        77.96250000000002,
+        77.96250000000002,
+        1.0,
+        0.0,
+        0.0
+      ],
+      "3": [
+        77.96250000000002,
+        77.96250000000002,
+        77.96250000000002,
+        1.0,
+        0.0,
+        0.0
+      ],
+      "4": [
+        77.96250000000002,
+        77.96250000000002,
+        77.96250000000002,
+        1.0,
+        0.0,
+        0.0
+      ],
+      "5": [
+        77.96250000000002,
+        77.96250000000002,
+        77.96250000000002,
+        1.0,
+        0.0,
+        0.0
+      ],
+      "6": [
+        77.96250000000002,
+        77.96250000000002,
+        77.96250000000002,
+        1.0,
+        0.0,
+        0.0
+      ],
+      "7": [
+        77.96250000000002,
+        77.96250000000002,
+        77.96250000000002,
+        1.0,
+        0.0,
+        0.0
+      ],
+      "8": [
+        77.96250000000002,
+        77.96250000000002,
+        77.96250000000002,
+        1.0,
+        0.0,
+        0.0
+      ],
+      "9": [
+        38.98125000000001,
+        38.98125000000001,
+        38.98125000000001,
+        1.0,
+        0.0,
+        0.0
+      ]
+    }
+  },
+  "metadata": {
+    "reference_kind": "Independent discretized force-flexibility reference with separate analytical checks",
+    "mass_model": "Translational nodal lumping; rho denotes weight density; explicit link rotary inertia allowed",
+    "regularized_reference": "Native-only numerical terms: released rotational diagonal=max(abs(k_local))*1e-12; massless free diagonal=min_positive_free_mass*1e-6",
+    "mass_floor": 1e-06,
+    "requested_modes": 3,
+    "native_clamped_modes": 3,
+    "sources": [
+      {
+        "title": "Scott Whitney, University of Nebraska: Vibrations of Cantilever Beams (1999)",
+        "url": "https://emweb.unl.edu/mechanics-pages/Scott-Whitney/325hweb/Beams.htm",
+        "use": "Euler-Bernoulli cantilever deflection and frequency derivation"
+      },
+      {
+        "title": "CALFEM for Python: core.py, bar2e/beam2e/beam3e/beam2de",
+        "url": "https://github.com/CALFEM/calfem-python/blob/master/src/calfem/core.py",
+        "use": "Public independent FE library and beam/bar reference formulations; not imported"
+      },
+      {
+        "title": "OpenSees public examples: Example3.1.tcl",
+        "url": "https://github.com/OpenSees/OpenSees/blob/master/EXAMPLES/ExampleScripts/Example3.1.tcl",
+        "use": "Public portal-frame modelling benchmark example; not an analytical oracle"
+      },
+      {
+        "title": "Gere and Timoshenko, Mechanics of Materials; Clough and Penzien, Dynamics of Structures",
+        "url": null,
+        "use": "Force-flexibility integration, beam boundary conditions, modal generalized eigenproblem"
+      }
+    ]
+  },
+  "analytical_checks": [
+    {
+      "node_id": 9,
+      "dof": 3,
+      "value": 0.003663911845730027,
+      "label": "Uniform bar twist",
+      "formula": "TL/(GJ)",
+      "result": "displacements"
+    },
+    {
+      "node_id": 1,
+      "dof": 3,
+      "value": -11000.0,
+      "label": "Root torque",
+      "formula": "-T",
+      "result": "reactions"
+    },
+    {
+      "mode": 1,
+      "frequency_hz": 143.9367705301641,
+      "tolerance": 1e-06,
+      "formula": "sqrt(4k/Jm)*sin((2r-1)\u03c0/(4n+2))/(2\u03c0)",
+      "label": "Exact discrete torsional chain frequency"
+    },
+    {
+      "mode": 2,
+      "frequency_hz": 426.90871750321577,
+      "tolerance": 1e-06,
+      "formula": "sqrt(4k/Jm)*sin((2r-1)\u03c0/(4n+2))/(2\u03c0)",
+      "label": "Exact discrete torsional chain frequency"
+    },
+    {
+      "mode": 3,
+      "frequency_hz": 695.3428001222665,
+      "tolerance": 1e-06,
+      "formula": "sqrt(4k/Jm)*sin((2r-1)\u03c0/(4n+2))/(2\u03c0)",
+      "label": "Exact discrete torsional chain frequency"
+    }
+  ],
+  "analytical_reference_checks": [
+    {
+      "name": "analytical: Uniform bar twist",
+      "passed": true,
+      "actual": 0.003663911845730027,
+      "expected": 0.003663911845730027,
+      "absolute_error": 0.0,
+      "tolerance": 7.427823691460054e-09,
+      "formula": "TL/(GJ)",
+      "reference_kind": "continuum or exact discrete formula as labelled"
+    },
+    {
+      "name": "analytical: Root torque",
+      "passed": true,
+      "actual": -11000.0,
+      "expected": -11000.0,
+      "absolute_error": 0.0,
+      "tolerance": 0.022099999999999998,
+      "formula": "-T",
+      "reference_kind": "continuum or exact discrete formula as labelled"
+    },
+    {
+      "name": "analytical: Exact discrete torsional chain frequency",
+      "passed": true,
+      "actual": 143.9367705301639,
+      "expected": 143.9367705301641,
+      "absolute_error": 1.9895196601282805e-13,
+      "tolerance": 0.00014393777053016408,
+      "formula": "sqrt(4k/Jm)*sin((2r-1)\u03c0/(4n+2))/(2\u03c0)",
+      "reference_kind": "continuum or exact discrete formula as labelled"
+    },
+    {
+      "name": "analytical: Exact discrete torsional chain frequency",
+      "passed": true,
+      "actual": 426.908717503216,
+      "expected": 426.90871750321577,
+      "absolute_error": 2.2737367544323206e-13,
+      "tolerance": 0.00042690971750321575,
+      "formula": "sqrt(4k/Jm)*sin((2r-1)\u03c0/(4n+2))/(2\u03c0)",
+      "reference_kind": "continuum or exact discrete formula as labelled"
+    },
+    {
+      "name": "analytical: Exact discrete torsional chain frequency",
+      "passed": true,
+      "actual": 695.3428001222665,
+      "expected": 695.3428001222665,
+      "absolute_error": 0.0,
+      "tolerance": 0.0006953438001222665,
+      "formula": "sqrt(4k/Jm)*sin((2r-1)\u03c0/(4n+2))/(2\u03c0)",
+      "reference_kind": "continuum or exact discrete formula as labelled"
+    }
+  ]
+}

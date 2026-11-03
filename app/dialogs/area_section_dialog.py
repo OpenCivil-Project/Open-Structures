@@ -1,7 +1,7 @@
 """
 app/dialogs/area_section_dialog.py
 ===================================
-Four dialogs matching SAP2000 exactly:
+Four dialogs:
 
   ShellSectionDialog          – Shell Section Data
   PlaneSectionDialog          – Plane Section Data
@@ -100,7 +100,6 @@ def _mat_row(model):
 
 class ShellSectionDialog(QDialog):
     """
-    Matches SAP2000 → Define → Section Properties → Area Sections
     → Add/Modify → Shell.
 
     Covers all six shell types:
@@ -192,6 +191,20 @@ class ShellSectionDialog(QDialog):
         mf.addRow("Material Angle", self.eMatAngle)
         right.addWidget(grp_mat)
 
+        grp_thin = QGroupBox("Thin Bending Formulation")
+        thv = QVBoxLayout(grp_thin)
+        self.cboThin = QComboBox()
+        self.cboThin.addItem("True Kirchhoff (DKQ)", "DKQ")
+        self.cboThin.addItem("MITC4 (Mindlin)", "MITC4")
+        self.cboThin.setToolTip("True Kirchhoff (DKQ): discrete Kirchhoff quad (Batoz-Tahar). This is the SAP2000 thin-plate element.\n"
+                                "MITC4: Reissner-Mindlin with shear tying; thin behaviour comes from a large shear stiffness.")
+        thv.addWidget(self.cboThin)
+        self.lblThinNote = QLabel("Thin types only. Thick types always use MITC4.")
+        self.lblThinNote.setWordWrap(True)
+        self.lblThinNote.setStyleSheet("color:#6c757d; font-size:8pt;")
+        thv.addWidget(self.lblThinNote)
+        right.addWidget(grp_thin)
+
         grp_tdp = QGroupBox("Time Dependent Properties")
         tdpv = QVBoxLayout(grp_tdp)
         tdpv.addWidget(_stub("Set Time Dependent Properties..."))
@@ -234,9 +247,16 @@ class ShellSectionDialog(QDialog):
 
         for rb in self._tbg.buttons():
             rb.toggled.connect(self._on_type_toggled)
+        self._update_thin_enabled()
+
+    def _update_thin_enabled(self):
+        """The formulation choice only means something for the thin types."""
+        thin = self._selected_type() in ("Shell - Thin", "Plate - Thin")
+        self.cboThin.setEnabled(thin)
 
     def _on_type_toggled(self, checked):
         if checked:
+            self._update_thin_enabled()
             self.btnLayer.setEnabled(
                 self._selected_type() == "Shell - Layered/Nonlinear"
             )
@@ -261,6 +281,8 @@ class ShellSectionDialog(QDialog):
             if i >= 0:
                 self.cboMat.setCurrentIndex(i)
         self.eMatAngle.setText(str(s.material_angle))
+        i = self.cboThin.findData(getattr(s, 'thin_formulation', "DKQ"))
+        self.cboThin.setCurrentIndex(i if i >= 0 else 0)
 
     def _on_ok(self):
         name = self.eName.text().strip()
@@ -282,6 +304,7 @@ class ShellSectionDialog(QDialog):
         mat = self.model.materials.get(self.cboMat.currentText())
         sec = ShellSection(name, mat, self._selected_type(),
                            mem, ben, ang, self.swatch.hex())
+        sec.thin_formulation = self.cboThin.currentData() or "DKQ"
 
         if self._source and self._source.name != name:
             self.model.area_sections.pop(self._source.name, None)
@@ -397,7 +420,7 @@ class TributarySlabSectionDialog(QDialog):
 
 class PlaneSectionDialog(QDialog):
     """
-    Matches SAP2000's Plane Section Data dialog.
+    A dialog for defining plane section properties.
     Covers: Plane-Stress, Plane-Strain, with optional Incompatible Modes.
     """
 
@@ -535,7 +558,7 @@ class PlaneSectionDialog(QDialog):
 
 class AsolidSectionDialog(QDialog):
     """
-    Matches SAP2000's Axisymmetric Solid (Asolid) Section Data dialog.
+    A dialog for defining axisymmetric solid (Asolid) section properties.
     """
 
     def __init__(self, model, section: AsolidSection = None, parent=None):
@@ -693,7 +716,7 @@ _CLASS_MAP = {
 
 class AreaSectionsManagerDialog(QDialog):
     """
-    Matches SAP2000's Area Sections manager dialog.
+    A dialog for managing area sections.
     Provides a list of all area sections with Add / Copy / Modify / Delete.
     Opens the correct sub-dialog automatically based on section type.
     """
@@ -827,6 +850,8 @@ class AreaSectionsManagerDialog(QDialog):
                                     src.material_angle, src.display_color)
 
         new_sec.stiffness_modifiers = dict(src.stiffness_modifiers)
+        if hasattr(src, 'thin_formulation'):
+            new_sec.thin_formulation = src.thin_formulation
         if hasattr(src, 'modeling_type'):
             new_sec.modeling_type = src.modeling_type
         self.model.area_sections[new_name] = new_sec

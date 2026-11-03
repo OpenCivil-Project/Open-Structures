@@ -1,0 +1,464 @@
+{
+  "static": {
+    "displacements": {
+      "1": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "2": [
+        2.68538011695906e-07,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "3": [
+        5.37076023391812e-07,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "4": [
+        8.056140350877177e-07,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "5": [
+        1.0741520467836238e-06,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "6": [
+        1.3426900584795301e-06,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "7": [
+        1.611228070175436e-06,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ]
+    },
+    "reactions": {
+      "1": [
+        -6559.99999999999,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "2": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "3": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "4": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "5": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "6": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "7": [
+        -1639.9999999999975,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ]
+    }
+  },
+  "modal": {
+    "frequencies_hz": [
+      491.03258659377616,
+      1332.9746692772408,
+      2105.680990044095
+    ],
+    "regularized_frequencies_hz": [
+      491.03258659377485,
+      1332.9746692772405,
+      2105.6809900440944
+    ],
+    "regularization_relative_shift": [
+      -2.6625496341654722e-15,
+      -1.705761412304388e-16,
+      -2.1596212960869314e-16
+    ],
+    "mode_shapes": {
+      "1": {
+        "1": [
+          -0.0,
+          -0.0,
+          -0.0,
+          -0.0,
+          -0.0,
+          -0.0
+        ],
+        "2": [
+          0.010845391087462825,
+          -0.0,
+          -0.0,
+          -0.0,
+          -0.0,
+          -0.0
+        ],
+        "3": [
+          0.020808355138636006,
+          -0.0,
+          -0.0,
+          -0.0,
+          -0.0,
+          -0.0
+        ],
+        "4": [
+          0.02907826312507438,
+          -0.0,
+          -0.0,
+          -0.0,
+          -0.0,
+          -0.0
+        ],
+        "5": [
+          0.034982240243462075,
+          -0.0,
+          -0.0,
+          -0.0,
+          -0.0,
+          -0.0
+        ],
+        "6": [
+          0.03803991386464385,
+          -0.0,
+          -0.0,
+          -0.0,
+          -0.0,
+          -0.0
+        ],
+        "7": [
+          0.038002498688973,
+          -0.0,
+          -0.0,
+          -0.0,
+          -0.0,
+          -0.0
+        ]
+      },
+      "2": {
+        "1": [
+          -0.0,
+          -0.0,
+          -0.0,
+          -0.0,
+          -0.0,
+          -0.0
+        ],
+        "2": [
+          0.02839048470810943,
+          -0.0,
+          -0.0,
+          -0.0,
+          -0.0,
+          -0.0
+        ],
+        "3": [
+          0.03975822572750602,
+          -0.0,
+          -0.0,
+          -0.0,
+          -0.0,
+          -0.0
+        ],
+        "4": [
+          0.027287201997528713,
+          -0.0,
+          -0.0,
+          -0.0,
+          -0.0,
+          -0.0
+        ],
+        "5": [
+          -0.0015450445281053162,
+          -0.0,
+          -0.0,
+          -0.0,
+          -0.0,
+          -0.0
+        ],
+        "6": [
+          -0.02945089274599675,
+          -0.0,
+          -0.0,
+          -0.0,
+          -0.0,
+          -0.0
+        ],
+        "7": [
+          -0.0396981837475095,
+          -0.0,
+          -0.0,
+          -0.0,
+          -0.0,
+          -0.0
+        ]
+      },
+      "3": {
+        "1": [
+          -0.0,
+          -0.0,
+          -0.0,
+          -0.0,
+          -0.0,
+          -0.0
+        ],
+        "2": [
+          0.03863008256646657,
+          -0.0,
+          -0.0,
+          -0.0,
+          -0.0,
+          -0.0
+        ],
+        "3": [
+          0.019460709410609595,
+          -0.0,
+          -0.0,
+          -0.0,
+          -0.0,
+          -0.0
+        ],
+        "4": [
+          -0.02882634450526548,
+          -0.0,
+          -0.0,
+          -0.0,
+          -0.0,
+          -0.0
+        ],
+        "5": [
+          -0.0339825813952706,
+          -0.0,
+          -0.0,
+          -0.0,
+          -0.0,
+          -0.0
+        ],
+        "6": [
+          0.011706910695672028,
+          -0.0,
+          -0.0,
+          -0.0,
+          -0.0,
+          -0.0
+        ],
+        "7": [
+          0.03988018171109801,
+          -0.0,
+          -0.0,
+          -0.0,
+          -0.0,
+          -0.0
+        ]
+      }
+    },
+    "assembled_mass": {
+      "1": [
+        104.40499999999999,
+        104.40499999999999,
+        104.40499999999999,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "2": [
+        208.80999999999997,
+        208.80999999999997,
+        208.80999999999997,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "3": [
+        208.80999999999995,
+        208.80999999999995,
+        208.80999999999995,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "4": [
+        208.80999999999997,
+        208.80999999999997,
+        208.80999999999997,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "5": [
+        208.81000000000012,
+        208.81000000000012,
+        208.81000000000012,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "6": [
+        208.8099999999999,
+        208.8099999999999,
+        208.8099999999999,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "7": [
+        104.40499999999983,
+        104.40499999999983,
+        104.40499999999983,
+        0.0,
+        0.0,
+        0.0
+      ]
+    }
+  },
+  "metadata": {
+    "reference_kind": "Independent discretized force-flexibility reference with separate analytical checks",
+    "mass_model": "Translational nodal lumping; rho denotes weight density; explicit link rotary inertia allowed",
+    "regularized_reference": "Native-only numerical terms: released rotational diagonal=max(abs(k_local))*1e-12; massless free diagonal=min_positive_free_mass*1e-6",
+    "mass_floor": 0.00010440499999999982,
+    "requested_modes": 3,
+    "native_clamped_modes": 3,
+    "sources": [
+      {
+        "title": "Scott Whitney, University of Nebraska: Vibrations of Cantilever Beams (1999)",
+        "url": "https://emweb.unl.edu/mechanics-pages/Scott-Whitney/325hweb/Beams.htm",
+        "use": "Euler-Bernoulli cantilever deflection and frequency derivation"
+      },
+      {
+        "title": "CALFEM for Python: core.py, bar2e/beam2e/beam3e/beam2de",
+        "url": "https://github.com/CALFEM/calfem-python/blob/master/src/calfem/core.py",
+        "use": "Public independent FE library and beam/bar reference formulations; not imported"
+      },
+      {
+        "title": "OpenSees public examples: Example3.1.tcl",
+        "url": "https://github.com/OpenSees/OpenSees/blob/master/EXAMPLES/ExampleScripts/Example3.1.tcl",
+        "use": "Public portal-frame modelling benchmark example; not an analytical oracle"
+      },
+      {
+        "title": "Gere and Timoshenko, Mechanics of Materials; Clough and Penzien, Dynamics of Structures",
+        "url": null,
+        "use": "Force-flexibility integration, beam boundary conditions, modal generalized eigenproblem"
+      }
+    ],
+    "batch": "second_150",
+    "case_id": "186_support_tip_axial_spring_chain_v1",
+    "model_sha256": "a2cd92587c17b5b257608cef5c6570fa7f3ec8fb569a32fa45fd331487db0c6d",
+    "reference_source_sha256": "4736d758c26c4b124dcdce5079c195fdb918049f5e38449de09279d4234f29d4",
+    "reference_wrapper_sha256": "344814f8988ecf6abaeb5633fc08aaf9e4c546dd6db4343b5338b12a3fae1d1f"
+  },
+  "analytical_checks": [
+    {
+      "node_id": 7,
+      "dof": 0,
+      "value": 1.6112280701754384e-06,
+      "label": "Rod with tip elastic support",
+      "formula": "P/(EA/L+ks)",
+      "result": "displacements"
+    },
+    {
+      "node_id": 7,
+      "dof": 0,
+      "value": -1640.0,
+      "label": "Tip spring reaction",
+      "formula": "-ks*u",
+      "result": "reactions"
+    },
+    {
+      "node_id": 1,
+      "dof": 0,
+      "value": -6560.0,
+      "label": "Rod base reaction",
+      "formula": "-(EA/L)*u",
+      "result": "reactions"
+    }
+  ],
+  "analytical_reference_checks": [
+    {
+      "name": "analytical: Rod with tip elastic support",
+      "passed": true,
+      "actual": 1.611228070175436e-06,
+      "expected": 1.6112280701754384e-06,
+      "absolute_error": 2.329340604949326e-21,
+      "tolerance": 1.0322245614035088e-10,
+      "formula": "P/(EA/L+ks)",
+      "reference_kind": "continuum or exact discrete formula as labelled"
+    },
+    {
+      "name": "analytical: Tip spring reaction",
+      "passed": true,
+      "actual": -1639.9999999999975,
+      "expected": -1640.0,
+      "absolute_error": 2.5011104298755527e-12,
+      "tolerance": 0.0033799999999999998,
+      "formula": "-ks*u",
+      "reference_kind": "continuum or exact discrete formula as labelled"
+    },
+    {
+      "name": "analytical: Rod base reaction",
+      "passed": true,
+      "actual": -6559.99999999999,
+      "expected": -6560.0,
+      "absolute_error": 1.000444171950221e-11,
+      "tolerance": 0.013219999999999999,
+      "formula": "-(EA/L)*u",
+      "reference_kind": "continuum or exact discrete formula as labelled"
+    }
+  ]
+}

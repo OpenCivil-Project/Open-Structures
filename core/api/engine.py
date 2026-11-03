@@ -4,8 +4,24 @@ from core.solver.linear_static.main_engine import run_linear_static_analysis
 from core.solver.modal.modal_engine import run_modal_analysis
 import json
 from core.solver.RSA.rsa_engine import RSAEngine
+from core.model_history import HistoryStore, atomic_save_model
 
 _active_model = None
+
+def _save_project_model(model):
+    """Record project saves; solver-only copies remain outside this history."""
+    filepath = model.active_model_path
+    history = HistoryStore(filepath)
+    try:
+        if os.path.isfile(filepath):
+            history.record_file("Existing saved model")
+    except Exception as error:
+        print(f"History unavailable: {error}")
+    atomic_save_model(model, filepath)
+    try:
+        history.record_file("Saved from script")
+    except Exception as error:
+        print(f"Model saved, but history could not be recorded: {error}")
 
 def wipe():
     """Clears the current model from memory (Essential for scripting)."""
@@ -27,7 +43,7 @@ def project(name, base_dir):
     _active_model.active_project_dir = proj_dir
     _active_model.active_model_path = model_path
     
-    _active_model.save_to_file(model_path)
+    _save_project_model(_active_model)
     print(f" -> Project '{name}' ready at: {proj_dir}")
 
 def open_model(filepath):
@@ -54,7 +70,7 @@ def save():
     if _active_model is None or not hasattr(_active_model, 'active_model_path'):
         raise RuntimeError("No active project to save. Run 'project()' first.")
     
-    _active_model.save_to_file(_active_model.active_model_path)
+    _save_project_model(_active_model)
     print(f" -> Saved to: {_active_model.active_model_path}")
 
 def get_active_model():
@@ -80,7 +96,7 @@ def solve(case_name):
     out_path = os.path.join(model.active_project_dir, f"{model.name}_{case_name}_results.json")
     model.active_results_path = out_path
     
-    model.save_to_file(model.active_model_path)
+    _save_project_model(model)
     
     print(f"\n -> Solving Case: '{case_name}' [{case.case_type}]...")
     

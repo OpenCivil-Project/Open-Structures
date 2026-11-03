@@ -1,0 +1,195 @@
+{
+  "id": "143_beam_two_pattern_superposition_v3",
+  "family": "beam_two_pattern_superposition",
+  "variant": 3,
+  "model_file": "143_beam_two_pattern_superposition_v3.mf",
+  "static": {
+    "passed": true,
+    "checks": [
+      {
+        "name": "nodal displacement and rotation",
+        "passed": true,
+        "max_tolerance_ratio": 7.413231951340852e-08,
+        "relative_tolerance": 2e-06,
+        "absolute_tolerances_per_dof": [
+          1e-10,
+          1e-10,
+          1e-10,
+          1e-10,
+          1e-10,
+          1e-10
+        ],
+        "worst_components": []
+      },
+      {
+        "name": "support force and moment",
+        "passed": true,
+        "max_tolerance_ratio": 7.153918358669884e-08,
+        "relative_tolerance": 2e-06,
+        "absolute_tolerances_per_dof": [
+          0.0001,
+          0.0001,
+          0.0001,
+          0.0001,
+          0.0001,
+          0.0001
+        ],
+        "worst_components": []
+      },
+      {
+        "name": "independent free-DOF equilibrium residual",
+        "passed": true,
+        "value": 3.545054390201013e-13,
+        "limit": 2e-06
+      },
+      {
+        "name": "analytical: Scaled-pattern superposition tip",
+        "passed": true,
+        "actual": -0.0334021652645772,
+        "expected": -0.0334021652645676,
+        "absolute_error": 9.596490269103697e-15,
+        "tolerance": 6.690433052913519e-08,
+        "formula": "q(L\u2074/8EI+L\u00b2/2GAs)+P(L\u00b3/3EI+L/GAs)+ML\u00b2/2EI",
+        "reference_kind": "continuum or exact discrete formula as labelled"
+      },
+      {
+        "name": "analytical: Scaled-pattern superposition rotation",
+        "passed": true,
+        "actual": -0.009648894203448,
+        "expected": -0.009648894203445307,
+        "absolute_error": 2.6922908347160046e-15,
+        "tolerance": 1.9397788406890614e-08,
+        "formula": "qL\u00b3/6EI+PL\u00b2/2EI+ML/EI",
+        "reference_kind": "continuum or exact discrete formula as labelled"
+      },
+      {
+        "name": "analytical: Scaled-pattern support shear",
+        "passed": true,
+        "actual": 20059.000000003958,
+        "expected": 20059.0,
+        "absolute_error": 3.958120942115784e-09,
+        "tolerance": 0.040218000000000004,
+        "formula": "-qL-P",
+        "reference_kind": "continuum or exact discrete formula as labelled"
+      },
+      {
+        "name": "analytical: Scaled-pattern support moment",
+        "passed": true,
+        "actual": 75008.9600000203,
+        "expected": 75008.95999999999,
+        "absolute_error": 2.0314473658800125e-08,
+        "tolerance": 0.15011791999999996,
+        "formula": "-qL\u00b2/2-PL-M",
+        "reference_kind": "continuum or exact discrete formula as labelled"
+      }
+    ]
+  },
+  "modal": {
+    "passed": true,
+    "checks": [
+      {
+        "name": "mode count",
+        "passed": true,
+        "actual": 3,
+        "expected": 3
+      },
+      {
+        "name": "finite positive sorted frequencies",
+        "passed": true
+      },
+      {
+        "name": "maximum relative frequency error",
+        "passed": true,
+        "value": 1.8766750664759023e-13,
+        "limit": 2e-05
+      },
+      {
+        "name": "period/frequency/omega/eigenvalue consistency",
+        "passed": true,
+        "value": 2.220446049250313e-16,
+        "limit": 1e-09
+      },
+      {
+        "name": "maximum independent eigen residual",
+        "passed": true,
+        "value": 1.0478278054551284e-12,
+        "limit": 2e-05
+      },
+      {
+        "name": "mass normalization and orthogonality",
+        "passed": true,
+        "value": 2.220446049250313e-16,
+        "limit": 2e-05
+      },
+      {
+        "name": "worst modal subspace mismatch (1-MAC)",
+        "passed": true,
+        "value": 0.0,
+        "limit": 0.0002
+      },
+      {
+        "name": "assembled physical nodal mass",
+        "passed": true,
+        "max_tolerance_ratio": 0.0,
+        "relative_tolerance": 1e-08,
+        "absolute_tolerances_per_dof": [
+          1e-10,
+          1e-10,
+          1e-10,
+          1e-10,
+          1e-10,
+          1e-10
+        ],
+        "worst_components": []
+      }
+    ]
+  },
+  "analytical": [
+    {
+      "name": "analytical: Scaled-pattern superposition tip",
+      "passed": true,
+      "actual": -0.0334021652645772,
+      "expected": -0.0334021652645676,
+      "absolute_error": 9.596490269103697e-15,
+      "tolerance": 6.690433052913519e-08,
+      "formula": "q(L\u2074/8EI+L\u00b2/2GAs)+P(L\u00b3/3EI+L/GAs)+ML\u00b2/2EI",
+      "reference_kind": "continuum or exact discrete formula as labelled"
+    },
+    {
+      "name": "analytical: Scaled-pattern superposition rotation",
+      "passed": true,
+      "actual": -0.009648894203448,
+      "expected": -0.009648894203445307,
+      "absolute_error": 2.6922908347160046e-15,
+      "tolerance": 1.9397788406890614e-08,
+      "formula": "qL\u00b3/6EI+PL\u00b2/2EI+ML/EI",
+      "reference_kind": "continuum or exact discrete formula as labelled"
+    },
+    {
+      "name": "analytical: Scaled-pattern support shear",
+      "passed": true,
+      "actual": 20059.000000003958,
+      "expected": 20059.0,
+      "absolute_error": 3.958120942115784e-09,
+      "tolerance": 0.040218000000000004,
+      "formula": "-qL-P",
+      "reference_kind": "continuum or exact discrete formula as labelled"
+    },
+    {
+      "name": "analytical: Scaled-pattern support moment",
+      "passed": true,
+      "actual": 75008.9600000203,
+      "expected": 75008.95999999999,
+      "absolute_error": 2.0314473658800125e-08,
+      "tolerance": 0.15011791999999996,
+      "formula": "-qL\u00b2/2-PL-M",
+      "reference_kind": "continuum or exact discrete formula as labelled"
+    }
+  ],
+  "reference_error": null,
+  "execution": {
+    "returncode": 0,
+    "model_sha256": "f2387f6d001ec32ba055e6dd1ec6e73f97bed021cf00144e314f4071d4e2b7b9",
+    "solver_source_sha256": "b2dcefa0108c3e5d25eebdc3c19f4cd8586716bf63074a9bf5dead876a6ea0cf"
+  }
+}

@@ -33,7 +33,14 @@ def run_linear_static_analysis(input_json_path, output_json_path, target_case_na
         print("[1/5] Initializing Data Manager...")
         progress_callback("Loading model data...", 5)
         dm = DataManager(input_json_path)
-        
+
+        engine = dm.raw.get("info", {}).get("analysis_engine", "native")
+        if engine == "opensees":
+            print(f"      Analysis Engine: OpenSees")
+            print(f"      Target Case: {target_case_name}")
+            from core.opensees_port.OS_OP import run_opensees_linear_static
+            return run_opensees_linear_static(dm.raw, output_json_path, target_case_name, progress_callback)
+
         print(f"      Target Case: {target_case_name}")
         
         dm.process_all(case_name=target_case_name)
@@ -133,14 +140,14 @@ def run_linear_static_analysis(input_json_path, output_json_path, target_case_na
         solver = LinearSolver(K, P, dm, T=assembler.T, kept_dofs=assembler.kept_dofs)
         U, R = solver.solve()
         
-        max_u = max(abs(U)) if len(U) > 0 else 0                                                   
+        max_u = np.abs(U).max() if len(U) > 0 else 0                                                   
         max_u_disp = unit_registry.to_display_length(max_u)
         print(f"      Solution Converged.")
         print(f"      Max Displacement: {max_u:.6f} m")
 
         num_constrained = dm.total_dofs - solver.num_free_dofs
 
-        K_diag = K.tocsc().diagonal()
+        K_diag = K.diagonal()
         num_neg_diag = int(np.sum(K_diag < 0))
         stability_note = "0,  OK." if num_neg_diag == 0 else f"{num_neg_diag},  WARNING"
 
@@ -189,10 +196,10 @@ def run_linear_static_analysis(input_json_path, output_json_path, target_case_na
                 mass_asm = GlobalMassAssembler(dm)
                 M = mass_asm.build_mass_matrix(ms_name)
                 assembled_mass = {}
+                m_diag = M.diagonal()
                 for node in dm.nodes:
                     nid = str(node['id'])
                     idx = node['idx'] * 6
-                    m_diag = M.diagonal()
                     assembled_mass[nid] = m_diag[idx:idx+6].tolist()
                 print(f"      Assembled joint masses computed for source '{ms_name}'.")
         except Exception as e:

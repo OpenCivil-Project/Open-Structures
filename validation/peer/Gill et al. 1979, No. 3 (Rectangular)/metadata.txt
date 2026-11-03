@@ -1,0 +1,46 @@
+Specimen Information
+Name:	Gill et al. 1979, No. 3
+Type:	Rectangular
+Comments:	
+Reference:	Gill, Wayne Douglas; Park, R.; and Priestley, M.J.N., "Ductility of Rectangular Reinforced Concrete Columns With Axial Load," Report 79-1, Department of Civil Engineering, University of Canterbury, Christchurch, New Zealand, February 1979, 136 pages.
+Material Properties
+Concrete Strength:	21.4 (MPa)
+Transverse Steel:	Grade: 275
+Yield Stress: 297 (MPa) Strength: 416.8 (MPa)
+Longitudinal Steel:	Grade: 380
+Corner Yield Stress: 375 (MPa) Strength: 635.6 (MPa)
+Intermediate Yield Stress: 375 (MPa) Strength: 635.6 (MPa)
+Geometry
+X-Section:	Width: 550 (mm) Depth: 550 (mm)
+Length:	L-Inflection: 1,200 (mm) L-Measured: 1,200 (mm)
+Test Configuration:	Double Ended
+Loading
+Axial Load:	2,719 (kN)
+P-D:	Shear provided
+L-Top:	0
+L-Bottom:	0
+Longitudinal Reinforcement
+Diameter:	24 (mm) corner bars | 24 (mm) intermediate bars
+Number of Bars:	12
+Perpendicular to Load:	Clear cover: 40 (mm) Number of intermediate bars: 2
+Parallel to Load:	Clear cover: 40 (mm) Number of intermediate bars: 2
+Reinforcement Ratio:	0.0179
+Transverse Reinforcement
+Type:	RI: Rectangular and interlocking ties
+Number of Shear Legs:	4
+Region of Close Spacing:	Bar Diameter: 10 (mm) Hoop Sets: 8 Hoop Spacing: 75 (mm)
+Reinforcement Ratio:	0.02
+Non-Dimensional Properties
+Span-to-Depth Ratio:	2.18
+Axial Load Ratio:	0.42
+Test Results
+Failure Type:	Flexure
+Damage Observation:	Concrete Crushing: 7 (mm)
+Significant Concrete Spalling: 14 (mm)
+Long Bar Buckling: 0 (mm)
+Long Bar Fracture: 0 (mm)
+Spiral Fracture: 0 (mm)
+Loss of Axial Load Capacity: 0 (mm)
+Resources:	Force Displacement Data (data)
+Record Information
+Version:	1 (April 8, 2003)

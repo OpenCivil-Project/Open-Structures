@@ -1,0 +1,9 @@
+{
+  "returncode": 0,
+  "model_sha256": "120b73f8d0ca2dee8d82769ba9b9e37b4d62dd14539a4d8512cd183fcc5be408",
+  "solver_source_sha256": "b2dcefa0108c3e5d25eebdc3c19f4cd8586716bf63074a9bf5dead876a6ea0cf",
+  "format_only_refresh": {
+    "previous_model_sha256": "0ed36cd4245753baba47c9050ce201c8de98ab069e7781035ed3cfd753b21fa5",
+    "reason": "JSON model unchanged; serialization bytes differed from saved run"
+  }
+}

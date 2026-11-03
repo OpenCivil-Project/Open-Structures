@@ -1,0 +1,4 @@
+# Operator-only dependencies. Never install/bundle Firebase Admin into desktop.
+firebase-admin>=6.5,<8
+pymongo>=4.6,<5
+certifi>=2024.2

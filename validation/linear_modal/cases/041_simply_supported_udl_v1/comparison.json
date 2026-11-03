@@ -1,0 +1,195 @@
+{
+  "id": "041_simply_supported_udl_v1",
+  "family": "simply_supported_udl",
+  "variant": 1,
+  "model_file": "041_simply_supported_udl_v1.mf",
+  "static": {
+    "passed": true,
+    "checks": [
+      {
+        "name": "nodal displacement and rotation",
+        "passed": true,
+        "max_tolerance_ratio": 1.950913428743442e-09,
+        "relative_tolerance": 2e-06,
+        "absolute_tolerances_per_dof": [
+          1e-10,
+          1e-10,
+          1e-10,
+          1e-10,
+          1e-10,
+          1e-10
+        ],
+        "worst_components": []
+      },
+      {
+        "name": "support force and moment",
+        "passed": true,
+        "max_tolerance_ratio": 1.396983861923208e-08,
+        "relative_tolerance": 2e-06,
+        "absolute_tolerances_per_dof": [
+          0.0001,
+          0.0001,
+          0.0001,
+          0.0001,
+          0.0001,
+          0.0001
+        ],
+        "worst_components": []
+      },
+      {
+        "name": "independent free-DOF equilibrium residual",
+        "passed": true,
+        "value": 1.9643538159773098e-14,
+        "limit": 2e-06
+      },
+      {
+        "name": "analytical: Simply supported center displacement",
+        "passed": true,
+        "actual": -2.8019755066336272e-05,
+        "expected": -2.8019755066336198e-05,
+        "absolute_error": 7.453889935837843e-20,
+        "tolerance": 1.560395101326724e-10,
+        "formula": "-5qL\u2074/(384EI)",
+        "reference_kind": "continuum or exact discrete formula as labelled"
+      },
+      {
+        "name": "analytical: Support slope",
+        "passed": true,
+        "actual": -2.988773873742535e-05,
+        "expected": -2.9887738737425277e-05,
+        "absolute_error": 7.453889935837843e-20,
+        "tolerance": 1.5977547747485056e-10,
+        "formula": "-qL\u00b3/(24EI)",
+        "reference_kind": "continuum or exact discrete formula as labelled"
+      },
+      {
+        "name": "analytical: Support reaction",
+        "passed": true,
+        "actual": 3074.9999999999345,
+        "expected": 3075.0,
+        "absolute_error": 6.548361852765083e-11,
+        "tolerance": 0.00625,
+        "formula": "qL/2",
+        "reference_kind": "continuum or exact discrete formula as labelled"
+      }
+    ]
+  },
+  "modal": {
+    "passed": true,
+    "checks": [
+      {
+        "name": "mode count",
+        "passed": true,
+        "actual": 3,
+        "expected": 3
+      },
+      {
+        "name": "finite positive sorted frequencies",
+        "passed": true
+      },
+      {
+        "name": "maximum relative frequency error",
+        "passed": true,
+        "value": 1.3137343918256034e-14,
+        "limit": 2e-05
+      },
+      {
+        "name": "period/frequency/omega/eigenvalue consistency",
+        "passed": true,
+        "value": 2.220446049250313e-16,
+        "limit": 1e-09
+      },
+      {
+        "name": "maximum independent eigen residual",
+        "passed": true,
+        "value": 5.789808952763546e-14,
+        "limit": 2e-05
+      },
+      {
+        "name": "mass normalization and orthogonality",
+        "passed": true,
+        "value": 2.220446049250313e-16,
+        "limit": 2e-05
+      },
+      {
+        "name": "worst modal subspace mismatch (1-MAC)",
+        "passed": true,
+        "value": 0.0,
+        "limit": 0.0002
+      },
+      {
+        "name": "assembled physical nodal mass",
+        "passed": true,
+        "max_tolerance_ratio": 0.0,
+        "relative_tolerance": 1e-08,
+        "absolute_tolerances_per_dof": [
+          1e-10,
+          1e-10,
+          1e-10,
+          1e-10,
+          1e-10,
+          1e-10
+        ],
+        "worst_components": []
+      },
+      {
+        "name": "analytical: Continuum first frequency",
+        "passed": true,
+        "actual": 72.47486796744494,
+        "expected": 72.47893012844341,
+        "absolute_error": 0.004062160998472564,
+        "tolerance": 1.4495786035688683,
+        "formula": "\u03c0/(2L\u00b2)*sqrt(EI/(\u03c1m A))",
+        "reference_kind": "continuum or exact discrete formula as labelled"
+      }
+    ]
+  },
+  "analytical": [
+    {
+      "name": "analytical: Simply supported center displacement",
+      "passed": true,
+      "actual": -2.8019755066336272e-05,
+      "expected": -2.8019755066336198e-05,
+      "absolute_error": 7.453889935837843e-20,
+      "tolerance": 1.560395101326724e-10,
+      "formula": "-5qL\u2074/(384EI)",
+      "reference_kind": "continuum or exact discrete formula as labelled"
+    },
+    {
+      "name": "analytical: Support slope",
+      "passed": true,
+      "actual": -2.988773873742535e-05,
+      "expected": -2.9887738737425277e-05,
+      "absolute_error": 7.453889935837843e-20,
+      "tolerance": 1.5977547747485056e-10,
+      "formula": "-qL\u00b3/(24EI)",
+      "reference_kind": "continuum or exact discrete formula as labelled"
+    },
+    {
+      "name": "analytical: Support reaction",
+      "passed": true,
+      "actual": 3074.9999999999345,
+      "expected": 3075.0,
+      "absolute_error": 6.548361852765083e-11,
+      "tolerance": 0.00625,
+      "formula": "qL/2",
+      "reference_kind": "continuum or exact discrete formula as labelled"
+    },
+    {
+      "name": "analytical: Continuum first frequency",
+      "passed": true,
+      "actual": 72.47486796744494,
+      "expected": 72.47893012844341,
+      "absolute_error": 0.004062160998472564,
+      "tolerance": 1.4495786035688683,
+      "formula": "\u03c0/(2L\u00b2)*sqrt(EI/(\u03c1m A))",
+      "reference_kind": "continuum or exact discrete formula as labelled"
+    }
+  ],
+  "reference_error": null,
+  "execution": {
+    "returncode": 0,
+    "model_sha256": "b7dd28778b88af1ab6467b0c973e55326de7d5cde19fe295750afb93e721446f",
+    "solver_source_sha256": "b2dcefa0108c3e5d25eebdc3c19f4cd8586716bf63074a9bf5dead876a6ea0cf"
+  }
+}

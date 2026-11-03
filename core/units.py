@@ -60,6 +60,14 @@ class UnitConverter:
         """Convert display acceleration -> SI (m/s²)."""
         return disp_val / self.length_scale
 
+    def to_display_area(self, base_val):
+        """Convert SI area (m²) → display units (e.g. mm²)."""
+        return base_val * (self.length_scale ** 2)
+
+    def from_display_area(self, disp_val):
+        """Convert display area → SI (m²)."""
+        return disp_val / (self.length_scale ** 2)
+
     @property
     def acceleration_unit(self):
         """Returns length/s² unit label (e.g., 'm/s²', 'mm/s²')"""
@@ -88,3 +96,28 @@ class UnitConverter:
         return f"{self.force_unit_name}/{self.length_unit_name}\u00b2"
 
 unit_registry = UnitConverter()
+
+UNIT_SYSTEMS = [
+    "kN, m, C",
+    "N, m, C",
+    "N, mm, C",
+    "kN, mm, C",
+    "Tonf, m, C",
+    "kgf, m, C",
+    "kip, ft, F",
+]
+
+MODEL_DISPLAY_UNITS = "Model display units"
+
+def make_unit_converter(label=MODEL_DISPLAY_UNITS):
+    """
+    Returns an INDEPENDENT UnitConverter for `label` (e.g. "kN, mm, C").
+    If `label` is empty or MODEL_DISPLAY_UNITS it reads (read-only) the
+    current global unit label. Never mutates `unit_registry`, so a dialog
+    that uses its own units can't flip the units of the rest of the app.
+    """
+    conv = UnitConverter()
+    if not label or label == MODEL_DISPLAY_UNITS:
+        label = unit_registry.current_unit_label
+    conv.set_unit_system(label)
+    return conv

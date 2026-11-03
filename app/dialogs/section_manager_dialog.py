@@ -208,6 +208,7 @@ class AddFrameSectionPropertyDialog(QDialog):
 
     def _shape_clicked(self, shape_id: str, internal_index: int):
         """Routing logic when a card is clicked."""
+        category = self.category_combo.currentText().lower()
         self.accept()                                  
         
         if internal_index == -1:                   
@@ -236,6 +237,7 @@ class AddFrameSectionPropertyDialog(QDialog):
             
         else:                            
             from app.dialogs.section_dialog import AddSectionDialog
-            dlg = AddSectionDialog(self.main_manager.model, parent=self.main_manager, preselected_index=internal_index)
+            dlg = AddSectionDialog(self.main_manager.model, parent=self.main_manager,
+                                    preselected_index=internal_index, preselected_category=category)
             if dlg.exec() == QDialog.DialogCode.Accepted:
                 self.main_manager.refresh_list()

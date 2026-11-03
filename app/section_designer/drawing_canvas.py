@@ -5,7 +5,7 @@ The interactive 2-D drawing canvas for the Section Designer.
 
 Responsibilities
 ----------------
-- Draw a SAP2000-style grid with local 2-3 axes at the origin
+- Draw a grid with local 2-3 axes at the origin
 - Let the user click to place polygon vertices (DRAW mode)
 - Show a live rubber-band edge from the last placed vertex to the cursor
 - Close the polygon when the user clicks near the first vertex or double-clicks
@@ -619,7 +619,7 @@ class DrawingCanvas(QWidget):
         p.drawLine(int(mx), int(my) - sz, int(mx), int(my) + sz)
 
     def _draw_corner_axes(self, p: QPainter):
-        """Fixed orientation indicator in the bottom-right corner (SAP2000 style)."""
+        """Fixed orientation indicator in the bottom-right corner."""
         w, h = self.width(), self.height()
         
         origin_x = w - 40

@@ -1,11 +1,14 @@
 import csv
+import os
 from PyQt6.QtWidgets import (QDialog, QVBoxLayout, QTableWidget, QTableWidgetItem,
                              QHeaderView, QTabWidget, QPushButton, QHBoxLayout, QLabel,
                              QComboBox, QFileDialog, QMessageBox, QAbstractItemView)
 from PyQt6.QtGui import QColor, QFont, QKeySequence
 from PyQt6.QtCore import Qt
+from PyQt6.QtWidgets import QApplication
 
 from core.units import unit_registry, UnitConverter
+from app.ui.theme import apply_dialog_style, COLORS, on_theme_changed, off_theme_changed
 
 class SortableTableWidgetItem(QTableWidgetItem):
     """QTableWidgetItem that sorts by a numeric value (Qt.ItemDataRole.UserRole)
@@ -65,9 +68,12 @@ class AnalysisResultsDialog(QDialog):
     AVAILABLE_UNITS = ["kN, m, C", "N, m, C", "N, mm, C", "kN, mm, C",
                        "Tonf, m, C", "kgf, m, C", "kip, ft, F"]
 
+    _VM_DOF_INDEX = {"U1": 0, "U2": 1, "U3": 2, "R1": 3, "R2": 4, "R3": 5}
+
     def __init__(self, model, results_data, parent=None, selected_node_ids=None):                 
         super().__init__(parent)
-        self.model = model                              
+        self.model = model
+        self.full_results = results_data
         self.results = results_data
         self.setWindowTitle("Analysis Results")
         self.resize(1100, 600)
@@ -77,86 +83,15 @@ class AnalysisResultsDialog(QDialog):
         self.local_units = UnitConverter()
         self.local_units.set_unit_system(unit_registry.current_unit_label)
 
-        self.setStyleSheet("""
-            QDialog {
-                background-color: #f8f9fa;
-            }
-            QTabWidget::pane {
-                border: 1px solid #d0d0d0;
-                background: #ffffff;
-                border-radius: 6px;
-            }
-            QTabBar::tab {
-                background: #e9ecef;
-                color: #495057;
-                padding: 8px 20px;
-                border: 1px solid #d0d0d0;
-                border-bottom: none;
-                border-top-left-radius: 4px;
-                border-top-right-radius: 4px;
-                margin-right: 2px;
-                font-size: 10pt;
-                font-family: 'Segoe UI', sans-serif;
-            }
-            QTabBar::tab:selected {
-                background: #0078D7;
-                color: white;
-                font-weight: bold;
-                border-color: #0078D7;
-            }
-            QTabBar::tab:hover:!selected {
-                background: #dee2e6;
-            }
-            QTableWidget {
-                border: none;
-                gridline-color: #e9ecef;
-                selection-background-color: #cce4f7;
-                selection-color: #000000;
-                font-family: 'Segoe UI', sans-serif;
-                font-size: 10pt;
-            }
-            QHeaderView::section {
-                background-color: #f1f3f5;
-                color: #212529;
-                font-weight: bold;
-                padding: 6px;
-                border: none;
-                border-right: 1px solid #dee2e6;
-                border-bottom: 2px solid #ced4da;
-            }
-            QPushButton {
-                background-color: #0078D7;
-                color: white;
-                border: none;
-                padding: 8px 24px;
-                border-radius: 4px;
-                font-weight: bold;
-                font-size: 10pt;
-            }
-            QPushButton:hover {
-                background-color: #005a9e;
-            }
-            QPushButton:pressed {
-                background-color: #004578;
-            }
-            QComboBox {
-                padding: 5px 10px;
-                border: 1px solid #d0d0d0;
-                border-radius: 4px;
-                background: white;
-                font-size: 10pt;
-            }
-        """)
+        apply_dialog_style(self)                                                 
 
         layout = QVBoxLayout(self)
 
         h_title = QHBoxLayout()
         self.lbl_title = QLabel()
-        self.lbl_title.setStyleSheet("font-size: 14pt; font-weight: bold; color: #333;")
         h_title.addWidget(self.lbl_title)
 
-        lbl_case = QLabel(" Load Case:")
-        lbl_case.setStyleSheet("font-size: 10pt; font-weight: bold; color: #495057; margin-left: 20px;")
+        self.lbl_case = lbl_case = QLabel(" Load Case:")
         h_title.addWidget(lbl_case)
         
         self.case_combo = QComboBox()
@@ -164,10 +99,18 @@ class AnalysisResultsDialog(QDialog):
         self.case_combo.currentIndexChanged.connect(self.on_case_dropdown_changed)
         h_title.addWidget(self.case_combo)
 
+        self.lbl_step = QLabel(" State:")
+        self.lbl_step.setVisible(False)
+        h_title.addWidget(self.lbl_step)
+
+        self.step_combo = QComboBox()
+        self.step_combo.setVisible(False)
+        self.step_combo.currentIndexChanged.connect(self.on_step_dropdown_changed)
+        h_title.addWidget(self.step_combo)
+
         h_title.addStretch()
 
-        lbl_units = QLabel("Units:")
-        lbl_units.setStyleSheet("font-size: 10pt; color: #495057;")
+        self.lbl_units = lbl_units = QLabel("Units:")
         h_title.addWidget(lbl_units)
 
         self.unit_combo = QComboBox()
@@ -179,32 +122,69 @@ class AnalysisResultsDialog(QDialog):
         layout.addLayout(h_title)
 
         self.lbl_filter = QLabel()
-        self.lbl_filter.setStyleSheet("font-size: 9pt; color: #6c757d; font-style: italic;")
         self.lbl_filter.setVisible(False)
         layout.addWidget(self.lbl_filter)
 
         self.tabs = QTabWidget()
         layout.addWidget(self.tabs)
 
+        self._hinge_ctx = None                                                     
+        self._hinge_reason = ""                                                             
+        self._hinge_cache = None                                                   
+        self._hinge_available = False
+
+        self.populate_step_combo()
         self.rebuild_tabs()
 
         h_btns = QHBoxLayout()
         h_btns.addStretch()
 
         btn_export_csv = QPushButton("Export CSV")
+        btn_export_csv.setObjectName("primary")
         btn_export_csv.clicked.connect(self.export_current_table_csv)
         h_btns.addWidget(btn_export_csv)
 
         btn_export_excel = QPushButton("Export Excel")
+        btn_export_excel.setObjectName("primary")
         btn_export_excel.clicked.connect(self.export_current_table_excel)
         h_btns.addWidget(btn_export_excel)
 
+        self.btn_export_hinge = QPushButton("Export Hinge Tables (All Steps)")
+        self.btn_export_hinge.setObjectName("primary")
+        self.btn_export_hinge.clicked.connect(self.export_hinge_tables_all_steps)
+        self.btn_export_hinge.setVisible(self._hinge_available)
+        h_btns.addWidget(self.btn_export_hinge)
+
         btn_close = QPushButton("Close")
+        btn_close.setObjectName("primary")
         btn_close.setFixedWidth(100)
         btn_close.clicked.connect(self.accept)
         h_btns.addWidget(btn_close)
 
         layout.addLayout(h_btns)
+
+        self._style_labels()
+        on_theme_changed(self._on_theme_changed)
+        self.finished.connect(lambda *_: off_theme_changed(self._on_theme_changed))
+
+    def _style_labels(self):
+        """Label fonts/colours come from COLORS, so they follow Light/Dark."""
+        sec, pri = COLORS["text_secondary"], COLORS["text_primary"]
+        self.lbl_title.setStyleSheet(f"font-size: 14pt; font-weight: bold; color: {pri};")
+        self.lbl_case.setStyleSheet(f"font-size: 10pt; font-weight: bold; color: {sec}; margin-left: 20px;")
+        self.lbl_step.setStyleSheet(f"font-size: 10pt; font-weight: bold; color: {sec}; margin-left: 20px;")
+        self.lbl_units.setStyleSheet(f"font-size: 10pt; color: {sec};")
+        self.lbl_filter.setStyleSheet(f"font-size: 9pt; color: {sec}; font-style: italic;")
+
+    def _on_theme_changed(self, _name):
+        """Theme switched while this dialog is open: restyle and redraw the
+        tables (their bold cells use the accent colour set at build time)."""
+        apply_dialog_style(self)
+        self._style_labels()
+        idx = self.tabs.currentIndex()
+        self.rebuild_tabs()
+        if 0 <= idx < self.tabs.count():
+            self.tabs.setCurrentIndex(idx)
 
     def populate_case_combo(self):
         import os, glob
@@ -238,11 +218,13 @@ class AnalysisResultsDialog(QDialog):
         path = self.case_combo.itemData(index)
         try:
             with open(path, 'r') as f:
-                self.results = json.load(f)
+                self.full_results = json.load(f)
+                self.results = self.full_results
         except Exception as e:
             QMessageBox.warning(self, "Error", f"Could not load results: {e}")
             return
-            
+
+        self.populate_step_combo()
         current_idx = self.tabs.currentIndex()
         self.rebuild_tabs()
         if 0 <= current_idx < self.tabs.count():
@@ -250,6 +232,52 @@ class AnalysisResultsDialog(QDialog):
 
     def on_unit_changed(self, new_label):
         self.local_units.set_unit_system(new_label)
+        current_idx = self.tabs.currentIndex()
+        self.rebuild_tabs()
+        if 0 <= current_idx < self.tabs.count():
+            self.tabs.setCurrentIndex(current_idx)
+
+    def populate_step_combo(self):
+        """Populates the 'State' dropdown from full_results['saved_states']
+        (written by the Nonlinear Static engine when 'Multiple States' is
+        selected). Hidden entirely for every other results type, or when a
+        Nonlinear Static case only saved its Final State."""
+        self.step_combo.blockSignals(True)
+        self.step_combo.clear()
+
+        states = self.full_results.get("saved_states")
+        if states:
+            self.step_combo.addItem("Final State", None)
+            for st in states:
+                label = f"Step {st['step']} (load frac {st['step_frac']:.3f})"
+                self.step_combo.addItem(label, st)
+            self.step_combo.setCurrentIndex(0)
+            self.lbl_step.setVisible(True)
+            self.step_combo.setVisible(True)
+        else:
+            self.lbl_step.setVisible(False)
+            self.step_combo.setVisible(False)
+
+        self.step_combo.blockSignals(False)
+        self._apply_selected_state()
+
+    def _apply_selected_state(self):
+        """Sets self.results to either the full/Final-State results dict, or
+        a shallow-copied view with displacements/reactions/base_reaction
+        swapped in from the selected saved state. Every other key (info,
+        restrained_nodes, etc.) is passed through unchanged from full_results."""
+        state = self.step_combo.currentData() if self.step_combo.isVisible() else None
+        if state is None:
+            self.results = self.full_results
+        else:
+            self.results = dict(self.full_results)
+            self.results["displacements"] = state["displacements"]
+            self.results["reactions"] = state["reactions"]
+            self.results["base_reaction"] = state["base_reaction"]
+
+    def on_step_dropdown_changed(self, index):
+        if index < 0: return
+        self._apply_selected_state()
         current_idx = self.tabs.currentIndex()
         self.rebuild_tabs()
         if 0 <= current_idx < self.tabs.count():
@@ -287,6 +315,9 @@ class AnalysisResultsDialog(QDialog):
 
         u_acc = f"{u_len}/s\u00b2"
 
+        nl = self._nl_meta()                                                   
+        NL_HEADERS = ["OutputCase", "CaseType", "Step", "StepFrac"]
+
         if "base_reaction_min" in self.results and "base_reaction_max" in self.results:
             br_min = self.results["base_reaction_min"]
             br_max = self.results["base_reaction_max"]
@@ -315,7 +346,13 @@ class AnalysisResultsDialog(QDialog):
             }]
             headers = ["Load Case", f"Global FX ({u_force})", f"Global FY ({u_force})", f"Global FZ ({u_force})",
                        f"Global MX ({u_force}-{u_len})", f"Global MY ({u_force}-{u_len})", f"Global MZ ({u_force}-{u_len})"]
-            self.tab_base_reac = self.create_table(headers, br_list, ["Case", "Fx", "Fy", "Fz", "Mx", "My", "Mz"])
+            br_keys = ["Case", "Fx", "Fy", "Fz", "Mx", "My", "Mz"]
+            if nl:
+                br_list[0].update(Case=nl["case"], CaseType=nl["case_type"],
+                                  Step=nl["step"], StepFrac=nl["step_frac"])
+                headers = NL_HEADERS + headers[1:]
+                br_keys = ["Case", "CaseType", "Step", "StepFrac"] + br_keys[1:]
+            self.tab_base_reac = self.create_table(headers, br_list, br_keys)
             self.tabs.addTab(self.tab_base_reac, "Base Reactions")
 
         case_name = self.results.get("info", {}).get("case_name", "\u2014")
@@ -335,6 +372,9 @@ class AnalysisResultsDialog(QDialog):
                     "r2": dofs[4],
                     "r3": dofs[5],
                 })
+                if nl:
+                    disp_data[-1].update(case=nl["case"], case_type=nl["case_type"],
+                                         step=nl["step"], step_frac=nl["step_frac"])
 
             if self.selected_node_ids:
                 disp_data = [d for d in disp_data if d["joint"] in self.selected_node_ids]
@@ -344,10 +384,11 @@ class AnalysisResultsDialog(QDialog):
                 f"U1 ({u_len})", f"U2 ({u_len})", f"U3 ({u_len})",
                 "R1 (rad)",     "R2 (rad)",     "R3 (rad)"
             ]
-            self.tab_displacements = self.create_table(
-                disp_headers, disp_data,
-                ["joint", "case", "u1", "u2", "u3", "r1", "r2", "r3"]
-            )
+            disp_keys = ["joint", "case", "u1", "u2", "u3", "r1", "r2", "r3"]
+            if nl:
+                disp_headers = [disp_headers[0]] + NL_HEADERS + disp_headers[2:]
+                disp_keys = ["joint", "case", "case_type", "step", "step_frac"] + disp_keys[2:]
+            self.tab_displacements = self.create_table(disp_headers, disp_data, disp_keys)
             self.tabs.addTab(self.tab_displacements, "Joint Displacements")
 
         disp_headers = ["Joint", "Load Case", f"U1 ({u_len})", f"U2 ({u_len})", f"U3 ({u_len})", "R1 (rad)", "R2 (rad)", "R3 (rad)"]
@@ -356,6 +397,8 @@ class AnalysisResultsDialog(QDialog):
                               ("displacements_abs", "Joint Displacements (Rel, Abs Max)")]:
             if key in self.results:
                 self._add_envelope_table(self.results[key], case_name, col_scales=[sl, sl, sl, 1.0, 1.0, 1.0], headers=disp_headers, tab_title=tab_name)
+
+        self._add_virtual_measurements_tab(case_name, is_ltha, col_scales=[sl, sl, sl, 1.0, 1.0, 1.0])
 
         u_vel = f"{u_len}/s"
         vel_headers = ["Joint", "Load Case", f"V1 ({u_vel})", f"V2 ({u_vel})", f"V3 ({u_vel})", "RV1 (rad/s)", "RV2 (rad/s)", "RV3 (rad/s)"]
@@ -396,7 +439,7 @@ class AnalysisResultsDialog(QDialog):
                                                                                     
                 filtered_reactions = {nid: dofs for nid, dofs in self.results[key].items() if str(nid) in restrained_nodes}
                 
-                self._add_envelope_table(filtered_reactions, case_name, col_scales=[sf, sf, sf, s_mom, s_mom, s_mom], headers=reac_headers, tab_title=tab_name)
+                self._add_envelope_table(filtered_reactions, case_name, col_scales=[sf, sf, sf, s_mom, s_mom, s_mom], headers=reac_headers, tab_title=tab_name, nl=nl)
                 
         if "rsa_detailed" in self.results:
             rsa_dict = self.results["rsa_detailed"]
@@ -564,17 +607,164 @@ class AnalysisResultsDialog(QDialog):
             )
             self.tabs.addTab(self.tab_buckling_shapes, "Mode Shape Summary")
 
+        self._add_hinge_state_tabs(units)
+
         if "error" in self.results:
             err_data = [{"field": k, "value": str(v)} for k, v in self.results["error"].items()]
             self.tab_error = self.create_table(["Field", "Value"], err_data, ["field", "value"])
             self.tabs.addTab(self.tab_error, "\u26a0 Error Details")
 
-    def _make_item(self, val, bold=False):
+    def _nl_meta(self):
+        """OutputCase / CaseType / Step / StepFrac of what the tables currently
+        show, for Nonlinear Static results only (None for every other case type).
+        'Final State' is the last saved step (the engine always keeps it)."""
+        info = self.full_results.get("info", {}) or {}
+        if info.get("type") != "Nonlinear Static":
+            return None
+        state = self.step_combo.currentData() if self.step_combo.isVisible() else None
+        if isinstance(state, dict):
+            step, frac = state.get("step"), state.get("step_frac")
+        else:
+            saved = self.full_results.get("saved_states") or []
+            if saved:
+                step, frac = saved[-1].get("step"), saved[-1].get("step_frac")
+            else:
+                step = info.get("steps_accepted", 0)
+                frac = info.get("stop_load_fraction")
+        return {"case": info.get("case_name", ""), "case_type": info.get("type", ""),
+                "step": str(step), "step_frac": 1.0 if frac is None else float(frac)}
+
+    def _get_hinge_tables(self):
+        """HingeStateTables for the loaded case, or None if it has no hinge
+        data. Contexts (fiber sections) are built once per dialog; the table
+        object is cached per loaded results dict."""
+        if self.full_results.get("info", {}).get("type") != "Nonlinear Static":
+            self._hinge_reason = ""
+            return None
+        if self._hinge_cache is not None and self._hinge_cache[0] is self.full_results:
+            return self._hinge_cache[1]
+        tables, self._hinge_reason = None, ""
+        try:
+            from app.dialogs import hinge_state_tables as hst
+            if self._hinge_ctx is None:
+                self._hinge_ctx = hst.build_contexts(self.model)
+            contexts, warns = self._hinge_ctx
+            tables = hst.HingeStateTables(self.model, self.full_results, contexts)
+            if not tables.available:
+                if not contexts:
+                    self._hinge_reason = ("no fiber hinges could be built from the model. "
+                                          + " ".join(warns) if warns else
+                                          "the model has no frame hinge assignments.")
+                else:
+                    self._hinge_reason = "this case's results carry no hinge_states."
+                tables = None
+        except Exception as e:
+            import traceback
+            traceback.print_exc()
+            self._hinge_reason = f"{type(e).__name__}: {e}"
+            tables = None
+        self._hinge_cache = (self.full_results, tables)
+        return tables
+
+    def _selected_hinge_step(self, tables):
+        """Step shown by the Individual Fibers table: the State dropdown's step,
+        or the last saved step for 'Final State'."""
+        state = self.step_combo.currentData() if self.step_combo.isVisible() else None
+        if isinstance(state, dict) and state.get("step") in tables.step_numbers:
+            return state["step"]
+        return tables.step_numbers[-1]
+
+    def _add_hinge_state_tabs(self, units):
+        self._hinge_available = False
+        tables = self._get_hinge_tables()
+        if tables is not None:
+            from app.dialogs import hinge_state_tables as hst
+            sf, sl = units.force_scale, units.length_scale
+            uf, ul = units.force_unit_name, units.length_unit_name
+
+            rows1 = tables.overall_rows(sf, sl)
+            self.tab_hinge_overall = self.create_table(
+                hst.overall_headers(uf, ul), rows1, hst.OVERALL_KEYS, sci=True)
+            self.tabs.addTab(self.tab_hinge_overall, hst.TABLE_01_NAME)
+
+            step = self._selected_hinge_step(tables)
+            rows2 = tables.fiber_rows(sf, sl, only_step=step)
+            self.tab_hinge_fibers = self.create_table(
+                hst.fiber_headers(uf, ul), rows2, hst.FIBER_KEYS, sci=True)
+            self.tabs.addTab(self.tab_hinge_fibers, hst.TABLE_02_NAME)
+
+            note = (f"Hinge tables: Overall Hinge lists all {len(tables.step_numbers)} saved steps; "
+                    f"Individual Fibers shows step {step} (pick another in State). "
+                    f"'Export Hinge Tables (All Steps)' writes every fiber at every step.")
+            prev = self.lbl_filter.text() if self.lbl_filter.isVisible() else ""
+            self.lbl_filter.setText(f"{prev}  |  {note}" if prev else note)
+            self.lbl_filter.setVisible(True)
+            self._hinge_available = True
+
+        elif self._hinge_reason:
+            msg = f"Hinge tables unavailable: {self._hinge_reason}"
+            prev = self.lbl_filter.text() if self.lbl_filter.isVisible() else ""
+            self.lbl_filter.setText(f"{prev}  |  {msg}" if prev else msg)
+            self.lbl_filter.setVisible(True)
+
+        btn = getattr(self, "btn_export_hinge", None)
+        if btn is not None:
+            btn.setVisible(self._hinge_available)
+
+    def export_hinge_tables_all_steps(self):
+        tables = self._get_hinge_tables()
+        if tables is None:
+            return
+        units = self.local_units
+        sf, sl = units.force_scale, units.length_scale
+        uf, ul = units.force_unit_name, units.length_unit_name
+
+        model_stem = os.path.splitext(os.path.basename(getattr(self.model, "file_path", "") or "model"))[0]
+        case = "".join(c if c.isalnum() or c in (" ", "_", "-") else "_"
+                       for c in tables.case_name).strip()
+        default = f"{model_stem}_{case}_hinge_states.xlsx"
+        path, flt = QFileDialog.getSaveFileName(
+            self, "Export Hinge Tables (All Steps)", default,
+            "Excel Files (*.xlsx);;CSV Files (*.csv)")
+        if not path:
+            return
+
+        QApplication.setOverrideCursor(Qt.CursorShape.WaitCursor)
+        try:
+            if path.lower().endswith(".csv") or "CSV" in flt:
+                stem = path[:-4] if path.lower().endswith(".csv") else path
+                files = tables.write_csv(stem, sf, sl, uf, ul)
+                done = "\n".join(files)
+            else:
+                if not path.lower().endswith(".xlsx"):
+                    path += ".xlsx"
+                tables.write_xlsx(path, sf, sl, uf, ul)
+                done = path
+        except ImportError:
+            QApplication.restoreOverrideCursor()
+            QMessageBox.warning(
+                self, "Missing Dependency",
+                "Excel export requires the 'openpyxl' package.\n\nInstall it with:\npip install openpyxl")
+            return
+        except OSError as e:
+            QApplication.restoreOverrideCursor()
+            QMessageBox.warning(self, "Export Failed", str(e))
+            return
+        QApplication.restoreOverrideCursor()
+        QMessageBox.information(self, "Export Complete", f"Hinge tables exported to:\n{done}")
+
+    def _make_item(self, val, bold=False, sci=False):
         item = SortableTableWidgetItem()
 
+        if val is None:
+            val = ""
         if isinstance(val, (int, float)) and not isinstance(val, bool):
             fv = float(val)
-            txt = "0.0" if abs(fv) < 1e-9 else f"{fv:.6f}"
+            if sci:
+                                                                                 
+                txt = str(val) if isinstance(val, int) else f"{fv:.6g}"
+            else:
+                txt = "0.0" if abs(fv) < 1e-9 else f"{fv:.6f}"
             item.setData(Qt.ItemDataRole.UserRole, fv)
         else:
             txt = str(val)
@@ -586,11 +776,11 @@ class AnalysisResultsDialog(QDialog):
         item.setText(txt)
         if bold:
             item.setFont(QFont("Segoe UI", 9, QFont.Weight.Bold))
-            item.setForeground(QColor("#0078D7"))
+            item.setForeground(QColor(COLORS["accent"]))
         item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
         return item
 
-    def create_table(self, headers, data_list, keys):
+    def create_table(self, headers, data_list, keys, sci=False):
         table = CopyableTableWidget()
         table.setColumnCount(len(headers))
         table.setHorizontalHeaderLabels(headers)
@@ -602,20 +792,19 @@ class AnalysisResultsDialog(QDialog):
 
         header = table.horizontalHeader()
         header.setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
-        header.setStyleSheet("QHeaderView::section { background-color: #f0f0f0; padding: 4px; border: 1px solid #d0d0d0; }")
 
         table.setRowCount(len(data_list))
 
         for row, entry in enumerate(data_list):
             for col, key in enumerate(keys):
                 val = entry.get(key, 0)
-                item = self._make_item(val, bold=(col == 0))
+                item = self._make_item(val, bold=(col == 0), sci=sci)
                 table.setItem(row, col, item)
 
         table.setSortingEnabled(True)
         return table
 
-    def _add_envelope_table(self, node_dict, case_name, col_scales, headers, tab_title):
+    def _add_envelope_table(self, node_dict, case_name, col_scales, headers, tab_title, nl=None):
         """
         Builds one envelope table (6 DOF columns, one row per joint) from a
         {node_id: [6 floats]} dict and adds it as a tab. Used for the LTHA
@@ -624,6 +813,9 @@ class AnalysisResultsDialog(QDialog):
         data = []
         for nid, dofs in sorted(node_dict.items(), key=lambda x: (int(str(x[0]).split('~')[0]), str(x[0])) if str(x[0]).split('~')[0].isdigit() else (float('inf'), str(x[0]))):
             row = {"joint": nid, "case": case_name}
+            if nl:
+                row.update(case=nl["case"], case_type=nl["case_type"],
+                           step=nl["step"], step_frac=nl["step_frac"])
             for i, key in enumerate(["c0", "c1", "c2", "c3", "c4", "c5"]):
                 row[key] = dofs[i] * col_scales[i]
             data.append(row)
@@ -631,12 +823,76 @@ class AnalysisResultsDialog(QDialog):
         if self.selected_node_ids:
             data = [d for d in data if d["joint"] in self.selected_node_ids]
 
-        table = self.create_table(
-            headers, data,
-            ["joint", "case", "c0", "c1", "c2", "c3", "c4", "c5"]
-        )
+        keys = ["joint", "case", "c0", "c1", "c2", "c3", "c4", "c5"]
+        if nl:
+            headers = [headers[0], "OutputCase", "CaseType", "Step", "StepFrac"] + headers[2:]
+            keys = ["joint", "case", "case_type", "step", "step_frac"] + keys[2:]
+        table = self.create_table(headers, data, keys)
         self.tabs.addTab(table, tab_title)
         return table
+
+    def _eval_virtual_measurement(self, factors, disp_dict, col_scales):
+        """Dot-products one measurement's {joint: {dof: factor}} against a
+        {joint: [6 floats]} displacement dict already loaded in self.results.
+        Returns None if any referenced joint isn't in disp_dict (e.g. it was
+        deleted from the model, or isn't part of this case's active DOFs)."""
+        total = 0.0
+        for jid, dof_factors in factors.items():
+            dofs = disp_dict.get(str(jid))
+            if dofs is None:
+                return None
+            for dof, factor in dof_factors.items():
+                idx = self._VM_DOF_INDEX.get(dof)
+                if idx is None or not factor:
+                    continue
+                total += factor * dofs[idx] * col_scales[idx]
+        return total
+
+    def _add_virtual_measurements_tab(self, case_name, is_ltha, col_scales):
+        """Adds a 'Virtual Measurements' tab evaluating every measurement
+        defined in Define > Virtual Measurements against the displacements
+        already loaded for the current case/step.
+
+        Note on the LTHA branch: displacements_max/min/abs are per-DOF,
+        per-joint envelopes that may each occur at a different time step, so
+        combining them here is an approximate bound on the measurement's
+        envelope, not its true time-history max/min (that needs the actual
+        per-step trace — see Plot Function > Virtual Measurement instead)."""
+        vms = getattr(self.model, "virtual_measurements", None)
+        if not vms:
+            return
+
+        data = []
+        for vm in vms.values():
+            factors = vm.get("factors")
+            if not factors:
+                continue
+
+            is_rot = vm.get("type") == "Rotational"
+            unit = "rad" if is_rot else self.local_units.length_unit_name
+            row = {"name": vm.get("name", "Unnamed"), "type": vm.get("type", "Translational"), "unit": unit}
+
+            if is_ltha:
+                row["max"] = self._eval_virtual_measurement(factors, self.results.get("displacements_max", {}), col_scales)
+                row["min"] = self._eval_virtual_measurement(factors, self.results.get("displacements_min", {}), col_scales)
+                row["absmax"] = self._eval_virtual_measurement(factors, self.results.get("displacements_abs", {}), col_scales)
+            else:
+                row["case"] = case_name
+                row["value"] = self._eval_virtual_measurement(factors, self.results.get("displacements", {}), col_scales)
+
+            data.append(row)
+
+        if not data:
+            return
+
+        if is_ltha:
+            headers = ["Measurement", "Type", "Max", "Min", "Abs Max", "Unit"]
+            table = self.create_table(headers, data, ["name", "type", "max", "min", "absmax", "unit"])
+        else:
+            headers = ["Measurement", "Type", "Load Case", "Value", "Unit"]
+            table = self.create_table(headers, data, ["name", "type", "case", "value", "unit"])
+
+        self.tabs.addTab(table, "Virtual Measurements")
 
     def create_summary_table(self, data_list, units):
         table = CopyableTableWidget()
@@ -680,7 +936,7 @@ class AnalysisResultsDialog(QDialog):
             val_item = SortableTableWidgetItem(txt_val)
             if sort_key is not None:
                 val_item.setData(Qt.ItemDataRole.UserRole, sort_key)
-            val_item.setForeground(QColor("#0078D7"))
+            val_item.setForeground(QColor(COLORS["accent"]))
             table.setItem(row, 1, val_item)
             table.setItem(row, 2, SortableTableWidgetItem(str(entry.get("desc", ""))))
 
@@ -710,6 +966,11 @@ class AnalysisResultsDialog(QDialog):
         try:
             with open(path, "w", newline="", encoding="utf-8") as f:
                 writer = csv.writer(f)
+                
+                unit_label = self.local_units.current_unit_label
+                writer.writerow([f"Data exported with units: {unit_label}"])
+                writer.writerow([])
+                
                 headers = [table.horizontalHeaderItem(c).text() for c in range(table.columnCount())]
                 writer.writerow(headers)
                 for r in range(table.rowCount()):
@@ -743,6 +1004,10 @@ class AnalysisResultsDialog(QDialog):
             wb = openpyxl.Workbook()
             ws = wb.active
             ws.title = safe_name[:31] if safe_name else "Table"
+
+            unit_label = self.local_units.current_unit_label
+            ws.append([f"Data exported with units: {unit_label}"])
+            ws.append([])
 
             headers = [table.horizontalHeaderItem(c).text() for c in range(table.columnCount())]
             ws.append(headers)

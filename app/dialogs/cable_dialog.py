@@ -11,7 +11,7 @@ from app.ui.theme import apply_dialog_style
 class CableEditorDialog(QDialog):
     """
     Open // Structures Cable Section Editor
-    Matches SAP2000 Cable Section Data Dialog.
+
     """
     def __init__(self, model, cable_data=None, parent=None):
         super().__init__(parent)
@@ -314,7 +314,7 @@ class CableEditorDialog(QDialog):
 class CableManagerDialog(QDialog):
     """
     Open // Structures Cable Manager
-    Matches SAP2000 Cable Sections Dialog.
+
     """
     def __init__(self, model, parent=None):
         super().__init__(parent)

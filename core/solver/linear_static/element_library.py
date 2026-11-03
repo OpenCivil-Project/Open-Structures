@@ -184,6 +184,15 @@ def get_geometric_stiffness_matrix(P_axial, L, phi_y=0.0, phi_z=0.0, A=1.0, I22=
     kg[10, 8]  =  kz_12 * cz
     kg[10, 10] =  kz_22 * cz
 
+    if A > 1e-12:
+        Ip = I22 + I33
+        wagner = P_c * (Ip / A) / L
+        
+        kg[3, 3] = wagner
+        kg[3, 9] = -wagner
+        kg[9, 3] = -wagner
+        kg[9, 9] = wagner
+
     return kg
 
 def get_exact_fef_via_stiffness(L, a, P_vec_local, mat, sec, M_vec_local=None):
@@ -400,3 +409,189 @@ def get_link_stiffness_matrix(k_user_6x6, is_fixed, num_joints=1):
         
     else:
         raise ValueError("Link element must have either 1 or 2 joints.")
+
+def get_local_stiffness_matrix_batch(E, G, A, J, I22, I33, As2, As3, L, L_tor=None):
+    """
+    All inputs: (N,) arrays. Returns (N,12,12), row i identical to
+    get_local_stiffness_matrix(E[i], G[i], ..., L[i], L_tor[i]).
+    """
+    E, G, A, J, I22, I33, As2, As3, L = (np.asarray(x, dtype=float)
+        for x in (E, G, A, J, I22, I33, As2, As3, L))
+    N = L.shape[0]
+    if L_tor is None:
+        L_tor = L.copy()
+    else:
+        L_tor = np.asarray(L_tor, dtype=float)
+
+    zero_L = (L == 0)
+    L_safe = np.where(zero_L, 1.0, L)                                                                    
+    L_tor_safe = np.where(L_tor == 0, np.where(zero_L, 1.0, L_safe), L_tor)
+
+    As2_safe = np.where(As2 > 0, As2, 1.0)
+    As3_safe = np.where(As3 > 0, As3, 1.0)
+    phi_y = np.where(As2 > 0, (12 * E * I33) / (G * As2_safe * L_safe**2), 0.0)
+    phi_z = np.where(As3 > 0, (12 * E * I22) / (G * As3_safe * L_safe**2), 0.0)
+
+    k = np.zeros((N, 12, 12))
+
+    EA_L = E * A / L_tor_safe
+    k[:, 0, 0] =  EA_L; k[:, 0, 6] = -EA_L
+    k[:, 6, 0] = -EA_L; k[:, 6, 6] =  EA_L
+
+    GJ_L = G * J / L_tor_safe
+    k[:, 3, 3] =  GJ_L; k[:, 3, 9] = -GJ_L
+    k[:, 9, 3] = -GJ_L; k[:, 9, 9] =  GJ_L
+
+    EI33 = E * I33
+    L2 = L_safe * L_safe
+    L3 = L2 * L_safe
+    Py = 1 + phi_y
+
+    k1_z = (12 * EI33) / (L3 * Py)
+    k2_z = (6 * EI33) / (L2 * Py)
+    k3_z = ((4 + phi_y) * EI33) / (L_safe * Py)
+    k4_z = ((2 - phi_y) * EI33) / (L_safe * Py)
+
+    k[:, 1, 1] =  k1_z; k[:, 1, 5] =  k2_z; k[:, 1, 7] = -k1_z; k[:, 1, 11] =  k2_z
+    k[:, 5, 1] =  k2_z; k[:, 5, 5] =  k3_z; k[:, 5, 7] = -k2_z; k[:, 5, 11] =  k4_z
+    k[:, 7, 1] = -k1_z; k[:, 7, 5] = -k2_z; k[:, 7, 7] =  k1_z; k[:, 7, 11] = -k2_z
+    k[:, 11, 1] =  k2_z; k[:, 11, 5] =  k4_z; k[:, 11, 7] = -k2_z; k[:, 11, 11] =  k3_z
+
+    EI22 = E * I22
+    Pz = 1 + phi_z
+
+    k1_y = (12 * EI22) / (L3 * Pz)
+    k2_y = (6 * EI22) / (L2 * Pz)
+    k3_y = ((4 + phi_z) * EI22) / (L_safe * Pz)
+    k4_y = ((2 - phi_z) * EI22) / (L_safe * Pz)
+
+    k[:, 2, 2] =  k1_y; k[:, 2, 4] = -k2_y; k[:, 2, 8] = -k1_y; k[:, 2, 10] = -k2_y
+    k[:, 4, 2] = -k2_y; k[:, 4, 4] =  k3_y; k[:, 4, 8] =  k2_y; k[:, 4, 10] =  k4_y
+    k[:, 8, 2] = -k1_y; k[:, 8, 4] =  k2_y; k[:, 8, 8] =  k1_y; k[:, 8, 10] =  k2_y
+    k[:, 10, 2] = -k2_y; k[:, 10, 4] =  k4_y; k[:, 10, 8] =  k2_y; k[:, 10, 10] =  k3_y
+
+    if np.any(zero_L):
+        k[zero_L] = np.eye(12) * 1e12
+
+    return k
+
+def get_rotation_matrix_batch(p1, p2, beta_deg):
+    """
+    Batched version of get_rotation_matrix(). p1, p2: (N,3) arrays.
+    beta_deg: (N,) array. Returns R: (N,3,3), row n identical to
+    get_rotation_matrix(p1[n], p2[n], beta_deg[n]) - same branch
+    (abs(vx[2])>0.999 picks temp_v=[1,0,0] else [0,0,1]), same L==0 guard.
+    """
+    p1 = np.asarray(p1, dtype=float)
+    p2 = np.asarray(p2, dtype=float)
+    beta_deg = np.asarray(beta_deg, dtype=float)
+    N = p1.shape[0]
+
+    V_x = p2 - p1
+    L = np.linalg.norm(V_x, axis=1)
+    zero_L = L == 0
+    L_safe = np.where(zero_L, 1.0, L)
+    vx = V_x / L_safe[:, None]
+
+    use_x_temp = np.abs(vx[:, 2]) > 0.999
+    temp_v = np.where(use_x_temp[:, None],
+                       np.array([1.0, 0.0, 0.0]),
+                       np.array([0.0, 0.0, 1.0]))
+
+    vy = np.cross(temp_v, vx)
+    vy_norm = np.linalg.norm(vy, axis=1)
+    vy_norm_safe = np.where(vy_norm == 0, 1.0, vy_norm)
+    vy = vy / vy_norm_safe[:, None]
+    vz = np.cross(vx, vy)
+
+    beta_rad = np.radians(beta_deg)
+    c = np.cos(beta_rad)
+    s = np.sin(beta_rad)
+
+    vy_final = vy * c[:, None] + vz * s[:, None]
+    vz_final = -vy * s[:, None] + vz * c[:, None]
+
+    R = np.stack([vx, vy_final, vz_final], axis=1)
+
+    if np.any(zero_L):
+        R[zero_L] = np.eye(3)
+
+    return R
+
+def get_eccentricity_matrix_batch(off_i, off_j):
+    """
+    Batched version of get_eccentricity_matrix(). off_i, off_j: (N,3)
+    arrays. Returns Te: (N,12,12), row n identical to
+    get_eccentricity_matrix(off_i[n], off_j[n]).
+    """
+    off_i = np.asarray(off_i, dtype=float)
+    off_j = np.asarray(off_j, dtype=float)
+    N = off_i.shape[0]
+
+    Te = np.broadcast_to(np.eye(12), (N, 12, 12)).copy()
+
+    def apply_offset_batch(offset):
+        ex, ey, ez = offset[:, 0], offset[:, 1], offset[:, 2]
+        block = np.broadcast_to(np.eye(6), (N, 6, 6)).copy()
+        block[:, 0, 4] = ez;  block[:, 0, 5] = -ey
+        block[:, 1, 3] = -ez; block[:, 1, 5] = ex
+        block[:, 2, 3] = ey;  block[:, 2, 4] = -ex
+        return block
+
+    Te[:, 0:6, 0:6] = apply_offset_batch(off_i)
+    Te[:, 6:12, 6:12] = apply_offset_batch(off_j)
+    return Te
+
+def get_geometric_stiffness_matrix_batch(P_axial, L, phi_y=None, phi_z=None, A=None, I22=None, I33=None):
+    """
+    All inputs except phi_y/phi_z/A/I22/I33 required: (N,) arrays.
+    Returns (N,12,12), row i identical to
+    get_geometric_stiffness_matrix(P_axial[i], L[i], phi_y[i], phi_z[i], A[i], I22[i], I33[i]).
+    """
+    P_axial = np.asarray(P_axial, dtype=float)
+    L = np.asarray(L, dtype=float)
+    N = L.shape[0]
+    phi_y = np.zeros(N) if phi_y is None else np.asarray(phi_y, dtype=float)
+    phi_z = np.zeros(N) if phi_z is None else np.asarray(phi_z, dtype=float)
+    A = np.ones(N) if A is None else np.asarray(A, dtype=float)
+    I22 = np.zeros(N) if I22 is None else np.asarray(I22, dtype=float)
+    I33 = np.zeros(N) if I33 is None else np.asarray(I33, dtype=float)
+
+    kg = np.zeros((N, 12, 12))
+    valid = L > 1e-9
+    L_safe = np.where(valid, L, 1.0)
+
+    P_c = -P_axial
+
+    cy = P_c / (30 * L_safe * (1 + phi_y)**2)
+    ky_11 = 36 + 60*phi_y + 30*phi_y**2
+    ky_12 = 3*L_safe
+    ky_22 = 4*L_safe**2 + 5*L_safe**2*phi_y + 2.5*L_safe**2*phi_y**2
+    ky_24 = -L_safe**2 - 5*L_safe**2*phi_y - 2.5*L_safe**2*phi_y**2
+
+    kg[:, 1, 1] =  ky_11 * cy; kg[:, 1, 5] =  ky_12 * cy; kg[:, 1, 7] = -ky_11 * cy; kg[:, 1, 11] =  ky_12 * cy
+    kg[:, 5, 1] =  ky_12 * cy; kg[:, 5, 5] =  ky_22 * cy; kg[:, 5, 7] = -ky_12 * cy; kg[:, 5, 11] =  ky_24 * cy
+    kg[:, 7, 1] = -ky_11 * cy; kg[:, 7, 5] = -ky_12 * cy; kg[:, 7, 7] =  ky_11 * cy; kg[:, 7, 11] = -ky_12 * cy
+    kg[:, 11, 1] =  ky_12 * cy; kg[:, 11, 5] =  ky_24 * cy; kg[:, 11, 7] = -ky_12 * cy; kg[:, 11, 11] =  ky_22 * cy
+
+    cz = P_c / (30 * L_safe * (1 + phi_z)**2)
+    kz_11 = 36 + 60*phi_z + 30*phi_z**2
+    kz_12 = 3*L_safe
+    kz_22 = 4*L_safe**2 + 5*L_safe**2*phi_z + 2.5*L_safe**2*phi_z**2
+    kz_24 = -L_safe**2 - 5*L_safe**2*phi_z - 2.5*L_safe**2*phi_z**2
+
+    kg[:, 2, 2]  =  kz_11 * cz; kg[:, 2, 4]  = -kz_12 * cz; kg[:, 2, 8]  = -kz_11 * cz; kg[:, 2, 10] = -kz_12 * cz
+    kg[:, 4, 2]  = -kz_12 * cz; kg[:, 4, 4]  =  kz_22 * cz; kg[:, 4, 8]  =  kz_12 * cz; kg[:, 4, 10] =  kz_24 * cz
+    kg[:, 8, 2]  = -kz_11 * cz; kg[:, 8, 4]  =  kz_12 * cz; kg[:, 8, 8]  =  kz_11 * cz; kg[:, 8, 10] =  kz_12 * cz
+    kg[:, 10, 2]  = -kz_12 * cz; kg[:, 10, 4]  =  kz_24 * cz; kg[:, 10, 8]  =  kz_12 * cz; kg[:, 10, 10] =  kz_22 * cz
+
+    A_ok = A > 1e-12
+    Ip = I22 + I33
+    A_safe = np.where(A_ok, A, 1.0)
+    wagner = np.where(A_ok, P_c * (Ip / A_safe) / L_safe, 0.0)
+
+    kg[:, 3, 3] = wagner; kg[:, 3, 9] = -wagner
+    kg[:, 9, 3] = -wagner; kg[:, 9, 9] = wagner
+
+    kg[~valid] = 0.0
+    return kg

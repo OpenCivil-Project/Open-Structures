@@ -2,7 +2,7 @@
 section_viewer_dialogs.py
 --------------------------
 "Show Properties", "Generated Fibers", and "Elastic Stress (S11)" dialogs
-for the Section Designer, styled after SAP2000's Section Designer.
+for the Section Designer.
 
 Design principle
 -----------------
@@ -15,7 +15,7 @@ interpolated over triangles. This means:
   * "Section Properties" — mesh size only changes J / AS2 / AS3 on Refresh;
     everything else is exact regardless of mesh.
   * "Generated Fibers"    — one fiber per FEM triangle; changes count/areas
-    with mesh size, exactly like SAP2000's fiber generation.
+    with mesh size.
   * "Elastic Stress S11"  — exact, mesh-independent; toggling P/Mx/My just
     re-solves a 3x3-or-smaller linear system for the stress plane.
 
@@ -389,7 +389,7 @@ def torsion_shear_stresses(mesh: "MeshResult", T: float):
 
 def _jet_color(frac: float) -> QColor:
     """
-    Replaced with SAP2000's specific continuous stress colormap:
+
     Magenta (min) -> Red -> Orange -> Yellow -> Green (mid) -> Cyan -> Blue (max)
     """
     frac = max(0.0, min(1.0, frac))
@@ -445,7 +445,7 @@ def _poly_qt(transform, pts):
     return QPolygonF([transform.to_px(y, z) for (y, z) in pts])
 
 class _HatchMeshCanvas(QWidget):
-    """SAP2000-style hatched section preview with an optional mesh overlay
+    """Hatched section preview with an optional mesh overlay
     and optional marker dots (used by Properties + Fibers dialogs)."""
 
     def __init__(self, vertices, parent=None):
@@ -677,7 +677,7 @@ class _StressCanvas(QWidget):
         p.drawPolygon(_poly_qt(t, self.vertices))
 
 class _ColorLegend(QWidget):
-    """Horizontal color-bar legend with tick labels, like SAP2000's."""
+    """Horizontal color-bar legend with tick labels."""
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -760,7 +760,7 @@ _PROP_ROWS = [
 ]
 
 class SectionPropertiesDialog(QDialog):
-    """"Show Properties" — mirrors SAP2000's Section Properties panel."""
+    """"Show Properties" — mirrors the Section Properties panel."""
 
     mesh_settings_changed = pyqtSignal(dict)
 
@@ -950,9 +950,9 @@ class GeneratedFibersDialog(QDialog):
 
 class ElasticStressDialog(QDialog):
     """
-    "Elastic Stress" — SAP2000 Section Designer style.
+    "Elastic Stress".
 
-    Two mutually-exclusive modes, matching SAP:
+    Two mutually-exclusive modes:
       - S11 (bending): P/Mx/My checkable together, exact analytic linear
         field, mesh-independent.
       - Torsion (S12/S13/SMax): T only, requires the FEM mesh (Prandtl

@@ -86,3 +86,66 @@ def get_deflected_shape(p1, p2, disp_i, disp_j, v1, v2, v3, scale=1.0, num_point
         results.append((global_pos, global_tangent, current_twist))
         
     return results
+
+def get_deflected_points_batch(P1, P2, Ui, Uj, R, s, scale=1.0):
+    """
+    Vectorised twin of get_deflected_shape(): deformed position and unit
+    tangent of ONE point per element, at relative position s (0..1) along
+    the element, for N elements at once. Same Hermite math, no end offsets
+    (the LTHA/step playback engine uses off_i = off_j = 0 too).
+
+    P1, P2 : (N,3) undeformed end coordinates
+    Ui, Uj : (N,6) end displacements [ux,uy,uz,rx,ry,rz] (global)
+    R      : (N,3,3) rows = local axes v1, v2, v3 (global components)
+    s      : (N,)    relative position along the element
+    Returns (pos (N,3), tangent (N,3)) in global coordinates.
+    """
+    P1 = np.asarray(P1, float)
+    P2 = np.asarray(P2, float)
+    Ui = np.asarray(Ui, float) * scale
+    Uj = np.asarray(Uj, float) * scale
+    R = np.asarray(R, float)
+    s = np.asarray(s, float)
+
+    L = np.maximum(np.linalg.norm(P2 - P1, axis=1), 1e-6)
+
+    ui = np.einsum('nij,nj->ni', R, Ui[:, :3])
+    ti = np.einsum('nij,nj->ni', R, Ui[:, 3:])
+    uj = np.einsum('nij,nj->ni', R, Uj[:, :3])
+    tj = np.einsum('nij,nj->ni', R, Uj[:, 3:])
+
+    u1_i, v_i, w_i = ui[:, 0], ui[:, 1], ui[:, 2]
+    u1_j, v_j, w_j = uj[:, 0], uj[:, 1], uj[:, 2]
+    dv_i, dv_j = ti[:, 2], tj[:, 2]
+    dw_i, dw_j = -ti[:, 1], -tj[:, 1]
+
+    axial_strain = (u1_j - u1_i) / L
+    x = s * L
+    s2 = s * s
+    s3 = s2 * s
+
+    H1 = 1.0 - 3.0 * s2 + 2.0 * s3
+    H2 = x * (1.0 - s) ** 2
+    H3 = 3.0 * s2 - 2.0 * s3
+    H4 = x * (s2 - s)
+    dH1 = -6.0 * s + 6.0 * s2
+    dH2 = L * (1.0 - 4.0 * s + 3.0 * s2)
+    dH3 = 6.0 * s - 6.0 * s2
+    dH4 = L * (3.0 * s2 - 2.0 * s)
+
+    disp_axial = u1_i + axial_strain * x
+    disp_v = H1 * v_i + H2 * dv_i + H3 * v_j + H4 * dv_j
+    disp_w = H1 * w_i + H2 * dw_i + H3 * w_j + H4 * dw_j
+
+    d_axial = L + axial_strain * L
+    d_v = dH1 * v_i + dH2 * dv_i + dH3 * v_j + dH4 * dv_j
+    d_w = dH1 * w_i + dH2 * dw_i + dH3 * w_j + dH4 * dw_j
+
+    local_pos = np.stack([x + disp_axial, disp_v, disp_w], axis=1)
+    local_tan = np.stack([d_axial, d_v, d_w], axis=1)
+    nt = np.linalg.norm(local_tan, axis=1, keepdims=True)
+    local_tan = np.where(nt > 1e-9, local_tan / np.maximum(nt, 1e-30), np.array([1.0, 0.0, 0.0]))
+
+    pos = P1 + np.einsum('nji,nj->ni', R, local_pos)
+    tan = np.einsum('nji,nj->ni', R, local_tan)
+    return pos, tan

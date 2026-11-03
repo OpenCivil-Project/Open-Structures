@@ -1,0 +1,386 @@
+{
+  "static": {
+    "displacements": {
+      "11": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "18": [
+        3.5397939667620267e-06,
+        -0.0005685219398523288,
+        0.00048549786276297927,
+        2.1591570014813207e-05,
+        -9.212167075678339e-05,
+        -0.00010617024019484277
+      ]
+    },
+    "reactions": {
+      "11": [
+        -12494.111243451971,
+        4544.164494500108,
+        -2517.3247041706436,
+        -289.4796083265087,
+        8669.384131059833,
+        15531.781183304678
+      ],
+      "18": [
+        -505.88875654802996,
+        4555.835505499892,
+        -2682.675295829357,
+        -35.520391673491176,
+        4940.704330627513,
+        7707.874188095879
+      ]
+    }
+  },
+  "modal": {
+    "frequencies_hz": [
+      11.610827805544663,
+      14.031323309730572,
+      257.53152030512314
+    ],
+    "regularized_frequencies_hz": [
+      11.610827805548311,
+      14.031323309730565,
+      257.5315203051217
+    ],
+    "regularization_relative_shift": [
+      3.142443423702947e-13,
+      -5.063975222261085e-16,
+      -5.5181030649626866e-15
+    ],
+    "mode_shapes": {
+      "1": {
+        "11": [
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0
+        ],
+        "18": [
+          3.509498145357788e-27,
+          5.085048380726186e-20,
+          0.022091041982103446,
+          1.2412645112453804e-16,
+          -0.004023281929634973,
+          -2.0655450115365092e-16
+        ]
+      },
+      "2": {
+        "11": [
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0
+        ],
+        "18": [
+          -4.352000557173119e-05,
+          0.02209088634461187,
+          4.678043395041623e-24,
+          -0.00022308288402864967,
+          -1.0115980030436023e-24,
+          0.004193882834721091
+        ]
+      },
+      "3": {
+        "11": [
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0
+        ],
+        "18": [
+          0.02209139246702482,
+          4.351894142711118e-05,
+          0.0,
+          -5.901656387692598e-07,
+          -8.460517697514563e-23,
+          8.534874399588861e-06
+        ]
+      }
+    },
+    "assembled_mass": {
+      "11": [
+        1959.0480000000005,
+        1959.0480000000005,
+        1959.0480000000005,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "18": [
+        2049.0480000000007,
+        2049.0480000000007,
+        2049.0480000000007,
+        1.8,
+        2.2,
+        2.6
+      ]
+    }
+  },
+  "metadata": {
+    "reference_kind": "Independent discretized force-flexibility reference with separate analytical checks",
+    "mass_model": "Translational nodal lumping; rho denotes weight density; explicit link rotary inertia allowed",
+    "regularized_reference": "Native-only numerical terms: released rotational diagonal=max(abs(k_local))*1e-12; massless free diagonal=min_positive_free_mass*1e-6",
+    "mass_floor": 1.8e-06,
+    "requested_modes": 3,
+    "native_clamped_modes": 3,
+    "sources": [
+      {
+        "title": "Scott Whitney, University of Nebraska: Vibrations of Cantilever Beams (1999)",
+        "url": "https://emweb.unl.edu/mechanics-pages/Scott-Whitney/325hweb/Beams.htm",
+        "use": "Euler-Bernoulli cantilever deflection and frequency derivation"
+      },
+      {
+        "title": "CALFEM for Python: core.py, bar2e/beam2e/beam3e/beam2de",
+        "url": "https://github.com/CALFEM/calfem-python/blob/master/src/calfem/core.py",
+        "use": "Public independent FE library and beam/bar reference formulations; not imported"
+      },
+      {
+        "title": "OpenSees public examples: Example3.1.tcl",
+        "url": "https://github.com/OpenSees/OpenSees/blob/master/EXAMPLES/ExampleScripts/Example3.1.tcl",
+        "use": "Public portal-frame modelling benchmark example; not an analytical oracle"
+      },
+      {
+        "title": "Gere and Timoshenko, Mechanics of Materials; Clough and Penzien, Dynamics of Structures",
+        "url": null,
+        "use": "Force-flexibility integration, beam boundary conditions, modal generalized eigenproblem"
+      }
+    ],
+    "batch": "second_150",
+    "case_id": "195_support_coupled_tip_spring_v5",
+    "model_sha256": "364b72b228d2ad3bbb6d8db048d5e4523076e998fd657cc15a0a56f778eb8827",
+    "reference_source_sha256": "4736d758c26c4b124dcdce5079c195fdb918049f5e38449de09279d4234f29d4",
+    "reference_wrapper_sha256": "344814f8988ecf6abaeb5633fc08aaf9e4c546dd6db4343b5338b12a3fae1d1f"
+  },
+  "analytical_checks": [
+    {
+      "node_id": 18,
+      "dof": 0,
+      "value": 3.5397939667620276e-06,
+      "label": "Coupled-spring tip response",
+      "formula": "u=(F_tip^\u22121+Kspring)^\u22121 P; F_tip from Castigliano",
+      "result": "displacements"
+    },
+    {
+      "node_id": 18,
+      "dof": 0,
+      "value": -505.88875654803087,
+      "label": "Coupled spring nodal reaction",
+      "formula": "-Kspring*u",
+      "result": "reactions"
+    },
+    {
+      "node_id": 18,
+      "dof": 1,
+      "value": -0.0005685219398523288,
+      "label": "Coupled-spring tip response",
+      "formula": "u=(F_tip^\u22121+Kspring)^\u22121 P; F_tip from Castigliano",
+      "result": "displacements"
+    },
+    {
+      "node_id": 18,
+      "dof": 1,
+      "value": 4555.835505499892,
+      "label": "Coupled spring nodal reaction",
+      "formula": "-Kspring*u",
+      "result": "reactions"
+    },
+    {
+      "node_id": 18,
+      "dof": 2,
+      "value": 0.0004854978627629791,
+      "label": "Coupled-spring tip response",
+      "formula": "u=(F_tip^\u22121+Kspring)^\u22121 P; F_tip from Castigliano",
+      "result": "displacements"
+    },
+    {
+      "node_id": 18,
+      "dof": 2,
+      "value": -2682.675295829356,
+      "label": "Coupled spring nodal reaction",
+      "formula": "-Kspring*u",
+      "result": "reactions"
+    },
+    {
+      "node_id": 18,
+      "dof": 3,
+      "value": 2.1591570014813213e-05,
+      "label": "Coupled-spring tip response",
+      "formula": "u=(F_tip^\u22121+Kspring)^\u22121 P; F_tip from Castigliano",
+      "result": "displacements"
+    },
+    {
+      "node_id": 18,
+      "dof": 3,
+      "value": -35.52039167349122,
+      "label": "Coupled spring nodal reaction",
+      "formula": "-Kspring*u",
+      "result": "reactions"
+    },
+    {
+      "node_id": 18,
+      "dof": 4,
+      "value": -9.212167075678338e-05,
+      "label": "Coupled-spring tip response",
+      "formula": "u=(F_tip^\u22121+Kspring)^\u22121 P; F_tip from Castigliano",
+      "result": "displacements"
+    },
+    {
+      "node_id": 18,
+      "dof": 4,
+      "value": 4940.704330627511,
+      "label": "Coupled spring nodal reaction",
+      "formula": "-Kspring*u",
+      "result": "reactions"
+    },
+    {
+      "node_id": 18,
+      "dof": 5,
+      "value": -0.00010617024019484278,
+      "label": "Coupled-spring tip response",
+      "formula": "u=(F_tip^\u22121+Kspring)^\u22121 P; F_tip from Castigliano",
+      "result": "displacements"
+    },
+    {
+      "node_id": 18,
+      "dof": 5,
+      "value": 7707.87418809588,
+      "label": "Coupled spring nodal reaction",
+      "formula": "-Kspring*u",
+      "result": "reactions"
+    }
+  ],
+  "analytical_reference_checks": [
+    {
+      "name": "analytical: Coupled-spring tip response",
+      "passed": true,
+      "actual": 3.5397939667620267e-06,
+      "expected": 3.5397939667620276e-06,
+      "absolute_error": 8.470329472543003e-22,
+      "tolerance": 1.0707958793352406e-10,
+      "formula": "u=(F_tip^\u22121+Kspring)^\u22121 P; F_tip from Castigliano",
+      "reference_kind": "continuum or exact discrete formula as labelled"
+    },
+    {
+      "name": "analytical: Coupled spring nodal reaction",
+      "passed": true,
+      "actual": -505.88875654802996,
+      "expected": -505.88875654803087,
+      "absolute_error": 9.094947017729282e-13,
+      "tolerance": 0.0011117775130960617,
+      "formula": "-Kspring*u",
+      "reference_kind": "continuum or exact discrete formula as labelled"
+    },
+    {
+      "name": "analytical: Coupled-spring tip response",
+      "passed": true,
+      "actual": -0.0005685219398523288,
+      "expected": -0.0005685219398523288,
+      "absolute_error": 0.0,
+      "tolerance": 1.2370438797046577e-09,
+      "formula": "u=(F_tip^\u22121+Kspring)^\u22121 P; F_tip from Castigliano",
+      "reference_kind": "continuum or exact discrete formula as labelled"
+    },
+    {
+      "name": "analytical: Coupled spring nodal reaction",
+      "passed": true,
+      "actual": 4555.835505499892,
+      "expected": 4555.835505499892,
+      "absolute_error": 0.0,
+      "tolerance": 0.009211671010999782,
+      "formula": "-Kspring*u",
+      "reference_kind": "continuum or exact discrete formula as labelled"
+    },
+    {
+      "name": "analytical: Coupled-spring tip response",
+      "passed": true,
+      "actual": 0.00048549786276297927,
+      "expected": 0.0004854978627629791,
+      "absolute_error": 1.6263032587282567e-19,
+      "tolerance": 1.0709957255259582e-09,
+      "formula": "u=(F_tip^\u22121+Kspring)^\u22121 P; F_tip from Castigliano",
+      "reference_kind": "continuum or exact discrete formula as labelled"
+    },
+    {
+      "name": "analytical: Coupled spring nodal reaction",
+      "passed": true,
+      "actual": -2682.675295829357,
+      "expected": -2682.675295829356,
+      "absolute_error": 9.094947017729282e-13,
+      "tolerance": 0.0054653505916587115,
+      "formula": "-Kspring*u",
+      "reference_kind": "continuum or exact discrete formula as labelled"
+    },
+    {
+      "name": "analytical: Coupled-spring tip response",
+      "passed": true,
+      "actual": 2.1591570014813207e-05,
+      "expected": 2.1591570014813213e-05,
+      "absolute_error": 6.776263578034403e-21,
+      "tolerance": 1.4318314002962642e-10,
+      "formula": "u=(F_tip^\u22121+Kspring)^\u22121 P; F_tip from Castigliano",
+      "reference_kind": "continuum or exact discrete formula as labelled"
+    },
+    {
+      "name": "analytical: Coupled spring nodal reaction",
+      "passed": true,
+      "actual": -35.520391673491176,
+      "expected": -35.52039167349122,
+      "absolute_error": 4.263256414560601e-14,
+      "tolerance": 0.00017104078334698246,
+      "formula": "-Kspring*u",
+      "reference_kind": "continuum or exact discrete formula as labelled"
+    },
+    {
+      "name": "analytical: Coupled-spring tip response",
+      "passed": true,
+      "actual": -9.212167075678339e-05,
+      "expected": -9.212167075678338e-05,
+      "absolute_error": 1.3552527156068805e-20,
+      "tolerance": 2.8424334151356674e-10,
+      "formula": "u=(F_tip^\u22121+Kspring)^\u22121 P; F_tip from Castigliano",
+      "reference_kind": "continuum or exact discrete formula as labelled"
+    },
+    {
+      "name": "analytical: Coupled spring nodal reaction",
+      "passed": true,
+      "actual": 4940.704330627513,
+      "expected": 4940.704330627511,
+      "absolute_error": 1.8189894035458565e-12,
+      "tolerance": 0.00998140866125502,
+      "formula": "-Kspring*u",
+      "reference_kind": "continuum or exact discrete formula as labelled"
+    },
+    {
+      "name": "analytical: Coupled-spring tip response",
+      "passed": true,
+      "actual": -0.00010617024019484277,
+      "expected": -0.00010617024019484278,
+      "absolute_error": 1.3552527156068805e-20,
+      "tolerance": 3.1234048038968556e-10,
+      "formula": "u=(F_tip^\u22121+Kspring)^\u22121 P; F_tip from Castigliano",
+      "reference_kind": "continuum or exact discrete formula as labelled"
+    },
+    {
+      "name": "analytical: Coupled spring nodal reaction",
+      "passed": true,
+      "actual": 7707.874188095879,
+      "expected": 7707.87418809588,
+      "absolute_error": 9.094947017729282e-13,
+      "tolerance": 0.015515748376191758,
+      "formula": "-Kspring*u",
+      "reference_kind": "continuum or exact discrete formula as labelled"
+    }
+  ]
+}

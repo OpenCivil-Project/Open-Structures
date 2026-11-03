@@ -1,0 +1,9 @@
+test_mass_link_phantom_keeps_index_alignment_after_sparse_nodes (test_solver_node_order.SolverNodeOrderTests.test_mass_link_phantom_keeps_index_alignment_after_sparse_nodes) ... ok
+test_modal_frequencies_shapes_and_mass_are_order_invariant (test_solver_node_order.SolverNodeOrderTests.test_modal_frequencies_shapes_and_mass_are_order_invariant) ... ok
+test_sparse_ids_preserve_node_fields_and_input_order (test_solver_node_order.SolverNodeOrderTests.test_sparse_ids_preserve_node_fields_and_input_order) ... ok
+test_static_stiffness_load_response_and_mass_are_order_invariant (test_solver_node_order.SolverNodeOrderTests.test_static_stiffness_load_response_and_mass_are_order_invariant) ... ok
+
+----------------------------------------------------------------------
+Ran 4 tests in 1.047s
+
+OK

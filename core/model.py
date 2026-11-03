@@ -1,12 +1,15 @@
 import json
+from core.compact_json import write_json
 from core.mesh import Node, FrameElement, TendonObject
 from core.properties import (Material, RectangularSection, ISection, GeneralSection,
                              CircularSection, PipeSection, TubeSection, TrapezoidalSection,
-                             ArbitrarySection, ShellSection, PlaneSection, AsolidSection, AreaSection, TendonSection)
+                             ArbitrarySection, ShellSection, PlaneSection, AsolidSection, AreaSection, TendonSection,
+                             ReinforcementData, NonlinearMaterialData, MaterialDamping, HingeProperty)
 from core.grid import GridLines
 from core.boundary import apply_restraint, Restraint
 from core.mesh import Slab, AreaElement 
 from core.units import unit_registry
+from core.reference_curve import sanitize_loaded_curves
 import numpy as np
 from core.loads import LoadPattern, NodalLoad, MemberLoad, MemberPointLoad, AreaGravityLoad, AreaUniformLoad, GroundDisplacement
 class TSC2018Data:
@@ -85,6 +88,36 @@ class MemberLoad:
     def __repr__(self):
         return f"MemberLoad(elem={self.element_id}, {self.coord_system}, dir={self.load_direction})"
 
+class FrameHingeAssignment:
+    """
+    A single assigned hinge on a frame element: which hinge property
+    (from model.hinge_properties, e.g. 'FH1'), and where along the
+    element (relative distance 0-1). Purely a data record - not wired
+    to the solver.
+    """
+    def __init__(self, hinge_id, element_id, hinge_name, rel_dist):
+        self.id = hinge_id
+        self.element_id = element_id
+        self.hinge_name = hinge_name
+        self.rel_dist = float(rel_dist)
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "element_id": self.element_id,
+            "hinge_name": self.hinge_name,
+            "rel_dist": self.rel_dist,
+        }
+
+    @staticmethod
+    def from_dict(data):
+        return FrameHingeAssignment(
+            data["id"], data["element_id"], data["hinge_name"], data["rel_dist"]
+        )
+
+    def __repr__(self):
+        return f"FrameHingeAssignment(elem={self.element_id}, hinge={self.hinge_name}, rel={self.rel_dist:.3f})"
+
 class RigidDiaphragm:
     """
     Represents a rigid floor constraint (Constraint).
@@ -101,6 +134,9 @@ class StructuralModel:
         self.name = name
 
         self.active_dofs = [True, True, True, True, True, True]
+        self.analysis_engine = "native"
+        self.last_run_case = None
+        self.show_analysis_log = True
 
         self.graphics_settings = {}                        
         
@@ -108,6 +144,10 @@ class StructuralModel:
         self.elements = {}                             
         self.materials = {}                          
         self.sections = {}
+        self.rebar_sizes = []
+        self.hinge_properties = {}
+        self.frame_hinges = {}
+        self._hinge_assign_counter = 1
         self.tendon_sections = {}
         self.tendons = {}
         self._tendon_counter = 1
@@ -133,6 +173,10 @@ class StructuralModel:
         self.functions = {}
         self.th_functions = {}
         self.plot_functions = []
+        self.virtual_measurements = {}
+        self.pushover_param_sets = [self.make_pushover_param_set("PO1")]
+                                                                                         
+        self.reference_curves = []
         self.constraints = {}
                          
         self.grid = GridLines()
@@ -143,6 +187,27 @@ class StructuralModel:
 
         self.add_load_pattern("DEAD", "DEAD", 1.0)
 
+    @staticmethod
+    def make_pushover_param_set(name):
+        """
+        One named Pushover (Force vs Displacement) parameter set: HOW to draw,
+        never WHICH case -- the case is chosen in the results viewer, so a set
+        works for any case of a single or batch run.
+        Manual axis ranges are stored in BASE units (N, m, or step number),
+        so they stay physically correct if the display units change.
+        """
+        return {
+            "name": name,
+            "kind": "force_disp",
+            "plot_type": "Resultant Base Shear vs Monitored Displacement",
+            "units": "Model display units",
+            "auto_x": True, "x_min": 0.0, "x_max": 0.0,
+            "auto_y": True, "y_min": 0.0, "y_max": 0.0,
+            "label_x": "", "label_y": "", "notes": "",
+            "curve_color": "", "curve_width": 2.2, "curve_style": "-",                                             
+            "overlay_curves": [],                                                                         
+        }
+
     def add_material(self, material):
         self.materials[material.name] = material
         return material
@@ -150,6 +215,50 @@ class StructuralModel:
     def add_section(self, section):
         self.sections[section.name] = section
         return section
+
+    def add_hinge_property(self, hinge_prop):
+        self.hinge_properties[hinge_prop.name] = hinge_prop
+        return hinge_prop
+
+    def get_next_hinge_name(self):
+        """Auto-suggests the next available hinge property name (FH1, FH2, ...)."""
+        i = 1
+        while f"FH{i}" in self.hinge_properties:
+            i += 1
+        return f"FH{i}"
+
+    def assign_frame_hinge(self, element_id, hinge_name, rel_dist, mode="replace"):
+        """
+        Assigns a hinge property to a frame element at a relative
+        distance (0-1) along its length. Data-only - not wired to any
+        solver/converter.
+        mode: "add" (append), "replace" (clear this element's existing
+        hinges first), or "delete" (clear this element's hinges).
+        """
+        if element_id not in self.elements:
+            raise KeyError(f"Element {element_id} does not exist.")
+
+        existing_ids = [hid for hid, h in self.frame_hinges.items()
+                        if h.element_id == element_id]
+
+        if mode == "delete":
+            for hid in existing_ids:
+                del self.frame_hinges[hid]
+            return
+
+        if mode == "replace":
+            for hid in existing_ids:
+                del self.frame_hinges[hid]
+        elif mode == "add":
+                                                                 
+            for hid in existing_ids:
+                h = self.frame_hinges[hid]
+                if h.hinge_name == hinge_name and abs(h.rel_dist - rel_dist) < 1e-6:
+                    return
+
+        new_id = self._hinge_assign_counter
+        self._hinge_assign_counter += 1
+        self.frame_hinges[new_id] = FrameHingeAssignment(new_id, element_id, hinge_name, rel_dist)
 
     def _get_next_node_id(self):
         """Calculates the next available Node ID."""
@@ -382,6 +491,53 @@ class StructuralModel:
                                       distances, magnitudes, is_relative, load_direction, load_type)
                 self.loads.append(new_load)
 
+    def assign_member_loads(self, element_ids, pattern_name, wx=0, wy=0, wz=0,
+                            projected=False, coord_system="Global", mode="replace",
+                            distances=None, magnitudes=None, is_relative=True,
+                            load_direction="Gravity", load_type="Force"):
+        """Assign the same frame load in one pass over the existing loads.
+
+        Unique valid IDs use a linear batch. Repeated or invalid IDs retain
+        the single-assignment order and its partial-error behavior.
+        """
+        ids = list(element_ids)
+
+        def sequential():
+            for element_id in ids:
+                self.assign_member_load(element_id, pattern_name, wx, wy, wz,
+                    projected, coord_system, mode, distances, magnitudes,
+                    is_relative, load_direction, load_type)
+
+        try:
+            selected = set(ids)
+            fast = len(selected) == len(ids) and all(eid in self.elements for eid in ids)
+        except TypeError:
+            fast = False
+        if not fast:
+            return sequential()
+        if not ids or mode not in ("add", "replace", "delete"):
+            return
+        new_loads = []
+                                                                      
+        if mode != "delete" and magnitudes is not None and not isinstance(magnitudes, (list, tuple, np.ndarray)):
+            return sequential()
+        if mode != "delete":
+            try:
+                has_nonzero = (abs(wx) > 1e-9 or abs(wy) > 1e-9 or abs(wz) > 1e-9 or
+                               any(abs(m) > 1e-9 for m in (magnitudes if magnitudes is not None else ())))
+                if has_nonzero:
+                    new_loads = [MemberLoad(eid, pattern_name, wx, wy, wz,
+                        projected, coord_system, distances, magnitudes, is_relative,
+                        load_direction, load_type) for eid in ids]
+            except (TypeError, ValueError, OverflowError):
+                return sequential()
+        if mode in ("replace", "delete"):
+                                                                             
+            self.loads[:] = [load for load in self.loads if not (
+                hasattr(load, 'element_id') and load.element_id in selected
+                and getattr(load, 'pattern_name', None) == pattern_name)]
+        self.loads.extend(new_loads)
+
     def save_to_file(self, filepath, progress=None):
         """Serializes the model data to a JSON file"""
         print(">>> RUNNING THE NEW SAVE METHOD <<<")           
@@ -393,19 +549,30 @@ class StructuralModel:
             "info": {
                 "name": self.name,
                 "units": unit_registry.current_unit_label,
-                "active_dofs": getattr(self, 'active_dofs', [True, True, True, True, True, True])                    
+                "active_dofs": getattr(self, 'active_dofs', [True, True, True, True, True, True]),
+                "analysis_engine": getattr(self, 'analysis_engine', "native"),
+                "last_run_case": getattr(self, 'last_run_case', None),
+                "show_analysis_log": getattr(self, 'show_analysis_log', True)
             },
             "graphics": self.graphics_settings,
+            "rebar_sizes": getattr(self, 'rebar_sizes', []), 
             "load_cases": [],
             "grid": {
                 "x_lines": self.grid.x_lines,
                 "y_lines": self.grid.y_lines,
                 "z_lines": self.grid.z_lines,
                 "bubble_size": getattr(self.grid, 'bubble_size', 1.25),
-                "bubble_alpha": getattr(self.grid, 'bubble_alpha', 1.0)
+                "bubble_alpha": getattr(self.grid, 'bubble_alpha', 1.0),
+                "bubble_line_width": getattr(self.grid, 'bubble_line_width', 1.5),
+                "bubble_ext_line_width": getattr(self.grid, 'bubble_ext_line_width', None),
+                "bubble_extension": getattr(self.grid, 'bubble_extension',
+                                            getattr(self.grid, 'bubble_size', 1.25) * 2.5),
+                "style": getattr(self.grid, 'style', None)
             },
             "materials": [],
             "sections": [],
+            "hinge_properties": [],
+            "frame_hinges": [],
             "tendon_sections": [],
             "cable_sections": [],
             "tendons": [],
@@ -423,7 +590,10 @@ class StructuralModel:
             "mass_sources": [],
             "functions": [],
             "th_functions": [],
-            "plot_functions": []
+            "plot_functions": [],
+            "virtual_measurements": self.virtual_measurements,
+            "pushover_param_sets": list(getattr(self, 'pushover_param_sets', [])),
+            "reference_curves": list(getattr(self, 'reference_curves', []))
         }
 
         _p(f"Saving {len(self.load_cases)} load case(s)...")
@@ -449,9 +619,31 @@ class StructuralModel:
                     "tf_conv_tol": getattr(lc, 'tf_conv_tol', 0.01),
                     "tf_accel_factor": getattr(lc, 'tf_accel_factor', 1.0),
                     "continue_if_no_converge": getattr(lc, 'continue_if_no_converge', False),
-                    "corot_type": getattr(lc, 'corot_type', "Commercial Compatibility")
+                    "use_fd_tangent": getattr(lc, 'use_fd_tangent', False),
+                    "formulation": getattr(lc, 'formulation', "Corotational"),
+                    "corot_type": getattr(lc, 'corot_type', "Commercial Compatibility"),
+                    "results_saved": getattr(lc, 'results_saved', "Final State Only"),
+                    "min_saved_states": getattr(lc, 'min_saved_states', 1),
+                    "max_saved_states": getattr(lc, 'max_saved_states', 100),
+                    "save_positive_disp_only": getattr(lc, 'save_positive_disp_only', False),
+                    "continue_from_case": getattr(lc, 'continue_from_case', None),
+                    "load_application": getattr(lc, 'load_application', "Full Load"),
+                    "disp_control_node_id": getattr(lc, 'disp_control_node_id', None),
+                    "disp_control_dof": getattr(lc, 'disp_control_dof', "U1"),
+                    "disp_control_magnitude": getattr(lc, 'disp_control_magnitude', 0.1),
+                    "disp_control_tol": getattr(lc, 'disp_control_tol', 1e-6),
+                    "hinge_snap": getattr(lc, 'hinge_snap', True),
+                    "hinge_snap_scope": getattr(lc, 'hinge_snap_scope', "tension"),
+                    "stop_on_fiber_failure": getattr(lc, 'stop_on_fiber_failure', False),
+                    "residual_stiffness": getattr(lc, 'residual_stiffness', 1e-8),
+                    "min_step_frac": getattr(lc, 'min_step_frac', 1e-4),
+                    "max_event_probes": getattr(lc, 'max_event_probes', 12),
+                    "auto_cutback": getattr(lc, 'auto_cutback', True),
+                    "max_step_attempts": getattr(lc, 'max_step_attempts', 0)
                 },
+                "opensees": get_opensees_block(lc),
                 "num_modes": getattr(lc, 'num_modes', 12),
+                "modal_fiber_hinges": getattr(lc, 'modal_fiber_hinges', False),
                 "rsa_loads": getattr(lc, 'rsa_loads', []),
                 "modal_comb": getattr(lc, 'modal_comb', 'SRSS'),
                 "dir_comb": getattr(lc, 'dir_comb', 'SRSS'),
@@ -471,10 +663,17 @@ class StructuralModel:
 
         _p(f"Saving {len(self.materials)} material(s)...")
         for mat in self.materials.values():
+            nonlinear = getattr(mat, "nonlinear", None)
+            damping = getattr(mat, "damping", None)
             data["materials"].append({
                 "name": mat.name,
                 "E": mat.E, "nu": mat.nu, "G": mat.G, "rho": mat.density,
-                "type": mat.mat_type, "fy": mat.fy, "fu": mat.fu
+                "type": mat.mat_type, "fy": mat.fy, "fu": mat.fu,
+                "fye": getattr(mat, "fye", 0.0), "fue": getattr(mat, "fue", 0.0),
+                "grade": getattr(mat, "grade", ""),
+                "derived_from": getattr(mat, "derived_from", ""),
+                "nonlinear": nonlinear.to_dict() if nonlinear else None,
+                "damping": damping.to_dict() if damping else None,
             })
 
         _p(f"Saving {len(self.sections)} frame section(s)...")
@@ -515,8 +714,19 @@ class StructuralModel:
                 })
             elif isinstance(sec, GeneralSection):
                 sec_data.update({"type": "general"})
-            
+
+            if getattr(sec, "reinforcement", None) is not None:
+                sec_data["reinforcement"] = sec.reinforcement.to_dict()
+
             data["sections"].append(sec_data)
+
+        _p(f"Saving {len(self.hinge_properties)} hinge propert(y/ies)...")
+        for hp in self.hinge_properties.values():
+            data["hinge_properties"].append(hp.to_dict())
+
+        _p(f"Saving {len(self.frame_hinges)} frame hinge assignment(s)...")
+        for fh in self.frame_hinges.values():
+            data["frame_hinges"].append(fh.to_dict())
 
         _p(f"Saving {len(self.tendon_sections)} tendon section(s)...")
         for ts in self.tendon_sections.values():
@@ -653,7 +863,9 @@ class StructuralModel:
             data["area_elements"].append({
                 "id": ae.id, 
                 "node_ids": [n.id for n in ae.nodes], 
-                "sec_name": ae.section.name
+                "sec_name": ae.section.name,
+                "insertion_offset": getattr(ae, 'insertion_offset', 0.0),
+                "solver_mesh": getattr(ae, 'solver_mesh', None)
             })
 
         _p(f"Saving {len(self.constraints)} diaphragm constraint(s)...")
@@ -809,6 +1021,7 @@ class StructuralModel:
                 **( {"shell_type": s.shell_type,
                      "membrane_thickness": s.membrane_thickness,
                      "bending_thickness":  s.bending_thickness,
+                     "thin_formulation": getattr(s, 'thin_formulation', "DKQ"),
                      "modeling_type": getattr(s, 'modeling_type', "True FEM (Shell)")}      
                     if isinstance(s, ShellSection) else {} ),
                                      
@@ -827,7 +1040,10 @@ class StructuralModel:
 
         _p("Writing file to disk...")
         with open(filepath, 'w') as f:
-            json.dump(data, f, indent=4)
+                                                                                              
+            n_items = (len(data["nodes"]) + len(data["elements"])
+                       + len(data["area_elements"]) + len(data["loads"]))
+            write_json(data, f, n_items=n_items)
         print(f"Model saved to {filepath}")
 
     def load_from_file(self, filepath, progress=None):
@@ -842,6 +1058,9 @@ class StructuralModel:
         _p("Clearing current model data...")
         self.nodes.clear(); self.elements.clear(); self.materials.clear()
         self.sections.clear(); self.area_sections.clear(); self.load_patterns.clear(); self.loads.clear()
+        self.hinge_properties.clear()
+        self.frame_hinges.clear(); self._hinge_assign_counter = 1
+        self.rebar_sizes = [] 
         self.tendon_sections.clear(); self.tendons.clear()              
         self.cable_sections.clear(); self.cables.clear()                   
         self.slabs.clear(); self.area_elements.clear(); self.constraints.clear()
@@ -851,6 +1070,9 @@ class StructuralModel:
         self.functions = {}
         self.th_functions = {}
         self.plot_functions = []
+        self.virtual_measurements = {}
+        self.pushover_param_sets = []
+        self.reference_curves = []
         self._node_counter = 1; self._elem_counter = 1; self._slab_counter = 1; self._area_elem_counter = 1
         self._cable_counter = 1
 
@@ -859,11 +1081,19 @@ class StructuralModel:
         self.saved_unit_system = data["info"].get("units", "kN, m, C")
 
         self.active_dofs = data["info"].get("active_dofs", [True, True, True, True, True, True])
-        
+        self.analysis_engine = data["info"].get("analysis_engine", "native")
+        self.last_run_case = data["info"].get("last_run_case", None)
+        self.show_analysis_log = data["info"].get("show_analysis_log", True)
+        self.rebar_sizes = data.get("rebar_sizes", [])
+
         grid_data = data["grid"]
 
         self.grid.bubble_size = grid_data.get("bubble_size", 1.25)
         self.grid.bubble_alpha = grid_data.get("bubble_alpha", 1.0)
+        self.grid.bubble_line_width = grid_data.get("bubble_line_width", 1.5)
+        self.grid.bubble_ext_line_width = grid_data.get("bubble_ext_line_width", None)
+        self.grid.bubble_extension = grid_data.get("bubble_extension", self.grid.bubble_size * 2.5)
+        self.grid.set_style(grid_data.get("style"))
         
         if "x_lines" in grid_data:
             self.grid.x_lines = grid_data["x_lines"]; self.grid.y_lines = grid_data["y_lines"]; self.grid.z_lines = grid_data["z_lines"]
@@ -872,7 +1102,12 @@ class StructuralModel:
 
         _p(f"Loading {len(data.get('materials', []))} material(s)...")
         for m_data in data["materials"]:
-            mat = Material(m_data["name"], m_data["E"], m_data["nu"], m_data["rho"], m_data["type"], m_data.get("fy", 0), m_data.get("fu", 0))
+            mat = Material(m_data["name"], m_data["E"], m_data["nu"], m_data["rho"], m_data["type"],
+                           m_data.get("fy", 0), m_data.get("fu", 0),
+                           m_data.get("fye", 0), m_data.get("fue", 0), m_data.get("grade", ""))
+            mat.nonlinear = NonlinearMaterialData.from_dict(m_data.get("nonlinear"))
+            mat.damping = MaterialDamping.from_dict(m_data.get("damping"))
+            mat.derived_from = m_data.get("derived_from", "")
             self.add_material(mat)
 
         _p(f"Loading {len(data.get('sections', []))} frame section(s)...")
@@ -921,7 +1156,15 @@ class StructuralModel:
             if sec:
                 if "color" in s_data: sec.color = tuple(s_data["color"])
                 if "modifiers" in s_data: sec.modifiers = s_data["modifiers"]
+                if "reinforcement" in s_data:
+                    sec.reinforcement = ReinforcementData.from_dict(s_data["reinforcement"])
                 self.add_section(sec)
+
+        _p(f"Loading {len(data.get('hinge_properties', []))} hinge propert(y/ies)...")
+        for hp_data in data.get("hinge_properties", []):
+            hp = HingeProperty.from_dict(hp_data)
+            if hp:
+                self.add_hinge_property(hp)
 
         _AREA_CLS = {"ShellSection": ShellSection,
                      "PlaneSection": PlaneSection,
@@ -981,6 +1224,7 @@ class StructuralModel:
                 sec.shell_type         = d["shell_type"]
                 sec.membrane_thickness = d["membrane_thickness"]
                 sec.bending_thickness  = d["bending_thickness"]
+                sec.thin_formulation   = d.get("thin_formulation", "DKQ")
             elif cls is PlaneSection:
                 sec.plane_type         = d["plane_type"]
                 sec.incompatible_modes = d["incompatible_modes"]
@@ -1010,7 +1254,13 @@ class StructuralModel:
 
         _p("Loading diaphragm constraints...")
         if "constraints" in data:
-            for c_data in data["constraints"]: self.add_constraint(c_data["name"], c_data["axis"])
+            for c_data in data["constraints"]: 
+                self.add_constraint(c_data["name"], c_data["axis"])
+
+        for n in self.nodes.values():
+            if getattr(n, 'diaphragm_name', None) and n.diaphragm_name not in self.constraints:
+                print(f"🧹 Cleanup: Removing phantom constraint reference '{n.diaphragm_name}' from Node {n.id}")
+                n.diaphragm_name = None
 
         self.slabs.clear(); 
         self.graphics_settings = data.get("graphics", {})
@@ -1031,6 +1281,7 @@ class StructuralModel:
                     display_color=s_data.get("display_color", "#FF00FF")
                 )
                 sec.modeling_type = s_data.get("modeling_type", "True FEM (Shell)")      
+                sec.thin_formulation = s_data.get("thin_formulation", "DKQ")
             elif s_data["type"] == "PlaneSection":
                 sec = PlaneSection(
                     s_data["name"], mat,
@@ -1078,6 +1329,13 @@ class StructuralModel:
                 el.end_offset_i = el_data.get("end_off_i", 0.0)
                 el.end_offset_j = el_data.get("end_off_j", 0.0)
                 el.rigid_zone_factor = el_data.get("rz_factor", 0.0)
+
+        _p(f"Loading {len(data.get('frame_hinges', []))} frame hinge assignment(s)...")
+        for fh_data in data.get("frame_hinges", []):
+            if fh_data.get("element_id") in self.elements:
+                fh = FrameHingeAssignment.from_dict(fh_data)
+                self.frame_hinges[fh.id] = fh
+                self._hinge_assign_counter = max(self._hinge_assign_counter, fh.id + 1)
 
         _p(f"Loading {len(data.get('tendons', []))} tendon object(s)...")
         for t_data in data.get("tendons", []):
@@ -1161,6 +1419,8 @@ class StructuralModel:
                     new_ae = self.add_area_element(ae_nodes, sec)
                     del self.area_elements[new_ae.id]
                     new_ae.id = ae_data["id"]
+                    new_ae.insertion_offset = ae_data.get("insertion_offset", 0.0)
+                    new_ae.solver_mesh = ae_data.get("solver_mesh")
                     self.area_elements[new_ae.id] = new_ae
                     self._area_elem_counter = max(self._area_elem_counter, new_ae.id + 1)
 
@@ -1203,8 +1463,31 @@ class StructuralModel:
                 new_lc.tf_max_iter = nl_params.get("tf_max_iter", 10)
                 new_lc.tf_conv_tol = nl_params.get("tf_conv_tol", 0.01)
                 new_lc.tf_accel_factor = nl_params.get("tf_accel_factor", 1.0)
-                new_lc.continue_if_no_converge = nl_params.get("continue_if_no_converge", False),
+                new_lc.continue_if_no_converge = nl_params.get("continue_if_no_converge", False)
+                new_lc.use_fd_tangent = nl_params.get("use_fd_tangent", False)
+                new_lc.formulation = nl_params.get("formulation", "Corotational")
                 new_lc.corot_type = nl_params.get("corot_type", "Commercial Compatibility")
+                new_lc.results_saved = nl_params.get("results_saved", "Final State Only")
+                new_lc.min_saved_states = nl_params.get("min_saved_states", 1)
+                new_lc.max_saved_states = nl_params.get("max_saved_states", 100)
+                new_lc.save_positive_disp_only = nl_params.get("save_positive_disp_only", False)
+                new_lc.continue_from_case = nl_params.get("continue_from_case", None)
+                new_lc.load_application = nl_params.get("load_application", "Full Load")
+                new_lc.disp_control_node_id = nl_params.get("disp_control_node_id", None)
+                new_lc.disp_control_dof = nl_params.get("disp_control_dof", "U1")
+                new_lc.disp_control_magnitude = nl_params.get("disp_control_magnitude", 0.1)
+                new_lc.disp_control_tol = nl_params.get("disp_control_tol", 1e-6)
+                                                                                            
+                new_lc.hinge_snap = nl_params.get("hinge_snap", nl_params.get("sap_hinge_snap", True))
+                new_lc.hinge_snap_scope = nl_params.get("hinge_snap_scope", nl_params.get("sap_hinge_snap_scope", "tension"))
+                new_lc.stop_on_fiber_failure = nl_params.get("stop_on_fiber_failure", False)
+                new_lc.residual_stiffness = nl_params.get("residual_stiffness", 1e-8)
+                new_lc.min_step_frac = nl_params.get("min_step_frac", 1e-4)
+                new_lc.max_event_probes = nl_params.get("max_event_probes", 12)
+                new_lc.auto_cutback = nl_params.get("auto_cutback", True)
+                new_lc.max_step_attempts = nl_params.get("max_step_attempts", 0)
+
+                new_lc.opensees = {**default_opensees_block(), **(lc_data.get("opensees") or {})}
 
                 raw_rsa = lc_data.get("rsa_loads", [])
                 new_lc.rsa_loads = [tuple(item) for item in raw_rsa]
@@ -1213,6 +1496,7 @@ class StructuralModel:
                 new_lc.dir_comb = lc_data.get("dir_comb", "SRSS")
                 new_lc.p_delta = lc_data.get("p_delta", False)
                 new_lc.num_modes = lc_data.get("num_modes", 12)
+                new_lc.modal_fiber_hinges = lc_data.get("modal_fiber_hinges", False)
                 new_lc.modal_damping = lc_data.get("modal_damping", 0.05)
                 new_lc.damping = lc_data.get("ltha_damping", 0.05)
                 new_lc.ltha_loads = [tuple(x) for x in lc_data.get("ltha_loads", [])]
@@ -1292,6 +1576,19 @@ class StructuralModel:
 
         _p("Loading plot functions...")
         self.plot_functions = data.get("plot_functions", [])
+
+        _p("Loading virtual measurements...")                 
+        self.virtual_measurements = data.get("virtual_measurements", {})
+
+        _p("Loading pushover parameter sets...")
+        self.pushover_param_sets = [
+            {**self.make_pushover_param_set(ps.get("name", "PO")),
+             **{k: v for k, v in ps.items() if k != "case_name"}}                             
+            for ps in (data.get("pushover_param_sets") or []) if isinstance(ps, dict)
+        ]
+        if not self.pushover_param_sets:
+            self.pushover_param_sets = [self.make_pushover_param_set("PO1")]
+        self.reference_curves = sanitize_loaded_curves(data.get("reference_curves"))
 
         _p(f"Loading {len(data.get('loads', []))} load assignment(s)...")
         if "loads" in data:
@@ -1953,6 +2250,58 @@ class StructuralModel:
                 self.loads.append(
                     AreaGravityLoad(area_id, pattern_name, coord_system, gx, gy, gz))
 
+    def assign_area_gravity_loads(self, area_ids, pattern_name,
+                                  gx=0.0, gy=0.0, gz=0.0,
+                                  coord_system="GLOBAL", mode="replace"):
+        """Assign self-weight multipliers with one scan of existing loads.
+
+        Repeated or invalid IDs retain the scalar method's assignment order
+        and partial-error behavior.
+        """
+        ids = list(area_ids)
+
+        def sequential():
+            for area_id in ids:
+                self.assign_area_gravity_load(area_id, pattern_name, gx, gy, gz,
+                                              coord_system, mode)
+
+        try:
+            selected = set(ids)
+            fast = len(selected) == len(ids) and all(aid in self.area_elements for aid in ids)
+        except TypeError:
+            fast = False
+        if not fast:
+            return sequential()
+        if not ids or mode not in ("add", "replace", "delete"):
+            return
+        if mode in ("replace", "delete"):
+            try:
+                has_nonzero = any([gx, gy, gz]) if mode == "replace" else False
+            except (TypeError, ValueError):
+                return sequential()
+            self.loads[:] = [load for load in self.loads if not (
+                hasattr(load, 'gx') and load.area_id in selected
+                and load.pattern_name == pattern_name)]
+            if has_nonzero:
+                self.loads.extend(AreaGravityLoad(aid, pattern_name, coord_system,
+                                                 gx, gy, gz) for aid in ids)
+            return
+        existing = {}
+        for load in self.loads:
+            if (hasattr(load, 'gx') and load.area_id in selected
+                    and load.pattern_name == pattern_name):
+                existing.setdefault(load.area_id, load)
+        for aid in ids:
+            if aid in existing:
+                load = existing[aid]
+                                                                        
+                load.gx += gx
+                load.gy += gy
+                load.gz += gz
+            elif any([gx, gy, gz]):
+                self.loads.append(AreaGravityLoad(aid, pattern_name, coord_system,
+                                                 gx, gy, gz))
+
     def assign_area_uniform_load(self, area_id, pattern_name,
                                   uniform_load=0.0, load_direction="Gravity",
                                   coord_system="GLOBAL", mode="replace"):
@@ -2000,6 +2349,52 @@ class StructuralModel:
                     AreaUniformLoad(area_id, pattern_name, coord_system,
                                     load_direction, uniform_load))
 
+    def assign_area_uniform_loads(self, area_ids, pattern_name, uniform_load=0.0,
+                                  load_direction="Gravity", coord_system="GLOBAL",
+                                  mode="replace"):
+        """Assign pressure to many areas without rescanning all loads per area."""
+        ids = list(area_ids)
+
+        def sequential():
+            for area_id in ids:
+                self.assign_area_uniform_load(area_id, pattern_name, uniform_load,
+                                              load_direction, coord_system, mode)
+
+        try:
+            selected = set(ids)
+            fast = len(selected) == len(ids) and all(aid in self.area_elements for aid in ids)
+        except TypeError:
+            fast = False
+        if not fast:
+            return sequential()
+        if not ids or mode not in ("add", "replace", "delete"):
+            return
+        if mode in ("replace", "delete"):
+            try:
+                has_nonzero = bool(uniform_load != 0.0) if mode == "replace" else False
+            except (TypeError, ValueError):
+                return sequential()
+            self.loads[:] = [load for load in self.loads if not (
+                hasattr(load, 'uniform_load') and load.area_id in selected
+                and load.pattern_name == pattern_name)]
+            if has_nonzero:
+                self.loads.extend(AreaUniformLoad(aid, pattern_name, coord_system,
+                                  load_direction, uniform_load) for aid in ids)
+            return
+        existing = {}
+        for load in self.loads:
+            if (hasattr(load, 'uniform_load') and load.area_id in selected
+                    and load.pattern_name == pattern_name
+                    and load.load_direction == load_direction):
+                existing.setdefault(load.area_id, load)
+        for aid in ids:
+            if aid in existing:
+                                                                                
+                existing[aid].uniform_load += uniform_load
+            elif uniform_load != 0.0:
+                self.loads.append(AreaUniformLoad(aid, pattern_name, coord_system,
+                                                 load_direction, uniform_load))
+
     def mesh_area_elements(self, area_ids, mode="divisions", n=1, m=1, max_x=0.5, max_y=0.5, divide_frames=True):
         """
         Meshes selected 4-node AreaElements either by exact N x M divisions or by a Max Size.
@@ -2009,6 +2404,7 @@ class StructuralModel:
         if not area_ids:
             return 0
 
+        mesh_map = self._get_mesh_map()
         elements_meshed = 0
         elements_to_delete = []
         new_mesh_nodes = set()                                                  
@@ -2020,8 +2416,8 @@ class StructuralModel:
             old_elem = self.area_elements[eid]
             nodes = old_elem.nodes
 
-            if hasattr(old_elem.section, 'modeling_type') and old_elem.section.modeling_type == "Tributary Area":
-                print(f"Skipping Tributary Area slab {eid} from meshing.")
+            if hasattr(old_elem.section, 'modeling_type') and old_elem.section.modeling_type in ("Tributary Area", "Code Based (TS 500)"):
+                print(f"Skipping Tributary / Code Based slab {eid} from meshing.")
                 continue
             
             if len(nodes) != 4:
@@ -2049,6 +2445,8 @@ class StructuralModel:
                 continue
 
             section = old_elem.section
+            parent_ins = getattr(old_elem, 'insertion_offset', 0.0)
+            parent_area_loads = [l for l in self.loads if getattr(l, 'area_id', None) == eid]
 
             node_grid = {}
             for i in range(n_divisions + 1):
@@ -2073,70 +2471,504 @@ class StructuralModel:
                     n3 = node_grid[i+1][j+1]
                     n4 = node_grid[i][j+1]
                     
-                    self.add_area_element([n1, n2, n3, n4], section)
+                    new_ae = self.add_area_element([n1, n2, n3, n4], section)
+                    new_ae.insertion_offset = parent_ins
+                    new_ae.solver_mesh = None
+                    mesh_map["area_parent"][new_ae.id] = eid
+                    for old_load in parent_area_loads:
+                        if hasattr(old_load, 'gx'):
+                            self.assign_area_gravity_load(
+                                new_ae.id, old_load.pattern_name,
+                                old_load.gx, old_load.gy, old_load.gz,
+                                coord_system=getattr(old_load, 'coord_system', "GLOBAL"),
+                                mode="add")
+                        elif hasattr(old_load, 'uniform_load'):
+                            self.assign_area_uniform_load(
+                                new_ae.id, old_load.pattern_name,
+                                old_load.uniform_load,
+                                load_direction=getattr(old_load, 'load_direction', "Gravity"),
+                                coord_system=getattr(old_load, 'coord_system', "GLOBAL"),
+                                mode="add")
 
             elements_to_delete.append((eid, nodes))
             elements_meshed += 1
 
         for eid, original_nodes in elements_to_delete:
+            self.loads = [l for l in self.loads if getattr(l, 'area_id', None) != eid]
             del self.area_elements[eid]
             for n in original_nodes:
                 self._cleanup_orphan_node(n.id)
+
+        self._last_new_mesh_nodes = new_mesh_nodes
 
         if divide_frames and new_mesh_nodes:
             self._split_frames_by_nodes(new_mesh_nodes)
         
         return elements_meshed
 
-    def _split_frames_by_nodes(self, split_nodes):
+    def join_area_elements(self, area_ids, tol=1e-4, rejoin_frames=True):
         """
-        Helper method to split existing frame elements if any of the passed nodes
-        lie exactly on their line segment. Keeps end releases intact.
-        """
-                                                                                             
-        for el in list(self.elements.values()):
-            p_i = np.array([el.node_i.x, el.node_i.y, el.node_i.z])
-            p_j = np.array([el.node_j.x, el.node_j.y, el.node_j.z])
-            L_total = np.linalg.norm(p_j - p_i)
-            
-            if L_total < 1e-6: 
-                continue
+        Merges selected 4-node shells that together form ONE quadrilateral patch
+        (e.g. the N x M shells made by mesh_area_elements) back into a single shell.
+        Works purely from geometry/connectivity, so it does not depend on the in-memory
+        mesh map (which is not saved with the model).
 
-            nodes_on_segment = []
-            for n in split_nodes:
-                                               
-                if n.id == el.node_i.id or n.id == el.node_j.id:
+        Requirements: >= 2 quads, same section and insertion offset, edge-connected, outer
+        boundary has exactly 4 corners, and the interior nodes are not used by anything outside
+        the selection (frames, links, supports, nodal loads, diaphragms, other shells).
+
+        Loads: area loads are merged per (pattern, direction); when children differ the
+        area-weighted average is used, so the total load is preserved.
+
+        Returns {"created_area_id", "removed_area_ids", "removed_node_ids", "hanging_node_ids"}.
+        hanging_node_ids = nodes on the outer edges that are not corners (still used by
+        neighbours, so the joined shell's edge passes through them).
+        rejoin_frames: frames that were split at those edge nodes (by "Add Points to Frames")
+        are merged back where it is safe; see _rejoin_frames_at_nodes. Returned as
+        "rejoined_frames": [(new_frame_id, [old ids]), ...].
+        Raises ValueError / KeyError on invalid selections.
+        """
+        ids = list(dict.fromkeys(area_ids or []))
+        if len(ids) < 2:
+            raise ValueError("Select at least two shells to join.")
+        for aid in ids:
+            if aid not in self.area_elements:
+                raise KeyError(f"Area element {aid} does not exist.")
+        aes = [self.area_elements[a] for a in ids]
+        if any(len(a.nodes) != 4 for a in aes):
+            raise ValueError("Join supports 4-node shells only.")
+        first = aes[0]
+        for a in aes[1:]:
+            if a.section.name != first.section.name:
+                raise ValueError("Selected shells have different sections.")
+            if abs(getattr(a, 'insertion_offset', 0.0) - getattr(first, 'insertion_offset', 0.0)) > 1e-9:
+                raise ValueError("Selected shells have different insertion offsets.")
+        mt = getattr(first.section, 'modeling_type', None)
+        if mt in ("Tributary Area", "Code Based (TS 500)"):
+            raise ValueError("Tributary / Code Based slabs cannot be joined.")
+
+        P = lambda n: np.array([n.x, n.y, n.z], dtype=float)
+        def quad_area(a):
+            p = [P(n) for n in a.nodes]
+            return 0.5 * float(np.linalg.norm(np.cross(p[2] - p[0], p[3] - p[1])))
+
+        canon, by_pos = {}, {}
+        for a in aes:
+            for n in a.nodes:
+                key = (round(n.x / 1e-4), round(n.y / 1e-4), round(n.z / 1e-4))
+                canon[n.id] = by_pos.setdefault(key, n.id)
+
+        edge_cnt = {}
+        for a in aes:
+            ns = [canon[n.id] for n in a.nodes]
+            for k in range(4):
+                e = frozenset((ns[k], ns[(k + 1) % 4]))
+                edge_cnt[e] = edge_cnt.get(e, 0) + 1
+        if any(c > 2 for c in edge_cnt.values()):
+            raise ValueError("Selected shells overlap.")
+
+        by_edge = {}
+        for a in aes:
+            ns = [canon[n.id] for n in a.nodes]
+            for k in range(4):
+                by_edge.setdefault(frozenset((ns[k], ns[(k + 1) % 4])), []).append(a.id)
+        seen, groups = set(), []
+        for a in aes:
+            if a.id in seen:
+                continue
+            stack, grp = [a.id], []
+            seen.add(a.id)
+            while stack:
+                cur = stack.pop(); grp.append(cur)
+                ns = [canon[n.id] for n in self.area_elements[cur].nodes]
+                for k in range(4):
+                    for o in by_edge[frozenset((ns[k], ns[(k + 1) % 4]))]:
+                        if o not in seen:
+                            seen.add(o); stack.append(o)
+            groups.append(sorted(grp))
+        if len(groups) > 1:
+            desc = "; ".join("{" + ", ".join(map(str, g[:6])) + (", ..." if len(g) > 6 else "") + "}" for g in groups[:4])
+            raise ValueError(f"The selection is {len(groups)} separate groups that do not share edges: {desc}. "
+                             "Select only the shells of ONE original shell (or one rectangular patch).")
+
+        bnd = [tuple(e) for e, c in edge_cnt.items() if c == 1]
+        adj = {}
+        for u, v in bnd:
+            adj.setdefault(u, []).append(v)
+            adj.setdefault(v, []).append(u)
+        bad = sorted(k for k, v in adj.items() if len(v) != 2)
+        if not adj or bad:
+            if not adj:
+                raise ValueError("The selected shells have no outer boundary.")
+            raise ValueError(
+                f"The outline touches itself or has a hole / T-junction at joint(s) {bad[:8]}"
+                f"{' ...' if len(bad) > 8 else ''}. Select a solid rectangular block of shells without gaps; "
+                "a neighbouring shell meshed finer along an edge also breaks the patch.")
+        start = next(iter(adj))
+        loop, prev, cur = [start], None, start
+        while True:
+            nxt = [w for w in adj[cur] if w != prev]
+            nxt = nxt[0] if nxt else None
+            if nxt is None or nxt == start:
+                break
+            loop.append(nxt)
+            prev, cur = cur, nxt
+            if len(loop) > len(adj):
+                break
+        if len(loop) != len(adj):
+            raise ValueError("Selected shells are not one connected patch without holes.")
+
+        corners = []
+        for i, nid in enumerate(loop):
+            a, b, c = P(self.nodes[loop[i - 1]]), P(self.nodes[nid]), P(self.nodes[loop[(i + 1) % len(loop)]])                 
+            d1, d2 = b - a, c - b
+            n1, n2 = np.linalg.norm(d1), np.linalg.norm(d2)
+            if n1 < 1e-9 or n2 < 1e-9:
+                continue
+            if np.linalg.norm(np.cross(d1, d2)) / (n1 * n2) > 1e-3:
+                corners.append(nid)
+        if len(corners) != 4:
+            raise ValueError(f"Outer boundary has {len(corners)} corners; the selection must form a single quadrilateral.")
+
+        pf = [P(n) for n in first.nodes]
+        ref_normal = np.cross(pf[2] - pf[0], pf[3] - pf[1])
+        ref_e1 = pf[1] - pf[0]
+        corner_pos = [loop.index(c) for c in corners]
+        best, best_score = None, -1e18
+        for seq in (corners, corners[::-1]):
+            for r in range(4):
+                cand = seq[r:] + seq[:r]
+                q = [P(self.nodes[c]) for c in cand]
+                nrm = np.cross(q[2] - q[0], q[3] - q[1])
+                if np.dot(nrm, ref_normal) <= 0:
                     continue
-                
-                p_n = np.array([n.x, n.y, n.z])
-                d1 = np.linalg.norm(p_n - p_i)
-                d2 = np.linalg.norm(p_j - p_n)
-                
-                if abs((d1 + d2) - L_total) < 1e-5:
-                    nodes_on_segment.append((d1, n))
-            
+                e1 = q[1] - q[0]
+                score = float(np.dot(e1, ref_e1) / max(np.linalg.norm(e1) * np.linalg.norm(ref_e1), 1e-12))
+                if score > best_score:
+                    best, best_score = cand, score
+        if best is None:
+            raise ValueError("Could not orient the joined shell.")
+
+        q = [P(self.nodes[c]) for c in best]
+        joined_area = 0.5 * float(np.linalg.norm(np.cross(q[2] - q[0], q[3] - q[1])))
+        areas = [quad_area(a) for a in aes]
+        total = sum(areas)
+        if joined_area < 1e-12 or abs(joined_area - total) > 1e-3 * max(total, 1e-12):
+            raise ValueError("Selected shells do not fill a flat quadrilateral (area mismatch).")
+
+        sel = set(ids)
+        used = set()
+        for a in aes:
+            used.update(n.id for n in a.nodes)
+        boundary_nodes = set(loop)
+        interior = [n for n in used if canon[n] not in boundary_nodes]
+        for nid in interior:
+            node = self.nodes[nid]
+            if any(node.restraints):
+                raise ValueError(f"Joint {nid} has a support and cannot be merged away.")
+            if any(e.node_i.id == nid or e.node_j.id == nid for e in self.elements.values()):
+                raise ValueError(f"Joint {nid} is used by a frame and cannot be merged away.")
+            if any(nid in l['nodes'] for l in self.links.values()):
+                raise ValueError(f"Joint {nid} is used by a link and cannot be merged away.")
+            if any(getattr(l, 'node_id', None) == nid for l in self.loads):
+                raise ValueError(f"Joint {nid} carries a nodal load and cannot be merged away.")
+            if any(nid in {getattr(x, 'id', x) for x in getattr(c, 'nodes', [])} for c in self.constraints.values()):
+                raise ValueError(f"Joint {nid} belongs to a diaphragm constraint.")
+            if any(ae.id not in sel and any(n.id == nid for n in ae.nodes) for ae in self.area_elements.values()):
+                raise ValueError(f"Joint {nid} is used by a shell outside the selection.")
+            if any(any(n.id == nid for n in s.nodes) for s in self.slabs.values()):
+                raise ValueError(f"Joint {nid} is used by a slab and cannot be merged away.")
+
+        grav, unif = {}, {}
+        for a, ar in zip(aes, areas):
+            for ld in self.loads:
+                if getattr(ld, 'area_id', None) != a.id:
+                    continue
+                if hasattr(ld, 'gx'):
+                    k = (ld.pattern_name, getattr(ld, 'coord_system', "GLOBAL"))
+                    g = grav.setdefault(k, [0.0, 0.0, 0.0])
+                    g[0] += ld.gx * ar; g[1] += ld.gy * ar; g[2] += ld.gz * ar
+                elif hasattr(ld, 'uniform_load'):
+                    k = (ld.pattern_name, getattr(ld, 'load_direction', "Gravity"),
+                         getattr(ld, 'coord_system', "GLOBAL"))
+                    unif[k] = unif.get(k, 0.0) + ld.uniform_load * ar
+
+        sm = [getattr(a, 'solver_mesh', None) for a in aes]
+        keep_sm = sm[0] if all(s == sm[0] for s in sm) else None
+
+        new_ae = self.add_area_element([self.nodes[c] for c in best], first.section)
+        new_ae.insertion_offset = getattr(first, 'insertion_offset', 0.0)
+        new_ae.solver_mesh = dict(keep_sm) if keep_sm else None
+        for (pat, cs), g in grav.items():
+            self.assign_area_gravity_load(new_ae.id, pat, g[0] / total, g[1] / total, g[2] / total,
+                                          coord_system=cs, mode="add")
+        for (pat, dr, cs), v in unif.items():
+            self.assign_area_uniform_load(new_ae.id, pat, v / total, load_direction=dr,
+                                          coord_system=cs, mode="add")
+
+        self.loads = [l for l in self.loads if getattr(l, 'area_id', None) not in sel]
+        for aid in ids:
+            del self.area_elements[aid]
+        mm = self._get_mesh_map()
+        for aid in ids:
+            mm["area_parent"].pop(aid, None)
+        for nid in used:                                                                                   
+            self._cleanup_orphan_node(nid)
+
+        hanging = [n for n in loop if n not in set(best)]
+        rejoined = self._rejoin_frames_at_nodes(hanging) if rejoin_frames else []
+        return {"created_area_id": new_ae.id, "removed_area_ids": ids,
+                "removed_node_ids": [n for n in used if n not in self.nodes],
+                "hanging_node_ids": hanging, "rejoined_frames": rejoined}
+
+    def _rejoin_frames_at_nodes(self, node_ids):
+        """
+        Undoes the frame splitting done by mesh_area_elements: at each given node that is used by
+        exactly two frames and nothing else, merges the two frames with join_frames. A node is left
+        alone if it has a support, nodal load, diaphragm, link, a shell, a frame release, a hinge,
+        or if the two frames differ in section / beta angle / cardinal point / are not collinear.
+        Returns [(new_frame_id, [removed ids]), ...].
+        """
+        done = []
+        for nid in node_ids:
+            node = self.nodes.get(nid)
+            if node is None or any(node.restraints) or getattr(node, 'diaphragm_name', None):
+                continue
+            if any(getattr(l, 'node_id', None) == nid for l in self.loads):
+                continue
+            if any(nid in l['nodes'] for l in self.links.values()):
+                continue
+            if any(any(n.id == nid for n in ae.nodes) for ae in self.area_elements.values()):
+                continue
+            if any(nid in {getattr(x, 'id', x) for x in getattr(c, 'nodes', [])}
+                   for c in self.constraints.values()):
+                continue
+            fr = [e for e in self.elements.values() if e.node_i.id == nid or e.node_j.id == nid]
+            if len(fr) != 2:
+                continue
+            a, b = fr
+            if (a.section.name != b.section.name or abs(a.beta_angle - b.beta_angle) > 1e-9
+                    or a.cardinal_point != b.cardinal_point):
+                continue
+            rel = lambda e: e.releases_i if e.node_i.id == nid else e.releases_j
+            if any(rel(a)) or any(rel(b)):
+                continue
+            if any(h.element_id in (a.id, b.id) for h in getattr(self, 'frame_hinges', {}).values()):
+                continue
+            try:
+                r = self.join_frames([a.id, b.id], a.id)
+            except (ValueError, KeyError):
+                continue
+            done.append((r["created_elem_id"], r["removed_elem_ids"]))
+        return done
+
+    def _get_mesh_map(self):
+        """Bookkeeping filled while meshing: which new elements came from which original."""
+        if not hasattr(self, '_mesh_map') or self._mesh_map is None:
+            self._mesh_map = {"area_parent": {}, "frame_split": {}}
+        return self._mesh_map
+
+    def assign_area_solver_mesh(self, area_ids, solver_mesh):
+        """
+        Sets (dict) or clears (None) the analysis-time mesh on shells.
+        Tributary / Code Based slabs are never given a mesh.
+        Returns the number of shells changed.
+        """
+        changed = 0
+        for aid in area_ids:
+            ae = self.area_elements.get(aid)
+            if ae is None or len(ae.nodes) != 4:
+                continue
+            mt = getattr(ae.section, 'modeling_type', None)
+            if solver_mesh and mt in ("Tributary Area", "Code Based (TS 500)"):
+                continue
+            ae.solver_mesh = dict(solver_mesh) if solver_mesh else None
+            changed += 1
+        return changed
+
+    def has_solver_mesh(self):
+        return any(getattr(ae, 'solver_mesh', None) for ae in self.area_elements.values())
+
+    def write_solver_copy(self, live_path):
+        """
+        Builds a meshed copy of this model for the solver and leaves this model untouched.
+
+        The copy is written to  <model dir>/.solver_mesh/<same file name>  so that every
+        output name the solver derives from its input path (results, matrices, combos, RSA,
+        buckling temp files) keeps the correct base name.
+
+        Returns None when no shell carries a solver mesh, otherwise a dict:
+            {"work_dir", "dest_path", "mesh_map", "meshed_shells"}
+        mesh_map = {"area_parent": {child_id: parent_id},
+                    "frame_split": {orig_frame_id: {"segments": [ids], "boundaries": [t0..tn]}}}
+        """
+        import os, shutil, json
+
+        flagged = {eid: ae.solver_mesh for eid, ae in self.area_elements.items()
+                   if getattr(ae, 'solver_mesh', None)}
+                                                                                            
+        if not flagged and not self._frame_span_hits(self.nodes.values()):
+            return None
+
+        live_path = os.path.abspath(live_path)
+        work_dir = os.path.join(os.path.dirname(live_path), ".solver_mesh")
+        shutil.rmtree(work_dir, ignore_errors=True)
+        os.makedirs(work_dir, exist_ok=True)
+        dest_path = os.path.join(work_dir, os.path.basename(live_path))
+
+        self.save_to_file(dest_path)
+        copy_model = StructuralModel(self.name)
+        copy_model.load_from_file(dest_path)
+        copy_model._mesh_map = {"area_parent": {}, "frame_split": {}}
+
+        split_nodes = {}
+        for lst in copy_model._frame_span_hits(copy_model.nodes.values()).values():
+            for _, n in lst:
+                split_nodes[n.id] = n
+
+        groups = {}
+        for eid, sm in flagged.items():
+            if eid not in copy_model.area_elements:
+                continue
+            key = (sm.get("mode", "divisions"), int(sm.get("n", 1)), int(sm.get("m", 1)),
+                   float(sm.get("max_x", 0.5)), float(sm.get("max_y", 0.5)),
+                   bool(sm.get("divide_frames", True)))
+            groups.setdefault(key, []).append(eid)
+
+        all_new_nodes = set()
+        want_frames = False
+        meshed = 0
+        for (mode, n, mm, mx, my, div_frames), ids in groups.items():
+            meshed += copy_model.mesh_area_elements(
+                ids, mode=mode, n=n, m=mm, max_x=mx, max_y=my, divide_frames=False)
+            all_new_nodes |= getattr(copy_model, '_last_new_mesh_nodes', set())
+            want_frames = want_frames or div_frames
+
+        if want_frames:
+            for n in all_new_nodes:
+                split_nodes[n.id] = n
+        if split_nodes:
+                                                                                        
+            copy_model._split_frames_by_nodes(list(split_nodes.values()))
+
+        copy_model.save_to_file(dest_path)
+
+        mesh_map = copy_model._mesh_map
+        with open(dest_path + ".meshmap.json", "w") as f:
+            json.dump(mesh_map, f)
+
+        return {"work_dir": work_dir, "dest_path": dest_path,
+                "mesh_map": mesh_map, "meshed_shells": meshed,
+                "split_frames": len(mesh_map.get("frame_split", {}))}
+
+    def _frame_span_hits(self, candidate_nodes, tol=0.005):
+        """
+        Finds candidate nodes lying on a frame's axis strictly between its end nodes.
+        tol is both the perpendicular distance and the end margin (matches get_or_create_node).
+        Returns {frame_id: [(distance_from_node_i, node), ...]} sorted along the frame,
+        nodes closer than tol to each other are collapsed to one split point.
+        """
+        nodes = list(candidate_nodes)
+        if not nodes or not self.elements:
+            return {}
+        P = np.array([[n.x, n.y, n.z] for n in nodes], dtype=float)
+        hits = {}
+        for el in self.elements.values():
+            p_i = np.array([el.node_i.x, el.node_i.y, el.node_i.z], dtype=float)
+            p_j = np.array([el.node_j.x, el.node_j.y, el.node_j.z], dtype=float)
+            d = p_j - p_i
+            L = float(np.linalg.norm(d))
+            if L < 1e-6:
+                continue
+            u = d / L
+            rel = P - p_i
+            s = rel @ u
+            idx = np.nonzero((s > tol) & (s < L - tol))[0]
+            if idx.size == 0:
+                continue
+            perp = np.linalg.norm(rel[idx] - np.outer(s[idx], u), axis=1)
+            found = []
+            for k in idx[perp <= tol]:
+                n = nodes[k]
+                if n.id in (el.node_i.id, el.node_j.id):
+                    continue
+                found.append((float(s[k]), n))
+            if not found:
+                continue
+            found.sort(key=lambda x: x[0])
+            clean = [found[0]]
+            for item in found[1:]:
+                if item[0] - clean[-1][0] > tol:
+                    clean.append(item)
+            hits[el.id] = clean
+        return hits
+
+    def _retarget_tendon_hosts(self, old_el, new_elements):
+        """Replaces old_el in every tendon's host list by its segments, in tendon order."""
+        seg_ids = [ne.id for ne in new_elements]
+        ev = np.array([old_el.node_j.x - old_el.node_i.x, old_el.node_j.y - old_el.node_i.y,
+                       old_el.node_j.z - old_el.node_i.z], dtype=float)
+        for t in getattr(self, 'tendons', {}).values():
+            hosts = list(t.host_element_ids)
+            if old_el.id not in hosts:
+                continue
+            tv = np.array([t.node_j.x - t.node_i.x, t.node_j.y - t.node_i.y,
+                           t.node_j.z - t.node_i.z], dtype=float)
+            ids = seg_ids if float(ev @ tv) >= 0 else seg_ids[::-1]
+            k = hosts.index(old_el.id)
+            t.host_element_ids = hosts[:k] + ids + hosts[k + 1:]
+
+    def _split_frames_by_nodes(self, split_nodes, tol=0.005):
+        """
+        Splits every frame that has one of the passed nodes on its span (not at its ends).
+        Keeps end releases at the outer ends only, redistributes loads and hinges.
+        Records each split in the mesh map (frame_split).
+        """
+        hits = self._frame_span_hits(split_nodes, tol)
+        for el in list(self.elements.values()):
+            nodes_on_segment = hits.get(el.id)
             if not nodes_on_segment:
                 continue
-                
-            nodes_on_segment.sort(key=lambda x: x[0])
-            
-            sec = el.section
-            beta = el.beta_angle
-            rel_i = el.releases_i
-            rel_j = el.releases_j
-            eid_to_remove = el.id
-            
-            current_start_node = el.node_i
-            for i, (dist, n_mid) in enumerate(nodes_on_segment):
-                new_el = self.add_element(current_start_node, n_mid, sec, beta)
-                if i == 0:
-                    new_el.releases_i = rel_i                                                   
-                current_start_node = n_mid
-            
-            last_el = self.add_element(current_start_node, el.node_j, sec, beta)
-            last_el.releases_j = rel_j                                                
-            
-            self.remove_element(eid_to_remove)
+            L_total = float(np.linalg.norm(
+                np.array([el.node_j.x, el.node_j.y, el.node_j.z]) -
+                np.array([el.node_i.x, el.node_i.y, el.node_i.z])))
+
+            orig_loads  = [l for l in self.loads if getattr(l, 'element_id', None) == el.id]
+            orig_hinges = [h for h in self.frame_hinges.values() if h.element_id == el.id]
+            seg_nodes  = [el.node_i] + [n for _, n in nodes_on_segment] + [el.node_j]
+            boundaries = [0.0] + [d / L_total for d, _ in nodes_on_segment] + [1.0]
+            n_segs = len(seg_nodes) - 1
+
+            new_elements = []
+            for k in range(n_segs):
+                new_el = self.add_element(seg_nodes[k], seg_nodes[k + 1], el.section, el.beta_angle)
+                self._copy_frame_properties(new_el, el, boundaries[k], boundaries[k + 1])
+                new_el.releases_i = el.releases_i[:] if k == 0 else [False] * 6
+                new_el.releases_j = el.releases_j[:] if k == n_segs - 1 else [False] * 6
+                new_elements.append(new_el)
+
+            self._get_mesh_map()["frame_split"][el.id] = {
+                "segments": [ne.id for ne in new_elements],
+                "boundaries": boundaries,
+            }
+
+            for load in orig_loads:
+                self._redistribute_load_onto_segments(load, new_elements, boundaries, L_total)
+
+            self._retarget_tendon_hosts(el, new_elements)
+
+            for h in orig_hinges:
+                t = h.rel_dist
+                for k in range(n_segs):
+                    t0, t1 = boundaries[k], boundaries[k + 1]
+                    if t0 - 1e-9 <= t <= t1 + 1e-9:
+                        local = (t - t0) / (t1 - t0) if (t1 - t0) > 1e-12 else 0.0
+                        self.assign_frame_hinge(new_elements[k].id, h.hinge_name,
+                                                min(max(local, 0.0), 1.0), mode="add")
+                        break
+            self.assign_frame_hinge(el.id, None, 0.0, mode="delete")
+
+            self.remove_element(el.id)
 
     def remove_orphan_nodes(self):
         """
@@ -2273,6 +3105,665 @@ class StructuralModel:
         if tendon_id in self.tendons:
             del self.tendons[tendon_id]
 
+    def _copy_frame_properties(self, dst_el, src_el, t0=0.0, t1=1.0):
+        """Copies all frame-level properties (not id/nodes/section/beta) from src_el to dst_el.
+
+        t0/t1 = span (0-1 along src_el) covered by dst_el when src_el is being split.
+        Rigid end-length offsets stay only on the original frame ends (t0 == 0 / t1 == 1),
+        and joint offsets are linearly interpolated to the segment ends.
+        Defaults (0, 1) give a plain full copy.
+        """
+        dst_el.cardinal_point = getattr(src_el, 'cardinal_point', 10)
+        if hasattr(src_el, 'joint_offset_i') and hasattr(src_el, 'joint_offset_j'):
+            oi = np.asarray(src_el.joint_offset_i, dtype=float)
+            oj = np.asarray(src_el.joint_offset_j, dtype=float)
+
+            def _lerp(t):
+                if t <= 1e-12:
+                    return oi.copy()
+                if t >= 1.0 - 1e-12:
+                    return oj.copy()
+                return oi + t * (oj - oi)
+
+            dst_el.joint_offset_i = _lerp(t0)
+            dst_el.joint_offset_j = _lerp(t1)
+        else:
+            if hasattr(src_el, 'joint_offset_i'):
+                dst_el.joint_offset_i = src_el.joint_offset_i.copy()
+            if hasattr(src_el, 'joint_offset_j'):
+                dst_el.joint_offset_j = src_el.joint_offset_j.copy()
+        dst_el.end_offset_i = getattr(src_el, 'end_offset_i', 0.0) if t0 <= 1e-9 else 0.0
+        dst_el.end_offset_j = getattr(src_el, 'end_offset_j', 0.0) if t1 >= 1.0 - 1e-9 else 0.0
+        dst_el.rigid_zone_factor = getattr(src_el, 'rigid_zone_factor', 0.0)
+        dst_el.do_not_transform_stiffness = getattr(src_el, 'do_not_transform_stiffness', False)
+
+    @staticmethod
+    def _interp_trapezoid(distances, magnitudes, t):
+        """Piecewise-linear value of a trapezoidal load definition at param t in [0,1]."""
+        if t <= distances[0]:
+            return magnitudes[0]
+        if t >= distances[-1]:
+            return magnitudes[-1]
+        for i in range(len(distances) - 1):
+            d0, d1 = distances[i], distances[i + 1]
+            if d0 <= t <= d1:
+                if d1 - d0 < 1e-12:
+                    return magnitudes[i]
+                frac = (t - d0) / (d1 - d0)
+                return magnitudes[i] + frac * (magnitudes[i + 1] - magnitudes[i])
+        return magnitudes[-1]
+
+    @classmethod
+    def _clip_trapezoid(cls, distances, magnitudes, t0, t1):
+        """
+        Clips a trapezoidal load (defined over global param [0,1]) to the
+        sub-range [t0, t1] and remaps it to that sub-range's local [0,1].
+        """
+        pts = [(t0, cls._interp_trapezoid(distances, magnitudes, t0))]
+        for d, m in zip(distances, magnitudes):
+            if t0 < d < t1:
+                pts.append((d, m))
+        pts.append((t1, cls._interp_trapezoid(distances, magnitudes, t1)))
+        span = t1 - t0
+        new_distances = [(p[0] - t0) / span if span > 1e-12 else 0.0 for p in pts]
+        new_magnitudes = [p[1] for p in pts]
+        return new_distances, new_magnitudes
+
+    def _redistribute_load_onto_segments(self, load, new_elements, boundaries, L_total):
+        """Splits a single load (assigned to the original frame) proportionally across new_elements."""
+        is_point = hasattr(load, 'force') and hasattr(load, 'dist')
+
+        if is_point:
+            t = load.dist if load.is_relative else (load.dist / L_total if L_total > 1e-9 else 0.0)
+            t = min(max(t, 0.0), 1.0)
+            for k in range(len(boundaries) - 1):
+                t0, t1 = boundaries[k], boundaries[k + 1]
+                if t0 - 1e-9 <= t <= t1 + 1e-9:
+                    local_t = (t - t0) / (t1 - t0) if (t1 - t0) > 1e-12 else 0.0
+                    local_t = min(max(local_t, 0.0), 1.0)
+                    self.assign_member_point_load(
+                        new_elements[k].id, load.pattern_name, load.force, local_t, True,
+                        load.coord_system, load.direction,
+                        getattr(load, 'load_type', 'Force'), mode='add'
+                    )
+                    break
+            return
+
+        distances = list(load.distances)
+        magnitudes = list(load.magnitudes)
+        if not load.is_relative and L_total > 1e-9:
+            distances = [d / L_total for d in distances]
+
+        for k in range(len(boundaries) - 1):
+            t0, t1 = boundaries[k], boundaries[k + 1]
+            new_d, new_m = self._clip_trapezoid(distances, magnitudes, t0, t1)
+            self.assign_member_load(
+                new_elements[k].id, load.pattern_name, load.wx, load.wy, load.wz,
+                projected=getattr(load, 'projected', False),
+                coord_system=getattr(load, 'coord_system', 'Global'),
+                mode='add',
+                distances=new_d, magnitudes=new_m, is_relative=True,
+                load_direction=getattr(load, 'load_direction', 'Gravity'),
+                load_type=getattr(load, 'load_type', 'Force')
+            )
+
+    def divide_frame_at_params(self, element_id, t_values, tol=1e-6):
+        """
+        Splits frame `element_id` into segments at the given parametric
+        locations (0 < t < 1, fraction of length from node_i to node_j).
+        Interior points snap to existing joints within tolerance.
+        Copies section/beta/releases/offsets/etc. and proportionally
+        redistributes any MemberLoad / MemberPointLoad on the original frame.
+
+        Returns {"created_node_ids": [...], "created_elem_ids": [...]}.
+        Raises ValueError / KeyError on invalid input.
+        """
+        if element_id not in self.elements:
+            raise KeyError(f"Element {element_id} does not exist.")
+
+        clean_t = sorted(set(round(float(t), 9) for t in t_values if tol < t < 1 - tol))
+        if not clean_t:
+            raise ValueError("No valid interior division points (must fall strictly between the two end joints).")
+
+        el = self.elements[element_id]
+        n_i, n_j = el.node_i, el.node_j
+        p_i = np.array([n_i.x, n_i.y, n_i.z])
+        p_j = np.array([n_j.x, n_j.y, n_j.z])
+        L_total = np.linalg.norm(p_j - p_i)
+        if L_total < 1e-9:
+            raise ValueError("Frame has zero length.")
+
+        sec, beta = el.section, el.beta_angle
+        orig_loads = [l for l in self.loads if getattr(l, 'element_id', None) == element_id]
+        boundaries = [0.0] + clean_t + [1.0]
+
+        created_node_ids = []
+        seg_nodes = [n_i]
+        for t in clean_t:
+            p = p_i + t * (p_j - p_i)
+            existed_before = set(self.nodes.keys())
+            node = self.get_or_create_node(p[0], p[1], p[2])
+            if node.id not in existed_before:
+                created_node_ids.append(node.id)
+            seg_nodes.append(node)
+        seg_nodes.append(n_j)
+
+        new_elements = []
+        created_elem_ids = []
+        n_segs = len(seg_nodes) - 1
+        for k in range(n_segs):
+            na, nb = seg_nodes[k], seg_nodes[k + 1]
+            new_el = self.add_element(na, nb, sec, beta)
+            self._copy_frame_properties(new_el, el, boundaries[k], boundaries[k + 1])
+            new_el.releases_i = el.releases_i[:] if k == 0 else [False] * 6
+            new_el.releases_j = el.releases_j[:] if k == n_segs - 1 else [False] * 6
+            new_elements.append(new_el)
+            created_elem_ids.append(new_el.id)
+
+        for load in orig_loads:
+            self._redistribute_load_onto_segments(load, new_elements, boundaries, L_total)
+
+        self.remove_element(element_id)
+
+        return {"created_node_ids": created_node_ids, "created_elem_ids": created_elem_ids}
+
+    def divide_frame_by_number(self, element_id, num_frames, last_first_ratio=1.0):
+        """'Divide into Specified Number of Frames' (Number of Frames + Last/First Length Ratio)."""
+        num_frames = int(num_frames)
+        if num_frames < 2:
+            raise ValueError("Number of Frames must be at least 2.")
+        r = float(last_first_ratio)
+        if r <= 0:
+            raise ValueError("Last/First Length Ratio must be greater than 0.")
+
+        if abs(r - 1.0) < 1e-9:
+            seg_fracs = [1.0 / num_frames] * num_frames
+        else:
+            L1 = 2.0 / (num_frames * (r + 1.0))
+            d = L1 * (r - 1.0) / (num_frames - 1.0)
+            seg_fracs = [L1 + i * d for i in range(num_frames)]
+            if any(f <= 0 for f in seg_fracs):
+                raise ValueError("This Number of Frames / Ratio combination produces a non-physical (negative or zero length) segment.")
+
+        t_values, acc = [], 0.0
+        for f in seg_fracs[:-1]:
+            acc += f
+            t_values.append(acc)
+
+        return self.divide_frame_at_params(element_id, t_values)
+
+    def divide_frame_at_distance(self, element_id, distance, is_relative=True):
+        """'Divide at Specified Distance from I-end of Frame'."""
+        if element_id not in self.elements:
+            raise KeyError(f"Element {element_id} does not exist.")
+        el = self.elements[element_id]
+        L = getattr(el, 'length', None)
+        if L is None:
+            L = float(np.linalg.norm(np.array([el.node_j.x - el.node_i.x,
+                                                 el.node_j.y - el.node_i.y,
+                                                 el.node_j.z - el.node_i.z])))
+        t = float(distance) if is_relative else float(distance) / L
+        if not (0.0 < t < 1.0):
+            raise ValueError("Distance must fall strictly between the two end joints of the frame.")
+        return self.divide_frame_at_params(element_id, [t])
+
+    def divide_frame_at_coordinate_plane(self, element_id, plane, coordinate):
+        """
+        'Divide at Intersection with a Coordinate Plane'.
+        plane: 'XY' (constant Z), 'YZ' (constant X), or 'XZ' (constant Y).
+        """
+        if element_id not in self.elements:
+            raise KeyError(f"Element {element_id} does not exist.")
+        axis_map = {'XY': 2, 'YZ': 0, 'XZ': 1}
+        if plane not in axis_map:
+            raise ValueError("Coordinate Plane must be one of 'XY', 'YZ', 'XZ'.")
+        el = self.elements[element_id]
+        p_i = np.array([el.node_i.x, el.node_i.y, el.node_i.z])
+        p_j = np.array([el.node_j.x, el.node_j.y, el.node_j.z])
+        idx = axis_map[plane]
+        c0, c1 = p_i[idx], p_j[idx]
+        if abs(c1 - c0) < 1e-9:
+            raise ValueError("The frame is parallel to the specified plane and never crosses it.")
+        t = (float(coordinate) - c0) / (c1 - c0)
+        if not (0.0 < t < 1.0):
+            raise ValueError("That plane does not intersect this frame between its two end joints.")
+        return self.divide_frame_at_params(element_id, [t])
+
+    def divide_frame_at_grid_planes(self, element_id):
+        """
+        'Divide at Intersection with Visible Grid Planes in the Current
+        Coordinate System'. Each of grid.x_lines/y_lines/z_lines is a list
+        of {'id', 'ord', 'visible', 'bubble'} dicts (see core/grid.py) —
+        'ord' is the coordinate, and only entries with visible=True count,
+        matching the "Visible" in the option's name.
+        """
+        if element_id not in self.elements:
+            raise KeyError(f"Element {element_id} does not exist.")
+        el = self.elements[element_id]
+        p_i = np.array([el.node_i.x, el.node_i.y, el.node_i.z])
+        p_j = np.array([el.node_j.x, el.node_j.y, el.node_j.z])
+
+        t_values = []
+        grid = getattr(self, 'grid', None)
+        if grid is not None:
+            for idx, lines in ((0, getattr(grid, 'x_lines', [])),
+                                (1, getattr(grid, 'y_lines', [])),
+                                (2, getattr(grid, 'z_lines', []))):
+                c0, c1 = p_i[idx], p_j[idx]
+                if abs(c1 - c0) < 1e-9:
+                    continue
+                for line in (lines or []):
+                    if isinstance(line, dict):
+                        if not line.get('visible', True):
+                            continue
+                        coord = line.get('ord')
+                    else:
+                        coord = line
+                    try:
+                        coord = float(coord)
+                    except (TypeError, ValueError):
+                        continue
+                    t = (coord - c0) / (c1 - c0)
+                    if 1e-6 < t < 1 - 1e-6:
+                        t_values.append(t)
+
+        if not t_values:
+            raise ValueError("No visible grid planes intersect this frame between its end joints.")
+        return self.divide_frame_at_params(element_id, t_values)
+
+    @staticmethod
+    def _line_segment_intersection(p1, d1, len1, p_a, p_b, tol):
+        """
+        Intersection of the segment [p1, p1+d1*len1] with segment [p_a, p_b],
+        only if the two lines actually meet within `tol`. Returns
+        (point, t_on_self[0..1], t_on_other[0..1]) or (None, None, None).
+        """
+        d2_vec = p_b - p_a
+        len2 = np.linalg.norm(d2_vec)
+        if len2 < 1e-9:
+            return None, None, None
+        d2 = d2_vec / len2
+
+        cross = np.cross(d1, d2)
+        denom = np.dot(cross, cross)
+        if denom < 1e-9:
+            return None, None, None            
+
+        r = p_a - p1
+        t1 = np.dot(np.cross(r, d2), cross) / denom
+        t2 = np.dot(np.cross(r, d1), cross) / denom
+
+        p_on_1 = p1 + d1 * t1
+        p_on_2 = p_a + d2 * t2
+        if np.linalg.norm(p_on_1 - p_on_2) > tol:
+            return None, None, None                               
+
+        t1_frac = t1 / len1
+        t2_frac = t2 / len2
+        if not (1e-6 < t1_frac < 1 - 1e-6) or not (-1e-6 <= t2_frac <= 1 + 1e-6):
+            return None, None, None
+
+        return p_on_1, t1_frac, t2_frac
+
+    def divide_frame_at_intersections(self, element_id, joint_ids=None, frame_ids=None, tol=1e-4):
+        """
+        'Break at Intersections with Selected Joints and Straight Frames'.
+        (Area Edges / Solid Edges from the SAP2000 dialog are not supported
+        in this version — this model has no solid elements, and area-edge
+        intersection wasn't implemented.)
+        """
+        if element_id not in self.elements:
+            raise KeyError(f"Element {element_id} does not exist.")
+        el = self.elements[element_id]
+        p_i = np.array([el.node_i.x, el.node_i.y, el.node_i.z])
+        p_j = np.array([el.node_j.x, el.node_j.y, el.node_j.z])
+        L = np.linalg.norm(p_j - p_i)
+        if L < 1e-9:
+            raise ValueError("Frame has zero length.")
+        direction = (p_j - p_i) / L
+
+        t_values = []
+
+        for nid in (joint_ids or []):
+            if nid == el.node_i.id or nid == el.node_j.id or nid not in self.nodes:
+                continue
+            n = self.nodes[nid]
+            p_n = np.array([n.x, n.y, n.z])
+            d1 = np.linalg.norm(p_n - p_i)
+            d2 = np.linalg.norm(p_j - p_n)
+            if abs((d1 + d2) - L) < tol:
+                t_values.append(d1 / L)
+
+        for fid in (frame_ids or []):
+            if fid == element_id or fid not in self.elements:
+                continue
+            other = self.elements[fid]
+            p_a = np.array([other.node_i.x, other.node_i.y, other.node_i.z])
+            p_b = np.array([other.node_j.x, other.node_j.y, other.node_j.z])
+            _, t_self, _ = self._line_segment_intersection(p_i, direction, L, p_a, p_b, tol)
+            if t_self is not None:
+                t_values.append(t_self)
+
+        if not t_values:
+            raise ValueError("None of the selected joints or frames intersect this frame between its end joints.")
+        return self.divide_frame_at_params(element_id, t_values)
+
+    def find_straight_chains(self, element_ids, tol=1e-3):
+        """
+        Partitions an arbitrary selection of connected frame elements —
+        which may bend, branch, or contain multiple disconnected pieces —
+        into maximal straight, unbranched sub-chains. This is what lets
+        "select the whole model and Join" work: each returned chain is a
+        run of collinear frames connected end-to-end, stopping wherever
+        the direction changes or a joint is shared by more than two of the
+        selected frames (a branch). A chain never crosses a joint that
+        isn't shared by exactly two selected frames.
+
+        Returns a list of chains, each a list of element ids in order
+        along the chain. A chain of length 1 has nothing to join with its
+        neighbors (dead end, direction change, or branch point) and should
+        just be left alone by the caller.
+        """
+        element_ids = [eid for eid in dict.fromkeys(element_ids) if eid in self.elements]
+        remaining = set(element_ids)
+
+        node_use = {}
+        for eid in element_ids:
+            el = self.elements[eid]
+            node_use.setdefault(el.node_i.id, []).append(eid)
+            node_use.setdefault(el.node_j.id, []).append(eid)
+
+        def _direction(eid):
+            el = self.elements[eid]
+            p_a = np.array([el.node_i.x, el.node_i.y, el.node_i.z])
+            p_b = np.array([el.node_j.x, el.node_j.y, el.node_j.z])
+            v = p_b - p_a
+            L = np.linalg.norm(v)
+            return None if L < 1e-9 else v / L
+
+        def _collinear(eid_a, eid_b):
+            da, db = _direction(eid_a), _direction(eid_b)
+            if da is None or db is None:
+                return False
+            return np.linalg.norm(np.cross(da, db)) < tol
+
+        chains = []
+        while remaining:
+            seed = next(iter(remaining))
+            chain = [seed]
+            remaining.discard(seed)
+
+            for grow_forward in (True, False):
+                extend = True
+                while extend:
+                    extend = False
+                    current = chain[-1] if grow_forward else chain[0]
+                    el = self.elements[current]
+                    end_node_id = el.node_j.id if grow_forward else el.node_i.id
+                    uses = node_use.get(end_node_id, [])
+                                                                            
+                    candidates = [eid for eid in uses if eid != current and eid in remaining]
+                    if len(uses) == 2 and len(candidates) == 1 and _collinear(current, candidates[0]):
+                        if grow_forward:
+                            chain.append(candidates[0])
+                        else:
+                            chain.insert(0, candidates[0])
+                        remaining.discard(candidates[0])
+                        extend = True
+
+            chains.append(chain)
+
+        return chains
+
+    def join_frames(self, element_ids, keep_props_from_id, tol=1e-4):
+        """
+        Merges 2+ selected, connected, collinear frame elements into one
+        frame — the SAP2000-style "Join Frames" (no dialog, acts on the
+        current selection). `keep_props_from_id` picks which selected
+        frame's section/beta/offsets/cardinal point/etc. the merged frame
+        inherits; end releases are always taken from whichever selected
+        frame actually sits at each true outer end, since those are the
+        real boundary conditions, not the "kept" frame's own end conditions
+        (which may now be an interior point).
+
+        Returns {"created_elem_id": id, "removed_elem_ids": [...], "removed_node_ids": [...]}.
+        Raises ValueError / KeyError on invalid selections.
+        """
+        element_ids = list(dict.fromkeys(element_ids))
+        if len(element_ids) < 2:
+            raise ValueError("Select at least two frames to join.")
+        for eid in element_ids:
+            if eid not in self.elements:
+                raise KeyError(f"Element {eid} does not exist.")
+        if keep_props_from_id not in element_ids:
+            raise ValueError("keep_props_from_id must be one of the selected frames.")
+
+        id_set = set(element_ids)
+        node_use = {}
+        for eid in element_ids:
+            el = self.elements[eid]
+            node_use.setdefault(el.node_i.id, []).append(eid)
+            node_use.setdefault(el.node_j.id, []).append(eid)
+
+        endpoints = [nid for nid, uses in node_use.items() if len(uses) == 1]
+        if len(endpoints) != 2:
+            raise ValueError(
+                "Selected frames must form a single continuous, unbranched chain "
+                "(each interior joint must be shared by exactly two of the selected frames)."
+            )
+        if any(len(uses) > 2 for uses in node_use.values()):
+            raise ValueError("Selected frames branch at a shared joint; Join only supports a simple chain.")
+
+        start_node = self.nodes[endpoints[0]]
+        end_node = self.nodes[endpoints[1]]
+
+        host_ids, ordered_nodes = self.get_frame_chain_between(start_node, end_node, tol=tol)
+        if host_ids is None or set(host_ids) != id_set:
+            raise ValueError("Selected frames are not a single straight, collinear, connected chain.")
+
+        interior_ids = [n.id for n in ordered_nodes[1:-1]]
+        for nid in interior_ids:
+            node = self.nodes[nid]
+            if any(node.restraints):
+                raise ValueError(f"Joint {nid} has a support/restraint assigned and cannot be merged away.")
+            if any((e.node_i.id == nid or e.node_j.id == nid) and e.id not in id_set
+                   for e in self.elements.values()):
+                raise ValueError(f"Joint {nid} is used by another frame outside the selection and cannot be merged away.")
+            if hasattr(self, 'area_elements') and any(
+                    any(n.id == nid for n in ae.nodes) for ae in self.area_elements.values()):
+                raise ValueError(f"Joint {nid} is used by an area element and cannot be merged away.")
+            if hasattr(self, 'links') and any(nid in link['nodes'] for link in self.links.values()):
+                raise ValueError(f"Joint {nid} is used by a link and cannot be merged away.")
+
+        keep_el = self.elements[keep_props_from_id]
+
+        start_touch_id = next(eid for eid in host_ids
+                               if self.elements[eid].node_i.id == start_node.id
+                               or self.elements[eid].node_j.id == start_node.id)
+        end_touch_id = next(eid for eid in host_ids
+                             if self.elements[eid].node_i.id == end_node.id
+                             or self.elements[eid].node_j.id == end_node.id)
+        start_el = self.elements[start_touch_id]
+        end_el = self.elements[end_touch_id]
+        release_i = start_el.releases_i[:] if start_el.node_i.id == start_node.id else start_el.releases_j[:]
+        release_j = end_el.releases_j[:] if end_el.node_j.id == end_node.id else end_el.releases_i[:]
+
+        coords = [np.array([n.x, n.y, n.z]) for n in ordered_nodes]
+        seg_lengths = [float(np.linalg.norm(coords[i + 1] - coords[i])) for i in range(len(coords) - 1)]
+        L_total = sum(seg_lengths)
+        if L_total < 1e-9:
+            raise ValueError("Combined frame has zero length.")
+
+        boundaries = [0.0]
+        acc = 0.0
+        for sl in seg_lengths:
+            acc += sl / L_total
+            boundaries.append(acc)
+        boundaries[-1] = 1.0
+
+        pending_loads = []
+        for idx, eid in enumerate(host_ids):
+            sub_el = self.elements[eid]
+            node_a = ordered_nodes[idx]
+            forward = (sub_el.node_i.id == node_a.id)
+            for load in self.loads:
+                if getattr(load, 'element_id', None) != eid:
+                    continue
+                pending_loads.append((load, boundaries[idx], boundaries[idx + 1], forward, seg_lengths[idx]))
+
+        new_el = self.add_element(start_node, end_node, keep_el.section, keep_el.beta_angle)
+        self._copy_frame_properties(new_el, keep_el)
+        new_el.releases_i = release_i
+        new_el.releases_j = release_j
+
+        self._assign_merged_loads(new_el, pending_loads)
+
+        removed_node_ids = list(interior_ids)
+        for eid in host_ids:
+            self.remove_element(eid)
+
+        return {
+            "created_elem_id": new_el.id,
+            "removed_elem_ids": list(host_ids),
+            "removed_node_ids": removed_node_ids,
+        }
+
+    def _assign_merged_loads(self, new_el, pending_loads):
+        """
+        pending_loads: list of (load, t0, t1, forward, el_len) tuples, one
+        entry per load that lived on one of the original sub-frames, in
+        chain order.
+
+        Point loads just get remapped to their new position on the merged
+        frame (they're already discrete, nothing to combine).
+
+        Distributed loads (MemberLoad) that share the same characteristics
+        (pattern, uniform wx/wy/wz component, coord system, direction,
+        type) are SPLICED BACK INTO ONE continuous trapezoidal load
+        spanning the whole merged frame — this is the piece that was
+        missing before: naively re-assigning each sub-frame's load with
+        mode='add' stacks N separate load entries on the merged frame
+        instead of reconstructing the single original load.
+
+        NOTE: for loads defined in a 'Local' coord_system on a segment that
+        ran opposite to the merged frame's I->J direction (forward=False),
+        the local-axis sign may need a manual review afterward — local
+        axes aren't recomputed here.
+        """
+        point_entries = []
+        dist_groups = {}
+
+        for load, t0, t1, forward, el_len in pending_loads:
+            is_point = hasattr(load, 'force') and hasattr(load, 'dist')
+            if is_point:
+                point_entries.append((load, t0, t1, forward, el_len))
+                continue
+
+            distances = list(load.distances)
+            magnitudes = list(load.magnitudes)
+            if not load.is_relative and el_len > 1e-9:
+                distances = [d / el_len for d in distances]
+            if not forward:
+                distances = [1.0 - d for d in reversed(distances)]
+                magnitudes = list(reversed(magnitudes))
+
+            key = (
+                load.pattern_name,
+                round(float(load.wx), 9), round(float(load.wy), 9), round(float(load.wz), 9),
+                getattr(load, 'projected', False), getattr(load, 'coord_system', 'Global'),
+                getattr(load, 'load_direction', 'Gravity'), getattr(load, 'load_type', 'Force'),
+            )
+            dist_groups.setdefault(key, []).append((t0, t1, distances, magnitudes))
+
+        for load, t0, t1, forward, el_len in point_entries:
+            local = load.dist if load.is_relative else (load.dist / el_len if el_len > 1e-9 else 0.0)
+            local = min(max(local, 0.0), 1.0)
+            if not forward:
+                local = 1.0 - local
+            merged_t = t0 + local * (t1 - t0)
+            self.assign_member_point_load(
+                new_el.id, load.pattern_name, load.force, merged_t, True,
+                load.coord_system, load.direction,
+                getattr(load, 'load_type', 'Force'), mode='add'
+            )
+
+        for key, segments in dist_groups.items():
+            segments.sort(key=lambda s: s[0])
+            pattern_name, wx, wy, wz, projected, coord_system, load_direction, load_type = key
+
+            points = []
+            for seg_t0, seg_t1, distances, magnitudes in segments:
+                span = seg_t1 - seg_t0
+                for d, m in zip(distances, magnitudes):
+                    points.append((seg_t0 + d * span, m))
+            points.sort(key=lambda p: p[0])
+
+            merged_points = []
+            for d, m in points:
+                if merged_points and abs(d - merged_points[-1][0]) < 1e-7:
+                    merged_points[-1] = (merged_points[-1][0], (merged_points[-1][1] + m) / 2.0)
+                else:
+                    merged_points.append((d, m))
+
+            self.assign_member_load(
+                new_el.id, pattern_name, wx, wy, wz,
+                projected=projected, coord_system=coord_system, mode='add',
+                distances=[p[0] for p in merged_points],
+                magnitudes=[p[1] for p in merged_points],
+                is_relative=True,
+                load_direction=load_direction, load_type=load_type
+            )
+
+OPENSEES_CASE_DEFAULTS = {
+    "test_type": "NormDispIncr",
+    "tolerance": 1e-6,
+    "max_iter": 50,
+    "algorithm": "Newton",
+    "step_size": 0.001,
+    "path_mode": "Single Target",
+    "disp_history": [],
+    "load_steps": 10,                                                                                     
+    "load_path_mode": "Monotonic",                                                                                      
+    "load_history": [],                                                                                           
+    "n_int_pts": 5,
+    "fiber_size_ratio": 16,
+    "integration": "Lobatto",                                
+    "hinge_length": 0.0,                                               
+    "bar_slip": False,                                                                           
+    "safety_check": True,                                                                          
+    "relax_on_fail": True,                                                                                                           
+    "relax_ceiling": 1e-5,                                                                                 
+    "slip_R": 0.5, "slip_b": 0.3,                                                                  
+    "slip_sy_mult": 1.0, "slip_su_mult": 35.0,                                                              
+    "slip_concrete": "stiff",                                                                                                                                                                         
+    "shear_spring": None,                                                                                                     
+}
+
+SHEAR_SPRING_UI_DEFAULTS = {
+    "N": 0.0,                                                                                       
+    "Vy_scale": 1.0, "k0_scale": 1.0,
+    "alpha": 0.01,                                             
+    "pinchX": 1.0, "pinchY": 1.0,                                          
+    "damage1": 0.0, "damage2": 0.0, "beta": 0.0,
+    "shear_stiffness": "cracked",                                                                       
+    "e3_mult": 3.0,                                                                          
+}
+
+def default_opensees_block():
+    """Fresh copy of the per-case OpenSees settings."""
+    blk = dict(OPENSEES_CASE_DEFAULTS)
+    blk["disp_history"] = []
+    blk["load_history"] = []
+    return blk
+
+def get_opensees_block(case):
+    """The case's OpenSees settings, with defaults filled in for anything missing."""
+    blk = default_opensees_block()
+    blk.update(getattr(case, "opensees", None) or {})
+    blk["disp_history"] = list(blk.get("disp_history") or [])
+    blk["load_history"] = list(blk.get("load_history") or [])
+    return blk
+
 class LoadCase:
     def __init__(self, name, case_type="Linear Static"):
         self.name = name
@@ -2283,8 +3774,16 @@ class LoadCase:
         self.mass_source = "Default"       
 
         self.geom_nonlin = "None"                                           
-        self.load_application = "Full Load"
+        self.load_application = "Full Load"                                                 
+        self.continue_from_case = None                                                                 
+        self.disp_control_node_id = None                                                               
+        self.disp_control_dof = "U1"                                                     
+        self.disp_control_magnitude = 0.1                                                                         
+        self.disp_control_tol = 1e-6                                                             
         self.results_saved = "Final State Only"
+        self.min_saved_states = 1
+        self.max_saved_states = 100
+        self.save_positive_disp_only = False
         
         self.max_total_steps = 200
         self.max_null_steps = 50
@@ -2302,10 +3801,25 @@ class LoadCase:
         self.tf_accel_factor = 1.0
         self.continue_if_no_converge = False
 
+        self.use_fd_tangent = False
+
+        self.hinge_snap = True                                                                               
+        self.hinge_snap_scope = "tension"                                 
+        self.stop_on_fiber_failure = False                                                             
+        self.residual_stiffness = 1e-8                                                                             
+        self.min_step_frac = 1e-4                                                               
+        self.max_event_probes = 12
+        self.auto_cutback = True
+        self.max_step_attempts = 0                                                       
+
+        self.opensees = default_opensees_block()
+
+        self.formulation = "Corotational"
         self.corot_type = "Commercial Compatibility"
 
         self.modal_case = None                                                     
         self.num_modes = 12
+        self.modal_fiber_hinges = False                                                                 
         self.ltha_loads = []
 
 class LoadCombination:

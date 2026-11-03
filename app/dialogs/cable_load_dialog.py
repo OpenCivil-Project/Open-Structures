@@ -8,7 +8,7 @@ from core.units import unit_registry
 class AssignCableLoadDialog(QDialog):
     """
     Open // Structures - Assign Cable Distributed Loads
-    Matches SAP2000's interface exactly.
+
     """
     def __init__(self, model, parent=None):
         super().__init__(parent)

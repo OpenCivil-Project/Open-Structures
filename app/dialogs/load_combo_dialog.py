@@ -126,7 +126,14 @@ class LoadComboDetailDialog(QDialog):
         if not new_name:
             QMessageBox.warning(self, "Error", "Name cannot be empty.")
             return
-        if new_name != self.original_name and new_name in self.model.load_combos:
+                                                                           
+        name_key = new_name.casefold()
+        if any(name.casefold() == name_key for name in self.model.load_cases):
+            QMessageBox.warning(self, "Error", "A load case with this name already exists.")
+            return
+        if any(name.casefold() == name_key
+               for name in self.model.load_combos
+               if self.is_new or name != self.original_name):
             QMessageBox.warning(self, "Error", "Combo name already exists.")
             return
         self.accept()
@@ -188,7 +195,9 @@ class LoadComboManagerDialog(QDialog):
 
     def add_combo(self):
         idx = 1
-        while f"COMB{idx}" in self.model.load_combos:
+        used_names = {name.casefold() for name in self.model.load_cases}
+        used_names.update(name.casefold() for name in self.model.load_combos)
+        while f"COMB{idx}".casefold() in used_names:
             idx += 1
         temp_combo = LoadCombination(f"COMB{idx}")
         dlg = LoadComboDetailDialog(self.model, temp_combo, self, is_new=True)

@@ -1,136 +1,78 @@
-import logging
+"""Google sign-in through Firebase Hosting using the system browser."""
 import threading
+import webbrowser
+
 from PyQt6.QtCore import QThread, pyqtSignal
 
-from google_auth_oauthlib.flow import InstalledAppFlow
-import requests
-
-from .config import GoogleAuthConfig
-
-logger = logging.getLogger(__name__)
+from .browser_bridge import BrowserSignInBridge, BrowserSignInError
+from .config import FirebaseAuthConfig
+from .firebase_client import FirebaseClient, FirebaseAuthError
 
 _CANCELLED = "cancelled"
 
-class GoogleAuthThread(QThread):
-    """
-    Runs the Google OAuth2 browser flow in a background thread
-    so the UI stays responsive.
-    
-    Supports cancellation: call cancel() at any time to abort.
-    """
+_ACTIVE_THREADS = set()
 
-    auth_complete = pyqtSignal(dict)                                    
-    auth_failed   = pyqtSignal(str)                                    
-    auth_progress = pyqtSignal(str)                                           
+def retain_thread(thread):
+    _ACTIVE_THREADS.add(thread)
+    thread.finished.connect(lambda: _ACTIVE_THREADS.discard(thread))
 
-    def __init__(self):
+class AuthOperationThread(QThread):
+    result = pyqtSignal(object)
+    failed = pyqtSignal(str)
+
+    def __init__(self, operation):
         super().__init__()
+        self._operation = operation
         self._cancelled = threading.Event()
+        retain_thread(self)
 
     def cancel(self):
-        """
-        Signal the thread to abandon the current OAuth wait.
-        """
         self._cancelled.set()
 
     def run(self):
         try:
-            if not GoogleAuthConfig.validate():
-                self.auth_failed.emit(
-                    "Missing Google OAuth configuration. "
-                    "Please check your environment variables."
-                )
+            result = self._operation()
+            if not self._cancelled.is_set():
+                self.result.emit(result)
+        except Exception:
+            if not self._cancelled.is_set():
+                self.failed.emit("Account request could not finish. Please try again.")
+
+class GoogleAuthThread(QThread):
+    auth_complete = pyqtSignal(dict)
+    auth_failed = pyqtSignal(str)
+    auth_progress = pyqtSignal(str)
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self._cancelled = threading.Event()
+        retain_thread(self)
+
+    def cancel(self):
+        self._cancelled.set()
+
+    def run(self):
+        try:
+            client = FirebaseClient()
+            if not client.configured or not FirebaseAuthConfig.google_sign_in_available():
+                self.auth_failed.emit("Account sign-in is not configured yet. You can continue as Guest.")
                 return
-
-            self.auth_progress.emit("Preparing authentication…")
-
-            flow = InstalledAppFlow.from_client_config(
-                GoogleAuthConfig.as_client_config(),
-                GoogleAuthConfig.SCOPES,
-            )
-
-            self.auth_progress.emit("Opening browser — please sign in…")
-
-            result = [None, None]                             
-            done  = threading.Event()
-
-            def _do_oauth():
-                try:
-                    creds = flow.run_local_server(
-                        port=0,
-                        prompt='consent',
-                        authorization_prompt_message='',
-                        success_message='All done! You can close this tab.',
-                        open_browser=True,
-                        timeout_seconds=120,
-                    )
-                    result[0] = creds
-                except Exception as exc:                                          
-                    result[1] = exc
-                finally:
-                    done.set()
-
-            sub = threading.Thread(target=_do_oauth, daemon=True, name="GoogleOAuth")
-            sub.start()
-
-            while not done.wait(timeout=0.5):
-                if self._cancelled.is_set():
-                    self.auth_failed.emit(_CANCELLED)
-                    return
-
+            with BrowserSignInBridge() as bridge:
+                self.auth_progress.emit("Opening your browser for Google sign-in…")
+                if not webbrowser.open(bridge.browser_url(FirebaseAuthConfig.GOOGLE_SIGN_IN_URL), new=1):
+                    raise BrowserSignInError("Could not open your browser. Please try again.")
+                tokens = bridge.wait(self._cancelled)
+            self.auth_progress.emit("Checking your account…")
+            result = client.session_from_tokens(tokens["id_token"], tokens["refresh_token"],
+                                                tokens["expires_in"])
+            if result["user"].get("provider") != "google":
+                raise BrowserSignInError("Please use Google to sign in on the browser page.")
             if self._cancelled.is_set():
                 self.auth_failed.emit(_CANCELLED)
                 return
-
-            exc = result[1]
-            if exc is not None:
-                if "Scope has changed" in str(exc):
-                    credentials = getattr(flow, 'credentials', None)
-                    if not credentials:
-                        self.auth_failed.emit(
-                            "OAuth scope mismatch. "
-                            "Please check your Google Cloud Console settings."
-                        )
-                        return
-                else:
-                    self.auth_failed.emit(
-                        "Browser was closed before sign-in completed. "
-                        "Please try again."
-                    )
-                    return
-            else:
-                credentials = result[0]
-
-            if not credentials:
-                self.auth_failed.emit("Sign-in did not complete. Please try again.")
-                return
-
-            self.auth_progress.emit("Fetching your profile…")
-
-            headers  = {'Authorization': f'Bearer {credentials.token}'}
-            response = requests.get(
-                GoogleAuthConfig.USER_INFO_URL,
-                headers=headers,
-                timeout=10,
-            )
-            response.raise_for_status()
-            user_info = response.json()
-
-            if 'email' not in user_info:
-                raise ValueError("Google did not return an email address.")
-
-            user_info['credentials'] = credentials
-            self.auth_complete.emit(user_info)
-
-        except requests.RequestException as exc:
-            if not self._cancelled.is_set():
-                logger.error("Network error during auth: %s", exc)
-                self.auth_failed.emit(f"Network error: {exc}")
-        except ValueError as exc:
-            if not self._cancelled.is_set():
-                logger.error("Value error during auth: %s", exc)
-                self.auth_failed.emit(str(exc))
-        except Exception as exc:
-            if not self._cancelled.is_set():
-                logger.exception("Unexpected auth error")
-                self.auth_failed.emit(f"Authentication failed: {exc}")
+            self.auth_complete.emit({**result["user"], "session": result["session"]})
+        except (BrowserSignInError, FirebaseAuthError) as exc:
+            self.auth_failed.emit(_CANCELLED if self._cancelled.is_set() else str(exc))
+        except Exception:
+            self.auth_failed.emit(_CANCELLED if self._cancelled.is_set() else
+                                  "Google sign-in could not finish. Please try again.")

@@ -1,0 +1,215 @@
+{
+  "id": "168_mass_member_point_chain_v3",
+  "family": "mass_member_point_chain",
+  "variant": 3,
+  "model_file": "168_mass_member_point_chain_v3.mf",
+  "static": {
+    "passed": true,
+    "checks": [
+      {
+        "name": "nodal displacement and rotation",
+        "passed": true,
+        "max_tolerance_ratio": 2.2731716397762082e-10,
+        "relative_tolerance": 2e-06,
+        "absolute_tolerances_per_dof": [
+          1e-10,
+          1e-10,
+          1e-10,
+          1e-10,
+          1e-10,
+          1e-10
+        ],
+        "worst_components": []
+      },
+      {
+        "name": "support force and moment",
+        "passed": true,
+        "max_tolerance_ratio": 1.0815612669732152e-09,
+        "relative_tolerance": 2e-06,
+        "absolute_tolerances_per_dof": [
+          0.0001,
+          0.0001,
+          0.0001,
+          0.0001,
+          0.0001,
+          0.0001
+        ],
+        "worst_components": []
+      },
+      {
+        "name": "independent free-DOF equilibrium residual",
+        "passed": true,
+        "value": 1.4257520791326628e-15,
+        "limit": 2e-06
+      },
+      {
+        "name": "analytical: Axial tip displacement",
+        "passed": true,
+        "actual": 1.906525573192232e-05,
+        "expected": 1.90652557319224e-05,
+        "absolute_error": 7.792703114739563e-20,
+        "tolerance": 1.381305114638448e-10,
+        "formula": "PL/(EA)",
+        "reference_kind": "continuum or exact discrete formula as labelled"
+      },
+      {
+        "name": "analytical: Axial fixed-end reaction",
+        "passed": true,
+        "actual": -9199.999999999953,
+        "expected": -9200.0,
+        "absolute_error": 4.729372449219227e-11,
+        "tolerance": 0.0185,
+        "formula": "-P",
+        "reference_kind": "continuum or exact discrete formula as labelled"
+      }
+    ]
+  },
+  "modal": {
+    "passed": true,
+    "checks": [
+      {
+        "name": "mode count",
+        "passed": true,
+        "actual": 3,
+        "expected": 3
+      },
+      {
+        "name": "finite positive sorted frequencies",
+        "passed": true
+      },
+      {
+        "name": "maximum relative frequency error",
+        "passed": true,
+        "value": 7.155257641762416e-15,
+        "limit": 2e-05
+      },
+      {
+        "name": "period/frequency/omega/eigenvalue consistency",
+        "passed": true,
+        "value": 2.220446049250313e-16,
+        "limit": 1e-09
+      },
+      {
+        "name": "maximum independent eigen residual",
+        "passed": true,
+        "value": 8.461095820682826e-15,
+        "limit": 2e-05
+      },
+      {
+        "name": "mass normalization and orthogonality",
+        "passed": true,
+        "value": 2.220446049250313e-16,
+        "limit": 2e-05
+      },
+      {
+        "name": "worst modal subspace mismatch (1-MAC)",
+        "passed": true,
+        "value": 0.0,
+        "limit": 0.0002
+      },
+      {
+        "name": "assembled physical nodal mass",
+        "passed": true,
+        "max_tolerance_ratio": 2.220099158756757e-08,
+        "relative_tolerance": 1e-08,
+        "absolute_tolerances_per_dof": [
+          1e-10,
+          1e-10,
+          1e-10,
+          1e-10,
+          1e-10,
+          1e-10
+        ],
+        "worst_components": []
+      },
+      {
+        "name": "analytical: Exact discrete axial chain frequency",
+        "passed": true,
+        "actual": 206.5514568972206,
+        "expected": 206.55145689722076,
+        "absolute_error": 1.7053025658242404e-13,
+        "tolerance": 0.00020655245689722075,
+        "formula": "sqrt(ks/m + 4k/m*sin\u00b2((2r-1)\u03c0/(4n+2)))/(2\u03c0)",
+        "reference_kind": "continuum or exact discrete formula as labelled"
+      },
+      {
+        "name": "analytical: Exact discrete axial chain frequency",
+        "passed": true,
+        "actual": 615.0403524605864,
+        "expected": 615.0403524605865,
+        "absolute_error": 1.1368683772161603e-13,
+        "tolerance": 0.0006150413524605865,
+        "formula": "sqrt(ks/m + 4k/m*sin\u00b2((2r-1)\u03c0/(4n+2)))/(2\u03c0)",
+        "reference_kind": "continuum or exact discrete formula as labelled"
+      },
+      {
+        "name": "analytical: Exact discrete axial chain frequency",
+        "passed": true,
+        "actual": 1009.7902628735712,
+        "expected": 1009.7902628735711,
+        "absolute_error": 1.1368683772161603e-13,
+        "tolerance": 0.001009791262873571,
+        "formula": "sqrt(ks/m + 4k/m*sin\u00b2((2r-1)\u03c0/(4n+2)))/(2\u03c0)",
+        "reference_kind": "continuum or exact discrete formula as labelled"
+      }
+    ]
+  },
+  "analytical": [
+    {
+      "name": "analytical: Axial tip displacement",
+      "passed": true,
+      "actual": 1.906525573192232e-05,
+      "expected": 1.90652557319224e-05,
+      "absolute_error": 7.792703114739563e-20,
+      "tolerance": 1.381305114638448e-10,
+      "formula": "PL/(EA)",
+      "reference_kind": "continuum or exact discrete formula as labelled"
+    },
+    {
+      "name": "analytical: Axial fixed-end reaction",
+      "passed": true,
+      "actual": -9199.999999999953,
+      "expected": -9200.0,
+      "absolute_error": 4.729372449219227e-11,
+      "tolerance": 0.0185,
+      "formula": "-P",
+      "reference_kind": "continuum or exact discrete formula as labelled"
+    },
+    {
+      "name": "analytical: Exact discrete axial chain frequency",
+      "passed": true,
+      "actual": 206.5514568972206,
+      "expected": 206.55145689722076,
+      "absolute_error": 1.7053025658242404e-13,
+      "tolerance": 0.00020655245689722075,
+      "formula": "sqrt(ks/m + 4k/m*sin\u00b2((2r-1)\u03c0/(4n+2)))/(2\u03c0)",
+      "reference_kind": "continuum or exact discrete formula as labelled"
+    },
+    {
+      "name": "analytical: Exact discrete axial chain frequency",
+      "passed": true,
+      "actual": 615.0403524605864,
+      "expected": 615.0403524605865,
+      "absolute_error": 1.1368683772161603e-13,
+      "tolerance": 0.0006150413524605865,
+      "formula": "sqrt(ks/m + 4k/m*sin\u00b2((2r-1)\u03c0/(4n+2)))/(2\u03c0)",
+      "reference_kind": "continuum or exact discrete formula as labelled"
+    },
+    {
+      "name": "analytical: Exact discrete axial chain frequency",
+      "passed": true,
+      "actual": 1009.7902628735712,
+      "expected": 1009.7902628735711,
+      "absolute_error": 1.1368683772161603e-13,
+      "tolerance": 0.001009791262873571,
+      "formula": "sqrt(ks/m + 4k/m*sin\u00b2((2r-1)\u03c0/(4n+2)))/(2\u03c0)",
+      "reference_kind": "continuum or exact discrete formula as labelled"
+    }
+  ],
+  "reference_error": null,
+  "execution": {
+    "returncode": 0,
+    "model_sha256": "5eeafaeffbe2885fdf45b9b23bff3fb90ddcb37cca54ff85bb8e21c1fd8ec4b9",
+    "solver_source_sha256": "b2dcefa0108c3e5d25eebdc3c19f4cd8586716bf63074a9bf5dead876a6ea0cf"
+  }
+}

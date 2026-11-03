@@ -1,7 +1,7 @@
 """
 Tendon Geometry Dialog
 =======================
-SAP-parity "Tendon Data For Line Object" dialog + "Tendon Quick Start
+"Tendon Data For Line Object" dialog + "Tendon Quick Start
 Templates" sub-dialog + a small "Modify Axes" helper.
 
 Scope (deliberate, per project ground rules):
@@ -23,8 +23,7 @@ Stubbed-for-now (explicitly, not silently):
     second competing table editor blind (without canvas hookup) risks
     diverging data models.
   - Move Tendon... — disabled/stub message (needs canvas).
-  - Mouse Pointer Location / Snap Option — fields present (SAP-parity,
-    nothing hidden), but inert until canvas hookup exists.
+  - Mouse Pointer Location / Snap Option — fields present, but inert until canvas hookup exists.
   - Group Loaded By Tendon — display-only "ALL", disabled (load grouping
     not implemented).
   - Object Type — display-only "Current Tendon", disabled (no multi-
@@ -48,7 +47,7 @@ from app.ui.theme import apply_dialog_style, COLORS
 
 def _card_qss():
     """Rounded, lightly-bordered panel look for the top-level dialog
-    sections — deliberately distinct from the flat/boxy SAP-style
+    sections — deliberately distinct from the flat/boxy
     QGroupBox appearance this dialog used to have."""
     return (
         f"QGroupBox {{ border: 1px solid {COLORS['border']}; border-radius: 6px; "
@@ -414,7 +413,7 @@ class ModifyAxesDialog(QDialog):
 
 class TendonQuickStartDialog(QDialog):
     """
-    Generates a starting layout_points list for one of SAP's 9 quick-start
+    Generates a starting layout_points list for one of 9 quick-start
     profile shapes. This is a convenience SEED, exactly like SAP's own
     Quick Start tool — the resulting points land in the main table where
     they can (and typically should) be fine-tuned to the project's exact

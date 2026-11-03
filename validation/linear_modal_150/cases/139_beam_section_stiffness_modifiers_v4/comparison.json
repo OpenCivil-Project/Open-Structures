@@ -1,0 +1,355 @@
+{
+  "id": "139_beam_section_stiffness_modifiers_v4",
+  "family": "beam_section_stiffness_modifiers",
+  "variant": 4,
+  "model_file": "139_beam_section_stiffness_modifiers_v4.mf",
+  "static": {
+    "passed": true,
+    "checks": [
+      {
+        "name": "nodal displacement and rotation",
+        "passed": true,
+        "max_tolerance_ratio": 7.675221111863585e-06,
+        "relative_tolerance": 2e-06,
+        "absolute_tolerances_per_dof": [
+          1e-10,
+          1e-10,
+          1e-10,
+          1e-10,
+          1e-10,
+          1e-10
+        ],
+        "worst_components": []
+      },
+      {
+        "name": "support force and moment",
+        "passed": true,
+        "max_tolerance_ratio": 3.276036338121014e-05,
+        "relative_tolerance": 2e-06,
+        "absolute_tolerances_per_dof": [
+          0.0001,
+          0.0001,
+          0.0001,
+          0.0001,
+          0.0001,
+          0.0001
+        ],
+        "worst_components": []
+      },
+      {
+        "name": "independent free-DOF equilibrium residual",
+        "passed": true,
+        "value": 1.5951243977212746e-12,
+        "limit": 2e-06
+      },
+      {
+        "name": "analytical: Mixed tip-action compliance",
+        "passed": true,
+        "actual": -0.006491896202697461,
+        "expected": -0.006491896202653529,
+        "absolute_error": 4.393187202911264e-14,
+        "tolerance": 1.3083792405307057e-08,
+        "formula": "Transform[FxL/EA, Fy(L\u00b3/3EI33+L/GAs2)+MzL\u00b2/2EI33, Fz(L\u00b3/3EI22+L/GAs3)-MyL\u00b2/2EI22; TxL/GJ, -FzL\u00b2/2EI22+MyL/EI22, FyL\u00b2/2EI33+MzL/EI33]",
+        "reference_kind": "continuum or exact discrete formula as labelled"
+      },
+      {
+        "name": "analytical: Mixed tip-action compliance",
+        "passed": true,
+        "actual": -0.013558601453671793,
+        "expected": -0.01355860145362029,
+        "absolute_error": 5.1502205278275426e-14,
+        "tolerance": 2.721720290724058e-08,
+        "formula": "Transform[FxL/EA, Fy(L\u00b3/3EI33+L/GAs2)+MzL\u00b2/2EI33, Fz(L\u00b3/3EI22+L/GAs3)-MyL\u00b2/2EI22; TxL/GJ, -FzL\u00b2/2EI22+MyL/EI22, FyL\u00b2/2EI33+MzL/EI33]",
+        "reference_kind": "continuum or exact discrete formula as labelled"
+      },
+      {
+        "name": "analytical: Mixed tip-action compliance",
+        "passed": true,
+        "actual": -0.010871694612698348,
+        "expected": -0.010871694612705207,
+        "absolute_error": 6.859096624012295e-15,
+        "tolerance": 2.1843389225410413e-08,
+        "formula": "Transform[FxL/EA, Fy(L\u00b3/3EI33+L/GAs2)+MzL\u00b2/2EI33, Fz(L\u00b3/3EI22+L/GAs3)-MyL\u00b2/2EI22; TxL/GJ, -FzL\u00b2/2EI22+MyL/EI22, FyL\u00b2/2EI33+MzL/EI33]",
+        "reference_kind": "continuum or exact discrete formula as labelled"
+      },
+      {
+        "name": "analytical: Mixed tip-action compliance",
+        "passed": true,
+        "actual": 0.003010643949000985,
+        "expected": 0.0030106439489992884,
+        "absolute_error": 1.6965595595053173e-15,
+        "tolerance": 6.121287897998577e-09,
+        "formula": "Transform[FxL/EA, Fy(L\u00b3/3EI33+L/GAs2)+MzL\u00b2/2EI33, Fz(L\u00b3/3EI22+L/GAs3)-MyL\u00b2/2EI22; TxL/GJ, -FzL\u00b2/2EI22+MyL/EI22, FyL\u00b2/2EI33+MzL/EI33]",
+        "reference_kind": "continuum or exact discrete formula as labelled"
+      },
+      {
+        "name": "analytical: Mixed tip-action compliance",
+        "passed": true,
+        "actual": 0.0009097357588508144,
+        "expected": 0.0009097357588538795,
+        "absolute_error": 3.0651479618337696e-15,
+        "tolerance": 1.919471517707759e-09,
+        "formula": "Transform[FxL/EA, Fy(L\u00b3/3EI33+L/GAs2)+MzL\u00b2/2EI33, Fz(L\u00b3/3EI22+L/GAs3)-MyL\u00b2/2EI22; TxL/GJ, -FzL\u00b2/2EI22+MyL/EI22, FyL\u00b2/2EI33+MzL/EI33]",
+        "reference_kind": "continuum or exact discrete formula as labelled"
+      },
+      {
+        "name": "analytical: Mixed tip-action compliance",
+        "passed": true,
+        "actual": -0.002684130686336958,
+        "expected": -0.002684130686324181,
+        "absolute_error": 1.2777105762307173e-14,
+        "tolerance": 5.468261372648362e-09,
+        "formula": "Transform[FxL/EA, Fy(L\u00b3/3EI33+L/GAs2)+MzL\u00b2/2EI33, Fz(L\u00b3/3EI22+L/GAs3)-MyL\u00b2/2EI22; TxL/GJ, -FzL\u00b2/2EI22+MyL/EI22, FyL\u00b2/2EI33+MzL/EI33]",
+        "reference_kind": "continuum or exact discrete formula as labelled"
+      },
+      {
+        "name": "analytical: Root equilibrium",
+        "passed": true,
+        "actual": -2711.5461988653697,
+        "expected": -2711.546198896774,
+        "absolute_error": 3.1404397304868326e-08,
+        "tolerance": 0.005523092397793548,
+        "formula": "[-F, -M-r\u00d7F]",
+        "reference_kind": "continuum or exact discrete formula as labelled"
+      },
+      {
+        "name": "analytical: Root equilibrium",
+        "passed": true,
+        "actual": 19604.81164094445,
+        "expected": 19604.811640865966,
+        "absolute_error": 7.848211680538952e-08,
+        "tolerance": 0.03930962328173193,
+        "formula": "[-F, -M-r\u00d7F]",
+        "reference_kind": "continuum or exact discrete formula as labelled"
+      },
+      {
+        "name": "analytical: Root equilibrium",
+        "passed": true,
+        "actual": 10166.679779421516,
+        "expected": 10166.679779427239,
+        "absolute_error": 5.7225406635552645e-09,
+        "tolerance": 0.020433359558854475,
+        "formula": "[-F, -M-r\u00d7F]",
+        "reference_kind": "continuum or exact discrete formula as labelled"
+      },
+      {
+        "name": "analytical: Root equilibrium",
+        "passed": true,
+        "actual": -91827.1371043627,
+        "expected": -91827.13710426053,
+        "absolute_error": 1.0216899681836367e-07,
+        "tolerance": 0.18375427420852106,
+        "formula": "[-F, -M-r\u00d7F]",
+        "reference_kind": "continuum or exact discrete formula as labelled"
+      },
+      {
+        "name": "analytical: Root equilibrium",
+        "passed": true,
+        "actual": -60249.22052269465,
+        "expected": -60249.22052275055,
+        "absolute_error": 5.589390639215708e-08,
+        "tolerance": 0.12059844104550109,
+        "formula": "[-F, -M-r\u00d7F]",
+        "reference_kind": "continuum or exact discrete formula as labelled"
+      },
+      {
+        "name": "analytical: Root equilibrium",
+        "passed": true,
+        "actual": 84837.0015099692,
+        "expected": 84837.00150957456,
+        "absolute_error": 3.9463338907808065e-07,
+        "tolerance": 0.1697740030191491,
+        "formula": "[-F, -M-r\u00d7F]",
+        "reference_kind": "continuum or exact discrete formula as labelled"
+      }
+    ]
+  },
+  "modal": {
+    "passed": true,
+    "checks": [
+      {
+        "name": "mode count",
+        "passed": true,
+        "actual": 3,
+        "expected": 3
+      },
+      {
+        "name": "finite positive sorted frequencies",
+        "passed": true
+      },
+      {
+        "name": "maximum relative frequency error",
+        "passed": true,
+        "value": 1.5012910375575932e-12,
+        "limit": 2e-05
+      },
+      {
+        "name": "period/frequency/omega/eigenvalue consistency",
+        "passed": true,
+        "value": 2.220446049250313e-16,
+        "limit": 1e-09
+      },
+      {
+        "name": "maximum independent eigen residual",
+        "passed": true,
+        "value": 8.573421443114652e-12,
+        "limit": 2e-05
+      },
+      {
+        "name": "mass normalization and orthogonality",
+        "passed": true,
+        "value": 4.440892098500626e-16,
+        "limit": 2e-05
+      },
+      {
+        "name": "worst modal subspace mismatch (1-MAC)",
+        "passed": true,
+        "value": 4.440892098500626e-16,
+        "limit": 0.0002
+      },
+      {
+        "name": "assembled physical nodal mass",
+        "passed": true,
+        "max_tolerance_ratio": 0.0,
+        "relative_tolerance": 1e-08,
+        "absolute_tolerances_per_dof": [
+          1e-10,
+          1e-10,
+          1e-10,
+          1e-10,
+          1e-10,
+          1e-10
+        ],
+        "worst_components": []
+      }
+    ]
+  },
+  "analytical": [
+    {
+      "name": "analytical: Mixed tip-action compliance",
+      "passed": true,
+      "actual": -0.006491896202697461,
+      "expected": -0.006491896202653529,
+      "absolute_error": 4.393187202911264e-14,
+      "tolerance": 1.3083792405307057e-08,
+      "formula": "Transform[FxL/EA, Fy(L\u00b3/3EI33+L/GAs2)+MzL\u00b2/2EI33, Fz(L\u00b3/3EI22+L/GAs3)-MyL\u00b2/2EI22; TxL/GJ, -FzL\u00b2/2EI22+MyL/EI22, FyL\u00b2/2EI33+MzL/EI33]",
+      "reference_kind": "continuum or exact discrete formula as labelled"
+    },
+    {
+      "name": "analytical: Mixed tip-action compliance",
+      "passed": true,
+      "actual": -0.013558601453671793,
+      "expected": -0.01355860145362029,
+      "absolute_error": 5.1502205278275426e-14,
+      "tolerance": 2.721720290724058e-08,
+      "formula": "Transform[FxL/EA, Fy(L\u00b3/3EI33+L/GAs2)+MzL\u00b2/2EI33, Fz(L\u00b3/3EI22+L/GAs3)-MyL\u00b2/2EI22; TxL/GJ, -FzL\u00b2/2EI22+MyL/EI22, FyL\u00b2/2EI33+MzL/EI33]",
+      "reference_kind": "continuum or exact discrete formula as labelled"
+    },
+    {
+      "name": "analytical: Mixed tip-action compliance",
+      "passed": true,
+      "actual": -0.010871694612698348,
+      "expected": -0.010871694612705207,
+      "absolute_error": 6.859096624012295e-15,
+      "tolerance": 2.1843389225410413e-08,
+      "formula": "Transform[FxL/EA, Fy(L\u00b3/3EI33+L/GAs2)+MzL\u00b2/2EI33, Fz(L\u00b3/3EI22+L/GAs3)-MyL\u00b2/2EI22; TxL/GJ, -FzL\u00b2/2EI22+MyL/EI22, FyL\u00b2/2EI33+MzL/EI33]",
+      "reference_kind": "continuum or exact discrete formula as labelled"
+    },
+    {
+      "name": "analytical: Mixed tip-action compliance",
+      "passed": true,
+      "actual": 0.003010643949000985,
+      "expected": 0.0030106439489992884,
+      "absolute_error": 1.6965595595053173e-15,
+      "tolerance": 6.121287897998577e-09,
+      "formula": "Transform[FxL/EA, Fy(L\u00b3/3EI33+L/GAs2)+MzL\u00b2/2EI33, Fz(L\u00b3/3EI22+L/GAs3)-MyL\u00b2/2EI22; TxL/GJ, -FzL\u00b2/2EI22+MyL/EI22, FyL\u00b2/2EI33+MzL/EI33]",
+      "reference_kind": "continuum or exact discrete formula as labelled"
+    },
+    {
+      "name": "analytical: Mixed tip-action compliance",
+      "passed": true,
+      "actual": 0.0009097357588508144,
+      "expected": 0.0009097357588538795,
+      "absolute_error": 3.0651479618337696e-15,
+      "tolerance": 1.919471517707759e-09,
+      "formula": "Transform[FxL/EA, Fy(L\u00b3/3EI33+L/GAs2)+MzL\u00b2/2EI33, Fz(L\u00b3/3EI22+L/GAs3)-MyL\u00b2/2EI22; TxL/GJ, -FzL\u00b2/2EI22+MyL/EI22, FyL\u00b2/2EI33+MzL/EI33]",
+      "reference_kind": "continuum or exact discrete formula as labelled"
+    },
+    {
+      "name": "analytical: Mixed tip-action compliance",
+      "passed": true,
+      "actual": -0.002684130686336958,
+      "expected": -0.002684130686324181,
+      "absolute_error": 1.2777105762307173e-14,
+      "tolerance": 5.468261372648362e-09,
+      "formula": "Transform[FxL/EA, Fy(L\u00b3/3EI33+L/GAs2)+MzL\u00b2/2EI33, Fz(L\u00b3/3EI22+L/GAs3)-MyL\u00b2/2EI22; TxL/GJ, -FzL\u00b2/2EI22+MyL/EI22, FyL\u00b2/2EI33+MzL/EI33]",
+      "reference_kind": "continuum or exact discrete formula as labelled"
+    },
+    {
+      "name": "analytical: Root equilibrium",
+      "passed": true,
+      "actual": -2711.5461988653697,
+      "expected": -2711.546198896774,
+      "absolute_error": 3.1404397304868326e-08,
+      "tolerance": 0.005523092397793548,
+      "formula": "[-F, -M-r\u00d7F]",
+      "reference_kind": "continuum or exact discrete formula as labelled"
+    },
+    {
+      "name": "analytical: Root equilibrium",
+      "passed": true,
+      "actual": 19604.81164094445,
+      "expected": 19604.811640865966,
+      "absolute_error": 7.848211680538952e-08,
+      "tolerance": 0.03930962328173193,
+      "formula": "[-F, -M-r\u00d7F]",
+      "reference_kind": "continuum or exact discrete formula as labelled"
+    },
+    {
+      "name": "analytical: Root equilibrium",
+      "passed": true,
+      "actual": 10166.679779421516,
+      "expected": 10166.679779427239,
+      "absolute_error": 5.7225406635552645e-09,
+      "tolerance": 0.020433359558854475,
+      "formula": "[-F, -M-r\u00d7F]",
+      "reference_kind": "continuum or exact discrete formula as labelled"
+    },
+    {
+      "name": "analytical: Root equilibrium",
+      "passed": true,
+      "actual": -91827.1371043627,
+      "expected": -91827.13710426053,
+      "absolute_error": 1.0216899681836367e-07,
+      "tolerance": 0.18375427420852106,
+      "formula": "[-F, -M-r\u00d7F]",
+      "reference_kind": "continuum or exact discrete formula as labelled"
+    },
+    {
+      "name": "analytical: Root equilibrium",
+      "passed": true,
+      "actual": -60249.22052269465,
+      "expected": -60249.22052275055,
+      "absolute_error": 5.589390639215708e-08,
+      "tolerance": 0.12059844104550109,
+      "formula": "[-F, -M-r\u00d7F]",
+      "reference_kind": "continuum or exact discrete formula as labelled"
+    },
+    {
+      "name": "analytical: Root equilibrium",
+      "passed": true,
+      "actual": 84837.0015099692,
+      "expected": 84837.00150957456,
+      "absolute_error": 3.9463338907808065e-07,
+      "tolerance": 0.1697740030191491,
+      "formula": "[-F, -M-r\u00d7F]",
+      "reference_kind": "continuum or exact discrete formula as labelled"
+    }
+  ],
+  "reference_error": null,
+  "execution": {
+    "returncode": 0,
+    "model_sha256": "dcaf5417449fe4b800a480ddfdead37a47511159b7234d1b84fa9dccd679978d",
+    "solver_source_sha256": "b2dcefa0108c3e5d25eebdc3c19f4cd8586716bf63074a9bf5dead876a6ea0cf"
+  }
+}

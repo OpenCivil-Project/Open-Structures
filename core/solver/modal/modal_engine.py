@@ -32,6 +32,117 @@ def _write_error(out_path, error_code, extra=""):
         pass
     return True
 
+def _load_fiber_hinges(dm):
+    """Fiber hinges of the model as {eid_str: hinge data} (empty dict if it has none).
+    hinge_loader.py lives with the nonlinear solver; find it if it is not on sys.path yet."""
+    import importlib, glob
+    try:
+        loader = importlib.import_module('hinge_loader')
+    except ImportError:
+        loader = None
+        for p in glob.glob(os.path.join(solver_dir, '*', 'hinge_loader.py')):
+            d = os.path.dirname(p)
+            if d not in sys.path:
+                sys.path.append(d)
+            loader = importlib.import_module('hinge_loader')
+            break
+        if loader is None:
+            raise ImportError("hinge_loader.py not found next to the solver modules")
+    return loader.build_hinge_elements(dm)
+
+_DOF_NAMES = ("UX", "UY", "UZ", "RX", "RY", "RZ")
+
+def _get_active_dofs(dm):
+    """Analysis Options > Available Global DOFs as 6 bools (UX, UY, UZ, RX, RY, RZ).
+    Same source the nonlinear engine uses; all True if the model does not define it."""
+    act = getattr(dm, 'active_dofs', None)
+    if act is None:
+        act = (getattr(dm, 'raw', None) or {}).get('info', {}).get('active_dofs')
+    if act is None or len(act) != 6:
+        return [True] * 6
+    return [bool(a) for a in act]
+
+def _find_mechanism_modes(vals, t_max=100.0, rel_tol=1e-6):
+    """Indices of mechanism modes: eigenvalue (omega^2) that is ~0 for a real structure.
+    Two tests, either one flags a mode:
+      * absolute: period T > t_max seconds. Period is in seconds in ANY consistent unit system, and no
+        real structure has a 100 s mode, whereas a mechanism sits at the 1e-8 stiffness floor
+        (T of hundreds to thousands of seconds). This also catches the case where ALL solved modes
+        are mechanism modes (nothing real to compare against).
+      * relative: omega^2 < rel_tol * the stiffest solved mode (needs >= 2 modes). Catches a
+        mechanism mode that is soft but still above the absolute line next to very stiff real modes."""
+    v = np.asarray(vals, dtype=float)
+    if v.size == 0:
+        return []
+    w2_abs = (2.0 * np.pi / t_max) ** 2
+    ref = float(np.max(np.abs(v))) if v.size > 1 else 0.0
+    return [i for i, w in enumerate(v) if w < w2_abs or (ref > 0.0 and w < rel_tol * ref)]
+
+def _hinge_free_parts(rep, dm, active_dofs):
+    """(translation_share, rotation_share) of a hinge's weak direction on DOFs that are free in this
+    analysis, each 0..1 (None if the assembler gave no direction for that part).
+
+    A global DOF counts as free for the element if it is available in Analysis Options and is not
+    restrained at BOTH end nodes. The weak mode has a translation direction and a rotation axis (GLOBAL
+    unit vectors from the assembler); each share is the cos^2 of that vector on free DOFs."""
+    td, ax, nodes = rep.get('weak_trans_dir'), rep.get('weak_rot_axis'), rep.get('nodes')
+    free = [bool(a) for a in active_dofs]
+    if nodes:
+        try:
+            ri, rj = dm.nodes[nodes[0]]['restraints'], dm.nodes[nodes[1]]['restraints']
+            free = [free[k] and not (ri[k] and rj[k]) for k in range(6)]
+        except Exception:
+            pass
+    t_share = None if td is None else sum(float(td[k]) ** 2 for k in range(3) if free[k])
+    r_share = None if ax is None else sum(float(ax[k]) ** 2 for k in range(3) if free[3 + k])
+    return t_share, r_share
+
+def _hinge_free_share(rep, dm, active_dofs):
+    """Conservative gate: the LARGER of the translation / rotation shares (either one can excite the
+    weak mode, e.g. a free rotation DOF between two weak hinges), or None if direction is unknown.
+    Never reports 'harmless' for a direction that is actually free."""
+    parts = [p for p in _hinge_free_parts(rep, dm, active_dofs) if p is not None]
+    return max(parts) if parts else None
+
+def _judge_hinges(hinge_info, mech_modes, dm, active_dofs):
+    """Decide, per fiber hinge, whether its weak direction is a real problem in THIS analysis.
+    Culprit  = weak in a direction that is free (active DOF, not restrained at both ends)
+               AND the reduced model really has a mechanism mode.
+    Mutates each report dict: keeps the assembler's flag as 'near_mechanism_local', adds 'free_share',
+    and sets 'near_mechanism' to the final verdict (this is what the UI warning reads).
+    Returns (culprits, harmless) -- harmless = flagged locally but not a problem here."""
+    culprits, harmless = [], []
+    for r in hinge_info:
+        r['near_mechanism_local'] = bool(r.get('near_mechanism'))
+        r['free_share'] = None
+        r['near_mechanism'] = False
+        if not r['near_mechanism_local']:
+            continue
+        r['free_trans'], r['free_rot'] = _hinge_free_parts(r, dm, active_dofs)
+        r['free_share'] = _hinge_free_share(r, dm, active_dofs)
+        r['weak_text'] = _fmt_dirs(r)
+        on_free_dof = r['free_share'] is None or r['free_share'] >= 1e-3
+        if mech_modes and on_free_dof:
+            r['near_mechanism'] = True
+            culprits.append(r)
+        else:
+            harmless.append(r)
+    return culprits, harmless
+
+def _fmt_dirs(rep):
+    """e.g. 'bending about local 2 (rotation about global Y, translation along global X)'"""
+    def _g(v):
+        k = int(np.argmax(np.abs(v)))
+        return "XYZ"[k] if abs(v[k]) > 0.999 else "(" + ", ".join(f"{c:+.2f}" for c in v) + ")"
+    def _st(share):
+        return "" if share is None else (" [free]" if share >= 1e-3 else " [not available]")
+    parts = []
+    if rep.get('weak_rot_axis') is not None:
+        parts.append(f"rotation about global {_g(rep['weak_rot_axis'])}{_st(rep.get('free_rot'))}")
+    if rep.get('weak_trans_dir') is not None:
+        parts.append(f"translation along global {_g(rep['weak_trans_dir'])}{_st(rep.get('free_trans'))}")
+    return f"{rep.get('weak_mode', '?')} ({', '.join(parts)})" if parts else str(rep.get('weak_mode', '?'))
+
 def run_modal_analysis(input_json_path, output_json_path, target_case_name="MODAL", progress_callback=None):
     print("="*60)
     print(f"METUFIRE MODAL ENGINE | V0.3 (Shift-Invert)")
@@ -50,6 +161,13 @@ def run_modal_analysis(input_json_path, output_json_path, target_case_name="MODA
         dm = DataManager(input_json_path)
         target_case = "MODAL"
         dm.process_all(case_name=target_case_name)
+        use_os = (dm.raw.get("info", {}).get("analysis_engine", "native") == "opensees")
+        if use_os:
+            print("      Analysis Engine: OpenSees (eigen/static solved by OpenSees; mass, normalisation and tables shared with native)")
+            n_shells = len(getattr(dm, 'shells', []) or [])
+            if n_shells:
+                print(f"FATAL: {n_shells} shell element(s) found; the OpenSees engine does not support shells yet.")
+                return _write_error(output_json_path, "E305", f"{n_shells} shell element(s) in the model.")
     except Exception as e:
         print(f"FATAL: Data Load Error: {e}")
         return _write_error(output_json_path, "E102", str(e))
@@ -59,10 +177,32 @@ def run_modal_analysis(input_json_path, output_json_path, target_case_name="MODA
         
         assembler = GlobalAssembler(dm)
 
-        progress_callback("Assembling stiffness matrix...", 18)
+        hinge_info = []
+        if use_os:
+            K_full = None
+        else:
+            _mc = next((c for c in dm.raw['load_cases'] if c['name'] == target_case_name), None)
+            if _mc and _mc.get('modal_fiber_hinges', False):
+                _hinges = _load_fiber_hinges(dm)
+                if _hinges:
+                    assembler.modal_hinge_elements = _hinges
+                    print(f"      Fiber hinge stiffness ON: {len(_hinges)} element(s) -> {list(_hinges.keys())}")
+                else:
+                    print("      Fiber hinge stiffness requested but the model has no usable fiber hinges -- skipped.")
+
+            progress_callback("Assembling stiffness matrix...", 18)
                                                                                                  
-        res = assembler.assemble_system()
-        K_full = res[0]                    
+            res = assembler.assemble_system()
+            K_full = res[0]                    
+                                                                                                            
+            hinge_info = [dict(_r) for _r in getattr(assembler, 'modal_hinge_report', [])]
+            for _r in hinge_info:
+                _f = _r.get('fiber_vs_gross')
+                if _f:
+                    print(f"      Fiber hinge '{_r.get('hinge')}' (element {_r.get('element')}) initial stiffness / gross section:  "
+                          f"EA {_f['as_used'][0]:.4f} | EI22 {_f['as_used'][1]:.4f} | EI33 {_f['as_used'][2]:.4f}   "
+                          f"[EI22 tension side {_f['tension_side'][1]:.4f} / compression side {_f['compression_side'][1]:.4f};  "
+                          f"EI33 {_f['tension_side'][2]:.4f} / {_f['compression_side'][2]:.4f}]")
         
         modal_case_def = next((c for c in dm.raw['load_cases'] if c['name'] == target_case_name), None)
         ms_name = modal_case_def.get("mass_source", "Default") if modal_case_def else "Default"
@@ -90,12 +230,17 @@ def run_modal_analysis(input_json_path, output_json_path, target_case_name="MODA
 
     progress_callback("Applying boundary conditions...", 35)
 
+    active_dofs = _get_active_dofs(dm)
+    inactive_names = [n for n, a in zip(_DOF_NAMES, active_dofs) if not a]
+    if inactive_names:
+        print(f"      Analysis Options: DOFs not available -> {', '.join(inactive_names)} (removed from the modal problem)")
+
     is_free = np.ones(dm.total_dofs, dtype=bool)
     for node in dm.nodes:
         start_idx = node['idx'] * 6
         restraints = node['restraints']                           
         for i in range(6):
-            if restraints[i]:           
+            if restraints[i] or not active_dofs[i]:           
                 is_free[start_idx + i] = False
     
     free_dof_indices = np.where(is_free)[0]
@@ -115,80 +260,142 @@ def run_modal_analysis(input_json_path, output_json_path, target_case_name="MODA
 
     progress_callback("", 35)
 
-    has_T = hasattr(assembler, 'T') and assembler.T is not None
-    if has_T:
-        print("      Applying Diaphragm Transformation (T) to K and M...")
-        T = assembler.T
-        kept_dofs = assembler.kept_dofs
-        K_sys = T.T @ K_full @ T
-        M_sys = T.T @ M_full @ T
-        is_free_sys = is_free[kept_dofs]
+    if use_os:
+        try:
+            try:
+                from core.opensees_port.OS_OP import opensees_modal_backend
+            except ImportError:
+                from OS_OP import opensees_modal_backend
+            from scipy.sparse import diags
+            req_modes = modal_case_def.get("num_modes", 12) if modal_case_def else 12
+            n_elim = sum(3 * (len(v) - 1) for v in getattr(dm, 'diaphragm_groups', {}).values() if len(v) >= 2)
+            n_free_dofs_sys = int(is_free.sum()) - n_elim
+            safe_num_modes = min(req_modes, max(1, n_free_dofs_sys - 2))
+            if safe_num_modes <= 0:
+                return _write_error(output_json_path, "E304", f"Not enough free DOFs ({n_free_dofs_sys}).")
+            if safe_num_modes < req_modes:
+                print(f"Warning: Requested {req_modes} modes but model only has {n_free_dofs_sys} free DOFs. Clamped to {safe_num_modes}.")
+                req_modes = safe_num_modes
+            print("[4/6] Solving Eigenvalues (OpenSees)...")
+            node_index = {n['id']: n['idx'] for n in dm.nodes}
+            os_res = opensees_modal_backend(dm.raw, node_index, M_full.diagonal(), is_free, req_modes,
+                                            target_case_name, progress_callback)
+            for w in os_res.get("unsupported", []):
+                print(f"      [OpenSees conversion] {w}")
+            for w in os_res.get("warnings", []):
+                print(f"      [OpenSees] {w}")
+            vals = os_res["vals"]
+            vecs = os_res["phi"][is_free, :]
+            os_kphi = os_res["kphi"]
+            os_static = os_res["static_mass"]
+            M_free = M_full.tocsc()[is_free, :][:, is_free]
+            m_diag_full = M_free.diagonal()
+            _pos = m_diag_full[m_diag_full > 1e-10]
+            min_nonzero_mass = _pos.min() * 1e-6 if len(_pos) else 1e-6
+            M_free = M_free + diags((m_diag_full < 1e-10).astype(float) * min_nonzero_mass)
+            has_T, kept_dofs, K_sys_free = False, None, None
+            is_free_sys = is_free
+            print(f"      Converged. Found {len(vals)} modes.")
+        except SolverException as e:
+            return _write_error(output_json_path, e.error_code, str(e))
+        except Exception as e:
+            print(f"FATAL: OpenSees modal error: {e}")
+            return _write_error(output_json_path, "E303", f"OpenSees eigen error: {e}")
     else:
-        K_sys = K_full
-        M_sys = M_full
-        is_free_sys = is_free
-
-    K_sys_free = K_sys.tocsc()[is_free_sys, :][:, is_free_sys]
-    M_sys_free = M_sys.tocsc()[is_free_sys, :][:, is_free_sys]
-
-    m_diag_sys = M_sys_free.diagonal()
-    min_nonzero_mass = m_diag_sys[m_diag_sys > 1e-10].min() * 1e-6 if len(m_diag_sys[m_diag_sys > 1e-10]) > 0 else 1e-6
-    from scipy.sparse import diags
-    reg_sys = diags((m_diag_sys < 1e-10).astype(float) * min_nonzero_mass)
-    M_sys_free = M_sys_free + reg_sys
-
-    try:
-        req_modes = modal_case_def.get("num_modes", 12) if modal_case_def else 12
-  
-        n_free_dofs_sys = K_sys_free.shape[0]
-        max_safe_modes = max(1, n_free_dofs_sys - 2)
-        safe_num_modes = min(req_modes, max_safe_modes)
-        
-        if safe_num_modes <= 0:
-            return _write_error(output_json_path, "E304", f"Not enough free DOFs ({n_free_dofs_sys}) after diaphragm reduction.")
-            
-        if safe_num_modes < req_modes:
-            print(f"Warning: Requested {req_modes} modes but reduced model only has {n_free_dofs_sys} free DOFs. Clamped to {safe_num_modes} modes.")
-            req_modes = safe_num_modes
-
-        print(f"[4/6] Solving Eigenvalues (Shift-Invert @ -0.1)...")
-        sigma_shift = -0.1
-        
-        vals, vecs_sys = eigsh(K_sys_free, M=M_sys_free, k=req_modes, sigma=sigma_shift)
-        print(f"      Converged. Found {len(vals)} modes.")
-
-        print("      Expanding mode shapes back to full DOF space...")
-        num_modes_found = len(vals)
-        vecs = np.zeros((np.sum(is_free), num_modes_found))
-        
-        for i in range(num_modes_found):
-            phi_sys = np.zeros(K_sys.shape[0])
-            phi_sys[is_free_sys] = vecs_sys[:, i]
-            
-            phi_full = T @ phi_sys if has_T else phi_sys
-            vecs[:, i] = phi_full[is_free] 
-            
-        M_free = M_full.tocsc()[is_free, :][:, is_free]
-        m_diag_full = M_free.diagonal()
-        reg_full = diags((m_diag_full < 1e-10).astype(float) * min_nonzero_mass)
-        M_free = M_free + reg_full
-
-    except Exception as e:
-        err_str = str(e)
-        print(f"FATAL: Eigen Solver Error: {err_str}")
-        if "-9999" in err_str or "Arnoldi" in err_str:
-            return _write_error(output_json_path, "E304",
-                f"Requested {req_modes} modes but the solver could not converge. "
-                f"Your model has {n_free_dofs_sys} free DOFs. "
-                f"Try reducing Number of Modes to {max(1, req_modes // 2)} or check for disconnected nodes.")
+        has_T = hasattr(assembler, 'T') and assembler.T is not None
+        if has_T:
+            print("      Applying Diaphragm Transformation (T) to K and M...")
+            T = assembler.T
+            kept_dofs = assembler.kept_dofs
+            K_sys = T.T @ K_full @ T
+            M_sys = T.T @ M_full @ T
+            is_free_sys = is_free[kept_dofs]
         else:
-            return _write_error(output_json_path, "E303", f"ARPACK Error: {err_str}")
+            K_sys = K_full
+            M_sys = M_full
+            is_free_sys = is_free
+
+        K_sys_free = K_sys.tocsc()[is_free_sys, :][:, is_free_sys]
+        M_sys_free = M_sys.tocsc()[is_free_sys, :][:, is_free_sys]
+
+        m_diag_sys = M_sys_free.diagonal()
+        min_nonzero_mass = m_diag_sys[m_diag_sys > 1e-10].min() * 1e-6 if len(m_diag_sys[m_diag_sys > 1e-10]) > 0 else 1e-6
+        from scipy.sparse import diags
+        reg_sys = diags((m_diag_sys < 1e-10).astype(float) * min_nonzero_mass)
+        M_sys_free = M_sys_free + reg_sys
+
+        try:
+            req_modes = modal_case_def.get("num_modes", 12) if modal_case_def else 12
+  
+            n_free_dofs_sys = K_sys_free.shape[0]
+            max_safe_modes = max(1, n_free_dofs_sys - 2)
+            safe_num_modes = min(req_modes, max_safe_modes)
+        
+            if safe_num_modes <= 0:
+                return _write_error(output_json_path, "E304", f"Not enough free DOFs ({n_free_dofs_sys}) after diaphragm reduction.")
+            
+            if safe_num_modes < req_modes:
+                print(f"Warning: Requested {req_modes} modes but reduced model only has {n_free_dofs_sys} free DOFs. Clamped to {safe_num_modes} modes.")
+                req_modes = safe_num_modes
+
+            print(f"[4/6] Solving Eigenvalues (Shift-Invert @ -0.1)...")
+            sigma_shift = -0.1
+        
+            vals, vecs_sys = eigsh(K_sys_free, M=M_sys_free, k=req_modes, sigma=sigma_shift)
+            print(f"      Converged. Found {len(vals)} modes.")
+
+            print("      Expanding mode shapes back to full DOF space...")
+            num_modes_found = len(vals)
+            vecs = np.zeros((np.sum(is_free), num_modes_found))
+        
+            for i in range(num_modes_found):
+                phi_sys = np.zeros(K_sys.shape[0])
+                phi_sys[is_free_sys] = vecs_sys[:, i]
+            
+                phi_full = T @ phi_sys if has_T else phi_sys
+                vecs[:, i] = phi_full[is_free] 
+            
+            M_free = M_full.tocsc()[is_free, :][:, is_free]
+            m_diag_full = M_free.diagonal()
+            reg_full = diags((m_diag_full < 1e-10).astype(float) * min_nonzero_mass)
+            M_free = M_free + reg_full
+
+        except Exception as e:
+            err_str = str(e)
+            print(f"FATAL: Eigen Solver Error: {err_str}")
+            if "-9999" in err_str or "Arnoldi" in err_str:
+                return _write_error(output_json_path, "E304",
+                    f"Requested {req_modes} modes but the solver could not converge. "
+                    f"Your model has {n_free_dofs_sys} free DOFs. "
+                    f"Try reducing Number of Modes to {max(1, req_modes // 2)} or check for disconnected nodes.")
+            else:
+                return _write_error(output_json_path, "E303", f"ARPACK Error: {err_str}")
+
+    mech_modes = _find_mechanism_modes(vals)
+    _mode_txt = ", ".join(str(i + 1) for i in mech_modes)
+    _culprits, _harmless = _judge_hinges(hinge_info, mech_modes, dm, active_dofs)
+    for _r in _culprits:
+        print(f"      [!] Fiber hinge '{_r.get('hinge')}' on element {_r.get('element')}: no stiffness in "
+              f"{_fmt_dirs(_r)} -- that direction is free in the analysis.")
+    if _culprits:
+        print(f"      [!] Mode(s) {_mode_txt} are mechanism modes (near-zero frequency). Check the fiber layout.")
+    for _r in _harmless:
+        if _r['free_share'] is not None and _r['free_share'] < 1e-3:
+            print(f"      Fiber hinge '{_r.get('hinge')}' on element {_r.get('element')}: no stiffness in "
+                  f"{_fmt_dirs(_r)}, but those DOFs are restrained / not available -> no mechanism. OK.")
+        elif not mech_modes:
+            print(f"      Fiber hinge '{_r.get('hinge')}' on element {_r.get('element')} is weak in one local "
+                  f"direction, but the solved model has no mechanism (other members carry it). OK.")
+    if mech_modes and not _culprits:
+        print(f"      [!] Warning: mode(s) {_mode_txt} have near-zero frequency (mechanism / unrestrained motion).")
 
     print("[5/6] Calculating Modal Participation...")
     
     results = {
         "status": "SUCCESS",
-        "info": {"type": "Modal Analysis"},
+        "info": {"type": "Modal Analysis", "fiber_hinges": hinge_info,
+                 "mechanism_modes": [i + 1 for i in mech_modes],
+                 "active_dofs": active_dofs},
         "mode_shapes": {},
         "mode_reactions": {},
         "tables": {
@@ -294,7 +501,8 @@ def run_modal_analysis(input_json_path, output_json_path, target_case_name="MODA
         Uz_disp = float(L_z)
 
         if i == 3 or i == 6:                             
-            print(f"  DEBUG Mode {i+1}: L_x={L_x:.6f}, Mn={Mn:.6f}, Gamma={L_x/np.sqrt(total_mass_x * Mn):.6f}")
+            _gdbg = L_x / np.sqrt(total_mass_x * Mn) if total_mass_x > 0 else 0.0
+            print(f"  DEBUG Mode {i+1}: L_x={L_x:.6f}, Mn={Mn:.6f}, Gamma={_gdbg:.6f}")
 
         if i == 3:          
             print(f"    phi_free shape: {phi_free.shape}")
@@ -315,9 +523,9 @@ def run_modal_analysis(input_json_path, output_json_path, target_case_name="MODA
         sum_ratio_y += ratio_y
         sum_ratio_z += ratio_z                            
         
-        gamma_x = float(L_x / np.sqrt(total_mass_x * Mn))
-        gamma_y = float(L_y / np.sqrt(total_mass_y * Mn))
-        gamma_z = float(L_z / np.sqrt(total_mass_z * Mn))                                 
+        gamma_x = float(L_x / np.sqrt(total_mass_x * Mn)) if total_mass_x > 0 else 0.0
+        gamma_y = float(L_y / np.sqrt(total_mass_y * Mn)) if total_mass_y > 0 else 0.0
+        gamma_z = float(L_z / np.sqrt(total_mass_z * Mn)) if total_mass_z > 0 else 0.0                                 
 
         results["tables"]["participation_mass"].append({
             "mode": i + 1,
@@ -349,7 +557,7 @@ def run_modal_analysis(input_json_path, output_json_path, target_case_name="MODA
             
         results["mode_shapes"][f"Mode {i+1}"] = shape_data
 
-        react_full = K_full.dot(phi_full)
+        react_full = (scale_factor * os_kphi[:, i]) if use_os else K_full.dot(phi_full)
 
         react_data = {}
         for node in dm.nodes:
@@ -405,35 +613,40 @@ def run_modal_analysis(input_json_path, output_json_path, target_case_name="MODA
     print("      Computing Static Load Participation (Missing-Mass Correction)...")
     try:
         from scipy.sparse.linalg import splu
+        if use_os:
+            static_ratio_x, static_ratio_y, static_ratio_z = (
+                (os_static[k] / t if (os_static.get(k) is not None and t > 0) else 0.0)
+                for k, t in (('x', total_mass_x), ('y', total_mass_y), ('z', total_mass_z)))
+        else:
 
-        r_x_sys_free = r_x[kept_dofs][is_free_sys] if has_T else r_x_free
-        r_y_sys_free = r_y[kept_dofs][is_free_sys] if has_T else r_y_free
-        r_z_sys_free = r_z[kept_dofs][is_free_sys] if has_T else r_z_free
+            r_x_sys_free = r_x[kept_dofs][is_free_sys] if has_T else r_x_free
+            r_y_sys_free = r_y[kept_dofs][is_free_sys] if has_T else r_y_free
+            r_z_sys_free = r_z[kept_dofs][is_free_sys] if has_T else r_z_free
 
-        try:
-            lu = splu(K_sys_free.tocsc())
-        except RuntimeError as e:
-            raise RuntimeError(f"Static stiffness matrix is singular — model may have an unrestrained rigid-body mode: {e}")
+            try:
+                lu = splu(K_sys_free.tocsc())
+            except RuntimeError as e:
+                raise RuntimeError(f"Static stiffness matrix is singular — model may have an unrestrained rigid-body mode: {e}")
 
-        x_static_x = lu.solve(M_sys_free @ r_x_sys_free)
-        x_static_y = lu.solve(M_sys_free @ r_y_sys_free)
-        x_static_z = lu.solve(M_sys_free @ r_z_sys_free)
+            x_static_x = lu.solve(M_sys_free @ r_x_sys_free)
+            x_static_y = lu.solve(M_sys_free @ r_y_sys_free)
+            x_static_z = lu.solve(M_sys_free @ r_z_sys_free)
 
-        num_x = float(r_x_sys_free @ (M_sys_free @ x_static_x))
-        den_x = float(x_static_x @ (M_sys_free @ x_static_x))
-        static_mass_x = (num_x**2 / den_x) if den_x > 0 else 0.0
+            num_x = float(r_x_sys_free @ (M_sys_free @ x_static_x))
+            den_x = float(x_static_x @ (M_sys_free @ x_static_x))
+            static_mass_x = (num_x**2 / den_x) if den_x > 0 else 0.0
 
-        num_y = float(r_y_sys_free @ (M_sys_free @ x_static_y))
-        den_y = float(x_static_y @ (M_sys_free @ x_static_y))
-        static_mass_y = (num_y**2 / den_y) if den_y > 0 else 0.0
+            num_y = float(r_y_sys_free @ (M_sys_free @ x_static_y))
+            den_y = float(x_static_y @ (M_sys_free @ x_static_y))
+            static_mass_y = (num_y**2 / den_y) if den_y > 0 else 0.0
 
-        num_z = float(r_z_sys_free @ (M_sys_free @ x_static_z))
-        den_z = float(x_static_z @ (M_sys_free @ x_static_z))
-        static_mass_z = (num_z**2 / den_z) if den_z > 0 else 0.0
+            num_z = float(r_z_sys_free @ (M_sys_free @ x_static_z))
+            den_z = float(x_static_z @ (M_sys_free @ x_static_z))
+            static_mass_z = (num_z**2 / den_z) if den_z > 0 else 0.0
 
-        static_ratio_x = static_mass_x / total_mass_x if total_mass_x > 0 else 0.0
-        static_ratio_y = static_mass_y / total_mass_y if total_mass_y > 0 else 0.0
-        static_ratio_z = static_mass_z / total_mass_z if total_mass_z > 0 else 0.0
+            static_ratio_x = static_mass_x / total_mass_x if total_mass_x > 0 else 0.0
+            static_ratio_y = static_mass_y / total_mass_y if total_mass_y > 0 else 0.0
+            static_ratio_z = static_mass_z / total_mass_z if total_mass_z > 0 else 0.0
 
         for label, s_ratio, d_ratio in [("UX", static_ratio_x, sum_ratio_x),
                                          ("UY", static_ratio_y, sum_ratio_y),

@@ -1,0 +1,785 @@
+{
+  "static": {
+    "displacements": {
+      "11": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "18": [
+        2.8494653494653496e-07,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "25": [
+        5.698930698930699e-07,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "32": [
+        8.548396048396047e-07,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "39": [
+        1.1397861397861398e-06,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "46": [
+        1.4247326747326749e-06,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "53": [
+        1.7096792096792097e-06,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "60": [
+        1.994625744625745e-06,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "67": [
+        2.2795722795722797e-06,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "74": [
+        2.564518814518815e-06,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "81": [
+        2.8494653494653497e-06,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "88": [
+        3.1344118844118845e-06,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "95": [
+        3.4193584193584193e-06,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ]
+    },
+    "reactions": {
+      "11": [
+        -10100.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "18": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "25": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "32": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "39": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "46": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "53": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "60": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "67": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "74": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "81": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "88": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "95": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ]
+    }
+  },
+  "modal": {
+    "frequencies_hz": [
+      431.63475283953176,
+      1288.0971206202141,
+      2124.245427336792
+    ],
+    "regularized_frequencies_hz": [
+      431.63475283953403,
+      1288.097120620214,
+      2124.2454273367935
+    ],
+    "regularization_relative_shift": [
+      5.267733284853513e-15,
+      -1.765190464316483e-16,
+      6.422243094432686e-16
+    ],
+    "mode_shapes": {
+      "1": {
+        "11": [
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0
+        ],
+        "18": [
+          0.0057506831513050825,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0
+        ],
+        "25": [
+          0.011410674594022514,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0
+        ],
+        "32": [
+          0.01689071288198558,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0
+        ],
+        "39": [
+          0.022104374537776934,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0
+        ],
+        "46": [
+          0.026969437002594236,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0
+        ],
+        "53": [
+          0.03140917533511987,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0
+        ],
+        "60": [
+          0.0353535722096788,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0
+        ],
+        "67": [
+          0.03874042213129076,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0
+        ],
+        "74": [
+          0.04151631245348584,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0
+        ],
+        "81": [
+          0.043637465727646485,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0
+        ],
+        "88": [
+          0.04507043009952368,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0
+        ],
+        "95": [
+          0.04579260686496151,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0
+        ]
+      },
+      "2": {
+        "11": [
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0
+        ],
+        "18": [
+          0.016890712881985525,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0
+        ],
+        "25": [
+          0.031409175335119846,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0
+        ],
+        "32": [
+          0.04151631245348574,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0
+        ],
+        "39": [
+          0.04579260686496156,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0
+        ],
+        "46": [
+          0.04363746572764652,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0
+        ],
+        "53": [
+          0.03535357220967882,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0
+        ],
+        "60": [
+          0.022104374537776875,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0
+        ],
+        "67": [
+          0.005750683151305054,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0
+        ],
+        "74": [
+          -0.01141067459402253,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0
+        ],
+        "81": [
+          -0.026969437002594247,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0
+        ],
+        "88": [
+          -0.038740422131290794,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0
+        ],
+        "95": [
+          -0.045070430099523724,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0
+        ]
+      },
+      "3": {
+        "11": [
+          -0.0,
+          -0.0,
+          -0.0,
+          -0.0,
+          -0.0,
+          -0.0
+        ],
+        "18": [
+          -0.026969437002594125,
+          -0.0,
+          -0.0,
+          -0.0,
+          -0.0,
+          -0.0
+        ],
+        "25": [
+          -0.04363746572764644,
+          -0.0,
+          -0.0,
+          -0.0,
+          -0.0,
+          -0.0
+        ],
+        "32": [
+          -0.043637465727646436,
+          -0.0,
+          -0.0,
+          -0.0,
+          -0.0,
+          -0.0
+        ],
+        "39": [
+          -0.02696943700259426,
+          -0.0,
+          -0.0,
+          -0.0,
+          -0.0,
+          -0.0
+        ],
+        "46": [
+          -1.2735131497718752e-16,
+          -0.0,
+          -0.0,
+          -0.0,
+          -0.0,
+          -0.0
+        ],
+        "53": [
+          0.02696943700259415,
+          -0.0,
+          -0.0,
+          -0.0,
+          -0.0,
+          -0.0
+        ],
+        "60": [
+          0.043637465727646534,
+          -0.0,
+          -0.0,
+          -0.0,
+          -0.0,
+          -0.0
+        ],
+        "67": [
+          0.04363746572764654,
+          -0.0,
+          -0.0,
+          -0.0,
+          -0.0,
+          -0.0
+        ],
+        "74": [
+          0.026969437002594115,
+          -0.0,
+          -0.0,
+          -0.0,
+          -0.0,
+          -0.0
+        ],
+        "81": [
+          1.3690266360047657e-16,
+          -0.0,
+          -0.0,
+          -0.0,
+          -0.0,
+          -0.0
+        ],
+        "88": [
+          -0.026969437002594226,
+          -0.0,
+          -0.0,
+          -0.0,
+          -0.0,
+          -0.0
+        ],
+        "95": [
+          -0.0436374657276465,
+          -0.0,
+          -0.0,
+          -0.0,
+          -0.0,
+          -0.0
+        ]
+      }
+    },
+    "assembled_mass": {
+      "11": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "18": [
+        76.0,
+        76.0,
+        76.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "25": [
+        76.0,
+        76.0,
+        76.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "32": [
+        76.0,
+        76.0,
+        76.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "39": [
+        76.0,
+        76.0,
+        76.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "46": [
+        76.0,
+        76.0,
+        76.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "53": [
+        76.0,
+        76.0,
+        76.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "60": [
+        76.0,
+        76.0,
+        76.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "67": [
+        76.0,
+        76.0,
+        76.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "74": [
+        76.0,
+        76.0,
+        76.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "81": [
+        76.0,
+        76.0,
+        76.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "88": [
+        76.0,
+        76.0,
+        76.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "95": [
+        76.0,
+        76.0,
+        76.0,
+        0.0,
+        0.0,
+        0.0
+      ]
+    }
+  },
+  "metadata": {
+    "reference_kind": "Independent discretized force-flexibility reference with separate analytical checks",
+    "mass_model": "Translational nodal lumping; rho denotes weight density; explicit link rotary inertia allowed",
+    "regularized_reference": "Native-only numerical terms: released rotational diagonal=max(abs(k_local))*1e-12; massless free diagonal=min_positive_free_mass*1e-6",
+    "mass_floor": 7.599999999999999e-05,
+    "requested_modes": 3,
+    "native_clamped_modes": 3,
+    "sources": [
+      {
+        "title": "Scott Whitney, University of Nebraska: Vibrations of Cantilever Beams (1999)",
+        "url": "https://emweb.unl.edu/mechanics-pages/Scott-Whitney/325hweb/Beams.htm",
+        "use": "Euler-Bernoulli cantilever deflection and frequency derivation"
+      },
+      {
+        "title": "CALFEM for Python: core.py, bar2e/beam2e/beam3e/beam2de",
+        "url": "https://github.com/CALFEM/calfem-python/blob/master/src/calfem/core.py",
+        "use": "Public independent FE library and beam/bar reference formulations; not imported"
+      },
+      {
+        "title": "OpenSees public examples: Example3.1.tcl",
+        "url": "https://github.com/OpenSees/OpenSees/blob/master/EXAMPLES/ExampleScripts/Example3.1.tcl",
+        "use": "Public portal-frame modelling benchmark example; not an analytical oracle"
+      },
+      {
+        "title": "Gere and Timoshenko, Mechanics of Materials; Clough and Penzien, Dynamics of Structures",
+        "url": null,
+        "use": "Force-flexibility integration, beam boundary conditions, modal generalized eigenproblem"
+      }
+    ],
+    "batch": "second_150",
+    "case_id": "159_mass_nodal_pattern_chain_v4",
+    "model_sha256": "c1248ce0f47d4a34fd4f7b3493edd76fee58e605eb837849a3527c87b95d37f3",
+    "reference_source_sha256": "4736d758c26c4b124dcdce5079c195fdb918049f5e38449de09279d4234f29d4",
+    "reference_wrapper_sha256": "344814f8988ecf6abaeb5633fc08aaf9e4c546dd6db4343b5338b12a3fae1d1f"
+  },
+  "analytical_checks": [
+    {
+      "node_id": 95,
+      "dof": 0,
+      "value": 3.4193584193584193e-06,
+      "label": "Axial tip displacement",
+      "formula": "PL/(EA)",
+      "result": "displacements"
+    },
+    {
+      "node_id": 11,
+      "dof": 0,
+      "value": -10100.0,
+      "label": "Axial fixed-end reaction",
+      "formula": "-P",
+      "result": "reactions"
+    },
+    {
+      "mode": 1,
+      "frequency_hz": 431.634752839532,
+      "tolerance": 1e-06,
+      "formula": "sqrt(ks/m + 4k/m*sin\u00b2((2r-1)\u03c0/(4n+2)))/(2\u03c0)",
+      "label": "Exact discrete axial chain frequency"
+    },
+    {
+      "mode": 2,
+      "frequency_hz": 1288.0971206202132,
+      "tolerance": 1e-06,
+      "formula": "sqrt(ks/m + 4k/m*sin\u00b2((2r-1)\u03c0/(4n+2)))/(2\u03c0)",
+      "label": "Exact discrete axial chain frequency"
+    },
+    {
+      "mode": 3,
+      "frequency_hz": 2124.245427336792,
+      "tolerance": 1e-06,
+      "formula": "sqrt(ks/m + 4k/m*sin\u00b2((2r-1)\u03c0/(4n+2)))/(2\u03c0)",
+      "label": "Exact discrete axial chain frequency"
+    }
+  ],
+  "analytical_reference_checks": [
+    {
+      "name": "analytical: Axial tip displacement",
+      "passed": true,
+      "actual": 3.4193584193584193e-06,
+      "expected": 3.4193584193584193e-06,
+      "absolute_error": 0.0,
+      "tolerance": 1.0683871683871685e-10,
+      "formula": "PL/(EA)",
+      "reference_kind": "continuum or exact discrete formula as labelled"
+    },
+    {
+      "name": "analytical: Axial fixed-end reaction",
+      "passed": true,
+      "actual": -10100.0,
+      "expected": -10100.0,
+      "absolute_error": 0.0,
+      "tolerance": 0.0203,
+      "formula": "-P",
+      "reference_kind": "continuum or exact discrete formula as labelled"
+    },
+    {
+      "name": "analytical: Exact discrete axial chain frequency",
+      "passed": true,
+      "actual": 431.63475283953403,
+      "expected": 431.634752839532,
+      "absolute_error": 2.0463630789890885e-12,
+      "tolerance": 0.00043163575283953196,
+      "formula": "sqrt(ks/m + 4k/m*sin\u00b2((2r-1)\u03c0/(4n+2)))/(2\u03c0)",
+      "reference_kind": "continuum or exact discrete formula as labelled"
+    },
+    {
+      "name": "analytical: Exact discrete axial chain frequency",
+      "passed": true,
+      "actual": 1288.097120620214,
+      "expected": 1288.0971206202132,
+      "absolute_error": 6.821210263296962e-13,
+      "tolerance": 0.0012880981206202131,
+      "formula": "sqrt(ks/m + 4k/m*sin\u00b2((2r-1)\u03c0/(4n+2)))/(2\u03c0)",
+      "reference_kind": "continuum or exact discrete formula as labelled"
+    },
+    {
+      "name": "analytical: Exact discrete axial chain frequency",
+      "passed": true,
+      "actual": 2124.2454273367935,
+      "expected": 2124.245427336792,
+      "absolute_error": 1.3642420526593924e-12,
+      "tolerance": 0.002124246427336792,
+      "formula": "sqrt(ks/m + 4k/m*sin\u00b2((2r-1)\u03c0/(4n+2)))/(2\u03c0)",
+      "reference_kind": "continuum or exact discrete formula as labelled"
+    }
+  ]
+}

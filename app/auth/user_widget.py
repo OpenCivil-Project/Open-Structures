@@ -23,13 +23,15 @@ from PyQt6.QtWidgets import (
     QGraphicsDropShadowEffect, QSizePolicy
 )
 
-TEXT_PRIMARY   = "#0F1C2E"
-TEXT_SECONDARY = "#64748B"
-TEXT_HINT      = "#94A3B8"
-ACCENT         = "#0F62FE"
-DANGER         = "#DC2626"
-DANGER_HOVER   = "rgba(220,38,38,8)"
-HOVER_ITEM     = "rgba(15,28,46,6)"
+from app.ui.theme import COLORS
+
+TEXT_PRIMARY   = COLORS.get("text_primary", "#0F1C2E")
+TEXT_SECONDARY = COLORS.get("text_secondary", "#64748B")
+TEXT_HINT      = COLORS.get("text_disabled", "#94A3B8")
+ACCENT         = COLORS.get("accent", "#0F62FE")
+DANGER         = COLORS.get("danger", "#DC2626")
+DANGER_HOVER   = COLORS.get("danger_bg_hover", "rgba(220,38,38,8)")
+HOVER_ITEM     = COLORS.get("bg_btn_hover", "rgba(15,28,46,6)")
 AVATAR_SIZE    = 36
 DROPDOWN_W     = 300
 
@@ -128,11 +130,12 @@ class UserDropdown(QWidget):
 
         self.container = QWidget()
         self.container.setFixedWidth(DROPDOWN_W)
-        self.container.setStyleSheet("""
-            QWidget {
-                background-color: white;
+        self.container.setStyleSheet(f"""
+            QWidget {{
+                background-color: {COLORS.get("bg_panel", "white")};
                 border-radius: 12px;
-            }
+                border: 1px solid {COLORS.get("border", "transparent")};
+            }}
         """)
 
         root = QVBoxLayout(self.container)
@@ -196,7 +199,7 @@ class UserDropdown(QWidget):
     def _divider(self):
         d = QWidget()
         d.setFixedHeight(1)
-        d.setStyleSheet("background: rgba(0,0,0,10); margin: 0 0;")
+        d.setStyleSheet(f"background: {COLORS.get('border', 'rgba(0,0,0,10)')}; margin: 0 0;")
         return d
 
     def _menu_btn(self, text: str, danger: bool = False) -> QPushButton:
@@ -255,16 +258,16 @@ class UserProfileWidget(QWidget):
         QApplication.instance().installEventFilter(self)
 
     def _build_ui(self):
-        self.setStyleSheet("""
-            UserProfileWidget {
-                background: white;
-                border: 1px solid rgba(0,0,0,14);
+        self.setStyleSheet(f"""
+            UserProfileWidget {{
+                background: {COLORS.get("bg_input", "white")};
+                border: 1px solid {COLORS.get("border", "rgba(0,0,0,14)")};
                 border-radius: 21px;
-            }
-            UserProfileWidget:hover {
-                background: #F8FAFC;
-                border-color: rgba(0,0,0,22);
-            }
+            }}
+            UserProfileWidget:hover {{
+                background: {COLORS.get("bg_btn_hover", "#F8FAFC")};
+                border-color: {COLORS.get("border_focus", "rgba(0,0,0,22)")};
+            }}
         """)
 
         layout = QHBoxLayout(self)
@@ -302,6 +305,8 @@ class UserProfileWidget(QWidget):
         self.setGraphicsEffect(s)
 
     def _start_avatar_fetch(self):
+        if getattr(self._auth, "offline_session", False):
+            return
         url = self._info.get('picture', '')
         if not url:
             return

@@ -1,0 +1,674 @@
+{
+  "static": {
+    "displacements": {
+      "145": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "152": [
+        2.06701047794548e-05,
+        -2.824992135087307e-05,
+        -3.0599252034391475e-05,
+        0.00011528532925399883,
+        0.00010671535772907588,
+        -2.2006283726804477e-05
+      ],
+      "159": [
+        7.403602439340652e-05,
+        -0.00010170986144966251,
+        -0.00010885989677262436,
+        0.00019789135257773088,
+        0.00018318069279478583,
+        -3.77745657672734e-05
+      ],
+      "166": [
+        0.00015012966850542472,
+        -0.00020661065394143703,
+        -0.00022023122948398513,
+        0.00025326462095956925,
+        0.00023443767564102248,
+        -4.8344513069126704e-05
+      ],
+      "173": [
+        0.00024079532684024885,
+        -0.000331686617263068,
+        -0.00035280812811607057,
+        0.000286851685387887,
+        0.00026552797671167995,
+        -5.475579258008517e-05
+      ],
+      "180": [
+        0.0003396896691837875,
+        -0.000468175554643232,
+        -0.0004973310532947889,
+        0.00030409909685106986,
+        0.0002814932664506572,
+        -5.804807124787174e-05
+      ],
+      "187": [
+        0.0004422817453831215,
+        -0.0006098187541024161,
+        -0.0006471860483243645,
+        0.0003104534063375047,
+        0.00028737521530185694,
+        -5.92610160202133e-05
+      ],
+      "194": [
+        0.000545852985346502,
+        -0.0007528609884529161,
+        -0.000798404739187336,
+        0.00031136116483556665,
+        0.00028821549370917107,
+        -5.943429384483382e-05
+      ]
+    },
+    "reactions": {
+      "145": [
+        -1.8175683180743363e-10,
+        1.4115215662968694e-09,
+        5432.404618972592,
+        -4240.126544429129,
+        -5396.524692905759,
+        2.1655175430623785e-09
+      ],
+      "152": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "159": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "166": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "173": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "180": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "187": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "194": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ]
+    }
+  },
+  "modal": {
+    "frequencies_hz": [
+      12.390073540770233,
+      16.866203589752367,
+      75.02698994940967
+    ],
+    "regularized_frequencies_hz": [
+      12.390072451635367,
+      16.866202117536893,
+      75.02694371725178
+    ],
+    "regularization_relative_shift": [
+      -8.790382577363432e-08,
+      -8.72878988595083e-08,
+      -6.162070198511618e-07
+    ],
+    "mode_shapes": {
+      "1": {
+        "145": [
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0
+        ],
+        "152": [
+          -0.0005892935975979536,
+          0.0020026805074897912,
+          0.0015139797974379283,
+          -0.00739619862936345,
+          -0.004301703766570224,
+          0.002811401968943058
+        ],
+        "159": [
+          -0.0021754441273554178,
+          0.007393122149547138,
+          0.005589028071399683,
+          -0.013203519824258648,
+          -0.007679300382021298,
+          0.005018848666869714
+        ],
+        "166": [
+          -0.004520907390176058,
+          0.015364044583849205,
+          0.011614859694240259,
+          -0.017468025026137094,
+          -0.010159579645566639,
+          0.006639848713234896
+        ],
+        "173": [
+          -0.00739955881084186,
+          0.025146976405141408,
+          0.019010528190417018,
+          -0.020301277741388343,
+          -0.01180742801843916,
+          0.00771680900883108
+        ],
+        "180": [
+          -0.010608358849225188,
+          0.036051899376468834,
+          0.02725439585151541,
+          -0.02190187705427014,
+          -0.012738352732339772,
+          0.008325219935203172
+        ],
+        "187": [
+          -0.013981716387053771,
+          0.04751606157565055,
+          0.03592103533754535,
+          -0.022569841115846506,
+          -0.013126847371762857,
+          0.008579122726624066
+        ],
+        "194": [
+          -0.017407537025629572,
+          0.059158516615034906,
+          0.04472246005620981,
+          -0.022714849117213387,
+          -0.01321118548880403,
+          0.008634242363208434
+        ]
+      },
+      "2": {
+        "145": [
+          -0.0,
+          -0.0,
+          -0.0,
+          -0.0,
+          -0.0,
+          -0.0
+        ],
+        "152": [
+          0.0021432187325053386,
+          0.0012465176445636058,
+          -0.0008146684082437567,
+          -0.002051162134520182,
+          0.006970756921979972,
+          0.005269729801263738
+        ],
+        "159": [
+          0.007856261719434807,
+          0.004569281102791267,
+          -0.0029862785970691504,
+          -0.00366149213693828,
+          0.01244337111562453,
+          0.0094068986094502
+        ],
+        "166": [
+          0.016286934763719233,
+          0.009472645629174615,
+          -0.006190899238557404,
+          -0.004843844475065918,
+          0.016461527753003517,
+          0.012444531396697921
+        ],
+        "173": [
+          0.026623613660172477,
+          0.015484562394923837,
+          -0.010120020244912585,
+          -0.005629255578750239,
+          0.019130702361596322,
+          0.014462365204002941
+        ],
+        "180": [
+          0.038137183070673875,
+          0.02218097056102839,
+          -0.014496494340906038,
+          -0.006072887592595423,
+          0.020638360327417875,
+          0.015602119494896432
+        ],
+        "187": [
+          0.0502325709157247,
+          0.029215770200480388,
+          -0.019094126030743043,
+          -0.006257991484860158,
+          0.021267425293353296,
+          0.016077677950746227
+        ],
+        "194": [
+          0.06250624326085392,
+          0.03635426190445635,
+          -0.02375952623514671,
+          -0.006298167893386143,
+          0.021403962514432582,
+          0.01618089690830798
+        ]
+      },
+      "3": {
+        "145": [
+          -0.0,
+          -0.0,
+          -0.0,
+          -0.0,
+          -0.0,
+          -0.0
+        ],
+        "152": [
+          -0.0030449116798782054,
+          0.010347957780553554,
+          0.007822814955219262,
+          -0.03198647503099486,
+          -0.01860365669128402,
+          0.01215852134163939
+        ],
+        "159": [
+          -0.008514536130758624,
+          0.028936162905590597,
+          0.02187506488960583,
+          -0.033048656674369875,
+          -0.019221432254675583,
+          0.012562271931987643
+        ],
+        "166": [
+          -0.01214271081489683,
+          0.04126630656789811,
+          0.03119636618277168,
+          -0.010248223423274715,
+          -0.0059604701698519995,
+          0.0038954978028742995
+        ],
+        "173": [
+          -0.011192922767437448,
+          0.03803850633955878,
+          0.02875622442396345,
+          0.023795283694567435,
+          0.013839577142952475,
+          -0.009044931157572511
+        ],
+        "180": [
+          -0.005065815250373293,
+          0.017215882707325252,
+          0.013014806164290056,
+          0.05482609091738825,
+          0.03188740779211487,
+          -0.020840189356507707
+        ],
+        "187": [
+          0.004889708788214619,
+          -0.016617394991789505,
+          -0.012562363397234494,
+          0.07291170837113102,
+          0.04240618542644701,
+          -0.027714793875244833
+        ],
+        "194": [
+          0.01647669119421849,
+          -0.05599509042174207,
+          -0.042330983567910985,
+          0.07794454676951261,
+          0.04533333503123712,
+          -0.02962784847147759
+        ]
+      }
+    },
+    "assembled_mass": {
+      "145": [
+        48.368571428571435,
+        48.368571428571435,
+        48.368571428571435,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "152": [
+        96.73714285714287,
+        96.73714285714287,
+        96.73714285714287,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "159": [
+        96.73714285714286,
+        96.73714285714286,
+        96.73714285714286,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "166": [
+        96.73714285714286,
+        96.73714285714286,
+        96.73714285714286,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "173": [
+        96.73714285714291,
+        96.73714285714291,
+        96.73714285714291,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "180": [
+        96.73714285714284,
+        96.73714285714284,
+        96.73714285714284,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "187": [
+        96.73714285714284,
+        96.73714285714284,
+        96.73714285714284,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "194": [
+        48.368571428571464,
+        48.368571428571464,
+        48.368571428571464,
+        0.0,
+        0.0,
+        0.0
+      ]
+    }
+  },
+  "metadata": {
+    "reference_kind": "Independent discretized force-flexibility reference with separate analytical checks",
+    "mass_model": "Translational nodal lumping; rho denotes weight density; explicit link rotary inertia allowed",
+    "regularized_reference": "Native-only numerical terms: released rotational diagonal=max(abs(k_local))*1e-12; massless free diagonal=min_positive_free_mass*1e-6",
+    "mass_floor": 4.836857142857146e-05,
+    "requested_modes": 3,
+    "native_clamped_modes": 3,
+    "sources": [
+      {
+        "title": "Scott Whitney, University of Nebraska: Vibrations of Cantilever Beams (1999)",
+        "url": "https://emweb.unl.edu/mechanics-pages/Scott-Whitney/325hweb/Beams.htm",
+        "use": "Euler-Bernoulli cantilever deflection and frequency derivation"
+      },
+      {
+        "title": "CALFEM for Python: core.py, bar2e/beam2e/beam3e/beam2de",
+        "url": "https://github.com/CALFEM/calfem-python/blob/master/src/calfem/core.py",
+        "use": "Public independent FE library and beam/bar reference formulations; not imported"
+      },
+      {
+        "title": "OpenSees public examples: Example3.1.tcl",
+        "url": "https://github.com/OpenSees/OpenSees/blob/master/EXAMPLES/ExampleScripts/Example3.1.tcl",
+        "use": "Public portal-frame modelling benchmark example; not an analytical oracle"
+      },
+      {
+        "title": "Gere and Timoshenko, Mechanics of Materials; Clough and Penzien, Dynamics of Structures",
+        "url": null,
+        "use": "Force-flexibility integration, beam boundary conditions, modal generalized eigenproblem"
+      }
+    ],
+    "batch": "second_150",
+    "case_id": "127_beam_projected_gravity_load_v2",
+    "model_sha256": "bcf68807b399526242612e87f972b81a4770693f79a418f6c608bc7bef5b04fe",
+    "reference_source_sha256": "4736d758c26c4b124dcdce5079c195fdb918049f5e38449de09279d4234f29d4",
+    "reference_wrapper_sha256": "344814f8988ecf6abaeb5633fc08aaf9e4c546dd6db4343b5338b12a3fae1d1f"
+  },
+  "analytical_checks": [
+    {
+      "node_id": 194,
+      "dof": 0,
+      "value": 0.0005458529853464779,
+      "label": "Distributed-action tip compliance",
+      "formula": "Transform[qxL\u00b2/2EA, qy(L\u2074/8EI33+L\u00b2/2GAs2), qz(L\u2074/8EI22+L\u00b2/2GAs3);0,-qzL\u00b3/6EI22,qyL\u00b3/6EI33]",
+      "result": "displacements"
+    },
+    {
+      "node_id": 194,
+      "dof": 1,
+      "value": -0.0007528609884521255,
+      "label": "Distributed-action tip compliance",
+      "formula": "Transform[qxL\u00b2/2EA, qy(L\u2074/8EI33+L\u00b2/2GAs2), qz(L\u2074/8EI22+L\u00b2/2GAs3);0,-qzL\u00b3/6EI22,qyL\u00b3/6EI33]",
+      "result": "displacements"
+    },
+    {
+      "node_id": 194,
+      "dof": 2,
+      "value": -0.0007984047391868842,
+      "label": "Distributed-action tip compliance",
+      "formula": "Transform[qxL\u00b2/2EA, qy(L\u2074/8EI33+L\u00b2/2GAs2), qz(L\u2074/8EI22+L\u00b2/2GAs3);0,-qzL\u00b3/6EI22,qyL\u00b3/6EI33]",
+      "result": "displacements"
+    },
+    {
+      "node_id": 194,
+      "dof": 3,
+      "value": 0.000311361164835307,
+      "label": "Distributed-action tip compliance",
+      "formula": "Transform[qxL\u00b2/2EA, qy(L\u2074/8EI33+L\u00b2/2GAs2), qz(L\u2074/8EI22+L\u00b2/2GAs3);0,-qzL\u00b3/6EI22,qyL\u00b3/6EI33]",
+      "result": "displacements"
+    },
+    {
+      "node_id": 194,
+      "dof": 4,
+      "value": 0.00028821549370911144,
+      "label": "Distributed-action tip compliance",
+      "formula": "Transform[qxL\u00b2/2EA, qy(L\u2074/8EI33+L\u00b2/2GAs2), qz(L\u2074/8EI22+L\u00b2/2GAs3);0,-qzL\u00b3/6EI22,qyL\u00b3/6EI33]",
+      "result": "displacements"
+    },
+    {
+      "node_id": 194,
+      "dof": 5,
+      "value": -5.943429384470359e-05,
+      "label": "Distributed-action tip compliance",
+      "formula": "Transform[qxL\u00b2/2EA, qy(L\u2074/8EI33+L\u00b2/2GAs2), qz(L\u2074/8EI22+L\u00b2/2GAs3);0,-qzL\u00b3/6EI22,qyL\u00b3/6EI33]",
+      "result": "displacements"
+    },
+    {
+      "node_id": 145,
+      "dof": 0,
+      "value": -0.0,
+      "label": "Distributed root equilibrium",
+      "formula": "[-qL, -(r/2)\u00d7qL]",
+      "result": "reactions"
+    },
+    {
+      "node_id": 145,
+      "dof": 1,
+      "value": -0.0,
+      "label": "Distributed root equilibrium",
+      "formula": "[-qL, -(r/2)\u00d7qL]",
+      "result": "reactions"
+    },
+    {
+      "node_id": 145,
+      "dof": 2,
+      "value": 5432.404618970497,
+      "label": "Distributed root equilibrium",
+      "formula": "[-qL, -(r/2)\u00d7qL]",
+      "result": "reactions"
+    },
+    {
+      "node_id": 145,
+      "dof": 3,
+      "value": -4240.1265444247465,
+      "label": "Distributed root equilibrium",
+      "formula": "[-qL, -(r/2)\u00d7qL]",
+      "result": "reactions"
+    },
+    {
+      "node_id": 145,
+      "dof": 4,
+      "value": -5396.524692904221,
+      "label": "Distributed root equilibrium",
+      "formula": "[-qL, -(r/2)\u00d7qL]",
+      "result": "reactions"
+    },
+    {
+      "node_id": 145,
+      "dof": 5,
+      "value": -0.0,
+      "label": "Distributed root equilibrium",
+      "formula": "[-qL, -(r/2)\u00d7qL]",
+      "result": "reactions"
+    }
+  ],
+  "analytical_reference_checks": [
+    {
+      "name": "analytical: Distributed-action tip compliance",
+      "passed": true,
+      "actual": 0.000545852985346502,
+      "expected": 0.0005458529853464779,
+      "absolute_error": 2.4069288229178198e-17,
+      "tolerance": 1.191705970692956e-09,
+      "formula": "Transform[qxL\u00b2/2EA, qy(L\u2074/8EI33+L\u00b2/2GAs2), qz(L\u2074/8EI22+L\u00b2/2GAs3);0,-qzL\u00b3/6EI22,qyL\u00b3/6EI33]",
+      "reference_kind": "continuum or exact discrete formula as labelled"
+    },
+    {
+      "name": "analytical: Distributed-action tip compliance",
+      "passed": true,
+      "actual": -0.0007528609884529161,
+      "expected": -0.0007528609884521255,
+      "absolute_error": 7.906002241764298e-16,
+      "tolerance": 1.6057219769042512e-09,
+      "formula": "Transform[qxL\u00b2/2EA, qy(L\u2074/8EI33+L\u00b2/2GAs2), qz(L\u2074/8EI22+L\u00b2/2GAs3);0,-qzL\u00b3/6EI22,qyL\u00b3/6EI33]",
+      "reference_kind": "continuum or exact discrete formula as labelled"
+    },
+    {
+      "name": "analytical: Distributed-action tip compliance",
+      "passed": true,
+      "actual": -0.000798404739187336,
+      "expected": -0.0007984047391868842,
+      "absolute_error": 4.517870452747097e-16,
+      "tolerance": 1.6968094783737683e-09,
+      "formula": "Transform[qxL\u00b2/2EA, qy(L\u2074/8EI33+L\u00b2/2GAs2), qz(L\u2074/8EI22+L\u00b2/2GAs3);0,-qzL\u00b3/6EI22,qyL\u00b3/6EI33]",
+      "reference_kind": "continuum or exact discrete formula as labelled"
+    },
+    {
+      "name": "analytical: Distributed-action tip compliance",
+      "passed": true,
+      "actual": 0.00031136116483556665,
+      "expected": 0.000311361164835307,
+      "absolute_error": 2.596664203102783e-16,
+      "tolerance": 7.227223296706139e-10,
+      "formula": "Transform[qxL\u00b2/2EA, qy(L\u2074/8EI33+L\u00b2/2GAs2), qz(L\u2074/8EI22+L\u00b2/2GAs3);0,-qzL\u00b3/6EI22,qyL\u00b3/6EI33]",
+      "reference_kind": "continuum or exact discrete formula as labelled"
+    },
+    {
+      "name": "analytical: Distributed-action tip compliance",
+      "passed": true,
+      "actual": 0.00028821549370917107,
+      "expected": 0.00028821549370911144,
+      "absolute_error": 5.963111948670274e-17,
+      "tolerance": 6.764309874182228e-10,
+      "formula": "Transform[qxL\u00b2/2EA, qy(L\u2074/8EI33+L\u00b2/2GAs2), qz(L\u2074/8EI22+L\u00b2/2GAs3);0,-qzL\u00b3/6EI22,qyL\u00b3/6EI33]",
+      "reference_kind": "continuum or exact discrete formula as labelled"
+    },
+    {
+      "name": "analytical: Distributed-action tip compliance",
+      "passed": true,
+      "actual": -5.943429384483382e-05,
+      "expected": -5.943429384470359e-05,
+      "absolute_error": 1.3023300970624319e-16,
+      "tolerance": 2.1886858768940715e-10,
+      "formula": "Transform[qxL\u00b2/2EA, qy(L\u2074/8EI33+L\u00b2/2GAs2), qz(L\u2074/8EI22+L\u00b2/2GAs3);0,-qzL\u00b3/6EI22,qyL\u00b3/6EI33]",
+      "reference_kind": "continuum or exact discrete formula as labelled"
+    },
+    {
+      "name": "analytical: Distributed root equilibrium",
+      "passed": true,
+      "actual": -1.8175683180743363e-10,
+      "expected": -0.0,
+      "absolute_error": 1.8175683180743363e-10,
+      "tolerance": 0.0001,
+      "formula": "[-qL, -(r/2)\u00d7qL]",
+      "reference_kind": "continuum or exact discrete formula as labelled"
+    },
+    {
+      "name": "analytical: Distributed root equilibrium",
+      "passed": true,
+      "actual": 1.4115215662968694e-09,
+      "expected": -0.0,
+      "absolute_error": 1.4115215662968694e-09,
+      "tolerance": 0.0001,
+      "formula": "[-qL, -(r/2)\u00d7qL]",
+      "reference_kind": "continuum or exact discrete formula as labelled"
+    },
+    {
+      "name": "analytical: Distributed root equilibrium",
+      "passed": true,
+      "actual": 5432.404618972592,
+      "expected": 5432.404618970497,
+      "absolute_error": 2.0954757928848267e-09,
+      "tolerance": 0.010964809237940992,
+      "formula": "[-qL, -(r/2)\u00d7qL]",
+      "reference_kind": "continuum or exact discrete formula as labelled"
+    },
+    {
+      "name": "analytical: Distributed root equilibrium",
+      "passed": true,
+      "actual": -4240.126544429129,
+      "expected": -4240.1265444247465,
+      "absolute_error": 4.382854967843741e-09,
+      "tolerance": 0.008580253088849491,
+      "formula": "[-qL, -(r/2)\u00d7qL]",
+      "reference_kind": "continuum or exact discrete formula as labelled"
+    },
+    {
+      "name": "analytical: Distributed root equilibrium",
+      "passed": true,
+      "actual": -5396.524692905759,
+      "expected": -5396.524692904221,
+      "absolute_error": 1.5379555406980217e-09,
+      "tolerance": 0.010893049385808441,
+      "formula": "[-qL, -(r/2)\u00d7qL]",
+      "reference_kind": "continuum or exact discrete formula as labelled"
+    },
+    {
+      "name": "analytical: Distributed root equilibrium",
+      "passed": true,
+      "actual": 2.1655175430623785e-09,
+      "expected": -0.0,
+      "absolute_error": 2.1655175430623785e-09,
+      "tolerance": 0.0001,
+      "formula": "[-qL, -(r/2)\u00d7qL]",
+      "reference_kind": "continuum or exact discrete formula as labelled"
+    }
+  ]
+}

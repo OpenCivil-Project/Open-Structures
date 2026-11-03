@@ -1,0 +1,235 @@
+{
+  "id": "011_inclined_cantilever_v1",
+  "family": "inclined_cantilever",
+  "variant": 1,
+  "model_file": "011_inclined_cantilever_v1.mf",
+  "static": {
+    "passed": true,
+    "checks": [
+      {
+        "name": "nodal displacement and rotation",
+        "passed": true,
+        "max_tolerance_ratio": 2.4675945796828375e-06,
+        "relative_tolerance": 2e-06,
+        "absolute_tolerances_per_dof": [
+          1e-10,
+          1e-10,
+          1e-10,
+          1e-10,
+          1e-10,
+          1e-10
+        ],
+        "worst_components": []
+      },
+      {
+        "name": "support force and moment",
+        "passed": true,
+        "max_tolerance_ratio": 4.802132025281397e-06,
+        "relative_tolerance": 2e-06,
+        "absolute_tolerances_per_dof": [
+          0.0001,
+          0.0001,
+          0.0001,
+          0.0001,
+          0.0001,
+          0.0001
+        ],
+        "worst_components": []
+      },
+      {
+        "name": "independent free-DOF equilibrium residual",
+        "passed": true,
+        "value": 3.3605608290626887e-13,
+        "limit": 2e-06
+      },
+      {
+        "name": "analytical: Inclined tip displacement",
+        "passed": true,
+        "actual": -0.0005015746494675368,
+        "expected": -0.0005015746494675289,
+        "absolute_error": 7.914675859144182e-18,
+        "tolerance": 1.1031492989350577e-09,
+        "formula": "e2*(PL\u00b3/(3EI33)+PL/(GAs2))",
+        "reference_kind": "continuum or exact discrete formula as labelled"
+      },
+      {
+        "name": "analytical: Inclined tip displacement",
+        "passed": true,
+        "actual": 0.000835957749112612,
+        "expected": 0.0008359577491125482,
+        "absolute_error": 6.385950795939621e-17,
+        "tolerance": 1.7719154982250963e-09,
+        "formula": "e2*(PL\u00b3/(3EI33)+PL/(GAs2))",
+        "reference_kind": "continuum or exact discrete formula as labelled"
+      },
+      {
+        "name": "analytical: Inclined tip displacement",
+        "passed": true,
+        "actual": -7.393763167494727e-17,
+        "expected": 0.0,
+        "absolute_error": 7.393763167494727e-17,
+        "tolerance": 1e-10,
+        "formula": "e2*(PL\u00b3/(3EI33)+PL/(GAs2))",
+        "reference_kind": "continuum or exact discrete formula as labelled"
+      },
+      {
+        "name": "analytical: Inclined tip rotation",
+        "passed": true,
+        "actual": -0.0001346622988138048,
+        "expected": -0.00013466229881381117,
+        "absolute_error": 6.3696877633523385e-18,
+        "tolerance": 3.6932459762762237e-10,
+        "formula": "e3*PL\u00b2/(2EI33)",
+        "reference_kind": "continuum or exact discrete formula as labelled"
+      },
+      {
+        "name": "analytical: Inclined tip rotation",
+        "passed": true,
+        "actual": -8.079737928824868e-05,
+        "expected": -8.07973792882867e-05,
+        "absolute_error": 3.8014838672773e-17,
+        "tolerance": 2.6159475857657336e-10,
+        "formula": "e3*PL\u00b2/(2EI33)",
+        "reference_kind": "continuum or exact discrete formula as labelled"
+      },
+      {
+        "name": "analytical: Inclined tip rotation",
+        "passed": true,
+        "actual": 0.0004578518159669842,
+        "expected": 0.00045785181596695796,
+        "absolute_error": 2.6237692574149207e-17,
+        "tolerance": 1.015703631933916e-09,
+        "formula": "e3*PL\u00b2/(2EI33)",
+        "reference_kind": "continuum or exact discrete formula as labelled"
+      }
+    ]
+  },
+  "modal": {
+    "passed": true,
+    "checks": [
+      {
+        "name": "mode count",
+        "passed": true,
+        "actual": 3,
+        "expected": 3
+      },
+      {
+        "name": "finite positive sorted frequencies",
+        "passed": true
+      },
+      {
+        "name": "maximum relative frequency error",
+        "passed": true,
+        "value": 1.1168868538291398e-13,
+        "limit": 2e-05
+      },
+      {
+        "name": "period/frequency/omega/eigenvalue consistency",
+        "passed": true,
+        "value": 0.0,
+        "limit": 1e-09
+      },
+      {
+        "name": "maximum independent eigen residual",
+        "passed": true,
+        "value": 5.440307327213848e-13,
+        "limit": 2e-05
+      },
+      {
+        "name": "mass normalization and orthogonality",
+        "passed": true,
+        "value": 2.220446049250313e-16,
+        "limit": 2e-05
+      },
+      {
+        "name": "worst modal subspace mismatch (1-MAC)",
+        "passed": true,
+        "value": 2.220446049250313e-16,
+        "limit": 0.0002
+      },
+      {
+        "name": "assembled physical nodal mass",
+        "passed": true,
+        "max_tolerance_ratio": 0.0,
+        "relative_tolerance": 1e-08,
+        "absolute_tolerances_per_dof": [
+          1e-10,
+          1e-10,
+          1e-10,
+          1e-10,
+          1e-10,
+          1e-10
+        ],
+        "worst_components": []
+      }
+    ]
+  },
+  "analytical": [
+    {
+      "name": "analytical: Inclined tip displacement",
+      "passed": true,
+      "actual": -0.0005015746494675368,
+      "expected": -0.0005015746494675289,
+      "absolute_error": 7.914675859144182e-18,
+      "tolerance": 1.1031492989350577e-09,
+      "formula": "e2*(PL\u00b3/(3EI33)+PL/(GAs2))",
+      "reference_kind": "continuum or exact discrete formula as labelled"
+    },
+    {
+      "name": "analytical: Inclined tip displacement",
+      "passed": true,
+      "actual": 0.000835957749112612,
+      "expected": 0.0008359577491125482,
+      "absolute_error": 6.385950795939621e-17,
+      "tolerance": 1.7719154982250963e-09,
+      "formula": "e2*(PL\u00b3/(3EI33)+PL/(GAs2))",
+      "reference_kind": "continuum or exact discrete formula as labelled"
+    },
+    {
+      "name": "analytical: Inclined tip displacement",
+      "passed": true,
+      "actual": -7.393763167494727e-17,
+      "expected": 0.0,
+      "absolute_error": 7.393763167494727e-17,
+      "tolerance": 1e-10,
+      "formula": "e2*(PL\u00b3/(3EI33)+PL/(GAs2))",
+      "reference_kind": "continuum or exact discrete formula as labelled"
+    },
+    {
+      "name": "analytical: Inclined tip rotation",
+      "passed": true,
+      "actual": -0.0001346622988138048,
+      "expected": -0.00013466229881381117,
+      "absolute_error": 6.3696877633523385e-18,
+      "tolerance": 3.6932459762762237e-10,
+      "formula": "e3*PL\u00b2/(2EI33)",
+      "reference_kind": "continuum or exact discrete formula as labelled"
+    },
+    {
+      "name": "analytical: Inclined tip rotation",
+      "passed": true,
+      "actual": -8.079737928824868e-05,
+      "expected": -8.07973792882867e-05,
+      "absolute_error": 3.8014838672773e-17,
+      "tolerance": 2.6159475857657336e-10,
+      "formula": "e3*PL\u00b2/(2EI33)",
+      "reference_kind": "continuum or exact discrete formula as labelled"
+    },
+    {
+      "name": "analytical: Inclined tip rotation",
+      "passed": true,
+      "actual": 0.0004578518159669842,
+      "expected": 0.00045785181596695796,
+      "absolute_error": 2.6237692574149207e-17,
+      "tolerance": 1.015703631933916e-09,
+      "formula": "e3*PL\u00b2/(2EI33)",
+      "reference_kind": "continuum or exact discrete formula as labelled"
+    }
+  ],
+  "reference_error": null,
+  "execution": {
+    "returncode": 0,
+    "model_sha256": "bcc25b457d47067c36e6aa9c1ddb26c8b6b3391ae019a6e2d792ea5bcd9094a9",
+    "solver_source_sha256": "b2dcefa0108c3e5d25eebdc3c19f4cd8586716bf63074a9bf5dead876a6ea0cf"
+  }
+}

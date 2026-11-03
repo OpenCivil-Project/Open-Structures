@@ -1,0 +1,235 @@
+{
+  "id": "222_frame_branched_cantilever_3d_v2",
+  "family": "frame_branched_cantilever_3d",
+  "variant": 2,
+  "model_file": "222_frame_branched_cantilever_3d_v2.mf",
+  "static": {
+    "passed": true,
+    "checks": [
+      {
+        "name": "nodal displacement and rotation",
+        "passed": true,
+        "max_tolerance_ratio": 4.997217152258522e-06,
+        "relative_tolerance": 2e-06,
+        "absolute_tolerances_per_dof": [
+          1e-10,
+          1e-10,
+          1e-10,
+          1e-10,
+          1e-10,
+          1e-10
+        ],
+        "worst_components": []
+      },
+      {
+        "name": "support force and moment",
+        "passed": true,
+        "max_tolerance_ratio": 1.2093332717170431e-06,
+        "relative_tolerance": 2e-06,
+        "absolute_tolerances_per_dof": [
+          0.0001,
+          0.0001,
+          0.0001,
+          0.0001,
+          0.0001,
+          0.0001
+        ],
+        "worst_components": []
+      },
+      {
+        "name": "independent free-DOF equilibrium residual",
+        "passed": true,
+        "value": 2.2714543224264905e-12,
+        "limit": 2e-06
+      },
+      {
+        "name": "analytical: Single-root equilibrium reaction",
+        "passed": true,
+        "actual": -10800.000000006321,
+        "expected": -10800.0,
+        "absolute_error": 6.320988177321851e-09,
+        "tolerance": 0.021699999999999997,
+        "formula": "-\u03a3F; -\u03a3(M + (r-r_root)\u00d7F)",
+        "reference_kind": "continuum or exact discrete formula as labelled"
+      },
+      {
+        "name": "analytical: Single-root equilibrium reaction",
+        "passed": true,
+        "actual": 6000.000000008411,
+        "expected": 6000.0,
+        "absolute_error": 8.41100700199604e-09,
+        "tolerance": 0.0121,
+        "formula": "-\u03a3F; -\u03a3(M + (r-r_root)\u00d7F)",
+        "reference_kind": "continuum or exact discrete formula as labelled"
+      },
+      {
+        "name": "analytical: Single-root equilibrium reaction",
+        "passed": true,
+        "actual": 10459.802325195424,
+        "expected": 10459.802325209013,
+        "absolute_error": 1.3589669833891094e-08,
+        "tolerance": 0.021019604650418026,
+        "formula": "-\u03a3F; -\u03a3(M + (r-r_root)\u00d7F)",
+        "reference_kind": "continuum or exact discrete formula as labelled"
+      },
+      {
+        "name": "analytical: Single-root equilibrium reaction",
+        "passed": true,
+        "actual": -16679.575487951854,
+        "expected": -16679.575487909504,
+        "absolute_error": 4.234971129335463e-08,
+        "tolerance": 0.03345915097581901,
+        "formula": "-\u03a3F; -\u03a3(M + (r-r_root)\u00d7F)",
+        "reference_kind": "continuum or exact discrete formula as labelled"
+      },
+      {
+        "name": "analytical: Single-root equilibrium reaction",
+        "passed": true,
+        "actual": -63123.94287774836,
+        "expected": -63123.94287775152,
+        "absolute_error": 3.157765604555607e-09,
+        "tolerance": 0.12634788575550301,
+        "formula": "-\u03a3F; -\u03a3(M + (r-r_root)\u00d7F)",
+        "reference_kind": "continuum or exact discrete formula as labelled"
+      },
+      {
+        "name": "analytical: Single-root equilibrium reaction",
+        "passed": true,
+        "actual": 13530.000000029802,
+        "expected": 13530.0,
+        "absolute_error": 2.9802322387695312e-08,
+        "tolerance": 0.027159999999999997,
+        "formula": "-\u03a3F; -\u03a3(M + (r-r_root)\u00d7F)",
+        "reference_kind": "continuum or exact discrete formula as labelled"
+      }
+    ]
+  },
+  "modal": {
+    "passed": true,
+    "checks": [
+      {
+        "name": "mode count",
+        "passed": true,
+        "actual": 3,
+        "expected": 3
+      },
+      {
+        "name": "finite positive sorted frequencies",
+        "passed": true
+      },
+      {
+        "name": "maximum relative frequency error",
+        "passed": true,
+        "value": 2.0667027608821764e-13,
+        "limit": 2e-05
+      },
+      {
+        "name": "period/frequency/omega/eigenvalue consistency",
+        "passed": true,
+        "value": 2.220446049250313e-16,
+        "limit": 1e-09
+      },
+      {
+        "name": "maximum independent eigen residual",
+        "passed": true,
+        "value": 5.410489434548707e-12,
+        "limit": 2e-05
+      },
+      {
+        "name": "mass normalization and orthogonality",
+        "passed": true,
+        "value": 3.3306690738754696e-16,
+        "limit": 2e-05
+      },
+      {
+        "name": "worst modal subspace mismatch (1-MAC)",
+        "passed": true,
+        "value": 2.220446049250313e-16,
+        "limit": 0.0002
+      },
+      {
+        "name": "assembled physical nodal mass",
+        "passed": true,
+        "max_tolerance_ratio": 0.0,
+        "relative_tolerance": 1e-08,
+        "absolute_tolerances_per_dof": [
+          1e-10,
+          1e-10,
+          1e-10,
+          1e-10,
+          1e-10,
+          1e-10
+        ],
+        "worst_components": []
+      }
+    ]
+  },
+  "analytical": [
+    {
+      "name": "analytical: Single-root equilibrium reaction",
+      "passed": true,
+      "actual": -10800.000000006321,
+      "expected": -10800.0,
+      "absolute_error": 6.320988177321851e-09,
+      "tolerance": 0.021699999999999997,
+      "formula": "-\u03a3F; -\u03a3(M + (r-r_root)\u00d7F)",
+      "reference_kind": "continuum or exact discrete formula as labelled"
+    },
+    {
+      "name": "analytical: Single-root equilibrium reaction",
+      "passed": true,
+      "actual": 6000.000000008411,
+      "expected": 6000.0,
+      "absolute_error": 8.41100700199604e-09,
+      "tolerance": 0.0121,
+      "formula": "-\u03a3F; -\u03a3(M + (r-r_root)\u00d7F)",
+      "reference_kind": "continuum or exact discrete formula as labelled"
+    },
+    {
+      "name": "analytical: Single-root equilibrium reaction",
+      "passed": true,
+      "actual": 10459.802325195424,
+      "expected": 10459.802325209013,
+      "absolute_error": 1.3589669833891094e-08,
+      "tolerance": 0.021019604650418026,
+      "formula": "-\u03a3F; -\u03a3(M + (r-r_root)\u00d7F)",
+      "reference_kind": "continuum or exact discrete formula as labelled"
+    },
+    {
+      "name": "analytical: Single-root equilibrium reaction",
+      "passed": true,
+      "actual": -16679.575487951854,
+      "expected": -16679.575487909504,
+      "absolute_error": 4.234971129335463e-08,
+      "tolerance": 0.03345915097581901,
+      "formula": "-\u03a3F; -\u03a3(M + (r-r_root)\u00d7F)",
+      "reference_kind": "continuum or exact discrete formula as labelled"
+    },
+    {
+      "name": "analytical: Single-root equilibrium reaction",
+      "passed": true,
+      "actual": -63123.94287774836,
+      "expected": -63123.94287775152,
+      "absolute_error": 3.157765604555607e-09,
+      "tolerance": 0.12634788575550301,
+      "formula": "-\u03a3F; -\u03a3(M + (r-r_root)\u00d7F)",
+      "reference_kind": "continuum or exact discrete formula as labelled"
+    },
+    {
+      "name": "analytical: Single-root equilibrium reaction",
+      "passed": true,
+      "actual": 13530.000000029802,
+      "expected": 13530.0,
+      "absolute_error": 2.9802322387695312e-08,
+      "tolerance": 0.027159999999999997,
+      "formula": "-\u03a3F; -\u03a3(M + (r-r_root)\u00d7F)",
+      "reference_kind": "continuum or exact discrete formula as labelled"
+    }
+  ],
+  "reference_error": null,
+  "execution": {
+    "returncode": 0,
+    "model_sha256": "078a0fd966cff5a9608c9f698185f60af0ad758aa2a4a439cd83fdc2a3d45789",
+    "solver_source_sha256": "b2dcefa0108c3e5d25eebdc3c19f4cd8586716bf63074a9bf5dead876a6ea0cf"
+  }
+}

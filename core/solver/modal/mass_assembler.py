@@ -83,6 +83,14 @@ class GlobalMassAssembler:
                 r_app(start_dof + 1); c_app(start_dof + 1); d_app(half_mass)
                 r_app(start_dof + 2); c_app(start_dof + 2); d_app(half_mass)
 
+        for sh in getattr(self.dm, 'shells', []):
+            m_nodes = sh.nodal_forces_from_total([sh.mass * scale_factor] * 3)                                       
+            for k, n_idx in enumerate(sh.node_indices):
+                start_dof = n_idx * 6
+                r_app(start_dof + 0); c_app(start_dof + 0); d_app(m_nodes[k, 0])
+                r_app(start_dof + 1); c_app(start_dof + 1); d_app(m_nodes[k, 1])
+                r_app(start_dof + 2); c_app(start_dof + 2); d_app(m_nodes[k, 2])
+
         for link in self.dm.raw.get('links', []):
             prop = self.dm.link_properties.get(link['prop_name'])
             if not prop: continue
@@ -296,6 +304,14 @@ class GlobalMassAssembler:
                 F_accum[dof_j + 0] += equiv_nodal_force[6]
                 F_accum[dof_j + 1] += equiv_nodal_force[7]
                 F_accum[dof_j + 2] += equiv_nodal_force[8]
+
+            elif load["type"] in ("area_uniform", "area_gravity"):
+                from shell_element import area_load_nodal_forces
+                sh = {s.id: s for s in getattr(self.dm, 'shells', [])}.get(load["area_id"])
+                if sh is None: continue
+                f_sh = area_load_nodal_forces(sh, load, multiplier)
+                for k, n_idx in enumerate(sh.node_indices):
+                    F_accum[n_idx * 6: n_idx * 6 + 3] += f_sh[k]
 
             elif load["type"] == "member_point":
                                                               

@@ -1,0 +1,155 @@
+{
+  "id": "079_released_beam_portal_v4",
+  "family": "released_beam_portal",
+  "variant": 4,
+  "model_file": "079_released_beam_portal_v4.mf",
+  "static": {
+    "passed": true,
+    "checks": [
+      {
+        "name": "nodal displacement and rotation",
+        "passed": true,
+        "max_tolerance_ratio": 0.00015029883618912412,
+        "relative_tolerance": 2e-06,
+        "absolute_tolerances_per_dof": [
+          1e-10,
+          1e-10,
+          1e-10,
+          1e-10,
+          1e-10,
+          1e-10
+        ],
+        "worst_components": []
+      },
+      {
+        "name": "support force and moment",
+        "passed": true,
+        "max_tolerance_ratio": 8.46037227448074e-05,
+        "relative_tolerance": 2e-06,
+        "absolute_tolerances_per_dof": [
+          0.0001,
+          0.0001,
+          0.0001,
+          0.0001,
+          0.0001,
+          0.0001
+        ],
+        "worst_components": []
+      },
+      {
+        "name": "independent free-DOF equilibrium residual",
+        "passed": true,
+        "value": 1.8801369600950913e-13,
+        "limit": 2e-06
+      },
+      {
+        "name": "analytical: Released portal sway",
+        "passed": true,
+        "actual": 0.001043747599956343,
+        "expected": 0.0010437476002214292,
+        "absolute_error": 2.6508613013009885e-13,
+        "tolerance": 2.1874952004428583e-09,
+        "formula": "(P/2)H\u00b3/(3EI33)",
+        "reference_kind": "continuum or exact discrete formula as labelled"
+      },
+      {
+        "name": "analytical: Released portal sway",
+        "passed": true,
+        "actual": 0.0010437475999563433,
+        "expected": 0.0010437476002214292,
+        "absolute_error": 2.6508591328966435e-13,
+        "tolerance": 2.1874952004428583e-09,
+        "formula": "(P/2)H\u00b3/(3EI33)",
+        "reference_kind": "continuum or exact discrete formula as labelled"
+      }
+    ]
+  },
+  "modal": {
+    "passed": true,
+    "checks": [
+      {
+        "name": "mode count",
+        "passed": true,
+        "actual": 3,
+        "expected": 3
+      },
+      {
+        "name": "finite positive sorted frequencies",
+        "passed": true
+      },
+      {
+        "name": "maximum relative frequency error",
+        "passed": true,
+        "value": 3.955195963869701e-13,
+        "limit": 2e-05
+      },
+      {
+        "name": "period/frequency/omega/eigenvalue consistency",
+        "passed": true,
+        "value": 2.220446049250313e-16,
+        "limit": 1e-09
+      },
+      {
+        "name": "maximum independent eigen residual",
+        "passed": true,
+        "value": 1.1561917845270577e-12,
+        "limit": 2e-05
+      },
+      {
+        "name": "mass normalization and orthogonality",
+        "passed": true,
+        "value": 2.4190694801790116e-16,
+        "limit": 2e-05
+      },
+      {
+        "name": "worst modal subspace mismatch (1-MAC)",
+        "passed": true,
+        "value": 2.220446049250313e-16,
+        "limit": 0.0002
+      },
+      {
+        "name": "assembled physical nodal mass",
+        "passed": true,
+        "max_tolerance_ratio": 0.0,
+        "relative_tolerance": 1e-08,
+        "absolute_tolerances_per_dof": [
+          1e-10,
+          1e-10,
+          1e-10,
+          1e-10,
+          1e-10,
+          1e-10
+        ],
+        "worst_components": []
+      }
+    ]
+  },
+  "analytical": [
+    {
+      "name": "analytical: Released portal sway",
+      "passed": true,
+      "actual": 0.001043747599956343,
+      "expected": 0.0010437476002214292,
+      "absolute_error": 2.6508613013009885e-13,
+      "tolerance": 2.1874952004428583e-09,
+      "formula": "(P/2)H\u00b3/(3EI33)",
+      "reference_kind": "continuum or exact discrete formula as labelled"
+    },
+    {
+      "name": "analytical: Released portal sway",
+      "passed": true,
+      "actual": 0.0010437475999563433,
+      "expected": 0.0010437476002214292,
+      "absolute_error": 2.6508591328966435e-13,
+      "tolerance": 2.1874952004428583e-09,
+      "formula": "(P/2)H\u00b3/(3EI33)",
+      "reference_kind": "continuum or exact discrete formula as labelled"
+    }
+  ],
+  "reference_error": null,
+  "execution": {
+    "returncode": 0,
+    "model_sha256": "0c9af4c439e5f9d0a1a158465d9f5e9280bb4b754646cf6d3f0d7c4f5de56f17",
+    "solver_source_sha256": "b2dcefa0108c3e5d25eebdc3c19f4cd8586716bf63074a9bf5dead876a6ea0cf"
+  }
+}

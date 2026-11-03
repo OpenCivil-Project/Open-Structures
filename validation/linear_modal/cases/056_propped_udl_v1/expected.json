@@ -1,0 +1,459 @@
+{
+  "static": {
+    "displacements": {
+      "1": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "2": [
+        0.0,
+        -2.7673832164282777e-06,
+        0.0,
+        0.0,
+        0.0,
+        -9.270733775034733e-06
+      ],
+      "3": [
+        0.0,
+        -7.748673005999179e-06,
+        0.0,
+        0.0,
+        0.0,
+        -9.409102935856147e-06
+      ],
+      "4": [
+        0.0,
+        -1.120790202653453e-05,
+        0.0,
+        0.0,
+        0.0,
+        -3.7359673421781884e-06
+      ],
+      "5": [
+        0.0,
+        -1.1069532865713121e-05,
+        0.0,
+        0.0,
+        0.0,
+        4.427813146285244e-06
+      ],
+      "6": [
+        0.0,
+        -6.918458041070701e-06,
+        0.0,
+        0.0,
+        0.0,
+        1.1761378669820196e-05
+      ],
+      "7": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.4943869368712713e-05
+      ]
+    },
+    "reactions": {
+      "1": [
+        0.0,
+        3843.7500000000136,
+        0.0,
+        0.0,
+        0.0,
+        2306.2500000000086
+      ],
+      "2": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "3": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "4": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "5": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "6": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "7": [
+        0.0,
+        2306.2500000000073,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ]
+    }
+  },
+  "modal": {
+    "frequencies_hz": [
+      113.20734631539312,
+      366.09003142483357,
+      419.4285230681372
+    ],
+    "regularized_frequencies_hz": [
+      113.20730174455274,
+      366.08952935104566,
+      419.42852306813836
+    ],
+    "regularization_relative_shift": [
+      -3.937097886135717e-07,
+      -1.3714489464776548e-06,
+      2.7105175606559147e-15
+    ],
+    "mode_shapes": {
+      "1": {
+        "1": [
+          -0.0,
+          -0.0,
+          -0.0,
+          -0.0,
+          -0.0,
+          -0.0
+        ],
+        "2": [
+          -9.22744400509033e-18,
+          -0.009143679893683454,
+          -0.0,
+          -0.0,
+          -0.0,
+          -0.03147379775375114
+        ],
+        "3": [
+          4.639092037123183e-18,
+          -0.02665231369723072,
+          -0.0,
+          -0.0,
+          -0.0,
+          -0.03401869693964901
+        ],
+        "4": [
+          1.2061639296520274e-17,
+          -0.039434856443828915,
+          -0.0,
+          -0.0,
+          -0.0,
+          -0.014198480026421949
+        ],
+        "5": [
+          -0.0,
+          -0.039142969847775884,
+          -0.0,
+          -0.0,
+          -0.0,
+          0.01586867753854087
+        ],
+        "6": [
+          5.566910444547819e-18,
+          -0.0242597803115051,
+          -0.0,
+          -0.0,
+          -0.0,
+          0.041774229575983944
+        ],
+        "7": [
+          8.528866938795626e-18,
+          -0.0,
+          -0.0,
+          -0.0,
+          -0.0,
+          0.05189223090416978
+        ]
+      },
+      "2": {
+        "1": [
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0
+        ],
+        "2": [
+          -6.7669675848610116e-18,
+          0.023198591457166972,
+          0.0,
+          0.0,
+          0.0,
+          0.06326946968705655
+        ],
+        "3": [
+          -1.1133820889095637e-17,
+          0.04115856992274082,
+          0.0,
+          0.0,
+          0.0,
+          -0.006126337889714511
+        ],
+        "4": [
+          1.1133820889095637e-17,
+          0.015529378792488863,
+          0.0,
+          0.0,
+          0.0,
+          -0.0847794058637738
+        ],
+        "5": [
+          -1.1133820889095637e-17,
+          -0.027046686872046533,
+          0.0,
+          0.0,
+          0.0,
+          -0.06398774199223271
+        ],
+        "6": [
+          -2.5978915407889822e-17,
+          -0.03556506008380714,
+          0.0,
+          0.0,
+          0.0,
+          0.03416361787555637
+        ],
+        "7": [
+          -1.1809200376793944e-17,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.08961345723256008
+        ]
+      },
+      "3": {
+        "1": [
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0
+        ],
+        "2": [
+          0.009990295742651227,
+          7.422547259397092e-18,
+          0.0,
+          0.0,
+          0.0,
+          0.0
+        ],
+        "3": [
+          0.019299769340185093,
+          1.5299524197473167e-17,
+          0.0,
+          0.0,
+          0.0,
+          8.922244797788381e-18
+        ],
+        "4": [
+          0.0272939955515622,
+          1.0868377112553941e-17,
+          0.0,
+          0.0,
+          0.0,
+          -2.0420346035168696e-17
+        ],
+        "5": [
+          0.03342818107156065,
+          -4.971102166139369e-19,
+          0.0,
+          0.0,
+          0.0,
+          -2.288545044837878e-17
+        ],
+        "6": [
+          0.03728429129421342,
+          -5.751259764085262e-18,
+          0.0,
+          0.0,
+          0.0,
+          1.8420118399419164e-18
+        ],
+        "7": [
+          0.03859953868037018,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          1.7759201297568408e-17
+        ]
+      }
+    },
+    "assembled_mass": {
+      "1": [
+        111.8625,
+        111.8625,
+        111.8625,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "2": [
+        223.725,
+        223.725,
+        223.725,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "3": [
+        223.725,
+        223.725,
+        223.725,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "4": [
+        223.725,
+        223.725,
+        223.725,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "5": [
+        223.725,
+        223.725,
+        223.725,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "6": [
+        223.725,
+        223.725,
+        223.725,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "7": [
+        111.8625,
+        111.8625,
+        111.8625,
+        0.0,
+        0.0,
+        0.0
+      ]
+    }
+  },
+  "metadata": {
+    "reference_kind": "Independent discretized force-flexibility reference with separate analytical checks",
+    "mass_model": "Translational nodal lumping; rho denotes weight density; explicit link rotary inertia allowed",
+    "regularized_reference": "Native-only numerical terms: released rotational diagonal=max(abs(k_local))*1e-12; massless free diagonal=min_positive_free_mass*1e-6",
+    "mass_floor": 0.00011186249999999999,
+    "requested_modes": 3,
+    "native_clamped_modes": 3,
+    "sources": [
+      {
+        "title": "Scott Whitney, University of Nebraska: Vibrations of Cantilever Beams (1999)",
+        "url": "https://emweb.unl.edu/mechanics-pages/Scott-Whitney/325hweb/Beams.htm",
+        "use": "Euler-Bernoulli cantilever deflection and frequency derivation"
+      },
+      {
+        "title": "CALFEM for Python: core.py, bar2e/beam2e/beam3e/beam2de",
+        "url": "https://github.com/CALFEM/calfem-python/blob/master/src/calfem/core.py",
+        "use": "Public independent FE library and beam/bar reference formulations; not imported"
+      },
+      {
+        "title": "OpenSees public examples: Example3.1.tcl",
+        "url": "https://github.com/OpenSees/OpenSees/blob/master/EXAMPLES/ExampleScripts/Example3.1.tcl",
+        "use": "Public portal-frame modelling benchmark example; not an analytical oracle"
+      },
+      {
+        "title": "Gere and Timoshenko, Mechanics of Materials; Clough and Penzien, Dynamics of Structures",
+        "url": null,
+        "use": "Force-flexibility integration, beam boundary conditions, modal generalized eigenproblem"
+      }
+    ]
+  },
+  "analytical_checks": [
+    {
+      "node_id": 1,
+      "dof": 1,
+      "value": 3843.75,
+      "label": "Propped root shear",
+      "formula": "5qL/8",
+      "result": "reactions"
+    },
+    {
+      "node_id": 7,
+      "dof": 1,
+      "value": 2306.25,
+      "label": "Prop shear",
+      "formula": "3qL/8",
+      "result": "reactions"
+    },
+    {
+      "node_id": 1,
+      "dof": 5,
+      "value": 2306.25,
+      "label": "Propped root moment",
+      "formula": "qL\u00b2/8",
+      "result": "reactions"
+    }
+  ],
+  "analytical_reference_checks": [
+    {
+      "name": "analytical: Propped root shear",
+      "passed": true,
+      "actual": 3843.7500000000136,
+      "expected": 3843.75,
+      "absolute_error": 1.3642420526593924e-11,
+      "tolerance": 0.0077875,
+      "formula": "5qL/8",
+      "reference_kind": "continuum or exact discrete formula as labelled"
+    },
+    {
+      "name": "analytical: Prop shear",
+      "passed": true,
+      "actual": 2306.2500000000073,
+      "expected": 2306.25,
+      "absolute_error": 7.275957614183426e-12,
+      "tolerance": 0.0047125,
+      "formula": "3qL/8",
+      "reference_kind": "continuum or exact discrete formula as labelled"
+    },
+    {
+      "name": "analytical: Propped root moment",
+      "passed": true,
+      "actual": 2306.2500000000086,
+      "expected": 2306.25,
+      "absolute_error": 8.640199666842818e-12,
+      "tolerance": 0.0047125,
+      "formula": "qL\u00b2/8",
+      "reference_kind": "continuum or exact discrete formula as labelled"
+    }
+  ]
+}

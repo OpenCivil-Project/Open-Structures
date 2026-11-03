@@ -1,13 +1,16 @@
 from PyQt6.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, QCheckBox,
                              QPushButton, QGroupBox, QRadioButton, QButtonGroup,
-                             QScrollArea, QWidget, QLabel)
+                             QScrollArea, QWidget, QLabel, QTabWidget, QComboBox)
 from PyQt6.QtCore import Qt
+
+from app.ui.theme import apply_dialog_style, set_theme, current_theme
 
 class ViewOptionsDialog(QDialog):
     def __init__(self, parent=None):
         super().__init__(parent)
+        apply_dialog_style(self)
         self.setWindowTitle("Set Display Options")
-        self.resize(500, 480)
+        self.resize(460, 540)
         self.setModal(False)
 
         self.main_window = parent
@@ -38,13 +41,9 @@ class ViewOptionsDialog(QDialog):
         self.lbl_target.setStyleSheet("font-weight: bold; padding: 3px;")
         main_layout.addWidget(self.lbl_target)
 
-        content_layout = QHBoxLayout()
-
-        left_layout = QVBoxLayout()
-
         gen_group = QGroupBox("General")
         gen_vbox = QVBoxLayout()
-        self.cb_extrude = QCheckBox("Extrude Frames")
+        self.cb_extrude = QCheckBox("Extrude Frames/Areas")
         self.cb_areas = QCheckBox("Show Shells / Areas")
         self.cb_areas.setToolTip("Show Floors and Walls")
         self.cb_grid = QCheckBox("Show Grid")
@@ -65,18 +64,13 @@ class ViewOptionsDialog(QDialog):
             joint_vbox.addWidget(w)
         joint_group.setLayout(joint_vbox)
 
-        left_layout.addWidget(gen_group)
-        left_layout.addWidget(joint_group)
-        left_layout.addStretch()
-
-        right_layout = QVBoxLayout()
-
         frame_group = QGroupBox("Frames / Cables")
         frame_vbox = QVBoxLayout()
         self.chk_axes = QCheckBox("Local Axes")
         self.chk_axes.setStyleSheet("color: blue;")
         self.cb_releases = QCheckBox("Releases (Partial Fixity)")
-        for w in (self.chk_axes, self.cb_releases):
+        self.cb_hinges = QCheckBox("Hinges")
+        for w in (self.chk_axes, self.cb_releases, self.cb_hinges):
             frame_vbox.addWidget(w)
         frame_group.setLayout(frame_vbox)
 
@@ -114,24 +108,58 @@ class ViewOptionsDialog(QDialog):
         loads_vbox.addWidget(scroll)
         loads_group.setLayout(loads_vbox)
 
-        right_layout.addWidget(frame_group)
-        right_layout.addWidget(loads_group)
-        right_layout.addStretch()
+        self.tabs = QTabWidget()
 
-        content_layout.addLayout(left_layout, 1)
-        content_layout.addLayout(right_layout, 1)
-        main_layout.addLayout(content_layout)
+        page_general = QWidget()
+        v_general = QVBoxLayout(page_general)
+
+        theme_group = QGroupBox("Application Theme")
+        theme_hbox = QHBoxLayout()
+        theme_hbox.addWidget(QLabel("UI Mode:"))
+        self.combo_theme = QComboBox()
+        self.combo_theme.addItems(["Light", "Dark"])
+        self.combo_theme.setCurrentText(current_theme())
+                                                                     
+        self.combo_theme.currentTextChanged.connect(self._on_theme_combo)
+        theme_hbox.addWidget(self.combo_theme)
+        theme_hbox.addStretch()
+        theme_group.setLayout(theme_hbox)
+        
+        v_general.addWidget(theme_group)
+        
+        v_general.addWidget(gen_group)
+        v_general.addStretch()
+        self.tabs.addTab(page_general, "General")
+
+        page_objects = QWidget()
+        v_objects = QVBoxLayout(page_objects)
+        v_objects.addWidget(joint_group)
+        v_objects.addWidget(frame_group)
+        v_objects.addStretch()
+        self.tabs.addTab(page_objects, "Joints / Frames")
+
+        page_loads = QWidget()
+        v_loads = QVBoxLayout(page_loads)
+        v_loads.addWidget(loads_group)
+        v_loads.addStretch()
+        self.tabs.addTab(page_loads, "Loads")
+
+        main_layout.addWidget(self.tabs)
 
         btn_layout = QHBoxLayout()
         btn_sync = QPushButton("↺  Sync from Active Canvas")
+        btn_sync.setObjectName("secondary")
         btn_sync.setToolTip("Reload settings from whichever canvas is currently active")
         btn_sync.clicked.connect(self._load_from_active_canvas)
 
         btn_apply  = QPushButton("Apply")
+        btn_apply.setObjectName("secondary")
         btn_apply.clicked.connect(self.on_apply)
         btn_ok     = QPushButton("OK")
+        btn_ok.setObjectName("primary")
         btn_ok.clicked.connect(self.on_ok)
         btn_cancel = QPushButton("Cancel")
+        btn_cancel.setObjectName("secondary")
         btn_cancel.clicked.connect(self.reject)
 
         btn_layout.addWidget(btn_sync)
@@ -140,6 +168,10 @@ class ViewOptionsDialog(QDialog):
         btn_layout.addWidget(btn_ok)
         btn_layout.addWidget(btn_cancel)
         main_layout.addLayout(btn_layout)
+
+    def _on_theme_combo(self, text):
+        set_theme(text)
+        apply_dialog_style(self)                                                        
 
     def _update_target_label(self):
         self.lbl_target.setText(f"{self._canvas_label()}")
@@ -158,6 +190,7 @@ class ViewOptionsDialog(QDialog):
         self.cb_supports.setChecked(cvs.show_supports)
         self.cb_constraints.setChecked(cvs.show_constraints)
         self.cb_releases.setChecked(cvs.show_releases)
+        self.cb_hinges.setChecked(getattr(cvs, 'show_hinges', True))
         self.cb_show_loads.setChecked(cvs.show_loads)
         self.cb_tributary_loads.setChecked(getattr(cvs, 'show_tributary_loads', False))
         self.cb_tributary_heatmap.setChecked(getattr(cvs, 'show_tributary_heatmap', False))
@@ -208,6 +241,7 @@ class ViewOptionsDialog(QDialog):
             'supports':          self.cb_supports.isChecked(),
             'constraints':       self.cb_constraints.isChecked(),
             'releases':          self.cb_releases.isChecked(),
+            'hinges':            self.cb_hinges.isChecked(),
             'loads':             self.cb_show_loads.isChecked(),
             'tributary_loads':   self.cb_tributary_loads.isChecked(),
             'tributary_heatmap': self.cb_tributary_heatmap.isChecked(),

@@ -2,6 +2,8 @@ from PyQt6.QtWidgets import (QDialog, QVBoxLayout, QLabel, QComboBox,
                              QFormLayout, QPushButton, QGroupBox, QHBoxLayout)
 from PyQt6.QtCore import Qt, pyqtSignal
 
+from app.ui.theme import apply_dialog_style, COLORS, SIZES
+
 class DrawFrameDialog(QDialog):
                                                
     signal_dialog_closed = pyqtSignal()
@@ -9,6 +11,8 @@ class DrawFrameDialog(QDialog):
     def __init__(self, model, parent=None):
         super().__init__(parent)
         self.model = model
+        apply_dialog_style(self)
+
         self.setWindowTitle("Draw Frame/Cable/Tendon Object")
         
         self.setWindowFlags(Qt.WindowType.Tool | Qt.WindowType.WindowStaysOnTopHint) 
@@ -44,7 +48,7 @@ class DrawFrameDialog(QDialog):
             "the dialog that opens after the second click."
         )
         self.tendon_note.setWordWrap(True)
-        self.tendon_note.setStyleSheet("color: #555; font-size: 11px;")
+        self.tendon_note.setStyleSheet(f"color: {COLORS['text_secondary']}; font-size: {SIZES['font_size_small']}pt;")
         self.tendon_note.setVisible(False)
         form_layout.addRow(self.tendon_note)
         
@@ -57,7 +61,7 @@ class DrawFrameDialog(QDialog):
         lbl = QLabel("• <b>Left Click:</b> Draw segment<br>"
                      "• <b>Right Click:</b> Stop chain<br>"
                      "• <b>Esc:</b> Exit draw mode")
-        lbl.setStyleSheet("color: #555; font-size: 12px;")
+        lbl.setStyleSheet(f"color: {COLORS['text_secondary']}; font-size: {SIZES['font_size_small']}pt;")
         inst_layout.addWidget(lbl)
         inst_group.setLayout(inst_layout)
         main_layout.addWidget(inst_group)
@@ -65,6 +69,7 @@ class DrawFrameDialog(QDialog):
         btn_layout = QHBoxLayout()
         btn_layout.addStretch() 
         self.close_btn = QPushButton("Close")
+        self.close_btn.setObjectName("secondary")
         self.close_btn.clicked.connect(self.close)
         btn_layout.addWidget(self.close_btn)
         

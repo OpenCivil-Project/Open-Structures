@@ -3,9 +3,17 @@ from PyQt6.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, QTableWidget,
                              QTableWidgetItem, QPushButton, QLabel, QHeaderView,
                              QAbstractItemView, QGroupBox, QMessageBox, QCheckBox)
 from PyQt6.QtCore import Qt, pyqtSignal
-from PyQt6.QtGui import QColor, QIcon
+from PyQt6.QtGui import QColor, QIcon, QUndoCommand
 
 from app.ui.theme import apply_dialog_style, COLORS                      
+from app.dialogs.load_case_dialog import LoadCaseDetailDialog
+
+class CmdRunPrefsChanged(QUndoCommand):
+    """Marks the model dirty when the Run Analysis selection changes (values already applied)."""
+    def __init__(self):
+        super().__init__("Run Analysis Selection")
+    def undo(self): pass
+    def redo(self): pass
 
 class AnalysisDialog(QDialog):
 
@@ -41,6 +49,8 @@ class AnalysisDialog(QDialog):
         self.table.setAlternatingRowColors(True)
         self.table.verticalHeader().setVisible(False)
         self.table.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
+        self.table.itemSelectionChanged.connect(self.on_selection_changed)
+        self.table.doubleClicked.connect(self.on_show_case_clicked)
                                                            
         v_cases.addWidget(self.table)
 
@@ -51,14 +61,11 @@ class AnalysisDialog(QDialog):
                                  
         self.btn_show = QPushButton("Show Case...")
         self.btn_show.setEnabled(False)
-
-        self.btn_delete_res = QPushButton("Delete Results")
-        self.btn_delete_res.setEnabled(False)
+        self.btn_show.clicked.connect(self.on_show_case_clicked)
 
         h_tbl_btns.addStretch()
         h_tbl_btns.addWidget(self.btn_toggle)
         h_tbl_btns.addWidget(self.btn_show)
-        h_tbl_btns.addWidget(self.btn_delete_res)
 
         v_cases.addLayout(h_tbl_btns)
         layout.addWidget(grp_cases)
@@ -67,7 +74,7 @@ class AnalysisDialog(QDialog):
         v_options = QVBoxLayout(grp_options)
 
         self.chk_messages = QCheckBox("Show Analysis Log")
-        self.chk_messages.setChecked(True)
+        self.chk_messages.setChecked(bool(getattr(self.model, 'show_analysis_log', True)))
         v_options.addWidget(self.chk_messages)
 
         self.chk_lock = QCheckBox("Lock Model During Analysis (Prevent Editing)")
@@ -78,16 +85,16 @@ class AnalysisDialog(QDialog):
         layout.addWidget(grp_options)
 
         h_btns = QHBoxLayout()
+
         h_btns.addStretch()
 
         self.btn_run = QPushButton("Run Now")
         self.btn_run.setFixedWidth(120)
-        self.btn_run.setObjectName("primary")                                                   
+        self.btn_run.setObjectName("primary")
         self.btn_run.clicked.connect(self.on_run_clicked)
 
         self.btn_cancel = QPushButton("Close")
         self.btn_cancel.setFixedWidth(120)
-                                                                         
         self.btn_cancel.clicked.connect(self.reject)
 
         h_btns.addWidget(self.btn_run)
@@ -108,11 +115,21 @@ class AnalysisDialog(QDialog):
         if not case_list:
             case_list = [{"name": "DEAD", "type": "Linear Static"}]
 
-        first_name = None
-        for c in case_list:
-            first_name = c.get('name', 'Unknown') if isinstance(c, dict) else getattr(c, 'name', 'Unknown')
-            break
-        default_case = AnalysisDialog._last_run_case or first_name
+        names = [c.get('name', 'Unknown') if isinstance(c, dict) else getattr(c, 'name', 'Unknown')
+                 for c in case_list]
+        first_name = names[0] if names else None
+
+        has_batch = bool(getattr(self.model, 'load_cases', None))
+        has_combos_now = bool(getattr(self.model, 'load_combos', None))
+        batch_name = "Run All Cases & Combinations" if has_combos_now else "Run All Load Cases"
+
+        saved = getattr(self.model, 'last_run_case', None) or AnalysisDialog._last_run_case
+        if saved in ("Run All Load Cases", "Run All Cases & Combinations") and has_batch:
+            default_case = batch_name
+        elif saved in names:
+            default_case = saved
+        else:
+            default_case = first_name
 
         for row, case in enumerate(case_list):
             if isinstance(case, dict):
@@ -166,6 +183,39 @@ class AnalysisDialog(QDialog):
         if self.table.rowCount() > 0:
             self.table.selectRow(0)
 
+    def on_selection_changed(self):
+        row = self.table.currentRow()
+        if row < 0:
+            self.btn_show.setEnabled(False)
+            return
+        item = self.table.item(row, 0)
+        if not item:
+            self.btn_show.setEnabled(False)
+            return
+        case_name = item.text()
+        is_real_case = hasattr(self.model, 'load_cases') and case_name in self.model.load_cases
+        self.btn_show.setEnabled(is_real_case)
+
+    def on_show_case_clicked(self):
+        row = self.table.currentRow()
+        if row < 0:
+            return
+        item = self.table.item(row, 0)
+        if not item:
+            return
+        case_name = item.text()
+        if not hasattr(self.model, 'load_cases') or case_name not in self.model.load_cases:
+            return
+
+        case_obj = self.model.load_cases[case_name]
+        dlg = LoadCaseDetailDialog(self.model, case_obj, self, is_new=False)
+        if dlg.exec():
+            new_case = dlg.get_data()
+            if new_case.name != case_name:
+                del self.model.load_cases[case_name]
+            self.model.load_cases[new_case.name] = new_case
+            self.populate_table()
+
     def toggle_case_action(self):
         row = self.table.currentRow()
         if row < 0:
@@ -188,6 +238,26 @@ class AnalysisDialog(QDialog):
             current_item.setForeground(QColor(COLORS["accent"]))
             font = current_item.font(); font.setBold(True); current_item.setFont(font)
 
+    def _store_prefs(self, case_name):
+        """Keep the selected case and log checkbox on the model so they are saved in the .mf file."""
+        show_log = self.chk_messages.isChecked()
+        changed = (getattr(self.model, 'last_run_case', None) != case_name or
+                   getattr(self.model, 'show_analysis_log', True) != show_log)
+        AnalysisDialog._last_run_case = case_name
+        self.model.last_run_case = case_name
+        self.model.show_analysis_log = show_log
+        if changed:
+            stack = getattr(self.parent(), 'undo_stack', None)
+            if stack is not None:
+                stack.push(CmdRunPrefsChanged())
+
+    def reject(self):
+        for r in range(self.table.rowCount()):
+            if self.table.item(r, 3).text() == "Run":
+                self._store_prefs(self.table.item(r, 0).text())
+                break
+        super().reject()
+
     def on_run_clicked(self):
         cases_to_run = []
         for r in range(self.table.rowCount()):
@@ -202,6 +272,6 @@ class AnalysisDialog(QDialog):
         if target_case == "Run All Load Cases":
             target_case = "Run All Cases & Combinations"
             
-        AnalysisDialog._last_run_case = target_case
+        self._store_prefs(target_case)
         self.signal_run_analysis.emit(target_case, self.chk_messages.isChecked())
         self.accept()

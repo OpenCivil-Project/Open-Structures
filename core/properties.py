@@ -1,5 +1,152 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
+import copy
 import math
+
+@dataclass
+class MaterialDamping:
+    """
+    Material-level damping definition (Modal + Rayleigh Proportional).
+    modal_ratio is a plain damping ratio (0-1). The mass/stiffness
+    coefficients are in SI base: visc/hyst_mass_coeff in 1/sec,
+    visc/hyst_stiff_coeff in sec.
+    """
+    modal_ratio: float = 0.0
+
+    visc_mass_coeff: float = 0.0
+    visc_stiff_coeff: float = 0.0
+
+    hyst_mass_coeff: float = 0.0
+    hyst_stiff_coeff: float = 0.0
+
+    def to_dict(self):
+        return dict(self.__dict__)
+
+    @staticmethod
+    def from_dict(d):
+        if not d:
+            return None
+        known = MaterialDamping.__dataclass_fields__.keys()
+        clean = {k: v for k, v in d.items() if k in known}
+        return MaterialDamping(**clean)
+
+@dataclass
+class ManderConfinementData:
+    """
+    Confinement geometry/reinforcement feeding the Mander confined-concrete
+    model (see core/mander_model.py). Two data sources: "User Defined"
+    (typed in manually here) or "Frame Section Property" (source_mode ==
+    "frame"), which pulls geometry and the confinement_* fields below
+    from a real Section's own ReinforcementData and its assigned tie
+    Rebar Material -- see ManderDataDialog._on_frame_sec_changed in
+    material_dialog.py. All geometric fields are SI base (metres, Pa,
+    m^2).
+    """
+    mander_type: str = "Unconfined"                                                                                  
+
+    source_mode: str = "user"                                  
+    frame_section_name: str = ""
+
+    bar_size_mode: str = "size"                               
+    bar_size: str = "15M"
+    bar_area: float = 0.0                                                            
+
+    num_x_legs: int = 2
+    x_leg_spacing: float = 0.0                                                          
+    num_y_legs: int = 2
+    y_leg_spacing: float = 0.0                                                          
+
+    num_long_x: int = 0
+    num_long_y: int = 0
+    long_bar_size_rect: str = "30M"
+
+    core_diameter: float = 0.0                                                  
+    long_bar_mode: str = "count"                               
+    num_long_bars: int = 0
+    long_bar_size: str = "30M"
+    total_long_area: float = 0.0                                                     
+
+    confinement_fyh: float = 4.0e8                                             
+    tie_spacing: float = 0.0                                                                     
+
+    tie_bar_material: str = ""                                                    
+    confinement_fu: float = 0.0                                                       
+    confinement_E: float = 0.0                                                              
+    confinement_eps_sh: float = 0.0                                                         
+    confinement_eps_su: float = 0.0                                                        
+    confinement_curve_model: str = "Park"                                                             
+
+    tie_layout: str = "rect"
+    rho_s_scale: float = 1.0
+
+    def to_dict(self):
+        return dict(self.__dict__)
+
+    @staticmethod
+    def from_dict(d):
+        if not d:
+            return None
+        known = ManderConfinementData.__dataclass_fields__.keys()
+        clean = {k: v for k, v in d.items() if k in known}
+        return ManderConfinementData(**clean)
+
+@dataclass
+class NonlinearMaterialData:
+    hysteresis_type: str = "Takeda"
+                                                                             
+    native_hysteresis_backup: str | None = None
+
+    friction_angle: float = 0.0
+    dilatational_angle: float = 0.0
+
+    curve_mode: str = "Parametric"                                          
+    parametric_model: str = "Mander (Exact)"
+
+    eps_c0: float = 2.0e-3                   
+    eps_cu: float = 5.0e-3                   
+    
+    rebar_parametric_model: str = "Park"                        
+    rebar_eps_sh: float = 0.015
+    rebar_eps_su: float = 0.090
+
+    steel_eps_sh: float = 0.015
+    steel_eps_su: float = 0.110
+    steel_eps_rupture: float = 0.170
+
+    final_slope_mult: float = -0.1         
+
+    core_eps_cu_mode: str = "Mander"
+    core_eps_cu_user: float = -0.035
+
+    os_concrete_model: str = "Concrete04"
+    cm_xcrn: float = 2.3
+    cm_rt: float = 1.2
+    cm_xcrp: float = 10000.0
+
+    os_steel_model: str = "ReinforcingSteel"
+    os_rupture: bool = False
+    os_params: dict = field(default_factory=dict)
+
+    mander: ManderConfinementData = field(default_factory=ManderConfinementData)
+    user_points: list = field(default_factory=list)
+
+    def to_dict(self):
+        d = dict(self.__dict__)
+        d["mander"] = self.mander.to_dict() if self.mander else None
+        d["user_points"] = [list(p) for p in self.user_points]
+        d["os_params"] = dict(self.os_params or {})
+        return d
+
+    @staticmethod
+    def from_dict(d):
+        if not d:
+            return None
+        known = NonlinearMaterialData.__dataclass_fields__.keys()
+        clean = {k: v for k, v in d.items() if k in known and k not in ("mander", "user_points", "os_params")}
+        obj = NonlinearMaterialData(**clean)
+        obj.mander = ManderConfinementData.from_dict(d.get("mander")) or ManderConfinementData()
+        obj.user_points = [tuple(p) for p in d.get("user_points", [])]
+        obj.os_params = dict(d.get("os_params") or {})
+        return obj
 
 @dataclass
 class Material:
@@ -10,11 +157,249 @@ class Material:
     density: float                         
     mat_type: str                        
     fy: float = 0.0                  
-    fu: float = 0.0                     
+    fu: float = 0.0
+    fye: float = 0.0                                                                                            
+    fue: float = 0.0                                                     
+    grade: str = ""                                                     
+    nonlinear: "NonlinearMaterialData | None" = None
+    damping: "MaterialDamping | None" = None
+                                                                             
+    derived_from: str = ""
 
     @property
     def G(self):
         return self.E / (2 * (1 + self.nu))
+
+    def get_fye(self):
+        """Expected yield for nonlinear analysis. Falls back to 1.1*fy (common
+        default overstrength factor for Gr60 rebar) if fye was never set."""
+        return self.fye if self.fye > 0.0 else self.fy * 1.1
+
+    def get_fue(self):
+        return self.fue if self.fue > 0.0 else self.fu * 1.1
+
+@dataclass
+class ReinforcementData:
+    """
+    Reinforcement definition attached to a Rectangular, Circular, or
+    Trapezoidal frame Section. Data-only for now — no fiber generation,
+    no visualization. Populated fields depend on design_type/config;
+    unused fields for a given combination are simply left at default.
+    """
+    long_bar_material: str = ""                                           
+    tie_bar_material: str = ""
+    design_type: str = "column"                         
+    config: str = "rectangular"                                  
+    confinement_type: str = "ties"                      
+
+    clear_cover: float = 0.0
+    num_bars_3dir: int = 0                                    
+    num_bars_2dir: int = 0                                    
+    num_bars_circ: int = 0                                 
+    long_bar_size: str = ""
+    tie_bar_size: str = ""
+    tie_spacing: float = 0.0
+    num_ties_3dir: int = 0                                                       
+    num_ties_2dir: int = 0                                                       
+
+    tie_layout: str = "rect"
+    rho_s_scale: float = 1.0
+
+    cover_top: float = 0.0
+    cover_bottom: float = 0.0
+    cover_side: float = 0.0
+    top_bar_size: str = ""
+    top_bar_count: int = 0
+    bottom_bar_size: str = ""
+    bottom_bar_count: int = 0
+
+    def to_dict(self):
+        return dict(self.__dict__)
+
+    @staticmethod
+    def from_dict(d):
+        if not d:
+            return None
+                                                             
+        known = ReinforcementData.__dataclass_fields__.keys()
+        clean = {k: v for k, v in d.items() if k in known}
+        return ReinforcementData(**clean)
+
+@dataclass
+class HingeProperty:
+    """
+    Frame Hinge Property definition. Scope (today) is deliberately narrow:
+    Fiber P-M2-M3 hinges only, fibers always generated from the assigned
+    frame Section's own reinforcement/material data at analysis time
+    (never a User Defined fiber layout typed in here). This class stores
+    the DEFINITION only -- no fiber coordinates/areas are computed or
+    cached here, since those depend on whatever section a hinge ends up
+    assigned to later, and would go stale if stored eagerly.
+    """
+    name: str
+    hinge_type: str = "Fiber P-M2-M3"                                                    
+    behavior: str = "Deformation Controlled"                                                 
+    fiber_option: str = "Default From Section"                                       
+    hinge_length: float = 0.1
+    hinge_length_relative: bool = True                                    
+
+    fibers: list = field(default_factory=list)
+
+    preview_section: str = ""
+
+    cover_material: str = ""
+
+    def to_dict(self):
+        d = dict(self.__dict__)
+        d["fibers"] = [dict(f) for f in self.fibers]
+        return d
+
+    @staticmethod
+    def from_dict(d):
+        if not d:
+            return None
+        known = HingeProperty.__dataclass_fields__.keys()
+        clean = {k: v for k, v in d.items() if k in known and k != "fibers"}
+        obj = HingeProperty(**clean)
+        obj.fibers = [dict(f) for f in d.get("fibers", [])]
+        return obj
+
+def is_confined_concrete(material):
+    """True if the material's Mander data is confined. Deliberately ignores
+    curve_mode: fiber_section.get_material_backbone() always builds the concrete
+    backbone from the Mander data, so this must agree with what the solver does."""
+    nl = getattr(material, "nonlinear", None)
+    if nl is None:
+        return False
+    mander = getattr(nl, "mander", None)
+    return str(getattr(mander, "mander_type", "Unconfined")).startswith("Confined")
+
+def build_unconfined_twin(parent_mat, name=None):
+    """Exact copy of parent_mat (same f'c, E, strains, damping...) with only the
+    Mander type switched to Unconfined, tagged so it can be refreshed later."""
+    twin = copy.deepcopy(parent_mat)
+    twin.name = name or f"{parent_mat.name}_unconfined"
+    twin.derived_from = parent_mat.name
+    if twin.nonlinear is not None:
+        if twin.nonlinear.mander is None:
+            twin.nonlinear.mander = ManderConfinementData()
+        twin.nonlinear.mander.mander_type = "Unconfined"
+        twin.nonlinear.mander.source_mode = "user"                                       
+        twin.nonlinear.mander.frame_section_name = ""
+    return twin
+
+def derived_materials(model, parent_name):
+    """Auto-generated copies of the named parent material."""
+    return [m for m in model.materials.values() if getattr(m, "derived_from", "") == parent_name]
+
+def hinge_fiber_users(model, mat_name):
+    """Names of hinge properties whose stored fibers reference this material."""
+    return sorted(
+        hp.name for hp in getattr(model, "hinge_properties", {}).values()
+        if any(f.get("material") == mat_name for f in hp.fibers)
+    )
+
+def ensure_unconfined_twin(model, parent_mat):
+    """Returns (twin, status): "created", "refreshed" (an existing auto copy was
+    rebuilt from the parent, keeping its name), or "existing" (a user-made
+    '<parent>_unconfined' is used as-is, never overwritten).
+    Raises ValueError if that user-made material still has confinement."""
+    existing = derived_materials(model, parent_mat.name)
+    if existing:
+        name = existing[0].name                                                        
+        model.add_material(build_unconfined_twin(parent_mat, name))
+        return model.materials[name], "refreshed"
+
+    name = f"{parent_mat.name}_unconfined"
+    current = model.materials.get(name)
+    if current is not None:
+        if is_confined_concrete(current):
+            raise ValueError(
+                f"A material named '{name}' already exists, was not auto-generated, and "
+                f"still has confinement defined, so it can't be used as the unconfined "
+                f"cover. Rename or fix it, or pick a Cover material manually."
+            )
+        return current, "existing"
+
+    twin = build_unconfined_twin(parent_mat, name)
+    model.add_material(twin)
+    return twin, "created"
+
+def refresh_derived_twins(model, parent_name):
+    """Rebuild every auto copy of parent_name from the parent's current data
+    (same names, so hinge fibers keep resolving). Returns the refreshed names."""
+    parent = model.materials.get(parent_name)
+    if parent is None:
+        return []
+    names = []
+    for tw in derived_materials(model, parent_name):
+        model.add_material(build_unconfined_twin(parent, tw.name))
+        names.append(tw.name)
+    return names
+
+def compute_rebar_positions(section, rebar_sizes):
+    """
+    Longitudinal rebar dot positions for a section's assigned
+    ReinforcementData, as (y, z, diameter) tuples in the same generic
+    horizontal/vertical local-coordinate space as get_shape_coords()
+    (y = local axis 3 / horizontal, z = local axis 2 / vertical).
+
+    Shared by the Section preview (app/dialogs/section_dialog.py, which
+    has its own long-standing inline copy of this same math -- left as
+    is, not routed through here) and the Hinge Property preview
+    (app/dialogs/hinge_dialog.py). Keep this the single source of truth
+    for any NEW caller of this geometry so the two previews can't drift
+    out of sync the way the hinge fiber axes once did.
+
+    Returns [] if the section has no reinforcement, or the reinforcement
+    config doesn't match a shape this function knows how to place bars
+    on (currently: rectangular columns and circular columns -- same
+    scope as the existing section_dialog.py preview; trapezoidal is not
+    handled here either, matching that file's current behavior).
+    """
+    reinf = getattr(section, "reinforcement", None)
+    if reinf is None or reinf.design_type != "column":
+        return []
+
+    def get_dia(bar_id, fallback):
+        for r in rebar_sizes or []:
+            if r["id"] == bar_id:
+                return r["diameter"]
+        return fallback
+
+    long_dia = get_dia(reinf.long_bar_size, 0.02)
+    tie_dia = get_dia(reinf.tie_bar_size, 0.01)
+    eff_cover = reinf.clear_cover + tie_dia + (long_dia / 2.0)
+
+    rebars = []
+
+    if reinf.config == "rectangular" and isinstance(section, RectangularSection):
+        b, h = section.b, section.h
+        y_min, y_max = -b / 2 + eff_cover, b / 2 - eff_cover
+        z_min, z_max = -h / 2 + eff_cover, h / 2 - eff_cover
+
+        n3, n2 = reinf.num_bars_3dir, reinf.num_bars_2dir
+        if n3 >= 2 and n2 >= 2 and b > 2 * eff_cover and h > 2 * eff_cover:
+            for i in range(n3):
+                y = y_min + i * (y_max - y_min) / (n3 - 1)
+                rebars.append((y, z_max, long_dia))
+                rebars.append((y, z_min, long_dia))
+
+            for i in range(1, n2 - 1):
+                z = z_min + i * (z_max - z_min) / (n2 - 1)
+                rebars.append((y_min, z, long_dia))
+                rebars.append((y_max, z, long_dia))
+
+    elif reinf.config == "circular" and isinstance(section, CircularSection):
+        d = section.d
+        n = reinf.num_bars_circ
+        if n >= 2 and d > 2 * eff_cover:
+            r_reinf = d / 2 - eff_cover
+            for i in range(n):
+                theta = 2.0 * math.pi * i / n
+                rebars.append((r_reinf * math.cos(theta), r_reinf * math.sin(theta), long_dia))
+
+    return rebars
 
 class Section:
     """Base class for cross-sections."""
@@ -39,6 +424,8 @@ class Section:
             "A": 1.0,    "As2": 1.0, "As3": 1.0, "J": 1.0,
             "I2": 1.0,   "I3": 1.0,  "Mass": 1.0, "Weight": 1.0
         }
+
+        self.reinforcement = None                                                                   
 
     def get_insertion_point_shift(self, cardinal_point):
         return 0.0, 0.0

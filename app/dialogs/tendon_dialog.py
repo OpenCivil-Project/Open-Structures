@@ -215,8 +215,9 @@ class TendonEditorDialog(QDialog):
 
     def _recompute_circular_properties(self):
         """
+        Recomputes the circular properties of the tendon section.
         Solid circular tendon section properties, derived exactly the way
-        SAP2000 derives them (see 'Tendon Section Data' dialog):
+        described in the 'Tendon Section Data' dialog:
 
             A  = pi * D^2 / 4
             I  = pi * D^4 / 64

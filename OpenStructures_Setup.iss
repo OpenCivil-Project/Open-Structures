@@ -1,128 +1,60 @@
-; ====================================================================
-; Open//Structures Installer (Safe Clean Reinstall - Works Without Admin)
-; ====================================================================
+; OpenStructures per-user installer. Compile from the repository root.
+; Public Firebase client configuration is included in the desktop build.
+; The migration tool, .env files and Firebase Admin keys are never distributed.
 
 #define MyAppName "Open//Structures"
-#define MyAppVersion "0.7.85"
+#define MyAppVersion "0.8.10"
 #define MyAppPublisher "Open//Structures"
 #define MyAppExeName "OpenStructures.exe"
+; Preserve the existing installed application identity for upgrades.
 #define MyAppId "{{CFB760FC-A702-4F1E-864E-79088FEF3B6F}}"
 
-; --------------------------------------------------------------------
-; SETUP
-; --------------------------------------------------------------------
 [Setup]
 AppId={#MyAppId}
 AppName={#MyAppName}
 AppVersion={#MyAppVersion}
+AppVerName={#MyAppName} {#MyAppVersion}
 AppPublisher={#MyAppPublisher}
-
+AppPublisherURL=https://github.com/ShaikhAhmedAzad/OpenCivil
+AppSupportURL=https://github.com/ShaikhAhmedAzad/OpenCivil/issues
+AppUpdatesURL=https://github.com/ShaikhAhmedAzad/OpenCivil/releases
+VersionInfoDescription=OpenStructures structural analysis
+VersionInfoVersion=0.8.0.0
 PrivilegesRequired=lowest
 DefaultDirName={localappdata}\Programs\OpenStructures
-
 UsePreviousAppDir=yes
 CloseApplications=yes
+RestartApplications=no
 AppMutex=Open//StructuresAppMutex
-
 WizardStyle=modern
 SolidCompression=yes
+Compression=lzma2
 DisableProgramGroupPage=yes
-
+OutputDir=dist\installer
 OutputBaseFilename=OpenStructures_Setup_v{#MyAppVersion}
-
+UninstallDisplayName={#MyAppName}
 UninstallDisplayIcon={app}\{#MyAppExeName}
-SetupIconFile=E:\MetuFire\OpenCivil\app\graphic\logo.ico
+SetupIconFile=app\graphic\logo.ico
 
-; --------------------------------------------------------------------
-; FILES
-; --------------------------------------------------------------------
+[Tasks]
+Name: "desktopicon"; Description: "Create a desktop shortcut"; GroupDescription: "Shortcuts:"; Flags: unchecked
+
+[InstallDelete]
+; Only PyInstaller's managed runtime is replaced. This also removes older
+; copied auth source/credential bundles during an in-place per-user upgrade.
+; User projects and the separate user profile/session directory are untouched.
+Type: filesandordirs; Name: "{app}\_internal"
+; Older onedir layouts placed copied authentication data beside the executable.
+Type: filesandordirs; Name: "{app}\auth"
+Type: filesandordirs; Name: "{app}\app\auth"
+
 [Files]
-Source: "E:\MetuFire\OpenCivil\app\dist\OpenStructures\*"; \
-DestDir: "{app}"; \
-Flags: ignoreversion recursesubdirs createallsubdirs overwritereadonly
+Source: "dist\OpenStructures\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs overwritereadonly
 
-; --------------------------------------------------------------------
-; SHORTCUTS
-; --------------------------------------------------------------------
 [Icons]
-Name: "{autoprograms}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"
-Name: "{autodesktop}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"
-Name: "{autoprograms}\Uninstall Open//Structures"; Filename: "{uninstallexe}"
+Name: "{autoprograms}\OpenStructures"; Filename: "{app}\{#MyAppExeName}"
+Name: "{autodesktop}\OpenStructures"; Filename: "{app}\{#MyAppExeName}"; Tasks: desktopicon
+Name: "{autoprograms}\Uninstall OpenStructures"; Filename: "{uninstallexe}"
 
-; --------------------------------------------------------------------
-; RUN
-; --------------------------------------------------------------------
 [Run]
-Filename: "{app}\{#MyAppExeName}"; \
-Flags: nowait postinstall skipifsilent
-
-; --------------------------------------------------------------------
-; CLEAN REINSTALL LOGIC (SAFE)
-; --------------------------------------------------------------------
-[Code]
-
-var
-  PreviousInstallPath: string;
-  PreviousUninstaller: string;
-
-function GetPreviousInstallPath(): string;
-begin
-  if not RegQueryStringValue(HKLM,
-    'Software\Microsoft\Windows\CurrentVersion\Uninstall\{#MyAppId}_is1',
-    'InstallLocation', Result) then
-  begin
-    RegQueryStringValue(HKCU,
-      'Software\Microsoft\Windows\CurrentVersion\Uninstall\{#MyAppId}_is1',
-      'InstallLocation', Result);
-  end;
-end;
-
-function GetPreviousUninstaller(): string;
-begin
-  if not RegQueryStringValue(HKLM,
-    'Software\Microsoft\Windows\CurrentVersion\Uninstall\{#MyAppId}_is1',
-    'UninstallString', Result) then
-  begin
-    RegQueryStringValue(HKCU,
-      'Software\Microsoft\Windows\CurrentVersion\Uninstall\{#MyAppId}_is1',
-      'UninstallString', Result);
-  end;
-end;
-
-function InitializeSetup(): Boolean;
-begin
-  PreviousInstallPath := GetPreviousInstallPath();
-  PreviousUninstaller := GetPreviousUninstaller();
-  Result := True;
-end;
-
-procedure CurStepChanged(CurStep: TSetupStep);
-var
-  ResultCode: Integer;
-begin
-  if CurStep = ssInstall then
-  begin
-    if (PreviousInstallPath <> '') and
-       (ExpandConstant('{app}') = PreviousInstallPath) then
-    begin
-      if PreviousUninstaller <> '' then
-      begin
-        if IsAdminLoggedOn or IsAdminInstallMode then
-        begin
-          MsgBox('Existing installation detected. Cleaning previous version...',
-            mbInformation, MB_OK);
-
-          Exec(RemoveQuotes(PreviousUninstaller),
-               '/VERYSILENT /NORESTART',
-               '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
-        end
-        else
-        begin
-          MsgBox('Previous version detected, but no admin rights.'#13#10 +
-                 'Continuing without uninstall (files will be overwritten).',
-                 mbInformation, MB_OK);
-        end;
-      end;
-    end;
-  end;
-end;
+Filename: "{app}\{#MyAppExeName}"; Description: "Launch OpenStructures"; Flags: nowait postinstall skipifsilent

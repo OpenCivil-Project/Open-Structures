@@ -1,0 +1,119 @@
+py --list
+deactivate
+Remove-Item -Recurse -Force venv
+py -3.13 -m venv venv
+Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
+venv\Scripts\activate
+python --version
+
+pip install openpyxl PyQt6 PyQt6-Qt6 numpy scipy pyqtgraph pyinstaller PyOpenGL pyopengl_accelerate pandas matplotlib python-dotenv gmsh meshio qtawesome
+pip install pymongo bcrypt python-dotenv google-auth google-auth-oauthlib google-api-python-client requests
+pip install  numba
+
+
+C:/Users/Ahmed/AppData/Local/Programs/Python/Python310/python.exe -m pip install -e . (pip)
+
+Working...
+
+pyinstaller --noconsole --onedir --name="OpenStructures" `
+  --paths=".." --paths="." `
+  --paths="..\core\solver" `
+  --paths="..\core\solver\linear_static" `
+  --paths="..\core\solver\RSA" `
+  --paths="..\core\solver\modal" `
+  --paths="..\core\solver\LTHA" `
+  --paths="..\core\solver\solid_elements" `
+  --add-data "ui\_arrow_up.svg;app/ui" `
+  --add-data "ui\_arrow_down.svg;app/ui" `
+  --paths="..\core\solver\buckling" `
+  --add-data "graphic;app/graphic" `
+  --add-data "resources;resources" `
+  --add-data "E:\MetuFire\OpenCivil\app\auth;auth" `
+  --add-data "E:\MetuFire\OpenCivil\app\graphic;graphic" `
+  --add-data "E:\MetuFire\OpenCivil\app\resources;resources" `
+  --collect-all "core" `
+  --collect-all "auth" `
+  --collect-all "app" `
+  --collect-all "section_designer" `
+  --collect-all "ui" `
+  --collect-all "graphic" `
+  --collect-all "pyqtgraph" `
+  --collect-all "qtawesome" `
+  --collect-all "google" `
+  --collect-all "google.auth" `
+  --collect-all "google.oauth2" `
+  --collect-all "google_auth_oauthlib" `
+  --add-data "auth\secrets.bin;auth" `
+  --collect-all "googleapiclient" `
+  --collect-binaries "PyQt6" `
+  --runtime-hook="runtime_hook.py" `
+  --hidden-import="auth" `
+  --hidden-import="auth.config" `
+  --hidden-import="auth.db" `
+  --hidden-import="auth.dialog" `
+  --hidden-import="auth.email_auth" `
+  --hidden-import="auth.email_service" `
+  --hidden-import="auth.manager" `
+  --hidden-import="auth.thread" `
+  --hidden-import="auth.user_widget" `
+  --hidden-import="pymongo" `
+  --hidden-import="bcrypt" `
+  --hidden-import="dotenv" `
+  --hidden-import="google" `
+  --hidden-import="google.auth" `
+  --hidden-import="google.oauth2" `
+  --hidden-import="google.oauth2.credentials" `
+  --hidden-import="google.auth.transport.requests" `
+  --hidden-import="google_auth_oauthlib" `
+  --hidden-import="google_auth_oauthlib.flow" `
+  --hidden-import="googleapiclient" `
+  --hidden-import="googleapiclient.discovery" `
+  --hidden-import="core.solver.buckling.buckling_engine" `
+  --hidden-import="scipy.spatial" `
+  --hidden-import="scipy.spatial.transform._rotation_groups" `
+  --hidden-import="scipy.special.cython_special" `
+  --hidden-import="matplotlib.backends.backend_qtagg" `
+  --hidden-import="openpyxl" `
+  --hidden-import="openpyxl.cell._writer" `
+  --hidden-import="PyQt6.QtNetwork" `
+  --hidden-import="app.solver_process" `
+  --hidden-import="app.solver_runner" `
+  --hidden-import="pandas" `
+  --exclude-module "torch" `
+  --exclude-module "tkinter" `
+  --exclude-module "wx" `
+  --icon="graphic\logo.ico" `
+  --clean main.py
+
+
+
+Set-Location 'E:\MetuFire\OpenCivil'
+
+py -3.12 -m venv .venv-build
+$buildPython = Join-Path $PWD '.venv-build\Scripts\python.exe'
+
+& $buildPython --version
+& $buildPython -m pip install -r .\requirements.txt
+
+# ObsPy needs setuptools 81; numba is required by the build recipe.
+& $buildPython -m pip install setuptools==81.0.0 numba==0.68.1
+
+& $buildPython -m pip check
+& $buildPython -c "import numpy, scipy, pandas, numba, obspy; print('Imports OK')"
+
+& $buildPython -m pip freeze --exclude-editable |
+    Set-Content .\build-requirements.lock.txt
+
+
+
+Set-Location 'E:\MetuFire\OpenCivil'
+$buildPython = Join-Path $PWD '.venv-build\Scripts\python.exe'
+
+& $buildPython -m pip check
+if ($LASTEXITCODE -ne 0) { throw 'Fix dependencies before building.' }
+
+& $buildPython -m PyInstaller --noconfirm --clean .\OpenStructures.spec
+if ($LASTEXITCODE -ne 0) { throw 'Build failed.' }
+
+& 'C:\Program Files (x86)\Inno Setup 6\ISCC.exe' .\OpenStructures_Setup.iss
+if ($LASTEXITCODE -ne 0) { throw 'Installer compilation failed.' }

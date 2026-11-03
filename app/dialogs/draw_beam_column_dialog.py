@@ -3,6 +3,8 @@ from PyQt6.QtWidgets import (QDialog, QVBoxLayout, QLabel, QComboBox,
                              QRadioButton, QButtonGroup, QDoubleSpinBox, QCheckBox)
 from PyQt6.QtCore import Qt, pyqtSignal
 
+from app.ui.theme import apply_dialog_style, COLORS, SIZES
+
 class DrawBeamColumnDialog(QDialog):
 
     signal_dialog_closed = pyqtSignal()
@@ -11,6 +13,8 @@ class DrawBeamColumnDialog(QDialog):
     def __init__(self, model, parent=None):
         super().__init__(parent)
         self.model = model
+        apply_dialog_style(self)
+
         self.setWindowTitle("Quick Beam / Column")
         self.setWindowFlags(Qt.WindowType.Tool | Qt.WindowType.WindowStaysOnTopHint)
         self.setMinimumWidth(320)
@@ -59,8 +63,10 @@ class DrawBeamColumnDialog(QDialog):
 
         btn_help_layout = QHBoxLayout()
         self.btn_0 = QPushButton("0°")
+        self.btn_0.setObjectName("secondary")
         self.btn_0.clicked.connect(lambda: self.spin_angle.setValue(0.0))
         self.btn_90 = QPushButton("90°")
+        self.btn_90.setObjectName("secondary")
         self.btn_90.clicked.connect(lambda: self.spin_angle.setValue(90.0))
         btn_help_layout.addWidget(self.btn_0)
         btn_help_layout.addWidget(self.btn_90)
@@ -88,7 +94,7 @@ class DrawBeamColumnDialog(QDialog):
         lbl = QLabel("• <b>Hover</b> over a grid line to highlight<br>"
                      "• <b>Left Click:</b> Place member<br>"
                      "• <b>Esc:</b> Exit draw mode")
-        lbl.setStyleSheet("color: #555; font-size: 12px;")
+        lbl.setStyleSheet(f"color: {COLORS['text_secondary']}; font-size: {SIZES['font_size_small']}pt;")
         inst_layout.addWidget(lbl)
         inst_group.setLayout(inst_layout)
         main_layout.addWidget(inst_group)
@@ -96,6 +102,7 @@ class DrawBeamColumnDialog(QDialog):
         btn_layout = QHBoxLayout()
         btn_layout.addStretch()
         self.close_btn = QPushButton("Close")
+        self.close_btn.setObjectName("secondary")
         self.close_btn.clicked.connect(self.close)
         btn_layout.addWidget(self.close_btn)
         main_layout.addLayout(btn_layout)

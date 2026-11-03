@@ -63,3 +63,25 @@ Example_Project/Example_File.mf
 Example_Project/Example_File_DEAD_results.json
 Example_Project/Example_File_DEAD_matrices.json
 Example_Project/Example_File.mf
+
+# Maintained release sources must be versioned; generated artifacts stay ignored.
+!OpenStructures.spec
+!app/runtime_hook.py
+!encrypt_secrets.py
+!app/auth/encrypt_secrets.py
+!installer.txt
+.venv-build/
+build-requirements.lock.txt
+
+# Local public Firebase settings vary by deployment; commit the example instead.
+app/resources/auth_config.json
+auth_web/config.json
+
+# Migration/admin material must stay outside releases and source control.
+service-account*.json
+firebase-admin*.json
+*firebase-adminsdk*.json
+*.pem
+*.key
+firebase-debug.log
+.firebase/

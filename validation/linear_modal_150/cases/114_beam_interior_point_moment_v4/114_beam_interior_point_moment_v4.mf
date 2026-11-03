@@ -1,0 +1,649 @@
+{
+  "info": {
+    "name": "114_beam_interior_point_moment_v4",
+    "units": "N, m, C",
+    "active_dofs": [
+      true,
+      true,
+      false,
+      false,
+      false,
+      true
+    ],
+    "analysis_engine": "native",
+    "last_run_case": "STATIC",
+    "show_analysis_log": true
+  },
+  "grid": {
+    "x_lines": [],
+    "y_lines": [],
+    "z_lines": []
+  },
+  "nodes": [
+    {
+      "id": 204,
+      "x": 2.0700000000000003,
+      "y": 0.0,
+      "z": 0.0,
+      "restraints": [
+        false,
+        false,
+        true,
+        true,
+        true,
+        false
+      ],
+      "diaphragm": null
+    },
+    {
+      "id": 197,
+      "x": 1.3800000000000001,
+      "y": 0.0,
+      "z": 0.0,
+      "restraints": [
+        false,
+        false,
+        true,
+        true,
+        true,
+        false
+      ],
+      "diaphragm": null
+    },
+    {
+      "id": 190,
+      "x": 0.6900000000000001,
+      "y": 0.0,
+      "z": 0.0,
+      "restraints": [
+        false,
+        false,
+        true,
+        true,
+        true,
+        false
+      ],
+      "diaphragm": null
+    },
+    {
+      "id": 183,
+      "x": 0.0,
+      "y": 0.0,
+      "z": 0.0,
+      "restraints": [
+        true,
+        true,
+        true,
+        true,
+        true,
+        true
+      ],
+      "diaphragm": null
+    },
+    {
+      "id": 253,
+      "x": 6.9,
+      "y": 0.0,
+      "z": 0.0,
+      "restraints": [
+        false,
+        false,
+        true,
+        true,
+        true,
+        false
+      ],
+      "diaphragm": null
+    },
+    {
+      "id": 246,
+      "x": 6.21,
+      "y": 0.0,
+      "z": 0.0,
+      "restraints": [
+        false,
+        false,
+        true,
+        true,
+        true,
+        false
+      ],
+      "diaphragm": null
+    },
+    {
+      "id": 239,
+      "x": 5.5200000000000005,
+      "y": 0.0,
+      "z": 0.0,
+      "restraints": [
+        false,
+        false,
+        true,
+        true,
+        true,
+        false
+      ],
+      "diaphragm": null
+    },
+    {
+      "id": 232,
+      "x": 4.83,
+      "y": 0.0,
+      "z": 0.0,
+      "restraints": [
+        false,
+        false,
+        true,
+        true,
+        true,
+        false
+      ],
+      "diaphragm": null
+    },
+    {
+      "id": 225,
+      "x": 4.140000000000001,
+      "y": 0.0,
+      "z": 0.0,
+      "restraints": [
+        false,
+        false,
+        true,
+        true,
+        true,
+        false
+      ],
+      "diaphragm": null
+    },
+    {
+      "id": 218,
+      "x": 3.45,
+      "y": 0.0,
+      "z": 0.0,
+      "restraints": [
+        false,
+        false,
+        true,
+        true,
+        true,
+        false
+      ],
+      "diaphragm": null
+    },
+    {
+      "id": 211,
+      "x": 2.7600000000000002,
+      "y": 0.0,
+      "z": 0.0,
+      "restraints": [
+        false,
+        false,
+        true,
+        true,
+        true,
+        false
+      ],
+      "diaphragm": null
+    }
+  ],
+  "elements": [
+    {
+      "id": 263,
+      "n1_id": 183,
+      "n2_id": 190,
+      "sec_name": "Beam",
+      "beta": 0.0,
+      "rel_i": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
+      "rel_j": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
+      "off_i": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "off_j": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "end_off_i": 0.0,
+      "end_off_j": 0.0,
+      "rz_factor": 0.0
+    },
+    {
+      "id": 274,
+      "n1_id": 190,
+      "n2_id": 197,
+      "sec_name": "Beam",
+      "beta": 0.0,
+      "rel_i": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
+      "rel_j": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
+      "off_i": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "off_j": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "end_off_i": 0.0,
+      "end_off_j": 0.0,
+      "rz_factor": 0.0
+    },
+    {
+      "id": 285,
+      "n1_id": 197,
+      "n2_id": 204,
+      "sec_name": "Beam",
+      "beta": 0.0,
+      "rel_i": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
+      "rel_j": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
+      "off_i": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "off_j": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "end_off_i": 0.0,
+      "end_off_j": 0.0,
+      "rz_factor": 0.0
+    },
+    {
+      "id": 296,
+      "n1_id": 204,
+      "n2_id": 211,
+      "sec_name": "Beam",
+      "beta": 0.0,
+      "rel_i": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
+      "rel_j": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
+      "off_i": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "off_j": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "end_off_i": 0.0,
+      "end_off_j": 0.0,
+      "rz_factor": 0.0
+    },
+    {
+      "id": 307,
+      "n1_id": 211,
+      "n2_id": 218,
+      "sec_name": "Beam",
+      "beta": 0.0,
+      "rel_i": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
+      "rel_j": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
+      "off_i": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "off_j": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "end_off_i": 0.0,
+      "end_off_j": 0.0,
+      "rz_factor": 0.0
+    },
+    {
+      "id": 318,
+      "n1_id": 218,
+      "n2_id": 225,
+      "sec_name": "Beam",
+      "beta": 0.0,
+      "rel_i": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
+      "rel_j": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
+      "off_i": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "off_j": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "end_off_i": 0.0,
+      "end_off_j": 0.0,
+      "rz_factor": 0.0
+    },
+    {
+      "id": 329,
+      "n1_id": 225,
+      "n2_id": 232,
+      "sec_name": "Beam",
+      "beta": 0.0,
+      "rel_i": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
+      "rel_j": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
+      "off_i": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "off_j": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "end_off_i": 0.0,
+      "end_off_j": 0.0,
+      "rz_factor": 0.0
+    },
+    {
+      "id": 340,
+      "n1_id": 232,
+      "n2_id": 239,
+      "sec_name": "Beam",
+      "beta": 0.0,
+      "rel_i": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
+      "rel_j": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
+      "off_i": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "off_j": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "end_off_i": 0.0,
+      "end_off_j": 0.0,
+      "rz_factor": 0.0
+    },
+    {
+      "id": 351,
+      "n1_id": 239,
+      "n2_id": 246,
+      "sec_name": "Beam",
+      "beta": 0.0,
+      "rel_i": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
+      "rel_j": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
+      "off_i": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "off_j": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "end_off_i": 0.0,
+      "end_off_j": 0.0,
+      "rz_factor": 0.0
+    },
+    {
+      "id": 362,
+      "n1_id": 246,
+      "n2_id": 253,
+      "sec_name": "Beam",
+      "beta": 0.0,
+      "rel_i": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
+      "rel_j": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
+      "off_i": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "off_j": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "end_off_i": 0.0,
+      "end_off_j": 0.0,
+      "rz_factor": 0.0
+    }
+  ],
+  "materials": [
+    {
+      "name": "Elastic",
+      "type": "Steel",
+      "E": 210000000000.0,
+      "nu": 0.28,
+      "G": 82031250000.0,
+      "rho": 76982.2025
+    }
+  ],
+  "sections": [
+    {
+      "name": "Beam",
+      "type": "general",
+      "mat_name": "Elastic",
+      "properties": {
+        "A": 0.0858,
+        "J": 0.0007250100000000001,
+        "I22": 0.00048334000000000007,
+        "I33": 0.0007786350000000002,
+        "As2": 0.0,
+        "As3": 0.0,
+        "theta_p": 0.0
+      },
+      "modifiers": {
+        "A": 1.0,
+        "I2": 1.0,
+        "I3": 1.0,
+        "As2": 1.0,
+        "As3": 1.0,
+        "J": 1.0,
+        "Mass": 1.0,
+        "Weight": 1.0
+      },
+      "color": [
+        0.25,
+        0.7,
+        1.0,
+        1.0
+      ]
+    }
+  ],
+  "load_patterns": [
+    {
+      "name": "TEST",
+      "type": "Other",
+      "sw_mult": 0.0
+    }
+  ],
+  "load_cases": [
+    {
+      "name": "STATIC",
+      "type": "Linear Static",
+      "loads": [
+        [
+          "TEST",
+          1.0
+        ]
+      ]
+    },
+    {
+      "name": "MODAL",
+      "type": "Modal",
+      "loads": [],
+      "mass_source": "Default",
+      "num_modes": 3
+    }
+  ],
+  "load_combinations": [],
+  "loads": [
+    {
+      "type": "member_point",
+      "pattern": "TEST",
+      "element_id": 329,
+      "force": 11165.454545454546,
+      "dist": 0.7999999999999998,
+      "is_rel": true,
+      "dir": "Z",
+      "coord": "Local",
+      "l_type": "Moment"
+    }
+  ],
+  "constraints": [],
+  "mass_sources": [
+    {
+      "name": "Default",
+      "include_self_mass": true,
+      "include_patterns": false,
+      "load_patterns": []
+    }
+  ],
+  "link_properties": [],
+  "links": [],
+  "area_elements": [],
+  "area_sections": [],
+  "slabs": [],
+  "tendons": [],
+  "cables": []
+}

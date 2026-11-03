@@ -41,6 +41,91 @@ from core.solver.buckling.buckling_engine import run_buckling_analysis
 from core.solver.linear_static.nonlinear_engine import run_nonlinear_analysis
 from core.model import StructuralModel
 
+def _order_for_chaining(run_sequence, load_cases):
+    """
+    Stable reorder of run_sequence so that any Nonlinear Static case with
+    a 'continue_from_case' dependency runs AFTER the case it depends on.
+    Everything else keeps its original relative order (Kahn's algorithm
+    over just the dependency edges; cases with no dependency are treated
+    as already-satisfied and emitted in their original order).
+
+    A cycle (A continues from B, B continues from A -- directly or via a
+    longer chain) or a dependency on a case that isn't in run_sequence at
+    all raises immediately: silently ignoring it would mean the "chained"
+    case actually runs with prior_case_state=None, which the engine
+    already rejects with a clear error -- better to catch it here with
+    the full chain visible.
+    """
+    deps = {}
+    for name in run_sequence:
+        case_obj = load_cases.get(name)
+        if getattr(case_obj, 'case_type', None) != "Nonlinear Static":
+            continue
+        dep = getattr(case_obj, 'continue_from_case', None)
+        if dep:
+            deps[name] = dep
+
+    ordered = []
+    visiting = set()
+    visited = set()
+
+    def _visit(name, chain):
+        if name in visited:
+            return
+        if name in visiting:
+            raise ValueError(
+                f"Load Case Chaining cycle detected: {' -> '.join(chain + [name])}. "
+                f"A case cannot (even indirectly) continue from itself."
+            )
+        dep = deps.get(name)
+        if dep is not None:
+            if dep not in run_sequence:
+                raise ValueError(
+                    f"Load Case '{name}' is set to continue from '{dep}', but "
+                    f"'{dep}' is not part of this batch run."
+                )
+            visiting.add(name)
+            _visit(dep, chain + [name])
+            visiting.discard(name)
+        visited.add(name)
+        ordered.append(name)
+
+    for name in run_sequence:
+        _visit(name, [])
+
+    return ordered
+
+def _collect_chain_ancestors(case_name, load_cases, path=None):
+    """
+    Standalone-run equivalent of _order_for_chaining: walks
+    'continue_from_case' pointers BACKWARD from case_name to find every
+    prerequisite Nonlinear Static case that must run first, regardless
+    of what order cases happen to sit in load_cases (a dict has no
+    inherent run order, so this never depends on it). Mirrors the
+    existing "Response Spectrum silently runs its Modal case first"
+    pattern used elsewhere in this file.
+
+    Returns ancestors OLDEST-FIRST (run them in this order, then run
+    case_name itself last). Does not include case_name. Raises
+    ValueError on a cycle or a dependency that doesn't exist.
+    """
+    if path is None:
+        path = [case_name]
+
+    case_obj = load_cases.get(case_name)
+    if case_obj is None:
+        raise ValueError(f"Load Case '{case_name}' not found in the model.")
+
+    dep = getattr(case_obj, 'continue_from_case', None)
+    if not dep:
+        return []
+    if dep not in load_cases:
+        raise ValueError(f"Load Case '{case_name}' continues from '{dep}', which does not exist.")
+    if dep in path:
+        raise ValueError(f"Load Case Chaining cycle detected: {' -> '.join(path + [dep])}.")
+
+    return _collect_chain_ancestors(dep, load_cases, path + [dep]) + [dep]
+
 class SolverWorker(QThread):
     signal_finished = pyqtSignal(bool, str)
     signal_progress = pyqtSignal(str, int)                    
@@ -56,6 +141,10 @@ class SolverWorker(QThread):
         try:
             print(f"Worker: Starting {self.case_type} Engine on {self.input_path} (Case: {self.case_name})...")
             success = False
+                                                                            
+            self.batch_failed_steps = []
+                                                                          
+            self.batch_case_failures = []
 
             print("Worker: Deleting old analysis files...")
             purge_old_project_files(self.input_path)
@@ -88,10 +177,17 @@ class SolverWorker(QThread):
                             other_cases.append(c_name)
                         
                 run_sequence = static_cases + modal_cases + other_cases
-                
+
+                try:
+                    run_sequence = _order_for_chaining(run_sequence, temp_model.load_cases)
+                except ValueError as e:
+                    raise Exception(f"Load Case Chaining error: {e}")
+
                 total_cases = len(run_sequence)
                 if total_cases == 0: total_cases = 1 
-                
+
+                case_states = {}
+
                 for idx, base_case_name in enumerate(run_sequence):
                     base_case_obj = temp_model.load_cases.get(base_case_name)
                     c_type = getattr(base_case_obj, 'case_type', 'Linear Static')
@@ -105,7 +201,63 @@ class SolverWorker(QThread):
                         run_linear_static_analysis(self.input_path, case_output_path, base_case_name, progress_callback=cb)
                         
                     elif c_type == "Nonlinear Static":
-                        run_nonlinear_analysis(self.input_path, case_output_path, base_case_name, progress_callback=cb)
+                        try:
+                            ancestors = _collect_chain_ancestors(base_case_name, temp_model.load_cases)
+                        except ValueError as e:
+                            self.batch_case_failures.append({"case": base_case_name, "message": str(e)})
+                            cb(f"      ERROR: '{base_case_name}' skipped - {e}", progress_val)
+                            continue
+
+                        chain_failed = False
+                        for anc_name in ancestors:
+                            if anc_name not in case_states:
+                                anc_output_path = f"{base_path}_{anc_name}_results.json"
+                                anc_dep = getattr(temp_model.load_cases.get(anc_name), 'continue_from_case', None)
+                                anc_prior = case_states.get(anc_dep) if anc_dep else None
+                                cb(f"Batch Runner: Running prerequisite case '{anc_name}' for '{base_case_name}'...", progress_val)
+                                anc_success = run_nonlinear_analysis(
+                                    self.input_path, anc_output_path, anc_name, progress_callback=cb,
+                                    prior_case_state=anc_prior, case_states_out=case_states
+                                )
+                                if not anc_success:
+                                    chain_failed = True
+                                    break
+
+                        if chain_failed:
+                            self.batch_case_failures.append({
+                                "case": base_case_name,
+                                "message": f"Prerequisite chain failed to complete for '{base_case_name}'."
+                            })
+                            cb(f"      ERROR: '{base_case_name}' skipped - prerequisite chain failed.", progress_val)
+                            continue
+
+                        continue_from = getattr(base_case_obj, 'continue_from_case', None)
+                        prior_state = case_states.get(continue_from) if continue_from else None
+
+                        run_nonlinear_analysis(self.input_path, case_output_path, base_case_name,
+                                                progress_callback=cb, prior_case_state=prior_state,
+                                                case_states_out=case_states)
+
+                        try:
+                            with open(case_output_path, 'r') as f:
+                                case_data = json.load(f)
+
+                            if case_data.get("status") == "FAILED":
+                                                                             
+                                err = case_data.get("error", {})
+                                err_msg = err.get("message", str(err)) if isinstance(err, dict) else str(err)
+                                self.batch_case_failures.append({"case": base_case_name, "message": err_msg})
+                                cb(f"      ERROR: '{base_case_name}' did not complete - {err_msg}", progress_val)
+                            else:
+                                case_failed = case_data.get("info", {}).get("failed_steps", [])
+                                for fs in case_failed:
+                                    entry = dict(fs) if isinstance(fs, dict) else {"step": fs, "error": 0.0}
+                                    entry["case"] = base_case_name
+                                    self.batch_failed_steps.append(entry)
+                                if case_failed:
+                                    cb(f"      WARNING: '{base_case_name}' finished with {len(case_failed)} unconverged step(s).", progress_val)
+                        except Exception as e:
+                            print(f"Warning: could not read failed_steps for case '{base_case_name}': {e}")
                         
                     elif c_type == "Modal":
                         run_modal_analysis(self.input_path, case_output_path, progress_callback=cb)
@@ -524,7 +676,39 @@ class SolverWorker(QThread):
             elif self.case_type == "Nonlinear Static":
                 from progress import make_callback
                 cb = make_callback(self.signal_progress.emit)
-                success = run_nonlinear_analysis(self.input_path, self.output_path, self.case_name, progress_callback=cb)
+
+                temp_model = StructuralModel("Temp")
+                try:
+                    temp_model.load_from_file(self.input_path)
+                except Exception as e:
+                    raise Exception(f"Failed to load model data: {e}")
+
+                try:
+                    ancestors = _collect_chain_ancestors(self.case_name, temp_model.load_cases)
+                except ValueError as e:
+                    raise Exception(f"Load Case Chaining error: {e}")
+
+                case_states = {}
+
+                base_path = self.input_path.replace(".mf", "")
+                for anc_name in ancestors:
+                    anc_output_path = f"{base_path}_{anc_name}_results.json"
+                    cb(f"Worker: Running prerequisite Nonlinear Static case '{anc_name}'...", 5)
+                    anc_dep = getattr(temp_model.load_cases.get(anc_name), 'continue_from_case', None)
+                    anc_prior = case_states.get(anc_dep) if anc_dep else None
+                    anc_success = run_nonlinear_analysis(
+                        self.input_path, anc_output_path, anc_name, progress_callback=cb,
+                        prior_case_state=anc_prior, case_states_out=case_states
+                    )
+                    if not anc_success:
+                        raise Exception(f"Failed to generate prerequisite Nonlinear Static "
+                                        f"results for '{anc_name}' (required by '{self.case_name}').")
+
+                continue_from = getattr(temp_model.load_cases.get(self.case_name), 'continue_from_case', None)
+                prior_state = case_states.get(continue_from) if continue_from else None
+                success = run_nonlinear_analysis(self.input_path, self.output_path, self.case_name,
+                                                  progress_callback=cb, prior_case_state=prior_state,
+                                                  case_states_out=case_states)
 
             elif self.case_type in ["Response Spectrum", "LTHA"]:
                 temp_model = StructuralModel("Temp")

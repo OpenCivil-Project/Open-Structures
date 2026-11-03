@@ -16,6 +16,8 @@ from app.section_designer.section_designer_dialog import SectionDesignerDialog
 from core.integrity_checks import check_section_in_use
 from app.dialogs.section_manager_dialog import ShapeCard, AddFrameSectionPropertyDialog
 from app.ui.theme import apply_dialog_style
+from app.dialogs.reinforcement_dialog import ReinforcementDialog
+from core.properties import ReinforcementData
 
 LENGTH_SCALES = {
     "m":  1.0,
@@ -24,6 +26,22 @@ LENGTH_SCALES = {
     "ft": 3.28084,
     "in": 39.3701,
 }
+
+def _materials_for_category(model, category):
+    """
+    Material names allowed for a given section category ('concrete',
+    'steel', 'other', or None for unfiltered). 'other'-type materials
+    are always allowed alongside a concrete/steel filter, matching the
+    Property Type picker's own 'Other' bucket. Rebar/Tendon materials
+    never show here — they belong to the Reinforcement dialog, not the
+    section's own base material.
+    """
+    names = []
+    for name, mat in model.materials.items():
+        mtype = getattr(mat, "mat_type", "").lower()
+        if category is None or mtype == category or mtype == "other":
+            names.append(name)
+    return names
 
 class SmartDoubleInput(QLineEdit):
     """A unit-aware line edit that handles unit suffixes and scientific notation."""
@@ -302,6 +320,17 @@ class SectionPreviewWidget(QFrame):
                     ])
                     painter.drawPolygon(poly)
 
+        rebars = p.get("rebars", [])
+        if rebars:
+            painter.setBrush(QBrush(QColor(255, 0, 0)))           
+            painter.setPen(QPen(Qt.GlobalColor.black, 1))                
+            for ry, rz, r_dia in rebars:
+                draw_y = cx + ry * scale
+                draw_z = cy - rz * scale
+                                                                                               
+                draw_dia = max(4.0, r_dia * scale)
+                painter.drawEllipse(QRectF(draw_y - draw_dia/2, draw_z - draw_dia/2, draw_dia, draw_dia))
+
         painter.setBrush(Qt.GlobalColor.red)
         painter.setPen(Qt.PenStyle.NoPen)
         painter.drawEllipse(QPointF(cx, cy), 3, 3)
@@ -400,7 +429,7 @@ class SectionPropertiesInfoDialog(QDialog):
         
 class AddSectionDialog(QDialog):
                                                                       
-    def __init__(self, model, parent=None, section_data=None, preselected_index=None):
+    def __init__(self, model, parent=None, section_data=None, preselected_index=None, preselected_category=None):
         super().__init__(parent)
         apply_dialog_style(self)
         self.setWindowTitle("Define Section")
@@ -409,12 +438,14 @@ class AddSectionDialog(QDialog):
         
         self.model = model
         self.section_data = section_data
+        self.preselected_category = preselected_category
         
         self.selected_color = (0.259, 0.110, 0.749, 1.0)
         self.current_modifiers = {"A":1.0, "As2":1.0, "As3":1.0, "J":1.0, "I2":1.0, "I3":1.0, "Mass":1.0, "Weight":1.0}
 
         self.all_inputs = [] 
         self._l_scale = LENGTH_SCALES.get(unit_registry.length_unit_name, 1.0)
+        self.pending_reinforcement = None                                                                     
 
         self.setup_ui()
         self.connect_signals()
@@ -438,6 +469,21 @@ class AddSectionDialog(QDialog):
         self.update_color_button()
         self.update_preview()
         
+    def _material_category(self):
+        """
+        'concrete' / 'steel' / 'other' / None. When editing an existing
+        section, the section's own material settles it — no category
+        picker is involved on that path. When adding a new one, it comes
+        from whichever Property Type card was clicked in
+        AddFrameSectionPropertyDialog. None means unfiltered (only
+        reachable if some future caller constructs this dialog without
+        either signal).
+        """
+        if self.section_data is not None:
+            mat = getattr(self.section_data, "material", None)
+            return getattr(mat, "mat_type", "").lower() if mat else None
+        return self.preselected_category
+
     def setup_ui(self):
         main_layout = QVBoxLayout(self)
         top = QHBoxLayout()
@@ -496,7 +542,7 @@ class AddSectionDialog(QDialog):
         in_layout = QVBoxLayout()
         
         self.mat_combo = QComboBox()
-        for m in self.model.materials: self.mat_combo.addItem(m)
+        self.mat_combo.addItems(_materials_for_category(self.model, self._material_category()))
         in_layout.addWidget(QLabel("Material:"))
         in_layout.addWidget(self.mat_combo)
         
@@ -505,6 +551,9 @@ class AddSectionDialog(QDialog):
         pg_rect = QWidget(); fr = QFormLayout()
         self.h_spin = self.mk_spin(0.5); fr.addRow("Depth (t3):", self.h_spin)
         self.b_spin = self.mk_spin(0.3); fr.addRow("Width (t2):", self.b_spin)
+        self.btn_reinf_rect = QPushButton("Concrete Reinforcement...")
+        self.btn_reinf_rect.clicked.connect(lambda: self._open_reinforcement_dialog("rectangular"))
+        fr.addRow("", self.btn_reinf_rect)
         pg_rect.setLayout(fr)
         self.stack.addWidget(pg_rect)
         
@@ -520,6 +569,9 @@ class AddSectionDialog(QDialog):
 
         pg_circ = QWidget(); fc = QFormLayout()
         self.circ_d_spin = self.mk_spin(0.5); fc.addRow("Diameter (t3):", self.circ_d_spin)
+        self.btn_reinf_circ = QPushButton("Concrete Reinforcement...")
+        self.btn_reinf_circ.clicked.connect(lambda: self._open_reinforcement_dialog("circular"))
+        fc.addRow("", self.btn_reinf_circ)
         pg_circ.setLayout(fc)
         self.stack.addWidget(pg_circ)
 
@@ -541,6 +593,9 @@ class AddSectionDialog(QDialog):
         self.trap_d_spin = self.mk_spin(0.5); ftr.addRow("Depth (t3):", self.trap_d_spin)
         self.trap_btop_spin = self.mk_spin(0.3); ftr.addRow("Top Width (t2):", self.trap_btop_spin)
         self.trap_bbot_spin = self.mk_spin(0.4); ftr.addRow("Bot Width (t2b):", self.trap_bbot_spin)
+        self.btn_reinf_trap = QPushButton("Concrete Reinforcement...")
+        self.btn_reinf_trap.clicked.connect(lambda: self._open_reinforcement_dialog("rectangular"))
+        ftr.addRow("", self.btn_reinf_trap)
         pg_trap.setLayout(ftr)
         self.stack.addWidget(pg_trap)
 
@@ -665,6 +720,16 @@ class AddSectionDialog(QDialog):
             self.model.add_section(dlg.result_section)
             self.accept()
 
+    def _open_reinforcement_dialog(self, config: str):
+        """Open the Concrete Reinforcement dialog for the active Rectangular/
+        Circular/Trapezoidal page. config is 'rectangular' or 'circular' —
+        it locks which field set is shown, matching the shape it was opened from."""
+        dlg = ReinforcementDialog(self.model, config=config,
+                                   reinforcement=self.pending_reinforcement, parent=self)
+        if dlg.exec() == QDialog.DialogCode.Accepted:
+            self.pending_reinforcement = dlg.result_data
+            self.update_preview()
+
     def update_preview(self):
         idx = self.type_combo.currentIndex()
         if idx == 0: st = "rect"
@@ -697,6 +762,53 @@ class AddSectionDialog(QDialog):
             "trap_btop": self._get_si(self.trap_btop_spin),
             "trap_bbot": self._get_si(self.trap_bbot_spin)
         }
+
+        rebars = []
+        if self.pending_reinforcement:
+            reinf = self.pending_reinforcement
+            
+            def get_dia(bar_id, fallback):
+                for r in getattr(self.model, "rebar_sizes", []):
+                    if r["id"] == bar_id: return r["diameter"]
+                return fallback
+                
+            long_dia = get_dia(reinf.long_bar_size, 0.02)
+            tie_dia = get_dia(reinf.tie_bar_size, 0.01)
+            
+            eff_cover = reinf.clear_cover + tie_dia + (long_dia / 2.0)
+            
+            if st == "rect" and reinf.config == "rectangular" and reinf.design_type == "column":
+                b = self._get_si(self.b_spin)
+                h = self._get_si(self.h_spin)
+                
+                y_min, y_max = -b/2 + eff_cover, b/2 - eff_cover
+                z_min, z_max = -h/2 + eff_cover, h/2 - eff_cover
+                
+                n3, n2 = reinf.num_bars_3dir, reinf.num_bars_2dir
+                if n3 >= 2 and n2 >= 2 and b > 2*eff_cover and h > 2*eff_cover:
+                                                 
+                    for i in range(n3):
+                        y = y_min + i * (y_max - y_min) / (n3 - 1)
+                        rebars.append((y, z_max, long_dia))
+                        rebars.append((y, z_min, long_dia))
+                                                            
+                    for i in range(1, n2 - 1):
+                        z = z_min + i * (z_max - z_min) / (n2 - 1)
+                        rebars.append((y_min, z, long_dia))
+                        rebars.append((y_max, z, long_dia))
+                        
+            elif st == "circ" and reinf.config == "circular" and reinf.design_type == "column":
+                import math
+                d = self._get_si(self.circ_d_spin)
+                n = reinf.num_bars_circ
+                if n >= 2 and d > 2*eff_cover:
+                    r_reinf = d/2 - eff_cover
+                    for i in range(n):
+                        theta = 2.0 * math.pi * i / n
+                        rebars.append((r_reinf * math.cos(theta), r_reinf * math.sin(theta), long_dia))
+
+        p["rebars"] = rebars
+
         self.preview_widget.update_params(p)
 
     def pick_color(self):
@@ -813,7 +925,10 @@ class AddSectionDialog(QDialog):
             
         sec.color = self.selected_color
         sec.modifiers = self.current_modifiers.copy()
-        
+
+        if idx in (0, 2, 5):                                            
+            sec.reinforcement = self.pending_reinforcement
+
         self.model.add_section(sec)
         
         count = 0
@@ -928,7 +1043,7 @@ class AddSectionDialog(QDialog):
             self.trap_d_spin.setValue(self.section_data.d * scale)
             self.trap_btop_spin.setValue(self.section_data.w_top * scale)
             self.trap_bbot_spin.setValue(self.section_data.w_bot * scale)
-        
+
         elif isinstance(self.section_data, ArbitrarySection):
             self.type_combo.setEnabled(False)
             self.stack.setEnabled(False)
@@ -952,6 +1067,8 @@ class AddSectionDialog(QDialog):
             self.gen_i22.setValue(getattr(self.section_data, 'I22', 0.0) * (scale**4)) 
             self.gen_as2.setValue(getattr(self.section_data, 'Asy', 0.0) * (scale**2)) 
             self.gen_as3.setValue(getattr(self.section_data, 'Asz', 0.0) * (scale**2))
+
+        self.pending_reinforcement = getattr(self.section_data, "reinforcement", None)
 
 class SectionManagerDialog(QDialog):
     def __init__(self, model, parent=None):
@@ -1040,6 +1157,10 @@ class SectionManagerDialog(QDialog):
         if not self.model.materials:
             QMessageBox.warning(self, "No Materials", "You must define a Material before importing.")
             return
+        if not any(getattr(m, "mat_type", "").lower() == "steel" for m in self.model.materials.values()):
+            QMessageBox.warning(self, "No Steel Material",
+                                 "AISC sections are Steel — define a Steel-type material before importing.")
+            return
 
         start_dir = ""
         if getattr(sys, 'frozen', False):
@@ -1091,7 +1212,10 @@ class SectionManagerDialog(QDialog):
             sel_dlg = AISCSelectionDialog(filtered_shapes, self)
             if sel_dlg.exec():
                 data = sel_dlg.selected_row
-                dummy_mat = list(self.model.materials.values())[0]
+                dummy_mat = next(
+                    m for m in self.model.materials.values()
+                    if getattr(m, "mat_type", "").lower() == "steel"
+                )
                 
                 temp_section = ISection(
                     data['name'], dummy_mat,

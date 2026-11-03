@@ -1,7 +1,7 @@
 {
     "info": {
         "name": "New Project",
-        "units": "kN, mm, C",
+        "units": "kN, m, C",
         "active_dofs": [
             true,
             true,
@@ -9,13 +9,16 @@
             true,
             true,
             true
-        ]
+        ],
+        "analysis_engine": "native",
+        "last_run_case": "CASE1",
+        "show_analysis_log": true
     },
     "graphics": {
         "background_color": [
-            1.0,
-            1.0,
-            1.0,
+            0.11764705926179886,
+            0.11764705926179886,
+            0.11764705926179886,
             1.0
         ],
         "antialias": true,
@@ -27,7 +30,7 @@
             1.0
         ],
         "line_width": 2.0,
-        "extrude_opacity": 0.72,
+        "extrude_opacity": 0.49,
         "show_edges": true,
         "edge_width": 1.5,
         "edge_color": [
@@ -37,8 +40,45 @@
             1.0
         ],
         "slab_opacity": 0.4,
+        "ui_theme": "Dark",
         "edge_opacity": 0.0,
-        "view_extruded": true,
+        "hinge_color": [
+            0.0,
+            0.46666666865348816,
+            0.8392156958580017,
+            1.0
+        ],
+        "hinge_shape": "Square",
+        "shell_show_edges": true,
+        "shell_edge_color": [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+        ],
+        "shell_edge_width": 1.1,
+        "lighting_enabled": true,
+        "light_azimuth": 214.0,
+        "light_elevation": 70.0,
+        "light_ambient": 0.85,
+        "light_diffuse": 0.69,
+        "light_specular": 0.88,
+        "light_shininess": 100.0,
+        "light_fresnel_intensity": 1.0,
+        "light_fresnel_power": 7.0,
+        "deflection_scale": 3902.3,
+        "anim_speed": 1.0,
+        "shadow_active": true,
+        "shadow_color": [
+            0.7,
+            0.7,
+            0.7,
+            0.5
+        ],
+        "snap_midpoints": true,
+        "snap_radius": 25,
+        "snap_joints": true,
+        "view_extruded": false,
         "show_slabs": true,
         "show_joints": true,
         "show_supports": true,
@@ -51,16 +91,112 @@
             "DEAD",
             "EQX"
         ],
-        "deflection_scale": 3902.3,
-        "anim_speed": 1.0,
-        "shadow_active": true,
-        "shadow_color": [
-            0.7,
-            0.7,
-            0.7,
-            0.5
-        ]
+        "show_grid": true,
+        "show_ghost_structure": true,
+        "show_hinges": true
     },
+    "rebar_sizes": [
+        {
+            "id": "#3",
+            "area": 7.096e-05,
+            "diameter": 0.009525
+        },
+        {
+            "id": "#4",
+            "area": 0.000129,
+            "diameter": 0.0127
+        },
+        {
+            "id": "#5",
+            "area": 0.0002,
+            "diameter": 0.015875
+        },
+        {
+            "id": "#6",
+            "area": 0.0002839,
+            "diameter": 0.01905
+        },
+        {
+            "id": "#7",
+            "area": 0.0003871,
+            "diameter": 0.022225
+        },
+        {
+            "id": "#8",
+            "area": 0.0005097,
+            "diameter": 0.0254
+        },
+        {
+            "id": "#9",
+            "area": 0.0006452,
+            "diameter": 0.028575
+        },
+        {
+            "id": "#10",
+            "area": 0.0008194,
+            "diameter": 0.032258
+        },
+        {
+            "id": "#11",
+            "area": 0.001006,
+            "diameter": 0.035814
+        },
+        {
+            "id": "#14",
+            "area": 0.001452,
+            "diameter": 0.043002
+        },
+        {
+            "id": "#18",
+            "area": 0.002581,
+            "diameter": 0.057328
+        },
+        {
+            "id": "10M",
+            "area": 7.854e-05,
+            "diameter": 0.01
+        },
+        {
+            "id": "12M",
+            "area": 0.0001131,
+            "diameter": 0.012
+        },
+        {
+            "id": "16M",
+            "area": 0.0002011,
+            "diameter": 0.016
+        },
+        {
+            "id": "20M",
+            "area": 0.0003142,
+            "diameter": 0.02
+        },
+        {
+            "id": "25M",
+            "area": 0.0004909,
+            "diameter": 0.025
+        },
+        {
+            "id": "28M",
+            "area": 0.0006158,
+            "diameter": 0.028
+        },
+        {
+            "id": "32M",
+            "area": 0.0008042,
+            "diameter": 0.032
+        },
+        {
+            "id": "36M",
+            "area": 0.001018,
+            "diameter": 0.036
+        },
+        {
+            "id": "40M",
+            "area": 0.001257,
+            "diameter": 0.04
+        }
+    ],
     "load_cases": [
         {
             "name": "DEAD",
@@ -87,9 +223,57 @@
                 "tf_max_iter": 10,
                 "tf_conv_tol": 0.01,
                 "tf_accel_factor": 1.0,
-                "continue_if_no_converge": false
+                "continue_if_no_converge": false,
+                "use_fd_tangent": false,
+                "formulation": "Corotational",
+                "corot_type": "Commercial Compatibility",
+                "results_saved": "Final State Only",
+                "min_saved_states": 1,
+                "max_saved_states": 100,
+                "save_positive_disp_only": false,
+                "continue_from_case": null,
+                "load_application": "Full Load",
+                "disp_control_node_id": null,
+                "disp_control_dof": "U1",
+                "disp_control_magnitude": 0.1,
+                "disp_control_tol": 1e-06,
+                "hinge_snap": true,
+                "hinge_snap_scope": "tension",
+                "stop_on_fiber_failure": false,
+                "residual_stiffness": 1e-08,
+                "min_step_frac": 0.0001,
+                "max_event_probes": 12,
+                "auto_cutback": true,
+                "max_step_attempts": 0
+            },
+            "opensees": {
+                "test_type": "NormDispIncr",
+                "tolerance": 1e-06,
+                "max_iter": 50,
+                "algorithm": "Newton",
+                "step_size": 0.001,
+                "path_mode": "Single Target",
+                "disp_history": [],
+                "load_steps": 10,
+                "load_path_mode": "Monotonic",
+                "load_history": [],
+                "n_int_pts": 5,
+                "fiber_size_ratio": 16,
+                "integration": "Lobatto",
+                "hinge_length": 0.0,
+                "bar_slip": false,
+                "safety_check": true,
+                "relax_on_fail": true,
+                "relax_ceiling": 1e-05,
+                "slip_R": 0.5,
+                "slip_b": 0.3,
+                "slip_sy_mult": 1.0,
+                "slip_su_mult": 35.0,
+                "slip_concrete": "stiff",
+                "shear_spring": null
             },
             "num_modes": 12,
+            "modal_fiber_hinges": false,
             "rsa_loads": [],
             "modal_comb": "SRSS",
             "dir_comb": "SRSS",
@@ -117,9 +301,57 @@
                 "tf_max_iter": 10,
                 "tf_conv_tol": 0.01,
                 "tf_accel_factor": 1.0,
-                "continue_if_no_converge": false
+                "continue_if_no_converge": false,
+                "use_fd_tangent": false,
+                "formulation": "Corotational",
+                "corot_type": "Commercial Compatibility",
+                "results_saved": "Final State Only",
+                "min_saved_states": 1,
+                "max_saved_states": 100,
+                "save_positive_disp_only": false,
+                "continue_from_case": null,
+                "load_application": "Full Load",
+                "disp_control_node_id": null,
+                "disp_control_dof": "U1",
+                "disp_control_magnitude": 0.1,
+                "disp_control_tol": 1e-06,
+                "hinge_snap": true,
+                "hinge_snap_scope": "tension",
+                "stop_on_fiber_failure": false,
+                "residual_stiffness": 1e-08,
+                "min_step_frac": 0.0001,
+                "max_event_probes": 12,
+                "auto_cutback": true,
+                "max_step_attempts": 0
+            },
+            "opensees": {
+                "test_type": "NormDispIncr",
+                "tolerance": 1e-06,
+                "max_iter": 50,
+                "algorithm": "Newton",
+                "step_size": 0.001,
+                "path_mode": "Single Target",
+                "disp_history": [],
+                "load_steps": 10,
+                "load_path_mode": "Monotonic",
+                "load_history": [],
+                "n_int_pts": 5,
+                "fiber_size_ratio": 16,
+                "integration": "Lobatto",
+                "hinge_length": 0.0,
+                "bar_slip": false,
+                "safety_check": true,
+                "relax_on_fail": true,
+                "relax_ceiling": 1e-05,
+                "slip_R": 0.5,
+                "slip_b": 0.3,
+                "slip_sy_mult": 1.0,
+                "slip_su_mult": 35.0,
+                "slip_concrete": "stiff",
+                "shear_spring": null
             },
             "num_modes": 50,
+            "modal_fiber_hinges": false,
             "rsa_loads": [],
             "modal_comb": "SRSS",
             "dir_comb": "SRSS",
@@ -147,19 +379,67 @@
                 "tf_max_iter": 10,
                 "tf_conv_tol": 0.01,
                 "tf_accel_factor": 1.0,
-                "continue_if_no_converge": false
+                "continue_if_no_converge": false,
+                "use_fd_tangent": false,
+                "formulation": "Corotational",
+                "corot_type": "Commercial Compatibility",
+                "results_saved": "Final State Only",
+                "min_saved_states": 1,
+                "max_saved_states": 100,
+                "save_positive_disp_only": false,
+                "continue_from_case": null,
+                "load_application": "Full Load",
+                "disp_control_node_id": null,
+                "disp_control_dof": "U1",
+                "disp_control_magnitude": 0.1,
+                "disp_control_tol": 1e-06,
+                "hinge_snap": true,
+                "hinge_snap_scope": "tension",
+                "stop_on_fiber_failure": false,
+                "residual_stiffness": 1e-08,
+                "min_step_frac": 0.0001,
+                "max_event_probes": 12,
+                "auto_cutback": true,
+                "max_step_attempts": 0
+            },
+            "opensees": {
+                "test_type": "NormDispIncr",
+                "tolerance": 1e-06,
+                "max_iter": 50,
+                "algorithm": "Newton",
+                "step_size": 0.001,
+                "path_mode": "Single Target",
+                "disp_history": [],
+                "load_steps": 10,
+                "load_path_mode": "Monotonic",
+                "load_history": [],
+                "n_int_pts": 5,
+                "fiber_size_ratio": 16,
+                "integration": "Lobatto",
+                "hinge_length": 0.0,
+                "bar_slip": false,
+                "safety_check": true,
+                "relax_on_fail": true,
+                "relax_ceiling": 1e-05,
+                "slip_R": 0.5,
+                "slip_b": 0.3,
+                "slip_sy_mult": 1.0,
+                "slip_su_mult": 35.0,
+                "slip_concrete": "stiff",
+                "shear_spring": null
             },
             "num_modes": 12,
+            "modal_fiber_hinges": false,
             "rsa_loads": [
                 [
                     "U1",
                     "FUNC1",
-                    9.81
+                    9810.0
                 ],
                 [
-                    "U1",
+                    "U2",
                     "FUNC1",
-                    9.81
+                    9810.0
                 ]
             ],
             "modal_comb": "CQC",
@@ -188,9 +468,57 @@
                 "tf_max_iter": 10,
                 "tf_conv_tol": 0.01,
                 "tf_accel_factor": 1.0,
-                "continue_if_no_converge": false
+                "continue_if_no_converge": false,
+                "use_fd_tangent": false,
+                "formulation": "Corotational",
+                "corot_type": "Commercial Compatibility",
+                "results_saved": "Final State Only",
+                "min_saved_states": 1,
+                "max_saved_states": 100,
+                "save_positive_disp_only": false,
+                "continue_from_case": null,
+                "load_application": "Full Load",
+                "disp_control_node_id": null,
+                "disp_control_dof": "U1",
+                "disp_control_magnitude": 0.1,
+                "disp_control_tol": 1e-06,
+                "hinge_snap": true,
+                "hinge_snap_scope": "tension",
+                "stop_on_fiber_failure": false,
+                "residual_stiffness": 1e-08,
+                "min_step_frac": 0.0001,
+                "max_event_probes": 12,
+                "auto_cutback": true,
+                "max_step_attempts": 0
+            },
+            "opensees": {
+                "test_type": "NormDispIncr",
+                "tolerance": 1e-06,
+                "max_iter": 50,
+                "algorithm": "Newton",
+                "step_size": 0.001,
+                "path_mode": "Single Target",
+                "disp_history": [],
+                "load_steps": 10,
+                "load_path_mode": "Monotonic",
+                "load_history": [],
+                "n_int_pts": 5,
+                "fiber_size_ratio": 16,
+                "integration": "Lobatto",
+                "hinge_length": 0.0,
+                "bar_slip": false,
+                "safety_check": true,
+                "relax_on_fail": true,
+                "relax_ceiling": 1e-05,
+                "slip_R": 0.5,
+                "slip_b": 0.3,
+                "slip_sy_mult": 1.0,
+                "slip_su_mult": 35.0,
+                "slip_concrete": "stiff",
+                "shear_spring": null
             },
             "num_modes": 12,
+            "modal_fiber_hinges": false,
             "rsa_loads": [],
             "modal_comb": "SRSS",
             "dir_comb": "SRSS",
@@ -234,9 +562,57 @@
                 "tf_max_iter": 10,
                 "tf_conv_tol": 0.01,
                 "tf_accel_factor": 1.0,
-                "continue_if_no_converge": false
+                "continue_if_no_converge": false,
+                "use_fd_tangent": false,
+                "formulation": "Corotational",
+                "corot_type": "Commercial Compatibility",
+                "results_saved": "Final State Only",
+                "min_saved_states": 1,
+                "max_saved_states": 100,
+                "save_positive_disp_only": false,
+                "continue_from_case": null,
+                "load_application": "Full Load",
+                "disp_control_node_id": null,
+                "disp_control_dof": "U1",
+                "disp_control_magnitude": 0.1,
+                "disp_control_tol": 1e-06,
+                "hinge_snap": true,
+                "hinge_snap_scope": "tension",
+                "stop_on_fiber_failure": false,
+                "residual_stiffness": 1e-08,
+                "min_step_frac": 0.0001,
+                "max_event_probes": 12,
+                "auto_cutback": true,
+                "max_step_attempts": 0
+            },
+            "opensees": {
+                "test_type": "NormDispIncr",
+                "tolerance": 1e-06,
+                "max_iter": 50,
+                "algorithm": "Newton",
+                "step_size": 0.001,
+                "path_mode": "Single Target",
+                "disp_history": [],
+                "load_steps": 10,
+                "load_path_mode": "Monotonic",
+                "load_history": [],
+                "n_int_pts": 5,
+                "fiber_size_ratio": 16,
+                "integration": "Lobatto",
+                "hinge_length": 0.0,
+                "bar_slip": false,
+                "safety_check": true,
+                "relax_on_fail": true,
+                "relax_ceiling": 1e-05,
+                "slip_R": 0.5,
+                "slip_b": 0.3,
+                "slip_sy_mult": 1.0,
+                "slip_su_mult": 35.0,
+                "slip_concrete": "stiff",
+                "shear_spring": null
             },
             "num_modes": 12,
+            "modal_fiber_hinges": false,
             "rsa_loads": [],
             "modal_comb": "SRSS",
             "dir_comb": "SRSS",
@@ -269,9 +645,57 @@
                 "tf_max_iter": 10,
                 "tf_conv_tol": 0.01,
                 "tf_accel_factor": 1.0,
-                "continue_if_no_converge": false
+                "continue_if_no_converge": false,
+                "use_fd_tangent": false,
+                "formulation": "Corotational",
+                "corot_type": "Commercial Compatibility",
+                "results_saved": "Final State Only",
+                "min_saved_states": 1,
+                "max_saved_states": 100,
+                "save_positive_disp_only": false,
+                "continue_from_case": null,
+                "load_application": "Full Load",
+                "disp_control_node_id": null,
+                "disp_control_dof": "U1",
+                "disp_control_magnitude": 0.1,
+                "disp_control_tol": 1e-06,
+                "hinge_snap": true,
+                "hinge_snap_scope": "tension",
+                "stop_on_fiber_failure": false,
+                "residual_stiffness": 1e-08,
+                "min_step_frac": 0.0001,
+                "max_event_probes": 12,
+                "auto_cutback": true,
+                "max_step_attempts": 0
+            },
+            "opensees": {
+                "test_type": "NormDispIncr",
+                "tolerance": 1e-06,
+                "max_iter": 50,
+                "algorithm": "Newton",
+                "step_size": 0.001,
+                "path_mode": "Single Target",
+                "disp_history": [],
+                "load_steps": 10,
+                "load_path_mode": "Monotonic",
+                "load_history": [],
+                "n_int_pts": 5,
+                "fiber_size_ratio": 16,
+                "integration": "Lobatto",
+                "hinge_length": 0.0,
+                "bar_slip": false,
+                "safety_check": true,
+                "relax_on_fail": true,
+                "relax_ceiling": 1e-05,
+                "slip_R": 0.5,
+                "slip_b": 0.3,
+                "slip_sy_mult": 1.0,
+                "slip_su_mult": 35.0,
+                "slip_concrete": "stiff",
+                "shear_spring": null
             },
             "num_modes": 12,
+            "modal_fiber_hinges": false,
             "rsa_loads": [],
             "modal_comb": "SRSS",
             "dir_comb": "SRSS",
@@ -304,9 +728,57 @@
                 "tf_max_iter": 10,
                 "tf_conv_tol": 0.01,
                 "tf_accel_factor": 1.0,
-                "continue_if_no_converge": false
+                "continue_if_no_converge": false,
+                "use_fd_tangent": false,
+                "formulation": "Corotational",
+                "corot_type": "Commercial Compatibility",
+                "results_saved": "Final State Only",
+                "min_saved_states": 1,
+                "max_saved_states": 100,
+                "save_positive_disp_only": false,
+                "continue_from_case": null,
+                "load_application": "Full Load",
+                "disp_control_node_id": null,
+                "disp_control_dof": "U1",
+                "disp_control_magnitude": 0.1,
+                "disp_control_tol": 1e-06,
+                "hinge_snap": true,
+                "hinge_snap_scope": "tension",
+                "stop_on_fiber_failure": false,
+                "residual_stiffness": 1e-08,
+                "min_step_frac": 0.0001,
+                "max_event_probes": 12,
+                "auto_cutback": true,
+                "max_step_attempts": 0
+            },
+            "opensees": {
+                "test_type": "NormDispIncr",
+                "tolerance": 1e-06,
+                "max_iter": 50,
+                "algorithm": "Newton",
+                "step_size": 0.001,
+                "path_mode": "Single Target",
+                "disp_history": [],
+                "load_steps": 10,
+                "load_path_mode": "Monotonic",
+                "load_history": [],
+                "n_int_pts": 5,
+                "fiber_size_ratio": 16,
+                "integration": "Lobatto",
+                "hinge_length": 0.0,
+                "bar_slip": false,
+                "safety_check": true,
+                "relax_on_fail": true,
+                "relax_ceiling": 1e-05,
+                "slip_R": 0.5,
+                "slip_b": 0.3,
+                "slip_sy_mult": 1.0,
+                "slip_su_mult": 35.0,
+                "slip_concrete": "stiff",
+                "shear_spring": null
             },
             "num_modes": 12,
+            "modal_fiber_hinges": false,
             "rsa_loads": [],
             "modal_comb": "SRSS",
             "dir_comb": "SRSS",
@@ -339,9 +811,57 @@
                 "tf_max_iter": 10,
                 "tf_conv_tol": 0.01,
                 "tf_accel_factor": 1.0,
-                "continue_if_no_converge": false
+                "continue_if_no_converge": false,
+                "use_fd_tangent": false,
+                "formulation": "Corotational",
+                "corot_type": "Commercial Compatibility",
+                "results_saved": "Final State Only",
+                "min_saved_states": 1,
+                "max_saved_states": 100,
+                "save_positive_disp_only": false,
+                "continue_from_case": null,
+                "load_application": "Full Load",
+                "disp_control_node_id": null,
+                "disp_control_dof": "U1",
+                "disp_control_magnitude": 0.1,
+                "disp_control_tol": 1e-06,
+                "hinge_snap": true,
+                "hinge_snap_scope": "tension",
+                "stop_on_fiber_failure": false,
+                "residual_stiffness": 1e-08,
+                "min_step_frac": 0.0001,
+                "max_event_probes": 12,
+                "auto_cutback": true,
+                "max_step_attempts": 0
+            },
+            "opensees": {
+                "test_type": "NormDispIncr",
+                "tolerance": 1e-06,
+                "max_iter": 50,
+                "algorithm": "Newton",
+                "step_size": 0.001,
+                "path_mode": "Single Target",
+                "disp_history": [],
+                "load_steps": 10,
+                "load_path_mode": "Monotonic",
+                "load_history": [],
+                "n_int_pts": 5,
+                "fiber_size_ratio": 16,
+                "integration": "Lobatto",
+                "hinge_length": 0.0,
+                "bar_slip": false,
+                "safety_check": true,
+                "relax_on_fail": true,
+                "relax_ceiling": 1e-05,
+                "slip_R": 0.5,
+                "slip_b": 0.3,
+                "slip_sy_mult": 1.0,
+                "slip_su_mult": 35.0,
+                "slip_concrete": "stiff",
+                "shear_spring": null
             },
             "num_modes": 12,
+            "modal_fiber_hinges": false,
             "rsa_loads": [],
             "modal_comb": "SRSS",
             "dir_comb": "SRSS",
@@ -374,9 +894,57 @@
                 "tf_max_iter": 10,
                 "tf_conv_tol": 0.01,
                 "tf_accel_factor": 1.0,
-                "continue_if_no_converge": false
+                "continue_if_no_converge": false,
+                "use_fd_tangent": false,
+                "formulation": "Corotational",
+                "corot_type": "Commercial Compatibility",
+                "results_saved": "Final State Only",
+                "min_saved_states": 1,
+                "max_saved_states": 100,
+                "save_positive_disp_only": false,
+                "continue_from_case": null,
+                "load_application": "Full Load",
+                "disp_control_node_id": null,
+                "disp_control_dof": "U1",
+                "disp_control_magnitude": 0.1,
+                "disp_control_tol": 1e-06,
+                "hinge_snap": true,
+                "hinge_snap_scope": "tension",
+                "stop_on_fiber_failure": false,
+                "residual_stiffness": 1e-08,
+                "min_step_frac": 0.0001,
+                "max_event_probes": 12,
+                "auto_cutback": true,
+                "max_step_attempts": 0
+            },
+            "opensees": {
+                "test_type": "NormDispIncr",
+                "tolerance": 1e-06,
+                "max_iter": 50,
+                "algorithm": "Newton",
+                "step_size": 0.001,
+                "path_mode": "Single Target",
+                "disp_history": [],
+                "load_steps": 10,
+                "load_path_mode": "Monotonic",
+                "load_history": [],
+                "n_int_pts": 5,
+                "fiber_size_ratio": 16,
+                "integration": "Lobatto",
+                "hinge_length": 0.0,
+                "bar_slip": false,
+                "safety_check": true,
+                "relax_on_fail": true,
+                "relax_ceiling": 1e-05,
+                "slip_R": 0.5,
+                "slip_b": 0.3,
+                "slip_sy_mult": 1.0,
+                "slip_su_mult": 35.0,
+                "slip_concrete": "stiff",
+                "shear_spring": null
             },
             "num_modes": 12,
+            "modal_fiber_hinges": false,
             "rsa_loads": [],
             "modal_comb": "SRSS",
             "dir_comb": "SRSS",
@@ -452,43 +1020,133 @@
                 "bubble": "End"
             },
             {
-                "id": "Z3",
+                "id": "Z2",
                 "ord": 3.0,
                 "visible": true,
                 "bubble": "End"
             },
             {
-                "id": "3",
+                "id": "Z3",
                 "ord": 6.0,
                 "visible": true,
                 "bubble": "End"
             },
             {
-                "id": "4",
+                "id": "Z4",
                 "ord": 9.0,
                 "visible": true,
                 "bubble": "End"
             },
             {
-                "id": "5",
+                "id": "Z5",
                 "ord": 12.0,
                 "visible": true,
                 "bubble": "End"
             }
         ],
         "bubble_size": 1.25,
-        "bubble_alpha": 1.0
+        "bubble_alpha": 1.0,
+        "bubble_line_width": 1.5,
+        "bubble_ext_line_width": null,
+        "bubble_extension": 3.125,
+        "style": {
+            "preset": "Auto",
+            "custom": {},
+            "show_floor": true,
+            "floor_spacing": 0.0,
+            "floor_major_every": 5,
+            "width_lines": 1.5,
+            "width_floor": 1.0
+        }
     },
     "materials": [
         {
             "name": "c30",
-            "E": 30000000000.0,
-            "nu": 0.2,
-            "G": 12500000000.0,
+            "E": 24855578000.0,
+            "nu": 0.5,
+            "G": 8285192666.666667,
             "rho": 24000.0,
             "type": "concrete",
-            "fy": 30000000.0,
-            "fu": 0.0
+            "fy": 27579000.0,
+            "fu": 0.0,
+            "fye": 27579000.0,
+            "fue": 0.0,
+            "grade": "",
+            "derived_from": "",
+            "nonlinear": {
+                "hysteresis_type": "Takeda",
+                "native_hysteresis_backup": null,
+                "friction_angle": 0.0,
+                "dilatational_angle": 0.0,
+                "curve_mode": "Parametric",
+                "parametric_model": "Mander",
+                "eps_c0": 0.002,
+                "eps_cu": 0.005,
+                "rebar_parametric_model": "Park",
+                "rebar_eps_sh": 0.015,
+                "rebar_eps_su": 0.09,
+                "steel_eps_sh": 0.015,
+                "steel_eps_su": 0.11,
+                "steel_eps_rupture": 0.17,
+                "final_slope_mult": -0.1,
+                "core_eps_cu_mode": "Mander",
+                "core_eps_cu_user": -0.035,
+                "os_concrete_model": "Concrete04",
+                "cm_xcrn": 2.3,
+                "cm_rt": 1.2,
+                "cm_xcrp": 10000.0,
+                "os_steel_model": "ReinforcingSteel",
+                "os_rupture": false,
+                "os_params": {},
+                "mander": {
+                    "mander_type": "Unconfined",
+                    "source_mode": "user",
+                    "frame_section_name": "",
+                    "bar_size_mode": "size",
+                    "bar_size": "15M",
+                    "bar_area": 0.0,
+                    "num_x_legs": 2,
+                    "x_leg_spacing": 0.0,
+                    "num_y_legs": 2,
+                    "y_leg_spacing": 0.0,
+                    "num_long_x": 0,
+                    "num_long_y": 0,
+                    "long_bar_size_rect": "30M",
+                    "core_diameter": 0.0,
+                    "long_bar_mode": "count",
+                    "num_long_bars": 0,
+                    "long_bar_size": "30M",
+                    "total_long_area": 0.0,
+                    "confinement_fyh": 400000000.0,
+                    "tie_spacing": 0.0,
+                    "tie_bar_material": "",
+                    "confinement_fu": 0.0,
+                    "confinement_E": 0.0,
+                    "confinement_eps_sh": 0.0,
+                    "confinement_eps_su": 0.0,
+                    "confinement_curve_model": "Park",
+                    "tie_layout": "rect",
+                    "rho_s_scale": 1.0
+                },
+                "user_points": []
+            },
+            "damping": null
+        },
+        {
+            "name": "Mat1",
+            "E": 200000000000.0,
+            "nu": 0.3,
+            "G": 76923076923.07692,
+            "rho": 76970.0,
+            "type": "rebar",
+            "fy": 413700000.0,
+            "fu": 620500000.0,
+            "fye": 455100000.0,
+            "fue": 682600000.0,
+            "grade": "Gr60",
+            "derived_from": "",
+            "nonlinear": null,
+            "damping": null
         }
     ],
     "sections": [
@@ -522,7 +1180,32 @@
             },
             "type": "rectangular",
             "b": 0.3,
-            "h": 0.6
+            "h": 0.6,
+            "reinforcement": {
+                "long_bar_material": "Mat1",
+                "tie_bar_material": "Mat1",
+                "design_type": "column",
+                "config": "rectangular",
+                "confinement_type": "ties",
+                "clear_cover": 0.04,
+                "num_bars_3dir": 3,
+                "num_bars_2dir": 3,
+                "num_bars_circ": 0,
+                "long_bar_size": "#9",
+                "tie_bar_size": "#4",
+                "tie_spacing": 0.15,
+                "num_ties_3dir": 3,
+                "num_ties_2dir": 3,
+                "tie_layout": "rect",
+                "rho_s_scale": 1.0,
+                "cover_top": 0.0,
+                "cover_bottom": 0.0,
+                "cover_side": 0.0,
+                "top_bar_size": "",
+                "top_bar_count": 0,
+                "bottom_bar_size": "",
+                "bottom_bar_count": 0
+            }
         },
         {
             "name": "C",
@@ -557,6 +1240,8 @@
             "h": 0.6
         }
     ],
+    "hinge_properties": [],
+    "frame_hinges": [],
     "tendon_sections": [],
     "cable_sections": [],
     "tendons": [],
@@ -1175,7 +1860,7 @@
                 false,
                 false
             ],
-            "diaphragm": "L2"
+            "diaphragm": null
         },
         {
             "id": 42,
@@ -1190,7 +1875,7 @@
                 false,
                 false
             ],
-            "diaphragm": "L2"
+            "diaphragm": null
         },
         {
             "id": 43,
@@ -1205,7 +1890,7 @@
                 false,
                 false
             ],
-            "diaphragm": "L2"
+            "diaphragm": null
         },
         {
             "id": 44,
@@ -1220,7 +1905,7 @@
                 false,
                 false
             ],
-            "diaphragm": "L2"
+            "diaphragm": null
         },
         {
             "id": 45,
@@ -1235,7 +1920,7 @@
                 false,
                 false
             ],
-            "diaphragm": "L2"
+            "diaphragm": null
         },
         {
             "id": 46,
@@ -1250,7 +1935,7 @@
                 false,
                 false
             ],
-            "diaphragm": "L2"
+            "diaphragm": null
         },
         {
             "id": 47,
@@ -1265,7 +1950,7 @@
                 false,
                 false
             ],
-            "diaphragm": "L2"
+            "diaphragm": null
         },
         {
             "id": 48,
@@ -1280,7 +1965,7 @@
                 false,
                 false
             ],
-            "diaphragm": "L2"
+            "diaphragm": null
         },
         {
             "id": 49,
@@ -1295,7 +1980,7 @@
                 false,
                 false
             ],
-            "diaphragm": "L2"
+            "diaphragm": null
         },
         {
             "id": 50,
@@ -1310,7 +1995,7 @@
                 false,
                 false
             ],
-            "diaphragm": "L2"
+            "diaphragm": null
         },
         {
             "id": 51,
@@ -1325,7 +2010,7 @@
                 false,
                 false
             ],
-            "diaphragm": "L2"
+            "diaphragm": null
         },
         {
             "id": 52,
@@ -1340,7 +2025,7 @@
                 false,
                 false
             ],
-            "diaphragm": "L2"
+            "diaphragm": null
         },
         {
             "id": 53,
@@ -1355,7 +2040,7 @@
                 false,
                 false
             ],
-            "diaphragm": "L2"
+            "diaphragm": null
         },
         {
             "id": 54,
@@ -1370,7 +2055,7 @@
                 false,
                 false
             ],
-            "diaphragm": "L2"
+            "diaphragm": null
         },
         {
             "id": 55,
@@ -1385,7 +2070,7 @@
                 false,
                 false
             ],
-            "diaphragm": "L2"
+            "diaphragm": null
         },
         {
             "id": 56,
@@ -1400,7 +2085,7 @@
                 false,
                 false
             ],
-            "diaphragm": "L2"
+            "diaphragm": null
         },
         {
             "id": 57,
@@ -1415,7 +2100,7 @@
                 false,
                 false
             ],
-            "diaphragm": "L2"
+            "diaphragm": null
         },
         {
             "id": 58,
@@ -1430,7 +2115,7 @@
                 false,
                 false
             ],
-            "diaphragm": "L2"
+            "diaphragm": null
         },
         {
             "id": 59,
@@ -1445,7 +2130,7 @@
                 false,
                 false
             ],
-            "diaphragm": "L2"
+            "diaphragm": null
         },
         {
             "id": 60,
@@ -1460,7 +2145,7 @@
                 false,
                 false
             ],
-            "diaphragm": "L2"
+            "diaphragm": null
         },
         {
             "id": 61,
@@ -8022,43 +8707,6 @@
             "rz_factor": 1.0
         },
         {
-            "id": 162,
-            "n1_id": 91,
-            "n2_id": 92,
-            "sec_name": "b30x60",
-            "beta": 0.0,
-            "rel_i": [
-                false,
-                false,
-                false,
-                false,
-                false,
-                false
-            ],
-            "rel_j": [
-                false,
-                false,
-                false,
-                false,
-                false,
-                false
-            ],
-            "cardinal": 10,
-            "off_i": [
-                0.0,
-                0.0,
-                -0.3
-            ],
-            "off_j": [
-                0.0,
-                0.0,
-                -0.3
-            ],
-            "end_off_i": 0.15,
-            "end_off_j": 0.15,
-            "rz_factor": 1.0
-        },
-        {
             "id": 163,
             "n1_id": 92,
             "n2_id": 93,
@@ -8167,43 +8815,6 @@
             ],
             "end_off_i": 0.15,
             "end_off_j": 0.15,
-            "rz_factor": 1.0
-        },
-        {
-            "id": 166,
-            "n1_id": 96,
-            "n2_id": 97,
-            "sec_name": "b30x60",
-            "beta": 0.0,
-            "rel_i": [
-                false,
-                false,
-                false,
-                false,
-                false,
-                false
-            ],
-            "rel_j": [
-                false,
-                false,
-                false,
-                false,
-                false,
-                false
-            ],
-            "cardinal": 10,
-            "off_i": [
-                0.0,
-                0.0,
-                -0.3
-            ],
-            "off_j": [
-                0.0,
-                0.0,
-                -0.3
-            ],
-            "end_off_i": 0.3,
-            "end_off_j": 0.3,
             "rz_factor": 1.0
         },
         {
@@ -8389,43 +9000,6 @@
             ],
             "end_off_i": 0.3,
             "end_off_j": 0.3,
-            "rz_factor": 1.0
-        },
-        {
-            "id": 172,
-            "n1_id": 92,
-            "n2_id": 97,
-            "sec_name": "b30x60",
-            "beta": 0.0,
-            "rel_i": [
-                false,
-                false,
-                false,
-                false,
-                false,
-                false
-            ],
-            "rel_j": [
-                false,
-                false,
-                false,
-                false,
-                false,
-                false
-            ],
-            "cardinal": 10,
-            "off_i": [
-                0.0,
-                0.0,
-                -0.3
-            ],
-            "off_j": [
-                0.0,
-                0.0,
-                -0.3
-            ],
-            "end_off_i": 0.3,
-            "end_off_j": 0.15,
             "rz_factor": 1.0
         },
         {
@@ -8833,43 +9407,6 @@
             ],
             "end_off_i": 0.3,
             "end_off_j": 0.3,
-            "rz_factor": 1.0
-        },
-        {
-            "id": 184,
-            "n1_id": 91,
-            "n2_id": 96,
-            "sec_name": "b30x60",
-            "beta": 0.0,
-            "rel_i": [
-                false,
-                false,
-                false,
-                false,
-                false,
-                false
-            ],
-            "rel_j": [
-                false,
-                false,
-                false,
-                false,
-                false,
-                false
-            ],
-            "cardinal": 10,
-            "off_i": [
-                0.0,
-                0.0,
-                -0.3
-            ],
-            "off_j": [
-                0.0,
-                0.0,
-                -0.3
-            ],
-            "end_off_i": 0.3,
-            "end_off_j": 0.15,
             "rz_factor": 1.0
         },
         {
@@ -9611,17 +10148,185 @@
             "end_off_i": 0.0,
             "end_off_j": 0.0,
             "rz_factor": 0.0
+        },
+        {
+            "id": 225,
+            "n1_id": 91,
+            "n2_id": 96,
+            "sec_name": "b30x60",
+            "beta": 0.0,
+            "rel_i": [
+                false,
+                false,
+                false,
+                false,
+                false,
+                false
+            ],
+            "rel_j": [
+                false,
+                false,
+                false,
+                false,
+                false,
+                false
+            ],
+            "cardinal": 10,
+            "off_i": [
+                0.0,
+                0.0,
+                -0.3
+            ],
+            "off_j": [
+                0.0,
+                0.0,
+                -0.3
+            ],
+            "end_off_i": 0.3,
+            "end_off_j": 0.0,
+            "rz_factor": 1.0
+        },
+        {
+            "id": 226,
+            "n1_id": 91,
+            "n2_id": 92,
+            "sec_name": "b30x60",
+            "beta": 0.0,
+            "rel_i": [
+                false,
+                false,
+                false,
+                false,
+                false,
+                false
+            ],
+            "rel_j": [
+                false,
+                false,
+                false,
+                false,
+                false,
+                false
+            ],
+            "cardinal": 10,
+            "off_i": [
+                0.0,
+                0.0,
+                -0.3
+            ],
+            "off_j": [
+                0.0,
+                0.0,
+                -0.3
+            ],
+            "end_off_i": 0.15,
+            "end_off_j": 0.0,
+            "rz_factor": 1.0
+        },
+        {
+            "id": 227,
+            "n1_id": 92,
+            "n2_id": 97,
+            "sec_name": "b30x60",
+            "beta": 0.0,
+            "rel_i": [
+                false,
+                false,
+                false,
+                false,
+                false,
+                false
+            ],
+            "rel_j": [
+                false,
+                false,
+                false,
+                false,
+                false,
+                false
+            ],
+            "cardinal": 10,
+            "off_i": [
+                0.0,
+                0.0,
+                -0.3
+            ],
+            "off_j": [
+                0.0,
+                0.0,
+                -0.3
+            ],
+            "end_off_i": 0.3,
+            "end_off_j": 0.0,
+            "rz_factor": 1.0
+        },
+        {
+            "id": 228,
+            "n1_id": 96,
+            "n2_id": 97,
+            "sec_name": "b30x60",
+            "beta": 0.0,
+            "rel_i": [
+                false,
+                false,
+                false,
+                false,
+                false,
+                false
+            ],
+            "rel_j": [
+                false,
+                false,
+                false,
+                false,
+                false,
+                false
+            ],
+            "cardinal": 10,
+            "off_i": [
+                0.0,
+                0.0,
+                -0.3
+            ],
+            "off_j": [
+                0.0,
+                0.0,
+                -0.3
+            ],
+            "end_off_i": 0.3,
+            "end_off_j": 0.0,
+            "rz_factor": 1.0
         }
     ],
     "slabs": [],
     "area_elements": [],
-    "area_sections": [],
-    "constraints": [
+    "area_sections": [
         {
-            "name": "L2",
-            "axis": "Z"
+            "type": "ShellSection",
+            "name": "aea",
+            "material": "c30",
+            "material_angle": 0.0,
+            "display_color": "#ff00ff",
+            "stiffness_modifiers": {
+                "f11": 1.0,
+                "f22": 1.0,
+                "f12": 1.0,
+                "m11": 1.0,
+                "m22": 1.0,
+                "m12": 1.0,
+                "v13": 1.0,
+                "v23": 1.0,
+                "mass": 1.0,
+                "weight": 1.0
+            },
+            "shell_type": "Shell - Thin",
+            "membrane_thickness": 0.1,
+            "bending_thickness": 0.1,
+            "thin_formulation": "DKQ",
+            "modeling_type": "True FEM (Shell)"
         }
     ],
+    "constraints": [],
     "link_properties": [],
     "links": [],
     "load_patterns": [
@@ -9672,7 +10377,7 @@
     "mass_sources": [
         {
             "name": "MSSSRC1",
-            "include_self_mass": true,
+            "include_self_mass": false,
             "include_patterns": true,
             "load_patterns": [
                 [
@@ -28078,5 +28783,1089 @@
         }
     ],
     "plot_functions": [],
-    "load_combos": []
+    "virtual_measurements": {
+        "8aa74380-eda0-4533-8f44-8110c92665d2": {
+            "name": "Measurement 1",
+            "type": "Translational",
+            "factors": {}
+        },
+        "ab0faeb7-00b7-4855-9fa3-e5836e11d360": {
+            "name": "Col 11 - Z1 (Drift X)",
+            "type": "Translational",
+            "factors": {
+                "1": {
+                    "U1": 1.0
+                },
+                "21": {
+                    "U1": -1.0
+                }
+            },
+            "_auto_smart_drift_batch": true
+        },
+        "06714cf7-1955-4a94-b2a1-3b6919b72129": {
+            "name": "Col 11 - Z2 (Drift X)",
+            "type": "Translational",
+            "factors": {
+                "41": {
+                    "U1": 1.0
+                },
+                "1": {
+                    "U1": -1.0
+                }
+            },
+            "_auto_smart_drift_batch": true
+        },
+        "575a7660-ce25-4ea0-9174-83e8e3b05dc1": {
+            "name": "Col 11 - Z3 (Drift X)",
+            "type": "Translational",
+            "factors": {
+                "61": {
+                    "U1": 1.0
+                },
+                "41": {
+                    "U1": -1.0
+                }
+            },
+            "_auto_smart_drift_batch": true
+        },
+        "f8e2bb49-25fa-41c1-8b36-e786052f8bf2": {
+            "name": "Col 11 - Z4 (Drift X)",
+            "type": "Translational",
+            "factors": {
+                "81": {
+                    "U1": 1.0
+                },
+                "61": {
+                    "U1": -1.0
+                }
+            },
+            "_auto_smart_drift_batch": true
+        },
+        "7249ac21-7ce6-46ee-b158-f067883ccd2c": {
+            "name": "Col 21 - Z1 (Drift X)",
+            "type": "Translational",
+            "factors": {
+                "2": {
+                    "U1": 1.0
+                },
+                "22": {
+                    "U1": -1.0
+                }
+            },
+            "_auto_smart_drift_batch": true
+        },
+        "2d5f1d33-5447-489d-bb6e-cae51f10bdb4": {
+            "name": "Col 21 - Z2 (Drift X)",
+            "type": "Translational",
+            "factors": {
+                "42": {
+                    "U1": 1.0
+                },
+                "2": {
+                    "U1": -1.0
+                }
+            },
+            "_auto_smart_drift_batch": true
+        },
+        "97e9fa8c-01e9-465c-9cad-51e4674e1fdd": {
+            "name": "Col 21 - Z3 (Drift X)",
+            "type": "Translational",
+            "factors": {
+                "62": {
+                    "U1": 1.0
+                },
+                "42": {
+                    "U1": -1.0
+                }
+            },
+            "_auto_smart_drift_batch": true
+        },
+        "926b2bfd-41bc-4080-9ea5-6fa7835b41a9": {
+            "name": "Col 21 - Z4 (Drift X)",
+            "type": "Translational",
+            "factors": {
+                "82": {
+                    "U1": 1.0
+                },
+                "62": {
+                    "U1": -1.0
+                }
+            },
+            "_auto_smart_drift_batch": true
+        },
+        "67bb2188-f3bc-4acd-91d4-510f06fc2de4": {
+            "name": "Col 31 - Z1 (Drift X)",
+            "type": "Translational",
+            "factors": {
+                "3": {
+                    "U1": 1.0
+                },
+                "23": {
+                    "U1": -1.0
+                }
+            },
+            "_auto_smart_drift_batch": true
+        },
+        "535dcadb-a06a-4a81-9ba7-b5f3638aeebf": {
+            "name": "Col 31 - Z2 (Drift X)",
+            "type": "Translational",
+            "factors": {
+                "43": {
+                    "U1": 1.0
+                },
+                "3": {
+                    "U1": -1.0
+                }
+            },
+            "_auto_smart_drift_batch": true
+        },
+        "e38944cb-10a1-45f7-8570-d5bd02085290": {
+            "name": "Col 31 - Z3 (Drift X)",
+            "type": "Translational",
+            "factors": {
+                "63": {
+                    "U1": 1.0
+                },
+                "43": {
+                    "U1": -1.0
+                }
+            },
+            "_auto_smart_drift_batch": true
+        },
+        "0e9e569a-ca12-4859-b132-1bcaf4da9770": {
+            "name": "Col 31 - Z4 (Drift X)",
+            "type": "Translational",
+            "factors": {
+                "83": {
+                    "U1": 1.0
+                },
+                "63": {
+                    "U1": -1.0
+                }
+            },
+            "_auto_smart_drift_batch": true
+        },
+        "8670836a-2257-442b-a53c-023b1a905673": {
+            "name": "Col 41 - Z1 (Drift X)",
+            "type": "Translational",
+            "factors": {
+                "4": {
+                    "U1": 1.0
+                },
+                "24": {
+                    "U1": -1.0
+                }
+            },
+            "_auto_smart_drift_batch": true
+        },
+        "f665697f-64c2-48ba-a84f-bd7d344d5e92": {
+            "name": "Col 41 - Z2 (Drift X)",
+            "type": "Translational",
+            "factors": {
+                "44": {
+                    "U1": 1.0
+                },
+                "4": {
+                    "U1": -1.0
+                }
+            },
+            "_auto_smart_drift_batch": true
+        },
+        "1065f80e-7a7b-4b12-ba05-bc5a99348978": {
+            "name": "Col 41 - Z3 (Drift X)",
+            "type": "Translational",
+            "factors": {
+                "64": {
+                    "U1": 1.0
+                },
+                "44": {
+                    "U1": -1.0
+                }
+            },
+            "_auto_smart_drift_batch": true
+        },
+        "bbe00a94-e150-4a19-9d8b-e5dc064a5fab": {
+            "name": "Col 41 - Z4 (Drift X)",
+            "type": "Translational",
+            "factors": {
+                "84": {
+                    "U1": 1.0
+                },
+                "64": {
+                    "U1": -1.0
+                }
+            },
+            "_auto_smart_drift_batch": true
+        },
+        "29c31348-c3bd-4bc5-95ed-5ef75bf56d5f": {
+            "name": "Col 51 - Z1 (Drift X)",
+            "type": "Translational",
+            "factors": {
+                "5": {
+                    "U1": 1.0
+                },
+                "25": {
+                    "U1": -1.0
+                }
+            },
+            "_auto_smart_drift_batch": true
+        },
+        "c1c6b4ed-784a-4000-badc-770cf715461d": {
+            "name": "Col 51 - Z2 (Drift X)",
+            "type": "Translational",
+            "factors": {
+                "45": {
+                    "U1": 1.0
+                },
+                "5": {
+                    "U1": -1.0
+                }
+            },
+            "_auto_smart_drift_batch": true
+        },
+        "e5e98431-b9c8-4907-98fd-e5d271675a52": {
+            "name": "Col 51 - Z3 (Drift X)",
+            "type": "Translational",
+            "factors": {
+                "65": {
+                    "U1": 1.0
+                },
+                "45": {
+                    "U1": -1.0
+                }
+            },
+            "_auto_smart_drift_batch": true
+        },
+        "ae7d5b7b-e518-42e2-a059-933aecc0c6ed": {
+            "name": "Col 51 - Z4 (Drift X)",
+            "type": "Translational",
+            "factors": {
+                "85": {
+                    "U1": 1.0
+                },
+                "65": {
+                    "U1": -1.0
+                }
+            },
+            "_auto_smart_drift_batch": true
+        },
+        "279ce53f-7459-489e-bc6b-9abd8887fd90": {
+            "name": "Col 12 - Z1 (Drift X)",
+            "type": "Translational",
+            "factors": {
+                "6": {
+                    "U1": 1.0
+                },
+                "26": {
+                    "U1": -1.0
+                }
+            },
+            "_auto_smart_drift_batch": true
+        },
+        "3a41f08a-c6a1-4482-9d99-cd6ae155a4c3": {
+            "name": "Col 12 - Z2 (Drift X)",
+            "type": "Translational",
+            "factors": {
+                "46": {
+                    "U1": 1.0
+                },
+                "6": {
+                    "U1": -1.0
+                }
+            },
+            "_auto_smart_drift_batch": true
+        },
+        "019bb89c-7177-4b68-bb88-bf9dd4728197": {
+            "name": "Col 12 - Z3 (Drift X)",
+            "type": "Translational",
+            "factors": {
+                "66": {
+                    "U1": 1.0
+                },
+                "46": {
+                    "U1": -1.0
+                }
+            },
+            "_auto_smart_drift_batch": true
+        },
+        "9d00a71a-6f6f-4e2f-9c57-a397f55d4926": {
+            "name": "Col 12 - Z4 (Drift X)",
+            "type": "Translational",
+            "factors": {
+                "86": {
+                    "U1": 1.0
+                },
+                "66": {
+                    "U1": -1.0
+                }
+            },
+            "_auto_smart_drift_batch": true
+        },
+        "8fdfc449-01a1-4173-b200-9cffd308e937": {
+            "name": "Col 22 - Z1 (Drift X)",
+            "type": "Translational",
+            "factors": {
+                "7": {
+                    "U1": 1.0
+                },
+                "27": {
+                    "U1": -1.0
+                }
+            },
+            "_auto_smart_drift_batch": true
+        },
+        "24e48ac8-71fa-4b6d-a08a-3b37c477bdec": {
+            "name": "Col 22 - Z2 (Drift X)",
+            "type": "Translational",
+            "factors": {
+                "47": {
+                    "U1": 1.0
+                },
+                "7": {
+                    "U1": -1.0
+                }
+            },
+            "_auto_smart_drift_batch": true
+        },
+        "65f38009-a2e0-4902-818d-eca95d03ae0d": {
+            "name": "Col 22 - Z3 (Drift X)",
+            "type": "Translational",
+            "factors": {
+                "67": {
+                    "U1": 1.0
+                },
+                "47": {
+                    "U1": -1.0
+                }
+            },
+            "_auto_smart_drift_batch": true
+        },
+        "e9c5c983-7d6c-453f-8c30-85808032503e": {
+            "name": "Col 22 - Z4 (Drift X)",
+            "type": "Translational",
+            "factors": {
+                "87": {
+                    "U1": 1.0
+                },
+                "67": {
+                    "U1": -1.0
+                }
+            },
+            "_auto_smart_drift_batch": true
+        },
+        "a2936d52-b2f8-4500-ac3f-c2b3c26589c6": {
+            "name": "Col 32 - Z1 (Drift X)",
+            "type": "Translational",
+            "factors": {
+                "8": {
+                    "U1": 1.0
+                },
+                "28": {
+                    "U1": -1.0
+                }
+            },
+            "_auto_smart_drift_batch": true
+        },
+        "0de84461-e195-4a31-803a-1725362a9ced": {
+            "name": "Col 32 - Z2 (Drift X)",
+            "type": "Translational",
+            "factors": {
+                "48": {
+                    "U1": 1.0
+                },
+                "8": {
+                    "U1": -1.0
+                }
+            },
+            "_auto_smart_drift_batch": true
+        },
+        "9c17a82d-f5cb-42b7-a250-786c79c95196": {
+            "name": "Col 32 - Z3 (Drift X)",
+            "type": "Translational",
+            "factors": {
+                "68": {
+                    "U1": 1.0
+                },
+                "48": {
+                    "U1": -1.0
+                }
+            },
+            "_auto_smart_drift_batch": true
+        },
+        "3b4c7020-6d60-4a48-b47f-b635ae990f07": {
+            "name": "Col 32 - Z4 (Drift X)",
+            "type": "Translational",
+            "factors": {
+                "88": {
+                    "U1": 1.0
+                },
+                "68": {
+                    "U1": -1.0
+                }
+            },
+            "_auto_smart_drift_batch": true
+        },
+        "0bcc4ed3-4773-4d0d-8359-aeab1385d970": {
+            "name": "Col 42 - Z1 (Drift X)",
+            "type": "Translational",
+            "factors": {
+                "9": {
+                    "U1": 1.0
+                },
+                "29": {
+                    "U1": -1.0
+                }
+            },
+            "_auto_smart_drift_batch": true
+        },
+        "0242424e-5234-41b4-9d6a-29183b37d1c3": {
+            "name": "Col 42 - Z2 (Drift X)",
+            "type": "Translational",
+            "factors": {
+                "49": {
+                    "U1": 1.0
+                },
+                "9": {
+                    "U1": -1.0
+                }
+            },
+            "_auto_smart_drift_batch": true
+        },
+        "3ddcef01-4e47-4747-a0c3-4e49263aa140": {
+            "name": "Col 42 - Z3 (Drift X)",
+            "type": "Translational",
+            "factors": {
+                "69": {
+                    "U1": 1.0
+                },
+                "49": {
+                    "U1": -1.0
+                }
+            },
+            "_auto_smart_drift_batch": true
+        },
+        "d97a4e98-5b37-4e3e-954f-270f80ede697": {
+            "name": "Col 42 - Z4 (Drift X)",
+            "type": "Translational",
+            "factors": {
+                "89": {
+                    "U1": 1.0
+                },
+                "69": {
+                    "U1": -1.0
+                }
+            },
+            "_auto_smart_drift_batch": true
+        },
+        "63e883d4-02da-4ab9-b96f-4963283e9bcf": {
+            "name": "Col 52 - Z1 (Drift X)",
+            "type": "Translational",
+            "factors": {
+                "10": {
+                    "U1": 1.0
+                },
+                "30": {
+                    "U1": -1.0
+                }
+            },
+            "_auto_smart_drift_batch": true
+        },
+        "859a3ce2-76a1-4102-9edc-376d34d7be28": {
+            "name": "Col 52 - Z2 (Drift X)",
+            "type": "Translational",
+            "factors": {
+                "50": {
+                    "U1": 1.0
+                },
+                "10": {
+                    "U1": -1.0
+                }
+            },
+            "_auto_smart_drift_batch": true
+        },
+        "86733db2-425f-4654-bbc6-dee714bec23e": {
+            "name": "Col 52 - Z3 (Drift X)",
+            "type": "Translational",
+            "factors": {
+                "70": {
+                    "U1": 1.0
+                },
+                "50": {
+                    "U1": -1.0
+                }
+            },
+            "_auto_smart_drift_batch": true
+        },
+        "b90f5d15-8ecc-4396-b934-1615abecfabe": {
+            "name": "Col 52 - Z4 (Drift X)",
+            "type": "Translational",
+            "factors": {
+                "90": {
+                    "U1": 1.0
+                },
+                "70": {
+                    "U1": -1.0
+                }
+            },
+            "_auto_smart_drift_batch": true
+        },
+        "985cd0de-e4fa-4b7d-93f4-0d868f3f17f3": {
+            "name": "Col 13 - Z1 (Drift X)",
+            "type": "Translational",
+            "factors": {
+                "11": {
+                    "U1": 1.0
+                },
+                "31": {
+                    "U1": -1.0
+                }
+            },
+            "_auto_smart_drift_batch": true
+        },
+        "7287a550-97b6-4828-b412-65568e5b90e8": {
+            "name": "Col 13 - Z2 (Drift X)",
+            "type": "Translational",
+            "factors": {
+                "51": {
+                    "U1": 1.0
+                },
+                "11": {
+                    "U1": -1.0
+                }
+            },
+            "_auto_smart_drift_batch": true
+        },
+        "7202f7ee-8fa2-4ffe-adc4-028390b08550": {
+            "name": "Col 13 - Z3 (Drift X)",
+            "type": "Translational",
+            "factors": {
+                "71": {
+                    "U1": 1.0
+                },
+                "51": {
+                    "U1": -1.0
+                }
+            },
+            "_auto_smart_drift_batch": true
+        },
+        "5440f28b-9b9d-42fe-911a-138385bdd4d7": {
+            "name": "Col 13 - Z4 (Drift X)",
+            "type": "Translational",
+            "factors": {
+                "91": {
+                    "U1": 1.0
+                },
+                "71": {
+                    "U1": -1.0
+                }
+            },
+            "_auto_smart_drift_batch": true
+        },
+        "36aa287d-5fba-490b-b3d4-0c1366e6d153": {
+            "name": "Col 23 - Z1 (Drift X)",
+            "type": "Translational",
+            "factors": {
+                "12": {
+                    "U1": 1.0
+                },
+                "32": {
+                    "U1": -1.0
+                }
+            },
+            "_auto_smart_drift_batch": true
+        },
+        "377c7b8e-df73-4c3b-b438-f7286e7c62b9": {
+            "name": "Col 23 - Z2 (Drift X)",
+            "type": "Translational",
+            "factors": {
+                "52": {
+                    "U1": 1.0
+                },
+                "12": {
+                    "U1": -1.0
+                }
+            },
+            "_auto_smart_drift_batch": true
+        },
+        "91334c6d-10bf-411b-b16b-b84fa0e55161": {
+            "name": "Col 23 - Z3 (Drift X)",
+            "type": "Translational",
+            "factors": {
+                "72": {
+                    "U1": 1.0
+                },
+                "52": {
+                    "U1": -1.0
+                }
+            },
+            "_auto_smart_drift_batch": true
+        },
+        "d2bc73fe-b1af-49ff-a552-c607b8e16e7a": {
+            "name": "Col 23 - Z4 (Drift X)",
+            "type": "Translational",
+            "factors": {
+                "92": {
+                    "U1": 1.0
+                },
+                "72": {
+                    "U1": -1.0
+                }
+            },
+            "_auto_smart_drift_batch": true
+        },
+        "ccace366-839f-444c-a0c6-176167af2271": {
+            "name": "Col 33 - Z1 (Drift X)",
+            "type": "Translational",
+            "factors": {
+                "13": {
+                    "U1": 1.0
+                },
+                "33": {
+                    "U1": -1.0
+                }
+            },
+            "_auto_smart_drift_batch": true
+        },
+        "d623b265-ab61-4337-8722-93f1f25feb78": {
+            "name": "Col 33 - Z2 (Drift X)",
+            "type": "Translational",
+            "factors": {
+                "53": {
+                    "U1": 1.0
+                },
+                "13": {
+                    "U1": -1.0
+                }
+            },
+            "_auto_smart_drift_batch": true
+        },
+        "10285a82-20a2-4ebe-b645-82714d868de2": {
+            "name": "Col 33 - Z3 (Drift X)",
+            "type": "Translational",
+            "factors": {
+                "73": {
+                    "U1": 1.0
+                },
+                "53": {
+                    "U1": -1.0
+                }
+            },
+            "_auto_smart_drift_batch": true
+        },
+        "edc25c64-e3c4-476b-95aa-481e555007d8": {
+            "name": "Col 33 - Z4 (Drift X)",
+            "type": "Translational",
+            "factors": {
+                "93": {
+                    "U1": 1.0
+                },
+                "73": {
+                    "U1": -1.0
+                }
+            },
+            "_auto_smart_drift_batch": true
+        },
+        "c50ff18f-aefc-4a9a-9fe2-bf5f353d6252": {
+            "name": "Col 43 - Z1 (Drift X)",
+            "type": "Translational",
+            "factors": {
+                "14": {
+                    "U1": 1.0
+                },
+                "34": {
+                    "U1": -1.0
+                }
+            },
+            "_auto_smart_drift_batch": true
+        },
+        "37254327-0c6c-41dc-86ab-776376dffc7f": {
+            "name": "Col 43 - Z2 (Drift X)",
+            "type": "Translational",
+            "factors": {
+                "54": {
+                    "U1": 1.0
+                },
+                "14": {
+                    "U1": -1.0
+                }
+            },
+            "_auto_smart_drift_batch": true
+        },
+        "7fe6f24d-b00d-45bb-9071-b8dec0ab42a7": {
+            "name": "Col 43 - Z3 (Drift X)",
+            "type": "Translational",
+            "factors": {
+                "74": {
+                    "U1": 1.0
+                },
+                "54": {
+                    "U1": -1.0
+                }
+            },
+            "_auto_smart_drift_batch": true
+        },
+        "c2613fd3-8430-446b-bbeb-95ec2dfaf308": {
+            "name": "Col 43 - Z4 (Drift X)",
+            "type": "Translational",
+            "factors": {
+                "94": {
+                    "U1": 1.0
+                },
+                "74": {
+                    "U1": -1.0
+                }
+            },
+            "_auto_smart_drift_batch": true
+        },
+        "f9ff70a6-af35-4908-bee4-77687c710e22": {
+            "name": "Col 53 - Z1 (Drift X)",
+            "type": "Translational",
+            "factors": {
+                "15": {
+                    "U1": 1.0
+                },
+                "35": {
+                    "U1": -1.0
+                }
+            },
+            "_auto_smart_drift_batch": true
+        },
+        "9ffa77b9-5eab-4131-9002-b8f98403a214": {
+            "name": "Col 53 - Z2 (Drift X)",
+            "type": "Translational",
+            "factors": {
+                "55": {
+                    "U1": 1.0
+                },
+                "15": {
+                    "U1": -1.0
+                }
+            },
+            "_auto_smart_drift_batch": true
+        },
+        "f8423fab-c5fa-41dd-8bcc-ae3e76750b71": {
+            "name": "Col 53 - Z3 (Drift X)",
+            "type": "Translational",
+            "factors": {
+                "75": {
+                    "U1": 1.0
+                },
+                "55": {
+                    "U1": -1.0
+                }
+            },
+            "_auto_smart_drift_batch": true
+        },
+        "d460a703-de07-4475-8c63-17794b007457": {
+            "name": "Col 53 - Z4 (Drift X)",
+            "type": "Translational",
+            "factors": {
+                "95": {
+                    "U1": 1.0
+                },
+                "75": {
+                    "U1": -1.0
+                }
+            },
+            "_auto_smart_drift_batch": true
+        },
+        "553956cb-e590-4ead-a36d-09dde5480f53": {
+            "name": "Col 14 - Z1 (Drift X)",
+            "type": "Translational",
+            "factors": {
+                "16": {
+                    "U1": 1.0
+                },
+                "36": {
+                    "U1": -1.0
+                }
+            },
+            "_auto_smart_drift_batch": true
+        },
+        "8c278740-dec6-40f9-bb15-54ad0292c97b": {
+            "name": "Col 14 - Z2 (Drift X)",
+            "type": "Translational",
+            "factors": {
+                "56": {
+                    "U1": 1.0
+                },
+                "16": {
+                    "U1": -1.0
+                }
+            },
+            "_auto_smart_drift_batch": true
+        },
+        "35f9925c-e892-4728-84c3-150c1fe1e9a9": {
+            "name": "Col 14 - Z3 (Drift X)",
+            "type": "Translational",
+            "factors": {
+                "76": {
+                    "U1": 1.0
+                },
+                "56": {
+                    "U1": -1.0
+                }
+            },
+            "_auto_smart_drift_batch": true
+        },
+        "d3bc779a-75c1-43e7-959c-ed3e61db96f1": {
+            "name": "Col 14 - Z4 (Drift X)",
+            "type": "Translational",
+            "factors": {
+                "96": {
+                    "U1": 1.0
+                },
+                "76": {
+                    "U1": -1.0
+                }
+            },
+            "_auto_smart_drift_batch": true
+        },
+        "65f1dfe3-9477-4bfd-a165-2b2f3e00c164": {
+            "name": "Col 24 - Z1 (Drift X)",
+            "type": "Translational",
+            "factors": {
+                "17": {
+                    "U1": 1.0
+                },
+                "37": {
+                    "U1": -1.0
+                }
+            },
+            "_auto_smart_drift_batch": true
+        },
+        "985c211d-e56f-48cd-8382-0df96f635413": {
+            "name": "Col 24 - Z2 (Drift X)",
+            "type": "Translational",
+            "factors": {
+                "57": {
+                    "U1": 1.0
+                },
+                "17": {
+                    "U1": -1.0
+                }
+            },
+            "_auto_smart_drift_batch": true
+        },
+        "64dd9d6a-ae97-4615-b27a-aa16d7ab2aee": {
+            "name": "Col 24 - Z3 (Drift X)",
+            "type": "Translational",
+            "factors": {
+                "77": {
+                    "U1": 1.0
+                },
+                "57": {
+                    "U1": -1.0
+                }
+            },
+            "_auto_smart_drift_batch": true
+        },
+        "e2efca32-2d9b-4983-a3f2-28e401495b81": {
+            "name": "Col 24 - Z4 (Drift X)",
+            "type": "Translational",
+            "factors": {
+                "97": {
+                    "U1": 1.0
+                },
+                "77": {
+                    "U1": -1.0
+                }
+            },
+            "_auto_smart_drift_batch": true
+        },
+        "cbb8aa51-61ff-47a2-9732-bf355760fa43": {
+            "name": "Col 34 - Z1 (Drift X)",
+            "type": "Translational",
+            "factors": {
+                "18": {
+                    "U1": 1.0
+                },
+                "38": {
+                    "U1": -1.0
+                }
+            },
+            "_auto_smart_drift_batch": true
+        },
+        "7800a98f-a84c-4b23-bd8f-d05d2c78b57f": {
+            "name": "Col 34 - Z2 (Drift X)",
+            "type": "Translational",
+            "factors": {
+                "58": {
+                    "U1": 1.0
+                },
+                "18": {
+                    "U1": -1.0
+                }
+            },
+            "_auto_smart_drift_batch": true
+        },
+        "76493d3c-fbe1-4ae1-be98-73833fc69173": {
+            "name": "Col 34 - Z3 (Drift X)",
+            "type": "Translational",
+            "factors": {
+                "78": {
+                    "U1": 1.0
+                },
+                "58": {
+                    "U1": -1.0
+                }
+            },
+            "_auto_smart_drift_batch": true
+        },
+        "c4da80d9-da8c-4735-b0ba-e110b803d946": {
+            "name": "Col 34 - Z4 (Drift X)",
+            "type": "Translational",
+            "factors": {
+                "98": {
+                    "U1": 1.0
+                },
+                "78": {
+                    "U1": -1.0
+                }
+            },
+            "_auto_smart_drift_batch": true
+        },
+        "46a9cebb-f47f-468d-bce8-91f93d8d0504": {
+            "name": "Col 44 - Z1 (Drift X)",
+            "type": "Translational",
+            "factors": {
+                "19": {
+                    "U1": 1.0
+                },
+                "39": {
+                    "U1": -1.0
+                }
+            },
+            "_auto_smart_drift_batch": true
+        },
+        "4e58c105-97db-46fc-b69a-b1cf193179a9": {
+            "name": "Col 44 - Z2 (Drift X)",
+            "type": "Translational",
+            "factors": {
+                "59": {
+                    "U1": 1.0
+                },
+                "19": {
+                    "U1": -1.0
+                }
+            },
+            "_auto_smart_drift_batch": true
+        },
+        "1bd5f3a8-c991-42de-acb3-fe334f28ded2": {
+            "name": "Col 44 - Z3 (Drift X)",
+            "type": "Translational",
+            "factors": {
+                "79": {
+                    "U1": 1.0
+                },
+                "59": {
+                    "U1": -1.0
+                }
+            },
+            "_auto_smart_drift_batch": true
+        },
+        "0113093f-25a5-449f-a86c-4d5f10220552": {
+            "name": "Col 44 - Z4 (Drift X)",
+            "type": "Translational",
+            "factors": {
+                "99": {
+                    "U1": 1.0
+                },
+                "79": {
+                    "U1": -1.0
+                }
+            },
+            "_auto_smart_drift_batch": true
+        },
+        "62f639bd-a352-4609-a72c-1f205d8fb6b5": {
+            "name": "Col 54 - Z1 (Drift X)",
+            "type": "Translational",
+            "factors": {
+                "20": {
+                    "U1": 1.0
+                },
+                "40": {
+                    "U1": -1.0
+                }
+            },
+            "_auto_smart_drift_batch": true
+        },
+        "a2c4c4df-ab8a-41d8-965d-3f842f2cb053": {
+            "name": "Col 54 - Z2 (Drift X)",
+            "type": "Translational",
+            "factors": {
+                "60": {
+                    "U1": 1.0
+                },
+                "20": {
+                    "U1": -1.0
+                }
+            },
+            "_auto_smart_drift_batch": true
+        },
+        "b8663b70-ada6-4d45-911e-c21339a6e3c9": {
+            "name": "Col 54 - Z3 (Drift X)",
+            "type": "Translational",
+            "factors": {
+                "80": {
+                    "U1": 1.0
+                },
+                "60": {
+                    "U1": -1.0
+                }
+            },
+            "_auto_smart_drift_batch": true
+        },
+        "ec6bccd9-e6a3-4b52-978e-6f08c44653cb": {
+            "name": "Col 54 - Z4 (Drift X)",
+            "type": "Translational",
+            "factors": {
+                "100": {
+                    "U1": 1.0
+                },
+                "80": {
+                    "U1": -1.0
+                }
+            },
+            "_auto_smart_drift_batch": true
+        }
+    },
+    "pushover_param_sets": [
+        {
+            "name": "PO1",
+            "kind": "force_disp",
+            "plot_type": "Resultant Base Shear vs Monitored Displacement",
+            "units": "Model display units",
+            "auto_x": true,
+            "x_min": 0.0,
+            "x_max": 0.0,
+            "auto_y": true,
+            "y_min": 0.0,
+            "y_max": 0.0,
+            "label_x": "",
+            "label_y": "",
+            "notes": "",
+            "curve_color": "",
+            "curve_width": 2.2,
+            "curve_style": "-",
+            "overlay_curves": []
+        }
+    ],
+    "reference_curves": [],
+    "load_combos": [
+        {
+            "name": "COMB1",
+            "combo_type": "Linear Add",
+            "cases": [
+                [
+                    "RSA_X_Y",
+                    1.0
+                ],
+                [
+                    "EQY",
+                    1.0
+                ]
+            ]
+        }
+    ]
 }

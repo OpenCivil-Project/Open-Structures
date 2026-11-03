@@ -1,0 +1,803 @@
+{
+  "static": {
+    "displacements": {
+      "11": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "18": [
+        0.0,
+        0.0,
+        0.0,
+        4.658238977765607e-06,
+        0.0,
+        0.0
+      ],
+      "25": [
+        0.0,
+        0.0,
+        0.0,
+        9.316477955531215e-06,
+        0.0,
+        0.0
+      ],
+      "32": [
+        0.0,
+        0.0,
+        0.0,
+        1.397471693329682e-05,
+        0.0,
+        0.0
+      ],
+      "39": [
+        0.0,
+        0.0,
+        0.0,
+        1.8632955911062427e-05,
+        0.0,
+        0.0
+      ],
+      "46": [
+        0.0,
+        0.0,
+        0.0,
+        2.3291194888828035e-05,
+        0.0,
+        0.0
+      ],
+      "53": [
+        0.0,
+        0.0,
+        0.0,
+        2.7949433866593632e-05,
+        0.0,
+        0.0
+      ],
+      "60": [
+        0.0,
+        0.0,
+        0.0,
+        2.3291194888828018e-05,
+        0.0,
+        0.0
+      ],
+      "67": [
+        0.0,
+        0.0,
+        0.0,
+        1.8632955911062414e-05,
+        0.0,
+        0.0
+      ],
+      "74": [
+        0.0,
+        0.0,
+        0.0,
+        1.3974716933296806e-05,
+        0.0,
+        0.0
+      ],
+      "81": [
+        0.0,
+        0.0,
+        0.0,
+        9.316477955531205e-06,
+        0.0,
+        0.0
+      ],
+      "88": [
+        0.0,
+        0.0,
+        0.0,
+        4.6582389777656026e-06,
+        0.0,
+        0.0
+      ],
+      "95": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ]
+    },
+    "reactions": {
+      "11": [
+        0.0,
+        0.0,
+        0.0,
+        -545.0000000000003,
+        0.0,
+        0.0
+      ],
+      "18": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "25": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "32": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "39": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "46": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "53": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "60": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "67": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "74": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "81": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "88": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "95": [
+        0.0,
+        0.0,
+        0.0,
+        -545.0000000000002,
+        0.0,
+        0.0
+      ]
+    }
+  },
+  "modal": {
+    "frequencies_hz": [
+      461.07689729259033,
+      914.2646410378379,
+      1351.8090632928815
+    ],
+    "regularized_frequencies_hz": [
+      461.0768972925906,
+      914.2646410378378,
+      1351.8090632928815
+    ],
+    "regularization_relative_shift": [
+      6.164201589213035e-16,
+      -1.2434784483468935e-16,
+      0.0
+    ],
+    "mode_shapes": {
+      "1": {
+        "11": [
+          -0.0,
+          -0.0,
+          -0.0,
+          -0.0,
+          -0.0,
+          -0.0
+        ],
+        "18": [
+          -0.0,
+          -0.0,
+          -0.0,
+          0.10840736858151555,
+          -0.0,
+          -0.0
+        ],
+        "25": [
+          -0.0,
+          -0.0,
+          -0.0,
+          0.2094269541458484,
+          -0.0,
+          -0.0
+        ],
+        "32": [
+          -0.0,
+          -0.0,
+          -0.0,
+          0.2961744388795467,
+          -0.0,
+          -0.0
+        ],
+        "39": [
+          -0.0,
+          -0.0,
+          -0.0,
+          0.3627381250550062,
+          -0.0,
+          -0.0
+        ],
+        "46": [
+          -0.0,
+          -0.0,
+          -0.0,
+          0.40458180746106187,
+          -0.0,
+          -0.0
+        ],
+        "53": [
+          -0.0,
+          -0.0,
+          -0.0,
+          0.41885390829169555,
+          -0.0,
+          -0.0
+        ],
+        "60": [
+          -0.0,
+          -0.0,
+          -0.0,
+          0.40458180746106154,
+          -0.0,
+          -0.0
+        ],
+        "67": [
+          -0.0,
+          -0.0,
+          -0.0,
+          0.36273812505500563,
+          -0.0,
+          -0.0
+        ],
+        "74": [
+          -0.0,
+          -0.0,
+          -0.0,
+          0.296174438879546,
+          -0.0,
+          -0.0
+        ],
+        "81": [
+          -0.0,
+          -0.0,
+          -0.0,
+          0.20942695414584767,
+          -0.0,
+          -0.0
+        ],
+        "88": [
+          -0.0,
+          -0.0,
+          -0.0,
+          0.1084073685815154,
+          -0.0,
+          -0.0
+        ],
+        "95": [
+          -0.0,
+          -0.0,
+          -0.0,
+          -0.0,
+          -0.0,
+          -0.0
+        ]
+      },
+      "2": {
+        "11": [
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0
+        ],
+        "18": [
+          0.0,
+          0.0,
+          0.0,
+          -0.20942695414584783,
+          0.0,
+          0.0
+        ],
+        "25": [
+          0.0,
+          0.0,
+          0.0,
+          -0.3627381250550058,
+          0.0,
+          0.0
+        ],
+        "32": [
+          0.0,
+          0.0,
+          0.0,
+          -0.4188539082916943,
+          0.0,
+          0.0
+        ],
+        "39": [
+          0.0,
+          0.0,
+          0.0,
+          -0.3627381250550055,
+          0.0,
+          0.0
+        ],
+        "46": [
+          0.0,
+          0.0,
+          0.0,
+          -0.20942695414584797,
+          0.0,
+          0.0
+        ],
+        "53": [
+          0.0,
+          0.0,
+          0.0,
+          -3.986726762381698e-16,
+          0.0,
+          0.0
+        ],
+        "60": [
+          0.0,
+          0.0,
+          0.0,
+          0.2094269541458477,
+          0.0,
+          0.0
+        ],
+        "67": [
+          0.0,
+          0.0,
+          0.0,
+          0.3627381250550061,
+          0.0,
+          0.0
+        ],
+        "74": [
+          0.0,
+          0.0,
+          0.0,
+          0.41885390829169605,
+          0.0,
+          0.0
+        ],
+        "81": [
+          0.0,
+          0.0,
+          0.0,
+          0.36273812505500647,
+          0.0,
+          0.0
+        ],
+        "88": [
+          0.0,
+          0.0,
+          0.0,
+          0.2094269541458481,
+          0.0,
+          0.0
+        ],
+        "95": [
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0
+        ]
+      },
+      "3": {
+        "11": [
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0
+        ],
+        "18": [
+          0.0,
+          0.0,
+          0.0,
+          0.29617443887954714,
+          0.0,
+          0.0
+        ],
+        "25": [
+          0.0,
+          0.0,
+          0.0,
+          0.418853908291696,
+          0.0,
+          0.0
+        ],
+        "32": [
+          0.0,
+          0.0,
+          0.0,
+          0.2961744388795457,
+          0.0,
+          0.0
+        ],
+        "39": [
+          0.0,
+          0.0,
+          0.0,
+          3.986726762381698e-16,
+          0.0,
+          0.0
+        ],
+        "46": [
+          0.0,
+          0.0,
+          0.0,
+          -0.296174438879546,
+          0.0,
+          0.0
+        ],
+        "53": [
+          0.0,
+          0.0,
+          0.0,
+          -0.4188539082916957,
+          0.0,
+          0.0
+        ],
+        "60": [
+          0.0,
+          0.0,
+          0.0,
+          -0.2961744388795462,
+          0.0,
+          0.0
+        ],
+        "67": [
+          0.0,
+          0.0,
+          0.0,
+          -1.5662140852213813e-16,
+          0.0,
+          0.0
+        ],
+        "74": [
+          0.0,
+          0.0,
+          0.0,
+          0.29617443887954575,
+          0.0,
+          0.0
+        ],
+        "81": [
+          0.0,
+          0.0,
+          0.0,
+          0.41885390829169533,
+          0.0,
+          0.0
+        ],
+        "88": [
+          0.0,
+          0.0,
+          0.0,
+          0.2961744388795459,
+          0.0,
+          0.0
+        ],
+        "95": [
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0
+        ]
+      }
+    },
+    "assembled_mass": {
+      "11": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "18": [
+        0.0,
+        0.0,
+        0.0,
+        0.95,
+        0.0,
+        0.0
+      ],
+      "25": [
+        0.0,
+        0.0,
+        0.0,
+        0.95,
+        0.0,
+        0.0
+      ],
+      "32": [
+        0.0,
+        0.0,
+        0.0,
+        0.95,
+        0.0,
+        0.0
+      ],
+      "39": [
+        0.0,
+        0.0,
+        0.0,
+        0.95,
+        0.0,
+        0.0
+      ],
+      "46": [
+        0.0,
+        0.0,
+        0.0,
+        0.95,
+        0.0,
+        0.0
+      ],
+      "53": [
+        0.0,
+        0.0,
+        0.0,
+        0.95,
+        0.0,
+        0.0
+      ],
+      "60": [
+        0.0,
+        0.0,
+        0.0,
+        0.95,
+        0.0,
+        0.0
+      ],
+      "67": [
+        0.0,
+        0.0,
+        0.0,
+        0.95,
+        0.0,
+        0.0
+      ],
+      "74": [
+        0.0,
+        0.0,
+        0.0,
+        0.95,
+        0.0,
+        0.0
+      ],
+      "81": [
+        0.0,
+        0.0,
+        0.0,
+        0.95,
+        0.0,
+        0.0
+      ],
+      "88": [
+        0.0,
+        0.0,
+        0.0,
+        0.95,
+        0.0,
+        0.0
+      ],
+      "95": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ]
+    }
+  },
+  "metadata": {
+    "reference_kind": "Independent discretized force-flexibility reference with separate analytical checks",
+    "mass_model": "Translational nodal lumping; rho denotes weight density; explicit link rotary inertia allowed",
+    "regularized_reference": "Native-only numerical terms: released rotational diagonal=max(abs(k_local))*1e-12; massless free diagonal=min_positive_free_mass*1e-6",
+    "mass_floor": 9.499999999999999e-07,
+    "requested_modes": 3,
+    "native_clamped_modes": 3,
+    "sources": [
+      {
+        "title": "Scott Whitney, University of Nebraska: Vibrations of Cantilever Beams (1999)",
+        "url": "https://emweb.unl.edu/mechanics-pages/Scott-Whitney/325hweb/Beams.htm",
+        "use": "Euler-Bernoulli cantilever deflection and frequency derivation"
+      },
+      {
+        "title": "CALFEM for Python: core.py, bar2e/beam2e/beam3e/beam2de",
+        "url": "https://github.com/CALFEM/calfem-python/blob/master/src/calfem/core.py",
+        "use": "Public independent FE library and beam/bar reference formulations; not imported"
+      },
+      {
+        "title": "OpenSees public examples: Example3.1.tcl",
+        "url": "https://github.com/OpenSees/OpenSees/blob/master/EXAMPLES/ExampleScripts/Example3.1.tcl",
+        "use": "Public portal-frame modelling benchmark example; not an analytical oracle"
+      },
+      {
+        "title": "Gere and Timoshenko, Mechanics of Materials; Clough and Penzien, Dynamics of Structures",
+        "url": null,
+        "use": "Force-flexibility integration, beam boundary conditions, modal generalized eigenproblem"
+      }
+    ],
+    "batch": "second_150",
+    "case_id": "184_mass_fixedfixed_rotary_chain_v4",
+    "model_sha256": "f979d7f2fa7cab0a0e459ce1654ddee82f8645ab68c1d3b9e8c68f2e986be28a",
+    "reference_source_sha256": "4736d758c26c4b124dcdce5079c195fdb918049f5e38449de09279d4234f29d4",
+    "reference_wrapper_sha256": "344814f8988ecf6abaeb5633fc08aaf9e4c546dd6db4343b5338b12a3fae1d1f"
+  },
+  "analytical_checks": [
+    {
+      "node_id": 53,
+      "dof": 3,
+      "value": 2.7949433866593626e-05,
+      "label": "Fixed-fixed bar center twist",
+      "formula": "TL/(4GJ)",
+      "result": "displacements"
+    },
+    {
+      "node_id": 11,
+      "dof": 3,
+      "value": -545.0,
+      "label": "Fixed-fixed bar support torque",
+      "formula": "-T/2",
+      "result": "reactions"
+    },
+    {
+      "node_id": 95,
+      "dof": 3,
+      "value": -545.0,
+      "label": "Fixed-fixed bar support torque",
+      "formula": "-T/2",
+      "result": "reactions"
+    },
+    {
+      "mode": 1,
+      "frequency_hz": 461.07689729259033,
+      "tolerance": 1e-06,
+      "formula": "sqrt(4k/Jm)*sin(r\u03c0/(2n))/(2\u03c0)",
+      "label": "Exact fixed-fixed discrete torsional frequency"
+    },
+    {
+      "mode": 2,
+      "frequency_hz": 914.2646410378377,
+      "tolerance": 1e-06,
+      "formula": "sqrt(4k/Jm)*sin(r\u03c0/(2n))/(2\u03c0)",
+      "label": "Exact fixed-fixed discrete torsional frequency"
+    },
+    {
+      "mode": 3,
+      "frequency_hz": 1351.8090632928809,
+      "tolerance": 1e-06,
+      "formula": "sqrt(4k/Jm)*sin(r\u03c0/(2n))/(2\u03c0)",
+      "label": "Exact fixed-fixed discrete torsional frequency"
+    }
+  ],
+  "analytical_reference_checks": [
+    {
+      "name": "analytical: Fixed-fixed bar center twist",
+      "passed": true,
+      "actual": 2.7949433866593632e-05,
+      "expected": 2.7949433866593626e-05,
+      "absolute_error": 6.776263578034403e-21,
+      "tolerance": 1.5589886773318725e-10,
+      "formula": "TL/(4GJ)",
+      "reference_kind": "continuum or exact discrete formula as labelled"
+    },
+    {
+      "name": "analytical: Fixed-fixed bar support torque",
+      "passed": true,
+      "actual": -545.0000000000003,
+      "expected": -545.0,
+      "absolute_error": 3.410605131648481e-13,
+      "tolerance": 0.00119,
+      "formula": "-T/2",
+      "reference_kind": "continuum or exact discrete formula as labelled"
+    },
+    {
+      "name": "analytical: Fixed-fixed bar support torque",
+      "passed": true,
+      "actual": -545.0000000000002,
+      "expected": -545.0,
+      "absolute_error": 2.2737367544323206e-13,
+      "tolerance": 0.00119,
+      "formula": "-T/2",
+      "reference_kind": "continuum or exact discrete formula as labelled"
+    },
+    {
+      "name": "analytical: Exact fixed-fixed discrete torsional frequency",
+      "passed": true,
+      "actual": 461.0768972925906,
+      "expected": 461.07689729259033,
+      "absolute_error": 2.8421709430404007e-13,
+      "tolerance": 0.00046107789729259033,
+      "formula": "sqrt(4k/Jm)*sin(r\u03c0/(2n))/(2\u03c0)",
+      "reference_kind": "continuum or exact discrete formula as labelled"
+    },
+    {
+      "name": "analytical: Exact fixed-fixed discrete torsional frequency",
+      "passed": true,
+      "actual": 914.2646410378378,
+      "expected": 914.2646410378377,
+      "absolute_error": 1.1368683772161603e-13,
+      "tolerance": 0.0009142656410378377,
+      "formula": "sqrt(4k/Jm)*sin(r\u03c0/(2n))/(2\u03c0)",
+      "reference_kind": "continuum or exact discrete formula as labelled"
+    },
+    {
+      "name": "analytical: Exact fixed-fixed discrete torsional frequency",
+      "passed": true,
+      "actual": 1351.8090632928815,
+      "expected": 1351.8090632928809,
+      "absolute_error": 6.821210263296962e-13,
+      "tolerance": 0.0013518100632928806,
+      "formula": "sqrt(4k/Jm)*sin(r\u03c0/(2n))/(2\u03c0)",
+      "reference_kind": "continuum or exact discrete formula as labelled"
+    }
+  ]
+}

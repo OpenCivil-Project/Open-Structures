@@ -123,7 +123,79 @@ def update_corotational_frame(R_r_old, e1_new):
             R_delta = rodrigues(axis * np.pi)
     else:
         axis = axis / axis_norm
-        angle = np.arccos(cos_a)
+                                                                               
+        angle = np.arctan2(axis_norm, cos_a)
         R_delta = rodrigues(axis * angle)
 
     return R_delta @ R_r_old
+
+def skew_batch(v):
+    """v: (N,3) -> (N,3,3), batched version of skew()."""
+    v = np.asarray(v, dtype=float)
+    N = v.shape[0]
+    S = np.zeros((N, 3, 3))
+    S[:, 0, 1] = -v[:, 2]; S[:, 0, 2] =  v[:, 1]
+    S[:, 1, 0] =  v[:, 2]; S[:, 1, 2] = -v[:, 0]
+    S[:, 2, 0] = -v[:, 1]; S[:, 2, 1] =  v[:, 0]
+    return S
+
+def rodrigues_batch(theta_vecs):
+    """
+    theta_vecs: (N,3) -> R: (N,3,3). Batched Rodrigues formula, identical
+    branch structure (small-angle series vs closed form) to rodrigues().
+    """
+    theta_vecs = np.asarray(theta_vecs, dtype=float)
+    N = theta_vecs.shape[0]
+    theta = np.linalg.norm(theta_vecs, axis=1)                
+    S = skew_batch(theta_vecs)                                   
+    S2 = np.einsum('nij,njk->nik', S, S)
+    eye = np.broadcast_to(np.eye(3), (N, 3, 3))
+
+    small = theta < 1e-10
+                                         
+    R_small = eye + S + 0.5 * S2
+
+    theta_safe = np.where(small, 1.0, theta)                                                       
+    A = np.sin(theta_safe) / theta_safe
+    B = (1.0 - np.cos(theta_safe)) / (theta_safe * theta_safe)
+    R_full = eye + A[:, None, None] * S + B[:, None, None] * S2
+
+    return np.where(small[:, None, None], R_small, R_full)
+
+def rotation_to_vector_batch(Rs):
+    """
+    Rs: (N,3,3) -> (N,3). Batched inverse-Rodrigues (log map), same three
+    branches (near-zero / near-pi / general) as rotation_to_vector(), with
+    per-row branch selection.
+    """
+    Rs = np.asarray(Rs, dtype=float)
+    N = Rs.shape[0]
+    tr = np.trace(Rs, axis1=1, axis2=2)                        
+    cos_theta = np.clip((tr - 1.0) / 2.0, -1.0, 1.0)
+    theta = np.arccos(cos_theta)                               
+
+    near_zero = theta < 1e-8
+    near_pi = (np.pi - theta) < 1e-6
+
+    v_zero = np.stack([
+        Rs[:, 2, 1] - Rs[:, 1, 2],
+        Rs[:, 0, 2] - Rs[:, 2, 0],
+        Rs[:, 1, 0] - Rs[:, 0, 1],
+    ], axis=1) / 2.0
+
+    B = (Rs + np.broadcast_to(np.eye(3), (N, 3, 3))) / 2.0
+    diagB = np.diagonal(B, axis1=1, axis2=2)                    
+    k = np.argmax(diagB, axis=1)                               
+    Bkk = diagB[np.arange(N), k]
+    axis_pi = B[np.arange(N), :, k]                             
+    denom = np.sqrt(np.maximum(Bkk, 1e-14))
+    axis_pi = axis_pi / denom[:, None]
+    v_pi = axis_pi * theta[:, None]
+
+    sin_theta_safe = np.where(near_zero | near_pi, 1.0, np.sin(theta))
+    S = (Rs - np.transpose(Rs, (0, 2, 1))) / (2.0 * sin_theta_safe[:, None, None])
+    v_gen = np.stack([S[:, 2, 1], S[:, 0, 2], S[:, 1, 0]], axis=1) * theta[:, None]
+
+    out = np.where(near_pi[:, None], v_pi, v_gen)
+    out = np.where(near_zero[:, None], v_zero, out)
+    return out

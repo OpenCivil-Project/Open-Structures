@@ -1,169 +1,83 @@
-"""
-auth/email_auth.py
-------------------
-Business logic for email/password authentication.
-Handles register, login, email verification, and password reset.
-All DB and email calls are wrapped so the dialog just calls simple methods.
-"""
+"""Email account actions backed by Firebase, preserving the dialog tuple API."""
 
-import logging
-from datetime import datetime, timezone, timedelta
-from typing import Tuple, Optional, Dict, Any
+from .firebase_client import FirebaseClient, FirebaseAuthError, EmailNotVerified
 
-import bcrypt
-from pymongo.errors import DuplicateKeyError
+_client = None
 
-from .db import (
-    create_user, get_user_by_email,
-    set_verify_code, verify_user,
-    set_reset_code, reset_password,
-    update_last_login, Database,
-)
-from .email_service import generate_code, send_verification_email, send_reset_email
+def _get_client():
+    global _client
+    if _client is None:
+        _client = FirebaseClient()
+    return _client
 
-logger = logging.getLogger(__name__)
+def _ok(data=None):
+    return True, "", data
 
-def _hash(password: str) -> str:
-    return bcrypt.hashpw(password.encode(), bcrypt.gensalt()).decode()
+def _err(message, data=None):
+    return False, message, data
 
-def _check(password: str, hashed: str) -> bool:
-    return bcrypt.checkpw(password.encode(), hashed.encode())
+def _user_info(result, *, pending=False):
+    info = dict(result["user"])
+    info["session"] = dict(result["session"])
+    if pending:
+        info["pending_verification"] = True
+    return info
 
-def _ok(data: Any = None)  -> Tuple[bool, str, Any]:
-    return True,  "",      data
-
-def _err(msg: str)         -> Tuple[bool, str, None]:
-    return False, msg,     None
-
-def register(name: str, email: str,
-             password: str) -> Tuple[bool, str, None]:
-    """
-    Create a new account and send a verification email.
-    Returns (success, error_message, None).
-    """
-                      
-    if len(password) < 8:
-        return _err("Password must be at least 8 characters.")
-    if "@" not in email:
-        return _err("Please enter a valid email address.")
-
+def register(name, email, password):
+    """Create an account and send a verification link, without authenticating it."""
+    client = _get_client()
     try:
-        Database.connect()
-    except Exception:
-        return _err("Cannot connect to database. Check your internet connection.")
+        result = client.sign_up(name, email, password)
+        pending = _user_info(result, pending=True)
+        try:
+            client.send_verification(result["session"]["access_token"])
+        except FirebaseAuthError:
+            return _err(
+                "Your account was created, but the verification email could not be sent. "
+                "Use Resend on the verification screen, or sign in again to resend the link.",
+                pending,
+            )
+        return _ok(pending)
+    except FirebaseAuthError as exc:
+        return _err(exc.message)
 
-    existing = get_user_by_email(email)
-    if existing:
-        if existing.get("provider") == "google":
-            return _err("This email is linked to a Google account. Use Google login.")
-        return _err("An account with this email already exists.")
-
+def login(email, password):
+    """Only verified Firebase accounts become authenticated desktop sessions."""
     try:
-        pw_hash = _hash(password)
-        create_user(name, email, pw_hash, provider="email")
+        return _ok(_user_info(_get_client().sign_in(email, password)))
+    except EmailNotVerified as exc:
+        pending = None
+        if exc.user is not None and exc.pending_session is not None:
+            pending = _user_info({"user": exc.user, "session": exc.pending_session}, pending=True)
+        return _err(exc.message, pending)
+    except FirebaseAuthError as exc:
+        return _err(exc.message)
 
-        code = generate_code(6)
-        set_verify_code(email, code)
-        send_verification_email(email, name, code)
-
-        logger.info("Registered new user: %s", email)
-        return _ok()
-
-    except DuplicateKeyError:
-        return _err("An account with this email already exists.")
-    except Exception as exc:
-        logger.error("Registration error: %s", exc)
-        return _err(f"Registration failed: {exc}")
-
-def login(email: str, password: str) -> Tuple[bool, str, Optional[Dict]]:
-    """
-    Verify credentials and return user info dict on success.
-    Returns (success, error_message, user_info_or_None).
-    """
+def resend_verification(id_token):
     try:
-        Database.connect()
-    except Exception:
-        return _err("Cannot connect to database. Check your internet connection.")
+        return _ok(_get_client().send_verification(id_token))
+    except FirebaseAuthError as exc:
+        return _err(exc.message)
 
-    user = get_user_by_email(email)
-    if not user:
-        return _err("No account found with this email.")
-
-    if user.get("provider") == "google":
-        return _err("This email is linked to a Google account. Use Google login.")
-
-    if not _check(password, user.get("password_hash", "")):
-        return _err("Incorrect password.")
-
-    if not user.get("verified"):
-        return _err("Please verify your email first. Check your inbox.")
-
-    update_last_login(email)
-
-    user_info = {
-        "name":     user["name"],
-        "email":    user["email"],
-        "picture":  user.get("picture", ""),
-        "provider": "email",
-    }
-    return _ok(user_info)
-
-def confirm_verification(email: str,
-                         code: str) -> Tuple[bool, str, None]:
-    """Check the 6-digit code and mark account as verified."""
+def check_verification(id_token, refresh_token=None):
+    """Poll the server; refresh after verification so token claims are current."""
+    client = _get_client()
     try:
-        Database.connect()
-    except Exception:
-        return _err("Cannot connect to database.")
+        user = client.lookup(id_token, require_verified=False)
+        if not user["email_verified"]:
+            return _err("Please open the verification link in your inbox, then check again.")
+        if refresh_token:
+            result = client.refresh(refresh_token)
+            if result["user"]["uid"] != user["uid"]:
+                return _err("This session is no longer valid. Please sign in again.")
+            return _ok(_user_info(result))
+                                                                                  
+        return _err("Your email is verified. Please sign in again to continue.")
+    except FirebaseAuthError as exc:
+        return _err(exc.message)
 
-    success = verify_user(email, code)
-    if not success:
-        return _err("Invalid or expired code. Please try again.")
-
-    logger.info("Email verified: %s", email)
-    return _ok()
-
-def send_forgot_password(email: str) -> Tuple[bool, str, None]:
-    """Generate a reset code and email it to the user."""
+def send_forgot_password(email):
     try:
-        Database.connect()
-    except Exception:
-        return _err("Cannot connect to database.")
-
-    user = get_user_by_email(email)
-    if not user:
-                                                                
-        return _ok()
-
-    if user.get("provider") == "google":
-        return _err("This account uses Google login. No password to reset.")
-
-    code    = generate_code(6)
-    expires = datetime.now(timezone.utc) + timedelta(minutes=15)
-    set_reset_code(email, code, expires)
-
-    try:
-        send_reset_email(email, user.get("name", ""), code)
-    except Exception as exc:
-        logger.error("Failed to send reset email: %s", exc)
-        return _err("Failed to send email. Please try again.")
-
-    return _ok()
-
-def confirm_reset(email: str, code: str,
-                  new_password: str) -> Tuple[bool, str, None]:
-    """Verify the reset code and set the new password."""
-    if len(new_password) < 8:
-        return _err("Password must be at least 8 characters.")
-
-    try:
-        Database.connect()
-    except Exception:
-        return _err("Cannot connect to database.")
-
-    success = reset_password(email, code, _hash(new_password))
-    if not success:
-        return _err("Invalid or expired reset code. Please request a new one.")
-
-    logger.info("Password reset successful: %s", email)
-    return _ok()
+        return _ok(_get_client().send_password_reset(email))
+    except FirebaseAuthError as exc:
+        return _err(exc.message)

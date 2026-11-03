@@ -115,6 +115,12 @@ class ReplicateDialog(QDialog):
             QMessageBox.warning(self, "Invalid Input", "Number must be at least 1.")
             return False
 
+        if dx == 0 and dy == 0 and dz == 0 and not self.chk_delete.isChecked():
+            QMessageBox.warning(self, "Invalid Input",
+                                "dx, dy and dz are all zero, so the copies would land "
+                                "on the originals.")
+            return False
+
         self.dx = dx
         self.dy = dy
         self.dz = dz

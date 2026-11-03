@@ -1,0 +1,3167 @@
+{
+    "info": {
+        "name": "New Project",
+        "units": "kN, mm, C",
+        "active_dofs": [
+            true,
+            true,
+            true,
+            true,
+            true,
+            true
+        ]
+    },
+    "graphics": {
+        "background_color": [
+            1.0,
+            1.0,
+            1.0,
+            1.0
+        ],
+        "antialias": true,
+        "node_size": 6,
+        "node_color": [
+            1.0,
+            1.0,
+            0.0,
+            1.0
+        ],
+        "line_width": 2.0,
+        "extrude_opacity": 0.72,
+        "show_edges": true,
+        "edge_width": 1.5,
+        "edge_color": [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+        ],
+        "slab_opacity": 0.4,
+        "edge_opacity": 0.0,
+        "view_extruded": true,
+        "show_slabs": true,
+        "show_joints": true,
+        "show_supports": true,
+        "show_loads": true,
+        "show_local_axes": false,
+        "show_constraints": true,
+        "show_releases": true,
+        "load_type_filter": "both",
+        "visible_load_patterns": [
+            "DEAD",
+            "EQX",
+            "EQY"
+        ],
+        "deflection_scale": 3902.3,
+        "anim_speed": 1.0,
+        "shadow_active": true,
+        "shadow_color": [
+            0.7,
+            0.7,
+            0.7,
+            0.5
+        ]
+    },
+    "load_cases": [
+        {
+            "name": "DEAD",
+            "type": "Linear Static",
+            "loads": [
+                [
+                    "DEAD",
+                    1.0
+                ]
+            ],
+            "mass_source": "Default",
+            "geom_nonlin": "None",
+            "nl_params": {
+                "max_total_steps": 200,
+                "max_null_steps": 50,
+                "use_event_stepping": true,
+                "event_lumping_tol": 0.01,
+                "max_events_per_step": 24,
+                "use_iteration": true,
+                "max_const_stiff_iter": 10,
+                "max_nr_iter": 40,
+                "iter_conv_tol": 0.0001,
+                "use_line_search": false,
+                "tf_max_iter": 10,
+                "tf_conv_tol": 0.01,
+                "tf_accel_factor": 1.0,
+                "continue_if_no_converge": [
+                    [
+                        [
+                            false
+                        ]
+                    ]
+                ],
+                "use_fd_tangent": false,
+                "corot_type": "Commercial Compatibility"
+            },
+            "num_modes": 12,
+            "rsa_loads": [],
+            "modal_comb": "SRSS",
+            "dir_comb": "SRSS",
+            "modal_damping": 0.05,
+            "ltha_damping": 0.05,
+            "ltha_loads": []
+        },
+        {
+            "name": "MODAL",
+            "type": "Modal",
+            "loads": [],
+            "mass_source": "MSSSRC1",
+            "geom_nonlin": "None",
+            "nl_params": {
+                "max_total_steps": 200,
+                "max_null_steps": 50,
+                "use_event_stepping": true,
+                "event_lumping_tol": 0.01,
+                "max_events_per_step": 24,
+                "use_iteration": true,
+                "max_const_stiff_iter": 10,
+                "max_nr_iter": 40,
+                "iter_conv_tol": 0.0001,
+                "use_line_search": false,
+                "tf_max_iter": 10,
+                "tf_conv_tol": 0.01,
+                "tf_accel_factor": 1.0,
+                "continue_if_no_converge": [
+                    [
+                        [
+                            false
+                        ]
+                    ]
+                ],
+                "use_fd_tangent": false,
+                "corot_type": "Commercial Compatibility"
+            },
+            "num_modes": 50,
+            "rsa_loads": [],
+            "modal_comb": "SRSS",
+            "dir_comb": "SRSS",
+            "modal_damping": 0.05,
+            "ltha_damping": 0.05,
+            "ltha_loads": []
+        },
+        {
+            "name": "RSA_X_Y",
+            "type": "Response Spectrum",
+            "loads": [],
+            "mass_source": "Default",
+            "geom_nonlin": "None",
+            "nl_params": {
+                "max_total_steps": 200,
+                "max_null_steps": 50,
+                "use_event_stepping": true,
+                "event_lumping_tol": 0.01,
+                "max_events_per_step": 24,
+                "use_iteration": true,
+                "max_const_stiff_iter": 10,
+                "max_nr_iter": 40,
+                "iter_conv_tol": 0.0001,
+                "use_line_search": false,
+                "tf_max_iter": 10,
+                "tf_conv_tol": 0.01,
+                "tf_accel_factor": 1.0,
+                "continue_if_no_converge": [
+                    [
+                        [
+                            false
+                        ]
+                    ]
+                ],
+                "use_fd_tangent": false,
+                "corot_type": "Commercial Compatibility"
+            },
+            "num_modes": 12,
+            "rsa_loads": [
+                [
+                    "U1",
+                    "FUNC1",
+                    9.81
+                ],
+                [
+                    "U1",
+                    "FUNC1",
+                    9.81
+                ]
+            ],
+            "modal_comb": "CQC",
+            "dir_comb": "SRSS",
+            "modal_damping": 0.05,
+            "ltha_damping": 0.05,
+            "ltha_loads": []
+        },
+        {
+            "name": "CASE2",
+            "type": "Buckling",
+            "loads": [
+                [
+                    "DEAD",
+                    1.0
+                ]
+            ],
+            "mass_source": "MSSSRC1",
+            "geom_nonlin": "None",
+            "nl_params": {
+                "max_total_steps": 200,
+                "max_null_steps": 50,
+                "use_event_stepping": true,
+                "event_lumping_tol": 0.01,
+                "max_events_per_step": 24,
+                "use_iteration": true,
+                "max_const_stiff_iter": 10,
+                "max_nr_iter": 40,
+                "iter_conv_tol": 0.0001,
+                "use_line_search": false,
+                "tf_max_iter": 10,
+                "tf_conv_tol": 0.01,
+                "tf_accel_factor": 1.0,
+                "continue_if_no_converge": [
+                    [
+                        [
+                            false
+                        ]
+                    ]
+                ],
+                "use_fd_tangent": false,
+                "corot_type": "Commercial Compatibility"
+            },
+            "num_modes": 12,
+            "rsa_loads": [],
+            "modal_comb": "SRSS",
+            "dir_comb": "SRSS",
+            "modal_damping": 0.05,
+            "ltha_damping": 0.05,
+            "ltha_loads": []
+        },
+        {
+            "name": "LIVE",
+            "type": "Linear Static",
+            "loads": [
+                [
+                    "LIVE",
+                    1.0
+                ]
+            ],
+            "mass_source": "Default",
+            "geom_nonlin": "None",
+            "nl_params": {
+                "max_total_steps": 200,
+                "max_null_steps": 50,
+                "use_event_stepping": true,
+                "event_lumping_tol": 0.01,
+                "max_events_per_step": 24,
+                "use_iteration": true,
+                "max_const_stiff_iter": 10,
+                "max_nr_iter": 40,
+                "iter_conv_tol": 0.0001,
+                "use_line_search": false,
+                "tf_max_iter": 10,
+                "tf_conv_tol": 0.01,
+                "tf_accel_factor": 1.0,
+                "continue_if_no_converge": [
+                    [
+                        [
+                            false
+                        ]
+                    ]
+                ],
+                "use_fd_tangent": false,
+                "corot_type": "Commercial Compatibility"
+            },
+            "num_modes": 12,
+            "rsa_loads": [],
+            "modal_comb": "SRSS",
+            "dir_comb": "SRSS",
+            "modal_damping": 0.05,
+            "ltha_damping": 0.05,
+            "ltha_loads": []
+        },
+        {
+            "name": "LIVE2",
+            "type": "Linear Static",
+            "loads": [
+                [
+                    "LIVE2",
+                    1.0
+                ]
+            ],
+            "mass_source": "Default",
+            "geom_nonlin": "None",
+            "nl_params": {
+                "max_total_steps": 200,
+                "max_null_steps": 50,
+                "use_event_stepping": true,
+                "event_lumping_tol": 0.01,
+                "max_events_per_step": 24,
+                "use_iteration": true,
+                "max_const_stiff_iter": 10,
+                "max_nr_iter": 40,
+                "iter_conv_tol": 0.0001,
+                "use_line_search": false,
+                "tf_max_iter": 10,
+                "tf_conv_tol": 0.01,
+                "tf_accel_factor": 1.0,
+                "continue_if_no_converge": [
+                    [
+                        [
+                            false
+                        ]
+                    ]
+                ],
+                "use_fd_tangent": false,
+                "corot_type": "Commercial Compatibility"
+            },
+            "num_modes": 12,
+            "rsa_loads": [],
+            "modal_comb": "SRSS",
+            "dir_comb": "SRSS",
+            "modal_damping": 0.05,
+            "ltha_damping": 0.05,
+            "ltha_loads": []
+        },
+        {
+            "name": "EQX",
+            "type": "Linear Static",
+            "loads": [
+                [
+                    "EQX",
+                    1.0
+                ]
+            ],
+            "mass_source": "Default",
+            "geom_nonlin": "None",
+            "nl_params": {
+                "max_total_steps": 200,
+                "max_null_steps": 50,
+                "use_event_stepping": true,
+                "event_lumping_tol": 0.01,
+                "max_events_per_step": 24,
+                "use_iteration": true,
+                "max_const_stiff_iter": 10,
+                "max_nr_iter": 40,
+                "iter_conv_tol": 0.0001,
+                "use_line_search": false,
+                "tf_max_iter": 10,
+                "tf_conv_tol": 0.01,
+                "tf_accel_factor": 1.0,
+                "continue_if_no_converge": [
+                    [
+                        [
+                            false
+                        ]
+                    ]
+                ],
+                "use_fd_tangent": false,
+                "corot_type": "Commercial Compatibility"
+            },
+            "num_modes": 12,
+            "rsa_loads": [],
+            "modal_comb": "SRSS",
+            "dir_comb": "SRSS",
+            "modal_damping": 0.05,
+            "ltha_damping": 0.05,
+            "ltha_loads": []
+        },
+        {
+            "name": "EQY",
+            "type": "Linear Static",
+            "loads": [
+                [
+                    "EQY",
+                    1.0
+                ]
+            ],
+            "mass_source": "Default",
+            "geom_nonlin": "None",
+            "nl_params": {
+                "max_total_steps": 200,
+                "max_null_steps": 50,
+                "use_event_stepping": true,
+                "event_lumping_tol": 0.01,
+                "max_events_per_step": 24,
+                "use_iteration": true,
+                "max_const_stiff_iter": 10,
+                "max_nr_iter": 40,
+                "iter_conv_tol": 0.0001,
+                "use_line_search": false,
+                "tf_max_iter": 10,
+                "tf_conv_tol": 0.01,
+                "tf_accel_factor": 1.0,
+                "continue_if_no_converge": [
+                    [
+                        [
+                            false
+                        ]
+                    ]
+                ],
+                "use_fd_tangent": false,
+                "corot_type": "Commercial Compatibility"
+            },
+            "num_modes": 12,
+            "rsa_loads": [],
+            "modal_comb": "SRSS",
+            "dir_comb": "SRSS",
+            "modal_damping": 0.05,
+            "ltha_damping": 0.05,
+            "ltha_loads": []
+        }
+    ],
+    "grid": {
+        "x_lines": [
+            {
+                "id": "1",
+                "ord": 0.0,
+                "visible": true,
+                "bubble": "End"
+            },
+            {
+                "id": "2",
+                "ord": 6.0,
+                "visible": true,
+                "bubble": "End"
+            },
+            {
+                "id": "3",
+                "ord": 12.0,
+                "visible": true,
+                "bubble": "End"
+            },
+            {
+                "id": "4",
+                "ord": 18.0,
+                "visible": true,
+                "bubble": "End"
+            },
+            {
+                "id": "5",
+                "ord": 24.0,
+                "visible": true,
+                "bubble": "End"
+            }
+        ],
+        "y_lines": [
+            {
+                "id": "1",
+                "ord": 0.0,
+                "visible": true,
+                "bubble": "End"
+            },
+            {
+                "id": "2",
+                "ord": 5.0,
+                "visible": true,
+                "bubble": "End"
+            },
+            {
+                "id": "3",
+                "ord": 10.0,
+                "visible": true,
+                "bubble": "End"
+            },
+            {
+                "id": "4",
+                "ord": 15.0,
+                "visible": true,
+                "bubble": "End"
+            }
+        ],
+        "z_lines": [
+            {
+                "id": "Z1",
+                "ord": 0.0,
+                "visible": true,
+                "bubble": "End"
+            },
+            {
+                "id": "Z3",
+                "ord": 3.0,
+                "visible": true,
+                "bubble": "End"
+            },
+            {
+                "id": "3",
+                "ord": 6.0,
+                "visible": true,
+                "bubble": "End"
+            },
+            {
+                "id": "4",
+                "ord": 9.0,
+                "visible": true,
+                "bubble": "End"
+            },
+            {
+                "id": "5",
+                "ord": 12.0,
+                "visible": true,
+                "bubble": "End"
+            }
+        ],
+        "bubble_size": 1.25,
+        "bubble_alpha": 1.0
+    },
+    "materials": [
+        {
+            "name": "c30",
+            "E": 30000000000.0,
+            "nu": 0.2,
+            "G": 12500000000.0,
+            "rho": 24000.0,
+            "type": "concrete",
+            "fy": 30000000.0,
+            "fu": 0.0
+        }
+    ],
+    "sections": [
+        {
+            "name": "b30x60",
+            "mat_name": "c30",
+            "color": [
+                0.7490196228027344,
+                0.6666666865348816,
+                0.1921568661928177,
+                1.0
+            ],
+            "modifiers": {
+                "A": 1.0,
+                "As2": 1.0,
+                "As3": 1.0,
+                "J": 1.0,
+                "I2": 1.0,
+                "I3": 1.0,
+                "Mass": 1.0,
+                "Weight": 1.0
+            },
+            "properties": {
+                "A": 0.18,
+                "J": 0.0037078593749999994,
+                "I33": 0.0013499999999999996,
+                "I22": 0.0053999999999999986,
+                "As2": 0.15,
+                "As3": 0.15,
+                "theta_p": 0.0
+            },
+            "type": "rectangular",
+            "b": 0.3,
+            "h": 0.6
+        },
+        {
+            "name": "C",
+            "mat_name": "c30",
+            "color": [
+                0.18039216101169586,
+                0.7019608020782471,
+                0.7490196228027344,
+                1.0
+            ],
+            "modifiers": {
+                "A": 1.0,
+                "As2": 1.0,
+                "As3": 1.0,
+                "J": 1.0,
+                "I2": 1.0,
+                "I3": 1.0,
+                "Mass": 1.0,
+                "Weight": 1.0
+            },
+            "properties": {
+                "A": 0.18,
+                "J": 0.0037078593749999994,
+                "I33": 0.0013499999999999996,
+                "I22": 0.0053999999999999986,
+                "As2": 0.15,
+                "As3": 0.15,
+                "theta_p": 0.0
+            },
+            "type": "rectangular",
+            "b": 0.3,
+            "h": 0.6
+        }
+    ],
+    "tendon_sections": [],
+    "cable_sections": [],
+    "tendons": [],
+    "cables": [],
+    "nodes": [
+        {
+            "id": 1,
+            "x": 0.0,
+            "y": 0.0,
+            "z": 3.0,
+            "restraints": [
+                false,
+                false,
+                false,
+                false,
+                false,
+                false
+            ],
+            "diaphragm": null
+        },
+        {
+            "id": 2,
+            "x": 6.0,
+            "y": 0.0,
+            "z": 3.0,
+            "restraints": [
+                false,
+                false,
+                false,
+                false,
+                false,
+                false
+            ],
+            "diaphragm": null
+        },
+        {
+            "id": 3,
+            "x": 12.0,
+            "y": 0.0,
+            "z": 3.0,
+            "restraints": [
+                false,
+                false,
+                false,
+                false,
+                false,
+                false
+            ],
+            "diaphragm": null
+        },
+        {
+            "id": 4,
+            "x": 18.0,
+            "y": 0.0,
+            "z": 3.0,
+            "restraints": [
+                false,
+                false,
+                false,
+                false,
+                false,
+                false
+            ],
+            "diaphragm": null
+        },
+        {
+            "id": 5,
+            "x": 24.0,
+            "y": 0.0,
+            "z": 3.0,
+            "restraints": [
+                false,
+                false,
+                false,
+                false,
+                false,
+                false
+            ],
+            "diaphragm": null
+        },
+        {
+            "id": 6,
+            "x": 0.0,
+            "y": 5.0,
+            "z": 3.0,
+            "restraints": [
+                false,
+                false,
+                false,
+                false,
+                false,
+                false
+            ],
+            "diaphragm": null
+        },
+        {
+            "id": 7,
+            "x": 6.0,
+            "y": 5.0,
+            "z": 3.0,
+            "restraints": [
+                false,
+                false,
+                false,
+                false,
+                false,
+                false
+            ],
+            "diaphragm": null
+        },
+        {
+            "id": 8,
+            "x": 12.0,
+            "y": 5.0,
+            "z": 3.0,
+            "restraints": [
+                false,
+                false,
+                false,
+                false,
+                false,
+                false
+            ],
+            "diaphragm": null
+        },
+        {
+            "id": 9,
+            "x": 18.0,
+            "y": 5.0,
+            "z": 3.0,
+            "restraints": [
+                false,
+                false,
+                false,
+                false,
+                false,
+                false
+            ],
+            "diaphragm": null
+        },
+        {
+            "id": 10,
+            "x": 24.0,
+            "y": 5.0,
+            "z": 3.0,
+            "restraints": [
+                false,
+                false,
+                false,
+                false,
+                false,
+                false
+            ],
+            "diaphragm": null
+        },
+        {
+            "id": 11,
+            "x": 0.0,
+            "y": 10.0,
+            "z": 3.0,
+            "restraints": [
+                false,
+                false,
+                false,
+                false,
+                false,
+                false
+            ],
+            "diaphragm": null
+        },
+        {
+            "id": 12,
+            "x": 6.0,
+            "y": 10.0,
+            "z": 3.0,
+            "restraints": [
+                false,
+                false,
+                false,
+                false,
+                false,
+                false
+            ],
+            "diaphragm": null
+        },
+        {
+            "id": 13,
+            "x": 12.0,
+            "y": 10.0,
+            "z": 3.0,
+            "restraints": [
+                false,
+                false,
+                false,
+                false,
+                false,
+                false
+            ],
+            "diaphragm": null
+        },
+        {
+            "id": 14,
+            "x": 18.0,
+            "y": 10.0,
+            "z": 3.0,
+            "restraints": [
+                false,
+                false,
+                false,
+                false,
+                false,
+                false
+            ],
+            "diaphragm": null
+        },
+        {
+            "id": 15,
+            "x": 24.0,
+            "y": 10.0,
+            "z": 3.0,
+            "restraints": [
+                false,
+                false,
+                false,
+                false,
+                false,
+                false
+            ],
+            "diaphragm": null
+        },
+        {
+            "id": 16,
+            "x": 0.0,
+            "y": 15.0,
+            "z": 3.0,
+            "restraints": [
+                false,
+                false,
+                false,
+                false,
+                false,
+                false
+            ],
+            "diaphragm": null
+        },
+        {
+            "id": 17,
+            "x": 6.0,
+            "y": 15.0,
+            "z": 3.0,
+            "restraints": [
+                false,
+                false,
+                false,
+                false,
+                false,
+                false
+            ],
+            "diaphragm": null
+        },
+        {
+            "id": 18,
+            "x": 12.0,
+            "y": 15.0,
+            "z": 3.0,
+            "restraints": [
+                false,
+                false,
+                false,
+                false,
+                false,
+                false
+            ],
+            "diaphragm": null
+        },
+        {
+            "id": 19,
+            "x": 18.0,
+            "y": 15.0,
+            "z": 3.0,
+            "restraints": [
+                false,
+                false,
+                false,
+                false,
+                false,
+                false
+            ],
+            "diaphragm": null
+        },
+        {
+            "id": 20,
+            "x": 24.0,
+            "y": 15.0,
+            "z": 3.0,
+            "restraints": [
+                false,
+                false,
+                false,
+                false,
+                false,
+                false
+            ],
+            "diaphragm": null
+        },
+        {
+            "id": 21,
+            "x": 0.0,
+            "y": 0.0,
+            "z": 0.0,
+            "restraints": [
+                true,
+                true,
+                true,
+                true,
+                true,
+                true
+            ],
+            "diaphragm": null
+        },
+        {
+            "id": 22,
+            "x": 6.0,
+            "y": 0.0,
+            "z": 0.0,
+            "restraints": [
+                true,
+                true,
+                true,
+                true,
+                true,
+                true
+            ],
+            "diaphragm": null
+        },
+        {
+            "id": 23,
+            "x": 12.0,
+            "y": 0.0,
+            "z": 0.0,
+            "restraints": [
+                true,
+                true,
+                true,
+                true,
+                true,
+                true
+            ],
+            "diaphragm": null
+        },
+        {
+            "id": 24,
+            "x": 18.0,
+            "y": 0.0,
+            "z": 0.0,
+            "restraints": [
+                true,
+                true,
+                true,
+                true,
+                true,
+                true
+            ],
+            "diaphragm": null
+        },
+        {
+            "id": 25,
+            "x": 24.0,
+            "y": 0.0,
+            "z": 0.0,
+            "restraints": [
+                true,
+                true,
+                true,
+                true,
+                true,
+                true
+            ],
+            "diaphragm": null
+        },
+        {
+            "id": 26,
+            "x": 0.0,
+            "y": 5.0,
+            "z": 0.0,
+            "restraints": [
+                true,
+                true,
+                true,
+                true,
+                true,
+                true
+            ],
+            "diaphragm": null
+        },
+        {
+            "id": 27,
+            "x": 6.0,
+            "y": 5.0,
+            "z": 0.0,
+            "restraints": [
+                true,
+                true,
+                true,
+                true,
+                true,
+                true
+            ],
+            "diaphragm": null
+        },
+        {
+            "id": 28,
+            "x": 12.0,
+            "y": 5.0,
+            "z": 0.0,
+            "restraints": [
+                true,
+                true,
+                true,
+                true,
+                true,
+                true
+            ],
+            "diaphragm": null
+        },
+        {
+            "id": 29,
+            "x": 18.0,
+            "y": 5.0,
+            "z": 0.0,
+            "restraints": [
+                true,
+                true,
+                true,
+                true,
+                true,
+                true
+            ],
+            "diaphragm": null
+        },
+        {
+            "id": 30,
+            "x": 24.0,
+            "y": 5.0,
+            "z": 0.0,
+            "restraints": [
+                true,
+                true,
+                true,
+                true,
+                true,
+                true
+            ],
+            "diaphragm": null
+        },
+        {
+            "id": 31,
+            "x": 0.0,
+            "y": 10.0,
+            "z": 0.0,
+            "restraints": [
+                true,
+                true,
+                true,
+                true,
+                true,
+                true
+            ],
+            "diaphragm": null
+        },
+        {
+            "id": 32,
+            "x": 6.0,
+            "y": 10.0,
+            "z": 0.0,
+            "restraints": [
+                true,
+                true,
+                true,
+                true,
+                true,
+                true
+            ],
+            "diaphragm": null
+        },
+        {
+            "id": 33,
+            "x": 12.0,
+            "y": 10.0,
+            "z": 0.0,
+            "restraints": [
+                true,
+                true,
+                true,
+                true,
+                true,
+                true
+            ],
+            "diaphragm": null
+        },
+        {
+            "id": 34,
+            "x": 18.0,
+            "y": 10.0,
+            "z": 0.0,
+            "restraints": [
+                true,
+                true,
+                true,
+                true,
+                true,
+                true
+            ],
+            "diaphragm": null
+        },
+        {
+            "id": 35,
+            "x": 24.0,
+            "y": 10.0,
+            "z": 0.0,
+            "restraints": [
+                true,
+                true,
+                true,
+                true,
+                true,
+                true
+            ],
+            "diaphragm": null
+        },
+        {
+            "id": 36,
+            "x": 0.0,
+            "y": 15.0,
+            "z": 0.0,
+            "restraints": [
+                true,
+                true,
+                true,
+                true,
+                true,
+                true
+            ],
+            "diaphragm": null
+        },
+        {
+            "id": 37,
+            "x": 6.0,
+            "y": 15.0,
+            "z": 0.0,
+            "restraints": [
+                true,
+                true,
+                true,
+                true,
+                true,
+                true
+            ],
+            "diaphragm": null
+        },
+        {
+            "id": 38,
+            "x": 12.0,
+            "y": 15.0,
+            "z": 0.0,
+            "restraints": [
+                true,
+                true,
+                true,
+                true,
+                true,
+                true
+            ],
+            "diaphragm": null
+        },
+        {
+            "id": 39,
+            "x": 18.0,
+            "y": 15.0,
+            "z": 0.0,
+            "restraints": [
+                true,
+                true,
+                true,
+                true,
+                true,
+                true
+            ],
+            "diaphragm": null
+        },
+        {
+            "id": 40,
+            "x": 24.0,
+            "y": 15.0,
+            "z": 0.0,
+            "restraints": [
+                true,
+                true,
+                true,
+                true,
+                true,
+                true
+            ],
+            "diaphragm": null
+        }
+    ],
+    "elements": [
+        {
+            "id": 1,
+            "n1_id": 1,
+            "n2_id": 2,
+            "sec_name": "b30x60",
+            "beta": 0.0,
+            "rel_i": [
+                false,
+                false,
+                false,
+                false,
+                false,
+                false
+            ],
+            "rel_j": [
+                false,
+                false,
+                false,
+                false,
+                false,
+                false
+            ],
+            "cardinal": 10,
+            "off_i": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "off_j": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "end_off_i": 0.0,
+            "end_off_j": 0.0,
+            "rz_factor": 0.0
+        },
+        {
+            "id": 2,
+            "n1_id": 2,
+            "n2_id": 3,
+            "sec_name": "b30x60",
+            "beta": 0.0,
+            "rel_i": [
+                false,
+                false,
+                false,
+                false,
+                false,
+                false
+            ],
+            "rel_j": [
+                false,
+                false,
+                false,
+                false,
+                false,
+                false
+            ],
+            "cardinal": 10,
+            "off_i": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "off_j": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "end_off_i": 0.0,
+            "end_off_j": 0.0,
+            "rz_factor": 0.0
+        },
+        {
+            "id": 3,
+            "n1_id": 3,
+            "n2_id": 4,
+            "sec_name": "b30x60",
+            "beta": 0.0,
+            "rel_i": [
+                false,
+                false,
+                false,
+                false,
+                false,
+                false
+            ],
+            "rel_j": [
+                false,
+                false,
+                false,
+                false,
+                false,
+                false
+            ],
+            "cardinal": 10,
+            "off_i": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "off_j": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "end_off_i": 0.0,
+            "end_off_j": 0.0,
+            "rz_factor": 0.0
+        },
+        {
+            "id": 4,
+            "n1_id": 4,
+            "n2_id": 5,
+            "sec_name": "b30x60",
+            "beta": 0.0,
+            "rel_i": [
+                false,
+                false,
+                false,
+                false,
+                false,
+                false
+            ],
+            "rel_j": [
+                false,
+                false,
+                false,
+                false,
+                false,
+                false
+            ],
+            "cardinal": 10,
+            "off_i": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "off_j": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "end_off_i": 0.0,
+            "end_off_j": 0.0,
+            "rz_factor": 0.0
+        },
+        {
+            "id": 5,
+            "n1_id": 6,
+            "n2_id": 7,
+            "sec_name": "b30x60",
+            "beta": 0.0,
+            "rel_i": [
+                false,
+                false,
+                false,
+                false,
+                false,
+                false
+            ],
+            "rel_j": [
+                false,
+                false,
+                false,
+                false,
+                false,
+                false
+            ],
+            "cardinal": 10,
+            "off_i": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "off_j": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "end_off_i": 0.0,
+            "end_off_j": 0.0,
+            "rz_factor": 0.0
+        },
+        {
+            "id": 6,
+            "n1_id": 7,
+            "n2_id": 8,
+            "sec_name": "b30x60",
+            "beta": 0.0,
+            "rel_i": [
+                false,
+                false,
+                false,
+                false,
+                false,
+                false
+            ],
+            "rel_j": [
+                false,
+                false,
+                false,
+                false,
+                false,
+                false
+            ],
+            "cardinal": 10,
+            "off_i": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "off_j": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "end_off_i": 0.0,
+            "end_off_j": 0.0,
+            "rz_factor": 0.0
+        },
+        {
+            "id": 7,
+            "n1_id": 8,
+            "n2_id": 9,
+            "sec_name": "b30x60",
+            "beta": 0.0,
+            "rel_i": [
+                false,
+                false,
+                false,
+                false,
+                false,
+                false
+            ],
+            "rel_j": [
+                false,
+                false,
+                false,
+                false,
+                false,
+                false
+            ],
+            "cardinal": 10,
+            "off_i": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "off_j": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "end_off_i": 0.0,
+            "end_off_j": 0.0,
+            "rz_factor": 0.0
+        },
+        {
+            "id": 8,
+            "n1_id": 9,
+            "n2_id": 10,
+            "sec_name": "b30x60",
+            "beta": 0.0,
+            "rel_i": [
+                false,
+                false,
+                false,
+                false,
+                false,
+                false
+            ],
+            "rel_j": [
+                false,
+                false,
+                false,
+                false,
+                false,
+                false
+            ],
+            "cardinal": 10,
+            "off_i": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "off_j": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "end_off_i": 0.0,
+            "end_off_j": 0.0,
+            "rz_factor": 0.0
+        },
+        {
+            "id": 9,
+            "n1_id": 11,
+            "n2_id": 12,
+            "sec_name": "b30x60",
+            "beta": 0.0,
+            "rel_i": [
+                false,
+                false,
+                false,
+                false,
+                false,
+                false
+            ],
+            "rel_j": [
+                false,
+                false,
+                false,
+                false,
+                false,
+                false
+            ],
+            "cardinal": 10,
+            "off_i": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "off_j": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "end_off_i": 0.0,
+            "end_off_j": 0.0,
+            "rz_factor": 0.0
+        },
+        {
+            "id": 10,
+            "n1_id": 12,
+            "n2_id": 13,
+            "sec_name": "b30x60",
+            "beta": 0.0,
+            "rel_i": [
+                false,
+                false,
+                false,
+                false,
+                false,
+                false
+            ],
+            "rel_j": [
+                false,
+                false,
+                false,
+                false,
+                false,
+                false
+            ],
+            "cardinal": 10,
+            "off_i": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "off_j": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "end_off_i": 0.0,
+            "end_off_j": 0.0,
+            "rz_factor": 0.0
+        },
+        {
+            "id": 11,
+            "n1_id": 13,
+            "n2_id": 14,
+            "sec_name": "b30x60",
+            "beta": 0.0,
+            "rel_i": [
+                false,
+                false,
+                false,
+                false,
+                false,
+                false
+            ],
+            "rel_j": [
+                false,
+                false,
+                false,
+                false,
+                false,
+                false
+            ],
+            "cardinal": 10,
+            "off_i": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "off_j": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "end_off_i": 0.0,
+            "end_off_j": 0.0,
+            "rz_factor": 0.0
+        },
+        {
+            "id": 12,
+            "n1_id": 14,
+            "n2_id": 15,
+            "sec_name": "b30x60",
+            "beta": 0.0,
+            "rel_i": [
+                false,
+                false,
+                false,
+                false,
+                false,
+                false
+            ],
+            "rel_j": [
+                false,
+                false,
+                false,
+                false,
+                false,
+                false
+            ],
+            "cardinal": 10,
+            "off_i": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "off_j": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "end_off_i": 0.0,
+            "end_off_j": 0.0,
+            "rz_factor": 0.0
+        },
+        {
+            "id": 13,
+            "n1_id": 16,
+            "n2_id": 17,
+            "sec_name": "b30x60",
+            "beta": 0.0,
+            "rel_i": [
+                false,
+                false,
+                false,
+                false,
+                false,
+                false
+            ],
+            "rel_j": [
+                false,
+                false,
+                false,
+                false,
+                false,
+                false
+            ],
+            "cardinal": 10,
+            "off_i": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "off_j": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "end_off_i": 0.0,
+            "end_off_j": 0.0,
+            "rz_factor": 0.0
+        },
+        {
+            "id": 14,
+            "n1_id": 17,
+            "n2_id": 18,
+            "sec_name": "b30x60",
+            "beta": 0.0,
+            "rel_i": [
+                false,
+                false,
+                false,
+                false,
+                false,
+                false
+            ],
+            "rel_j": [
+                false,
+                false,
+                false,
+                false,
+                false,
+                false
+            ],
+            "cardinal": 10,
+            "off_i": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "off_j": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "end_off_i": 0.0,
+            "end_off_j": 0.0,
+            "rz_factor": 0.0
+        },
+        {
+            "id": 15,
+            "n1_id": 18,
+            "n2_id": 19,
+            "sec_name": "b30x60",
+            "beta": 0.0,
+            "rel_i": [
+                false,
+                false,
+                false,
+                false,
+                false,
+                false
+            ],
+            "rel_j": [
+                false,
+                false,
+                false,
+                false,
+                false,
+                false
+            ],
+            "cardinal": 10,
+            "off_i": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "off_j": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "end_off_i": 0.0,
+            "end_off_j": 0.0,
+            "rz_factor": 0.0
+        },
+        {
+            "id": 16,
+            "n1_id": 19,
+            "n2_id": 20,
+            "sec_name": "b30x60",
+            "beta": 0.0,
+            "rel_i": [
+                false,
+                false,
+                false,
+                false,
+                false,
+                false
+            ],
+            "rel_j": [
+                false,
+                false,
+                false,
+                false,
+                false,
+                false
+            ],
+            "cardinal": 10,
+            "off_i": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "off_j": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "end_off_i": 0.0,
+            "end_off_j": 0.0,
+            "rz_factor": 0.0
+        },
+        {
+            "id": 17,
+            "n1_id": 2,
+            "n2_id": 7,
+            "sec_name": "b30x60",
+            "beta": 0.0,
+            "rel_i": [
+                false,
+                false,
+                false,
+                false,
+                false,
+                false
+            ],
+            "rel_j": [
+                false,
+                false,
+                false,
+                false,
+                false,
+                false
+            ],
+            "cardinal": 10,
+            "off_i": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "off_j": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "end_off_i": 0.0,
+            "end_off_j": 0.0,
+            "rz_factor": 0.0
+        },
+        {
+            "id": 18,
+            "n1_id": 7,
+            "n2_id": 12,
+            "sec_name": "b30x60",
+            "beta": 0.0,
+            "rel_i": [
+                false,
+                false,
+                false,
+                false,
+                false,
+                false
+            ],
+            "rel_j": [
+                false,
+                false,
+                false,
+                false,
+                false,
+                false
+            ],
+            "cardinal": 10,
+            "off_i": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "off_j": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "end_off_i": 0.0,
+            "end_off_j": 0.0,
+            "rz_factor": 0.0
+        },
+        {
+            "id": 19,
+            "n1_id": 12,
+            "n2_id": 17,
+            "sec_name": "b30x60",
+            "beta": 0.0,
+            "rel_i": [
+                false,
+                false,
+                false,
+                false,
+                false,
+                false
+            ],
+            "rel_j": [
+                false,
+                false,
+                false,
+                false,
+                false,
+                false
+            ],
+            "cardinal": 10,
+            "off_i": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "off_j": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "end_off_i": 0.0,
+            "end_off_j": 0.0,
+            "rz_factor": 0.0
+        },
+        {
+            "id": 20,
+            "n1_id": 3,
+            "n2_id": 8,
+            "sec_name": "b30x60",
+            "beta": 0.0,
+            "rel_i": [
+                false,
+                false,
+                false,
+                false,
+                false,
+                false
+            ],
+            "rel_j": [
+                false,
+                false,
+                false,
+                false,
+                false,
+                false
+            ],
+            "cardinal": 10,
+            "off_i": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "off_j": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "end_off_i": 0.0,
+            "end_off_j": 0.0,
+            "rz_factor": 0.0
+        },
+        {
+            "id": 21,
+            "n1_id": 8,
+            "n2_id": 13,
+            "sec_name": "b30x60",
+            "beta": 0.0,
+            "rel_i": [
+                false,
+                false,
+                false,
+                false,
+                false,
+                false
+            ],
+            "rel_j": [
+                false,
+                false,
+                false,
+                false,
+                false,
+                false
+            ],
+            "cardinal": 10,
+            "off_i": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "off_j": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "end_off_i": 0.0,
+            "end_off_j": 0.0,
+            "rz_factor": 0.0
+        },
+        {
+            "id": 22,
+            "n1_id": 13,
+            "n2_id": 18,
+            "sec_name": "b30x60",
+            "beta": 0.0,
+            "rel_i": [
+                false,
+                false,
+                false,
+                false,
+                false,
+                false
+            ],
+            "rel_j": [
+                false,
+                false,
+                false,
+                false,
+                false,
+                false
+            ],
+            "cardinal": 10,
+            "off_i": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "off_j": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "end_off_i": 0.0,
+            "end_off_j": 0.0,
+            "rz_factor": 0.0
+        },
+        {
+            "id": 23,
+            "n1_id": 4,
+            "n2_id": 9,
+            "sec_name": "b30x60",
+            "beta": 0.0,
+            "rel_i": [
+                false,
+                false,
+                false,
+                false,
+                false,
+                false
+            ],
+            "rel_j": [
+                false,
+                false,
+                false,
+                false,
+                false,
+                false
+            ],
+            "cardinal": 10,
+            "off_i": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "off_j": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "end_off_i": 0.0,
+            "end_off_j": 0.0,
+            "rz_factor": 0.0
+        },
+        {
+            "id": 24,
+            "n1_id": 9,
+            "n2_id": 14,
+            "sec_name": "b30x60",
+            "beta": 0.0,
+            "rel_i": [
+                false,
+                false,
+                false,
+                false,
+                false,
+                false
+            ],
+            "rel_j": [
+                false,
+                false,
+                false,
+                false,
+                false,
+                false
+            ],
+            "cardinal": 10,
+            "off_i": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "off_j": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "end_off_i": 0.0,
+            "end_off_j": 0.0,
+            "rz_factor": 0.0
+        },
+        {
+            "id": 25,
+            "n1_id": 14,
+            "n2_id": 19,
+            "sec_name": "b30x60",
+            "beta": 0.0,
+            "rel_i": [
+                false,
+                false,
+                false,
+                false,
+                false,
+                false
+            ],
+            "rel_j": [
+                false,
+                false,
+                false,
+                false,
+                false,
+                false
+            ],
+            "cardinal": 10,
+            "off_i": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "off_j": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "end_off_i": 0.0,
+            "end_off_j": 0.0,
+            "rz_factor": 0.0
+        },
+        {
+            "id": 26,
+            "n1_id": 5,
+            "n2_id": 10,
+            "sec_name": "b30x60",
+            "beta": 0.0,
+            "rel_i": [
+                false,
+                false,
+                false,
+                false,
+                false,
+                false
+            ],
+            "rel_j": [
+                false,
+                false,
+                false,
+                false,
+                false,
+                false
+            ],
+            "cardinal": 10,
+            "off_i": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "off_j": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "end_off_i": 0.0,
+            "end_off_j": 0.0,
+            "rz_factor": 0.0
+        },
+        {
+            "id": 27,
+            "n1_id": 10,
+            "n2_id": 15,
+            "sec_name": "b30x60",
+            "beta": 0.0,
+            "rel_i": [
+                false,
+                false,
+                false,
+                false,
+                false,
+                false
+            ],
+            "rel_j": [
+                false,
+                false,
+                false,
+                false,
+                false,
+                false
+            ],
+            "cardinal": 10,
+            "off_i": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "off_j": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "end_off_i": 0.0,
+            "end_off_j": 0.0,
+            "rz_factor": 0.0
+        },
+        {
+            "id": 28,
+            "n1_id": 15,
+            "n2_id": 20,
+            "sec_name": "b30x60",
+            "beta": 0.0,
+            "rel_i": [
+                false,
+                false,
+                false,
+                false,
+                false,
+                false
+            ],
+            "rel_j": [
+                false,
+                false,
+                false,
+                false,
+                false,
+                false
+            ],
+            "cardinal": 10,
+            "off_i": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "off_j": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "end_off_i": 0.0,
+            "end_off_j": 0.0,
+            "rz_factor": 0.0
+        },
+        {
+            "id": 29,
+            "n1_id": 1,
+            "n2_id": 6,
+            "sec_name": "b30x60",
+            "beta": 0.0,
+            "rel_i": [
+                false,
+                false,
+                false,
+                false,
+                false,
+                false
+            ],
+            "rel_j": [
+                false,
+                false,
+                false,
+                false,
+                false,
+                false
+            ],
+            "cardinal": 10,
+            "off_i": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "off_j": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "end_off_i": 0.0,
+            "end_off_j": 0.0,
+            "rz_factor": 0.0
+        },
+        {
+            "id": 30,
+            "n1_id": 6,
+            "n2_id": 11,
+            "sec_name": "b30x60",
+            "beta": 0.0,
+            "rel_i": [
+                false,
+                false,
+                false,
+                false,
+                false,
+                false
+            ],
+            "rel_j": [
+                false,
+                false,
+                false,
+                false,
+                false,
+                false
+            ],
+            "cardinal": 10,
+            "off_i": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "off_j": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "end_off_i": 0.0,
+            "end_off_j": 0.0,
+            "rz_factor": 0.0
+        },
+        {
+            "id": 31,
+            "n1_id": 11,
+            "n2_id": 16,
+            "sec_name": "b30x60",
+            "beta": 0.0,
+            "rel_i": [
+                false,
+                false,
+                false,
+                false,
+                false,
+                false
+            ],
+            "rel_j": [
+                false,
+                false,
+                false,
+                false,
+                false,
+                false
+            ],
+            "cardinal": 10,
+            "off_i": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "off_j": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "end_off_i": 0.0,
+            "end_off_j": 0.0,
+            "rz_factor": 0.0
+        },
+        {
+            "id": 32,
+            "n1_id": 21,
+            "n2_id": 1,
+            "sec_name": "C",
+            "beta": 0.0,
+            "rel_i": [
+                false,
+                false,
+                false,
+                false,
+                false,
+                false
+            ],
+            "rel_j": [
+                false,
+                false,
+                false,
+                false,
+                false,
+                false
+            ],
+            "cardinal": 10,
+            "off_i": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "off_j": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "end_off_i": 0.0,
+            "end_off_j": 0.0,
+            "rz_factor": 0.0
+        },
+        {
+            "id": 33,
+            "n1_id": 22,
+            "n2_id": 2,
+            "sec_name": "C",
+            "beta": 0.0,
+            "rel_i": [
+                false,
+                false,
+                false,
+                false,
+                false,
+                false
+            ],
+            "rel_j": [
+                false,
+                false,
+                false,
+                false,
+                false,
+                false
+            ],
+            "cardinal": 10,
+            "off_i": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "off_j": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "end_off_i": 0.0,
+            "end_off_j": 0.0,
+            "rz_factor": 0.0
+        },
+        {
+            "id": 34,
+            "n1_id": 23,
+            "n2_id": 3,
+            "sec_name": "C",
+            "beta": 0.0,
+            "rel_i": [
+                false,
+                false,
+                false,
+                false,
+                false,
+                false
+            ],
+            "rel_j": [
+                false,
+                false,
+                false,
+                false,
+                false,
+                false
+            ],
+            "cardinal": 10,
+            "off_i": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "off_j": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "end_off_i": 0.0,
+            "end_off_j": 0.0,
+            "rz_factor": 0.0
+        },
+        {
+            "id": 35,
+            "n1_id": 24,
+            "n2_id": 4,
+            "sec_name": "C",
+            "beta": 0.0,
+            "rel_i": [
+                false,
+                false,
+                false,
+                false,
+                false,
+                false
+            ],
+            "rel_j": [
+                false,
+                false,
+                false,
+                false,
+                false,
+                false
+            ],
+            "cardinal": 10,
+            "off_i": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "off_j": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "end_off_i": 0.0,
+            "end_off_j": 0.0,
+            "rz_factor": 0.0
+        },
+        {
+            "id": 36,
+            "n1_id": 25,
+            "n2_id": 5,
+            "sec_name": "C",
+            "beta": 0.0,
+            "rel_i": [
+                false,
+                false,
+                false,
+                false,
+                false,
+                false
+            ],
+            "rel_j": [
+                false,
+                false,
+                false,
+                false,
+                false,
+                false
+            ],
+            "cardinal": 10,
+            "off_i": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "off_j": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "end_off_i": 0.0,
+            "end_off_j": 0.0,
+            "rz_factor": 0.0
+        },
+        {
+            "id": 37,
+            "n1_id": 26,
+            "n2_id": 6,
+            "sec_name": "C",
+            "beta": 90.0,
+            "rel_i": [
+                false,
+                false,
+                false,
+                false,
+                false,
+                false
+            ],
+            "rel_j": [
+                false,
+                false,
+                false,
+                false,
+                false,
+                false
+            ],
+            "cardinal": 10,
+            "off_i": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "off_j": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "end_off_i": 0.0,
+            "end_off_j": 0.0,
+            "rz_factor": 0.0
+        },
+        {
+            "id": 38,
+            "n1_id": 27,
+            "n2_id": 7,
+            "sec_name": "C",
+            "beta": 90.0,
+            "rel_i": [
+                false,
+                false,
+                false,
+                false,
+                false,
+                false
+            ],
+            "rel_j": [
+                false,
+                false,
+                false,
+                false,
+                false,
+                false
+            ],
+            "cardinal": 10,
+            "off_i": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "off_j": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "end_off_i": 0.0,
+            "end_off_j": 0.0,
+            "rz_factor": 0.0
+        },
+        {
+            "id": 39,
+            "n1_id": 28,
+            "n2_id": 8,
+            "sec_name": "C",
+            "beta": 90.0,
+            "rel_i": [
+                false,
+                false,
+                false,
+                false,
+                false,
+                false
+            ],
+            "rel_j": [
+                false,
+                false,
+                false,
+                false,
+                false,
+                false
+            ],
+            "cardinal": 10,
+            "off_i": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "off_j": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "end_off_i": 0.0,
+            "end_off_j": 0.0,
+            "rz_factor": 0.0
+        },
+        {
+            "id": 40,
+            "n1_id": 29,
+            "n2_id": 9,
+            "sec_name": "C",
+            "beta": 90.0,
+            "rel_i": [
+                false,
+                false,
+                false,
+                false,
+                false,
+                false
+            ],
+            "rel_j": [
+                false,
+                false,
+                false,
+                false,
+                false,
+                false
+            ],
+            "cardinal": 10,
+            "off_i": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "off_j": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "end_off_i": 0.0,
+            "end_off_j": 0.0,
+            "rz_factor": 0.0
+        },
+        {
+            "id": 41,
+            "n1_id": 30,
+            "n2_id": 10,
+            "sec_name": "C",
+            "beta": 90.0,
+            "rel_i": [
+                false,
+                false,
+                false,
+                false,
+                false,
+                false
+            ],
+            "rel_j": [
+                false,
+                false,
+                false,
+                false,
+                false,
+                false
+            ],
+            "cardinal": 10,
+            "off_i": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "off_j": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "end_off_i": 0.0,
+            "end_off_j": 0.0,
+            "rz_factor": 0.0
+        },
+        {
+            "id": 42,
+            "n1_id": 31,
+            "n2_id": 11,
+            "sec_name": "C",
+            "beta": 90.0,
+            "rel_i": [
+                false,
+                false,
+                false,
+                false,
+                false,
+                false
+            ],
+            "rel_j": [
+                false,
+                false,
+                false,
+                false,
+                false,
+                false
+            ],
+            "cardinal": 10,
+            "off_i": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "off_j": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "end_off_i": 0.0,
+            "end_off_j": 0.0,
+            "rz_factor": 0.0
+        },
+        {
+            "id": 43,
+            "n1_id": 32,
+            "n2_id": 12,
+            "sec_name": "C",
+            "beta": 90.0,
+            "rel_i": [
+                false,
+                false,
+                false,
+                false,
+                false,
+                false
+            ],
+            "rel_j": [
+                false,
+                false,
+                false,
+                false,
+                false,
+                false
+            ],
+            "cardinal": 10,
+            "off_i": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "off_j": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "end_off_i": 0.0,
+            "end_off_j": 0.0,
+            "rz_factor": 0.0
+        },
+        {
+            "id": 44,
+            "n1_id": 33,
+            "n2_id": 13,
+            "sec_name": "C",
+            "beta": 90.0,
+            "rel_i": [
+                false,
+                false,
+                false,
+                false,
+                false,
+                false
+            ],
+            "rel_j": [
+                false,
+                false,
+                false,
+                false,
+                false,
+                false
+            ],
+            "cardinal": 10,
+            "off_i": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "off_j": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "end_off_i": 0.0,
+            "end_off_j": 0.0,
+            "rz_factor": 0.0
+        },
+        {
+            "id": 45,
+            "n1_id": 34,
+            "n2_id": 14,
+            "sec_name": "C",
+            "beta": 90.0,
+            "rel_i": [
+                false,
+                false,
+                false,
+                false,
+                false,
+                false
+            ],
+            "rel_j": [
+                false,
+                false,
+                false,
+                false,
+                false,
+                false
+            ],
+            "cardinal": 10,
+            "off_i": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "off_j": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "end_off_i": 0.0,
+            "end_off_j": 0.0,
+            "rz_factor": 0.0
+        },
+        {
+            "id": 46,
+            "n1_id": 35,
+            "n2_id": 15,
+            "sec_name": "C",
+            "beta": 90.0,
+            "rel_i": [
+                false,
+                false,
+                false,
+                false,
+                false,
+                false
+            ],
+            "rel_j": [
+                false,
+                false,
+                false,
+                false,
+                false,
+                false
+            ],
+            "cardinal": 10,
+            "off_i": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "off_j": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "end_off_i": 0.0,
+            "end_off_j": 0.0,
+            "rz_factor": 0.0
+        },
+        {
+            "id": 47,
+            "n1_id": 36,
+            "n2_id": 16,
+            "sec_name": "C",
+            "beta": 0.0,
+            "rel_i": [
+                false,
+                false,
+                false,
+                false,
+                false,
+                false
+            ],
+            "rel_j": [
+                false,
+                false,
+                false,
+                false,
+                false,
+                false
+            ],
+            "cardinal": 10,
+            "off_i": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "off_j": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "end_off_i": 0.0,
+            "end_off_j": 0.0,
+            "rz_factor": 0.0
+        },
+        {
+            "id": 48,
+            "n1_id": 37,
+            "n2_id": 17,
+            "sec_name": "C",
+            "beta": 0.0,
+            "rel_i": [
+                false,
+                false,
+                false,
+                false,
+                false,
+                false
+            ],
+            "rel_j": [
+                false,
+                false,
+                false,
+                false,
+                false,
+                false
+            ],
+            "cardinal": 10,
+            "off_i": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "off_j": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "end_off_i": 0.0,
+            "end_off_j": 0.0,
+            "rz_factor": 0.0
+        },
+        {
+            "id": 49,
+            "n1_id": 38,
+            "n2_id": 18,
+            "sec_name": "C",
+            "beta": 0.0,
+            "rel_i": [
+                false,
+                false,
+                false,
+                false,
+                false,
+                false
+            ],
+            "rel_j": [
+                false,
+                false,
+                false,
+                false,
+                false,
+                false
+            ],
+            "cardinal": 10,
+            "off_i": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "off_j": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "end_off_i": 0.0,
+            "end_off_j": 0.0,
+            "rz_factor": 0.0
+        },
+        {
+            "id": 50,
+            "n1_id": 39,
+            "n2_id": 19,
+            "sec_name": "C",
+            "beta": 0.0,
+            "rel_i": [
+                false,
+                false,
+                false,
+                false,
+                false,
+                false
+            ],
+            "rel_j": [
+                false,
+                false,
+                false,
+                false,
+                false,
+                false
+            ],
+            "cardinal": 10,
+            "off_i": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "off_j": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "end_off_i": 0.0,
+            "end_off_j": 0.0,
+            "rz_factor": 0.0
+        },
+        {
+            "id": 51,
+            "n1_id": 40,
+            "n2_id": 20,
+            "sec_name": "C",
+            "beta": 0.0,
+            "rel_i": [
+                false,
+                false,
+                false,
+                false,
+                false,
+                false
+            ],
+            "rel_j": [
+                false,
+                false,
+                false,
+                false,
+                false,
+                false
+            ],
+            "cardinal": 10,
+            "off_i": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "off_j": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "end_off_i": 0.0,
+            "end_off_j": 0.0,
+            "rz_factor": 0.0
+        }
+    ],
+    "slabs": [],
+    "area_elements": [],
+    "area_sections": [],
+    "constraints": [
+        {
+            "name": "L2",
+            "axis": "Z"
+        }
+    ],
+    "link_properties": [],
+    "links": [],
+    "load_patterns": [
+        {
+            "name": "DEAD",
+            "type": "DEAD",
+            "sw_mult": 1.0,
+            "auto_lateral": "None"
+        },
+        {
+            "name": "EQX",
+            "type": "QUAKE",
+            "sw_mult": 0.0,
+            "auto_lateral": "TSC-2018",
+            "tsc_data": {
+                "direction": "X",
+                "eccentricity": 0.05,
+                "period_method": "Program Calc",
+                "ct": 0.07,
+                "user_t": 0.0,
+                "ss": 0.5,
+                "s1": 0.33,
+                "tl": 6.0,
+                "site_class": "ZB",
+                "r": 8.0,
+                "d": 3.0,
+                "importance": 1.0
+            }
+        },
+        {
+            "name": "EQY",
+            "type": "QUAKE",
+            "sw_mult": 0.0,
+            "auto_lateral": "User Loads",
+            "seismic_data": {
+                "eccentricity": 0.05,
+                "diaphragm_loads": {
+                    "L2": {
+                        "Fx": 5000000.0,
+                        "Fy": 0.0,
+                        "Mz": 0.0
+                    }
+                }
+            }
+        }
+    ],
+    "loads": [],
+    "mass_sources": [
+        {
+            "name": "MSSSRC1",
+            "include_self_mass": true,
+            "include_patterns": true,
+            "load_patterns": [
+                [
+                    "DEAD",
+                    1.0
+                ]
+            ]
+        }
+    ],
+    "functions": [
+        {
+            "type": "TSC-2018",
+            "name": "FUNC1",
+            "Ss": 0.55,
+            "S1": 0.22,
+            "TL": 6.0,
+            "R": 8.0,
+            "D": 3.0,
+            "I": 1.0,
+            "SiteClass": "ZB",
+            "Direction": "Horizontal",
+            "Interpolation": "Linear",
+            "Damping": 0.05
+        }
+    ],
+    "th_functions": [],
+    "plot_functions": [],
+    "load_combos": []
+}

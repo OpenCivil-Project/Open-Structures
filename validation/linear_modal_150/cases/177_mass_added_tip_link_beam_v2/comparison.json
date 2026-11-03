@@ -1,0 +1,175 @@
+{
+  "id": "177_mass_added_tip_link_beam_v2",
+  "family": "mass_added_tip_link_beam",
+  "variant": 2,
+  "model_file": "177_mass_added_tip_link_beam_v2.mf",
+  "static": {
+    "passed": true,
+    "checks": [
+      {
+        "name": "nodal displacement and rotation",
+        "passed": true,
+        "max_tolerance_ratio": 5.825203496247614e-07,
+        "relative_tolerance": 2e-06,
+        "absolute_tolerances_per_dof": [
+          1e-10,
+          1e-10,
+          1e-10,
+          1e-10,
+          1e-10,
+          1e-10
+        ],
+        "worst_components": []
+      },
+      {
+        "name": "support force and moment",
+        "passed": true,
+        "max_tolerance_ratio": 6.831557807808628e-07,
+        "relative_tolerance": 2e-06,
+        "absolute_tolerances_per_dof": [
+          0.0001,
+          0.0001,
+          0.0001,
+          0.0001,
+          0.0001,
+          0.0001
+        ],
+        "worst_components": []
+      },
+      {
+        "name": "independent free-DOF equilibrium residual",
+        "passed": true,
+        "value": 3.209535896929731e-13,
+        "limit": 2e-06
+      },
+      {
+        "name": "analytical: Cantilever force/moment displacement",
+        "passed": true,
+        "actual": -0.012647619047607236,
+        "expected": -0.012647619047619052,
+        "absolute_error": 1.1815201594878033e-14,
+        "tolerance": 2.53952380952381e-08,
+        "formula": "-PL\u00b3/(3EI22)-MyL\u00b2/(2EI22)",
+        "reference_kind": "continuum or exact discrete formula as labelled"
+      },
+      {
+        "name": "analytical: Cantilever force/moment rotation",
+        "passed": true,
+        "actual": 0.004311688311684573,
+        "expected": 0.0043116883116883125,
+        "absolute_error": 3.739196452468008e-15,
+        "tolerance": 8.723376623376624e-09,
+        "formula": "PL\u00b2/(2EI22)+MyL/(EI22)",
+        "reference_kind": "continuum or exact discrete formula as labelled"
+      }
+    ]
+  },
+  "modal": {
+    "passed": true,
+    "checks": [
+      {
+        "name": "mode count",
+        "passed": true,
+        "actual": 3,
+        "expected": 3
+      },
+      {
+        "name": "finite positive sorted frequencies",
+        "passed": true
+      },
+      {
+        "name": "maximum relative frequency error",
+        "passed": true,
+        "value": 1.2512836626057719e-12,
+        "limit": 2e-05
+      },
+      {
+        "name": "period/frequency/omega/eigenvalue consistency",
+        "passed": true,
+        "value": 2.220446049250313e-16,
+        "limit": 1e-09
+      },
+      {
+        "name": "maximum independent eigen residual",
+        "passed": true,
+        "value": 2.5615629364414785e-12,
+        "limit": 2e-05
+      },
+      {
+        "name": "mass normalization and orthogonality",
+        "passed": true,
+        "value": 2.357661465784615e-16,
+        "limit": 2e-05
+      },
+      {
+        "name": "worst modal subspace mismatch (1-MAC)",
+        "passed": true,
+        "value": 0.0,
+        "limit": 0.0002
+      },
+      {
+        "name": "assembled physical nodal mass",
+        "passed": true,
+        "max_tolerance_ratio": 0.0,
+        "relative_tolerance": 1e-08,
+        "absolute_tolerances_per_dof": [
+          1e-10,
+          1e-10,
+          1e-10,
+          1e-10,
+          1e-10,
+          1e-10
+        ],
+        "worst_components": []
+      },
+      {
+        "name": "analytical: Continuum cantilever with concentrated tip mass",
+        "passed": true,
+        "actual": 4.749364180017515,
+        "expected": 4.755554963248067,
+        "absolute_error": 0.0061907832305525545,
+        "tolerance": 0.09511110026496135,
+        "formula": "\u03b2\u00b2/(2\u03c0L\u00b2)*sqrt(EI/(\u03c1m A)); 1+cos\u03b2 cosh\u03b2+\u03bc\u03b2(cos\u03b2 sinh\u03b2\u2212sin\u03b2 cosh\u03b2)=0",
+        "reference_kind": "continuum or exact discrete formula as labelled"
+      }
+    ]
+  },
+  "analytical": [
+    {
+      "name": "analytical: Cantilever force/moment displacement",
+      "passed": true,
+      "actual": -0.012647619047607236,
+      "expected": -0.012647619047619052,
+      "absolute_error": 1.1815201594878033e-14,
+      "tolerance": 2.53952380952381e-08,
+      "formula": "-PL\u00b3/(3EI22)-MyL\u00b2/(2EI22)",
+      "reference_kind": "continuum or exact discrete formula as labelled"
+    },
+    {
+      "name": "analytical: Cantilever force/moment rotation",
+      "passed": true,
+      "actual": 0.004311688311684573,
+      "expected": 0.0043116883116883125,
+      "absolute_error": 3.739196452468008e-15,
+      "tolerance": 8.723376623376624e-09,
+      "formula": "PL\u00b2/(2EI22)+MyL/(EI22)",
+      "reference_kind": "continuum or exact discrete formula as labelled"
+    },
+    {
+      "name": "analytical: Continuum cantilever with concentrated tip mass",
+      "passed": true,
+      "actual": 4.749364180017515,
+      "expected": 4.755554963248067,
+      "absolute_error": 0.0061907832305525545,
+      "tolerance": 0.09511110026496135,
+      "formula": "\u03b2\u00b2/(2\u03c0L\u00b2)*sqrt(EI/(\u03c1m A)); 1+cos\u03b2 cosh\u03b2+\u03bc\u03b2(cos\u03b2 sinh\u03b2\u2212sin\u03b2 cosh\u03b2)=0",
+      "reference_kind": "continuum or exact discrete formula as labelled"
+    }
+  ],
+  "reference_error": null,
+  "execution": {
+    "returncode": 0,
+    "model_sha256": "a7f98ec614d774eb88b56c988985a032c3bc1dbe5c5cffca7d4864f6f8f3fd0b",
+    "solver_source_sha256": "b2dcefa0108c3e5d25eebdc3c19f4cd8586716bf63074a9bf5dead876a6ea0cf"
+  }
+}

@@ -163,6 +163,7 @@ class AreaGravityLoadDialog(QDialog):
 
         errors = []
         trib_error_flag = False
+        assignable_ids = []
 
         for aid in selected_ids:
             area = self.model.area_elements.get(aid)
@@ -173,10 +174,17 @@ class AreaGravityLoadDialog(QDialog):
                     trib_error_flag = True
                     continue                                                         
 
-            try:
-                self.model.assign_area_gravity_load(aid, pattern, gx, gy, gz, coord, mode)
-            except KeyError as e:
-                errors.append(str(e))
+            assignable_ids.append(aid)
+
+        bulk_assign = getattr(self.model, 'assign_area_gravity_loads', None)
+        if callable(bulk_assign):
+            bulk_assign(assignable_ids, pattern, gx, gy, gz, coord, mode)
+        else:
+            for aid in assignable_ids:
+                try:
+                    self.model.assign_area_gravity_load(aid, pattern, gx, gy, gz, coord, mode)
+                except KeyError as e:
+                    errors.append(str(e))
 
         if trib_error_flag:
             QMessageBox.warning(self, "Invalid Multiplier", "In-plane gravity multipliers (gx, gy) cannot be applied to Tributary Area slabs. They only transfer vertical (gz) self-weight.\n\nThose slabs were skipped.")
@@ -185,9 +193,12 @@ class AreaGravityLoadDialog(QDialog):
             QMessageBox.warning(self, "Assignment Error", "Some elements could not be updated:\n" + "\n".join(errors))
 
         main_window.selected_area_ids.clear()
-        main_window._refresh_selection_overlay()
         main_window.update_yield_lines()
-        main_window.draw_both_canvases()
+        refresh = getattr(main_window, 'refresh_load_display', None)
+        if callable(refresh):
+            refresh()
+        else:
+            main_window.draw_both_canvases()
 
     def _ok(self):
         self._apply()

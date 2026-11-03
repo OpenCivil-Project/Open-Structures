@@ -266,19 +266,17 @@ class AssignJointSpringDialog(QDialog):
             if self.rb_add.isChecked(): mode = "add"
             elif self.rb_delete.isChecked(): mode = "delete"
 
-            print("--- SPRING ASSIGNMENT (SI UNITS) ---")
-            print(f"Nodes: {list(selected_nodes)}")
-            print(f"Mode: {mode}")
+            node_list = list(selected_nodes)
+            print(f"--- SPRING ASSIGNMENT (SI UNITS): {len(node_list)} joints, mode={mode} ---")
             print(si_matrix)
-            print("------------------------------------")
-            
-            cmd = CmdAssignJointSpring(self.model, self.main_window, list(selected_nodes), si_matrix, mode)
+
+            cmd = CmdAssignJointSpring(self.model, self.main_window, node_list, si_matrix, mode)
+                                                                                                
+            self.main_window.selected_node_ids = []
+            self.main_window.selected_ids = []
             self.main_window.add_command(cmd)
 
-            self.main_window.status.showMessage(f"Assigned Springs to {len(selected_nodes)} Joints.")
-            self.main_window.selected_node_ids = []
-            self.main_window.selected_ids = [] 
-            self.main_window.canvas.draw_model(self.model, [], [])
+            self.main_window.status.showMessage(f"Assigned Springs to {len(node_list)} Joints.")
 
         except ValueError:
             QMessageBox.warning(self, "Input Error", "Please enter valid numeric values.")

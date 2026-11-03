@@ -1,0 +1,21 @@
+{
+  "model_count": 250,
+  "static_pass": 250,
+  "modal_pass": 250,
+  "new_batch": {
+    "models": 150,
+    "static_pass": 150,
+    "modal_pass": 150,
+    "static_success_rate": 1.0,
+    "modal_success_rate": 1.0,
+    "analytical_static_checks": 735,
+    "analytical_modal_checks": 95,
+    "named_assertions_run": 300,
+    "named_assertions_pass": 300,
+    "schema_roundtrip_pass": 150,
+    "solver_process_failures": 0
+  },
+  "total_named_assertions_pass": 500,
+  "solver_source_sha256": "b2dcefa0108c3e5d25eebdc3c19f4cd8586716bf63074a9bf5dead876a6ea0cf",
+  "previous_batch_format_only_cache_refresh": "084_two_story_frame_v4: unchanged parsed JSON; current input retained and verification refreshed"
+}

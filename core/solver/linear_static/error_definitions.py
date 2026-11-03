@@ -1,4 +1,3 @@
-                                                                  
 class SolverException(Exception):
     """
     Custom Exception class for MetuFire Solver.
@@ -61,6 +60,11 @@ SOLVER_ERRORS = {
         "desc": "A section has Area (A) or Inertia (I) equal to or less than zero.",
         "fix": "Review the Section Database. Area and Inertia must be positive values."
     },
+    "E105": {
+        "title": "Zero Mass",
+        "desc": "The selected Mass Source produced no mass at all, so the modal problem cannot be formed.",
+        "fix": "Enable 'Include Self Mass' or add load patterns / mass to the Mass Source definition."
+    },
     "E203": {
         "title": "Unstable Release Configuration",
         "desc": "An element has releases that make it internally unstable (e.g., released Moment at both ends without support, or torsional instability).",
@@ -68,8 +72,19 @@ SOLVER_ERRORS = {
     },
     "E205": {
         "title": "Diaphragm DOF Conflict",
-        "desc": "A restraint (support) was applied directly to a node's UX/UY/RZ that is a SLAVE in a rigid diaphragm, or a node belongs to more than one diaphragm group. Slave in-plane DOFs are eliminated and no longer exist independently.",
+        "desc": "A restraint (support) was applied directly to a node's in-plane DOFs that are a SLAVE in a rigid diaphragm (UX/UY/RZ for a Z-axis diaphragm, UY/UZ/RX for X-axis, UZ/UX/RY for Y-axis), or a node belongs to more than one diaphragm group. Slave in-plane DOFs are eliminated and no longer exist independently.",
         "fix": "Apply the restraint to the diaphragm's MASTER node instead, or remove the node from the diaphragm constraint. Ensure each node belongs to at most one diaphragm."
+    },
+
+    "E207": {
+        "title": "Invalid Shell Element",
+        "desc": "An area element has a zero/negative-area or concave quad, a non-4-node connectivity, a zero thickness, or references an unknown node.",
+        "fix": "Check the area's node order (must go around the quad, no crossing), remove duplicate nodes, and make sure the shell section thickness is positive."
+    },
+    "E208": {
+        "title": "Unsupported Area Section Type",
+        "desc": "The solver supports Shell (Thin/Thick), Plate (Thin/Thick) and Membrane sections. Layered/Nonlinear shells and Plane / Asolid sections are not solved.",
+        "fix": "Assign a Shell, Plate or Membrane section to the area (or mark it as a Tributary Area slab if it is only a load distributor)."
     },
 
     "E301": {
@@ -81,6 +96,22 @@ SOLVER_ERRORS = {
         "title": "Huge Displacements Detected",
         "desc": "The solver calculated displacements exceeding reasonable limits (e.g., > 1e6 meters).",
         "fix": "Check your units (E modulus vs Load units). Ensure your model is restrained against rotation."
+    },
+
+    "E303": {
+        "title": "OpenSees Solver Error",
+        "desc": "The OpenSees engine failed while solving the eigenvalue or static problem.",
+        "fix": "Check the analysis log for OpenSees warnings (e.g. singular matrix). Switch the Analysis Engine to Native to compare."
+    },
+    "E304": {
+        "title": "Not Enough Modes / DOFs",
+        "desc": "The OpenSees engine returned fewer modes than requested, or the model has too few free DOFs.",
+        "fix": "Reduce the number of requested modes or check supports and diaphragm constraints."
+    },
+    "E305": {
+        "title": "Shells Not Supported in OpenSees Engine",
+        "desc": "The model contains shell elements, but the OpenSees engine currently only converts frame elements. Shell nodes would have no stiffness and the problem would be singular.",
+        "fix": "Switch the Analysis Engine to Native (Analysis Options), or remove / replace the shell areas with frame elements."
     },
 
     "E401": {

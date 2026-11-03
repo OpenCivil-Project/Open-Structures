@@ -67,11 +67,12 @@ class SmartDoubleInput(QLineEdit):
 class NewModelDialog(QDialog):
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.setWindowTitle("New Model Initialization")
-        self.resize(600, 450)
+        self.setWindowTitle("New Model")
+        self.resize(660, 560)
         apply_dialog_style(self)
         
         self.selected_units = "kN, m, C"
+        self.project_name = "New Project"
         self.grid_data = {} 
         self.accepted_data = False 
         self.template_type = "Grid Only" 
@@ -79,6 +80,8 @@ class NewModelDialog(QDialog):
         self.all_length_inputs = []
 
         main_layout = QHBoxLayout(self)
+        main_layout.setContentsMargins(18, 18, 18, 18)
+        main_layout.setSpacing(18)
 
         left_layout = QVBoxLayout()
         self.template_list = QListWidget()
@@ -91,9 +94,21 @@ class NewModelDialog(QDialog):
         main_layout.addLayout(left_layout)
 
         right_layout = QVBoxLayout()
+        right_layout.setSpacing(12)
 
-        unit_group = QGroupBox("Project Units")
+        unit_group = QGroupBox("Project")
         unit_layout = QFormLayout()
+        unit_layout.setSpacing(8)
+        self.project_name_input = QLineEdit(self.project_name)
+        self.project_name_input.setPlaceholderText("Enter a project name")
+        self.project_name_input.setAccessibleName("Project name")
+        self.project_name_input.setClearButtonEnabled(True)
+        name_label = QLabel("Project &name:")
+        name_label.setBuddy(self.project_name_input)
+        unit_layout.addRow(name_label, self.project_name_input)
+        name_hint = QLabel()
+        name_hint.setWordWrap(True)
+        unit_layout.addRow(name_hint)
         self.unit_combo = QComboBox()
         self.unit_combo.addItems([
             "kN, m, C", 
@@ -178,6 +193,7 @@ class NewModelDialog(QDialog):
         self.stack.addWidget(self.page_grid)  
         self.stack.addWidget(self.page_2d)    
         self.stack.addWidget(self.page_3d)    
+        self.stack.setCurrentIndex(self.template_list.currentRow())
         
         right_layout.addWidget(self.stack)
 
@@ -186,22 +202,37 @@ class NewModelDialog(QDialog):
         note_lbl.setWordWrap(True)
         right_layout.addWidget(note_lbl)
 
+        self.name_error = QLabel("Enter a project name to continue.")
+        self.name_error.setWordWrap(True)
+        self.name_error.hide()
+        right_layout.addWidget(self.name_error)
+
         btn_layout = QHBoxLayout()
-        ok_btn = QPushButton("OK")
-        ok_btn.setObjectName("primary")
-        ok_btn.clicked.connect(self.on_ok)
+        self.create_btn = QPushButton("Create Model")
+        self.create_btn.setObjectName("primary")
+        self.create_btn.setDefault(True)
+        self.create_btn.clicked.connect(self.on_ok)
         cancel_btn = QPushButton("Cancel")
         cancel_btn.setObjectName("secondary")
         cancel_btn.clicked.connect(self.reject)
         
         btn_layout.addStretch()
-        btn_layout.addWidget(ok_btn)
         btn_layout.addWidget(cancel_btn)
+        btn_layout.addWidget(self.create_btn)
         right_layout.addLayout(btn_layout)
 
         main_layout.addLayout(right_layout)
         
         self.unit_combo.currentTextChanged.connect(self.on_unit_changed)
+        self.project_name_input.textChanged.connect(self._validate_project_name)
+        self.project_name_input.setFocus()
+        self.project_name_input.selectAll()
+
+    def _validate_project_name(self, _text=None):
+        valid = bool(self.project_name_input.text().strip())
+        self.create_btn.setEnabled(valid)
+        self.name_error.setVisible(not valid)
+        return valid
 
     def _get_len_unit(self, combo_text: str) -> str:
         """Extracts the length unit from a string like 'kN, m, C'."""
@@ -241,6 +272,11 @@ class NewModelDialog(QDialog):
 
     def on_ok(self):
         """Validates input and saves data based on selected template, ensuring SI units for distance."""
+        if not self._validate_project_name():
+            self.project_name_input.setFocus()
+            return
+        self.project_name = self.project_name_input.text().strip()
+        self.project_name_input.setText(self.project_name)
         self.selected_units = self.unit_combo.currentText()
         
         if self.template_type == "Blank":

@@ -1,0 +1,7 @@
+/work/
+__pycache__/
+*.pyc
+*.mf.history.sqlite3*
+/cases/**/*_STATIC.log
+/cases/**/*_MODAL.log
+/cases/**/*_process.log

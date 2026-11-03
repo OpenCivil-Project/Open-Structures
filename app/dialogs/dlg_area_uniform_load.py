@@ -55,6 +55,10 @@ class AreaUniformLoadDialog(QDialog):
 
         self.combo_direction = QComboBox()
         self.combo_direction.addItems(self.DIRECTIONS)
+        self.combo_direction.setToolTip(
+            "Local 1 and 2 lie in the area plane; Local 3 is the shell normal. "
+            "The section's material angle rotates Local 1 and 2. "
+            "Positive Local 3 follows the area's node winding.")
         form_gen.addRow("Load Direction:", self.combo_direction)
         root.addWidget(grp_gen)
 
@@ -169,6 +173,7 @@ class AreaUniformLoadDialog(QDialog):
         errors = []
         trib_error_flag = False
         valid_trib_dirs = ["Gravity", "Global Z", "Local 3"]
+        assignable_ids = []
 
         for aid in selected_ids:
             area = self.model.area_elements.get(aid)
@@ -179,10 +184,17 @@ class AreaUniformLoadDialog(QDialog):
                     trib_error_flag = True
                     continue                                
 
-            try:
-                self.model.assign_area_uniform_load(aid, pattern, load_si, direction, coord, mode)
-            except KeyError as e:
-                errors.append(str(e))
+            assignable_ids.append(aid)
+
+        bulk_assign = getattr(self.model, 'assign_area_uniform_loads', None)
+        if callable(bulk_assign):
+            bulk_assign(assignable_ids, pattern, load_si, direction, coord, mode)
+        else:
+            for aid in assignable_ids:
+                try:
+                    self.model.assign_area_uniform_load(aid, pattern, load_si, direction, coord, mode)
+                except KeyError as e:
+                    errors.append(str(e))
 
         if trib_error_flag:
             QMessageBox.warning(self, "Invalid Direction", "In-plane loads (X, Y, Local 1, Local 2) cannot be applied to Tributary Area slabs. They only transfer Gravity/Z loads.\n\nThose slabs were skipped.")
@@ -191,9 +203,12 @@ class AreaUniformLoadDialog(QDialog):
             QMessageBox.warning(self, "Assignment Error", "Some elements could not be updated:\n" + "\n".join(errors))
 
         main_window.selected_area_ids.clear()
-        main_window._refresh_selection_overlay()
         main_window.update_yield_lines()
-        main_window.draw_both_canvases()
+        refresh = getattr(main_window, 'refresh_load_display', None)
+        if callable(refresh):
+            refresh()
+        else:
+            main_window.draw_both_canvases()
 
     def _ok(self):
         self._apply()

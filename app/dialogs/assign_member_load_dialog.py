@@ -146,7 +146,7 @@ class AssignFrameLoadDialog(QDialog):
             self.close()
 
     def apply_loads(self):
-        selected_frames = self.main_window.selected_ids
+        selected_frames = list(self.main_window.selected_ids)
         if not selected_frames:
             QMessageBox.warning(self, "Selection Error", "Please select at least one Frame Element.")
             return False
@@ -215,11 +215,14 @@ class AssignFrameLoadDialog(QDialog):
                 load_direction=direction,
                 load_type=l_type,
             )
-            self.main_window.add_command(cmd)
+            self.main_window.selected_ids = []
+            try:
+                self.main_window.add_command(cmd)
+            except Exception:
+                self.main_window.selected_ids = selected_frames
+                raise
 
             self.main_window.status.showMessage(f"Assigned {pat} Loads to {len(selected_frames)} Frames.")
-            self.main_window.selected_ids = []
-            self.main_window.canvas.draw_model(self.model, [], [])
             return True
 
         except ValueError:

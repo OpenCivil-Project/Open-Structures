@@ -1,84 +1,37 @@
+# OpenStructures desktop release (PowerShell, run from the repository root)
+# See docs/FIREBASE_SETUP.md for Firebase setup, migration and release checks.
+# The desktop contains public Firebase settings; no MongoDB/SMTP/Admin secrets.
+#
+# Choose ONE Python version and validate the scientific dependency lock first.
+# Existing requirements.txt is not a validated Python 3.13 lock: NumPy 1.26.4
+# does not support 3.13, and the newer scientific pins may conflict with it.
+# Do not reuse the old Python310 absolute path or delete a working environment.
+# Example below uses a NEW disposable build environment; adjust its Python
+# version only after resolving and recording a compatible dependency set.
+
 py --list
-deactivate
-Remove-Item -Recurse -Force venv
-py -3.13 -m venv venv
-Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
-venv\Scripts\activate
-python --version
+py -3.12 -m venv .venv-build
+$buildPython = Join-Path $PWD '.venv-build\Scripts\python.exe'
+& $buildPython --version
 
-pip install openpyxl PyQt6 PyQt6-Qt6 numpy scipy pyqtgraph pyinstaller PyOpenGL pyopengl_accelerate pandas matplotlib python-dotenv gmsh meshio qtawesome
-pip install pymongo bcrypt python-dotenv google-auth google-auth-oauthlib google-api-python-client requests
-pip install cryptography
+# Resolve the repository's dependency pins before continuing if this fails.
+& $buildPython -m pip install -r requirements.txt
+& $buildPython -m pip install -e . --no-deps
+# numba is used by the packaging recipe; record a compatible version in the
+# validated build lock if the lock does not already include it.
+& $buildPython -m pip install numba
+& $buildPython -m pip check
 
+# Once dependencies have been verified, record the exact successful build set:
+& $buildPython -m pip freeze > build-requirements.lock.txt
 
-C:/Users/Ahmed/AppData/Local/Programs/Python/Python310/python.exe -m pip install -e . (pip)
+# Copy app/resources/auth_config.example.json to auth_config.json and replace
+# placeholders with the project's PUBLIC Firebase web client settings.
+# Guest/offline mode remains available if public account config is absent.
 
-Working...
+& $buildPython -m PyInstaller --noconfirm --clean OpenStructures.spec
 
-pyinstaller --noconsole --onedir --name="OpenStructures" `
-  --paths=".." --paths="." `
-  --paths="..\core\solver" `
-  --paths="..\core\solver\linear_static" `
-  --paths="..\core\solver\RSA" `
-  --paths="..\core\solver\modal" `
-  --paths="..\core\solver\LTHA" `
-  --paths="..\core\solver\solid_elements" `
-  --add-data "ui\_arrow_up.svg;app/ui" `
-  --add-data "ui\_arrow_down.svg;app/ui" `
-  --paths="..\core\solver\buckling" `
-  --add-data "graphic;app/graphic" `
-  --add-data "resources;resources" `
-  --add-data "E:\MetuFire\OpenCivil\app\auth;auth" `
-  --add-data "E:\MetuFire\OpenCivil\app\graphic;graphic" `
-  --add-data "E:\MetuFire\OpenCivil\app\resources;resources" `
-  --collect-all "core" `
-  --collect-all "auth" `
-  --collect-all "app" `
-  --collect-all "section_designer" `
-  --collect-all "ui" `
-  --collect-all "graphic" `
-  --collect-all "pyqtgraph" `
-  --collect-all "qtawesome" `
-  --collect-all "google" `
-  --collect-all "google.auth" `
-  --collect-all "google.oauth2" `
-  --collect-all "google_auth_oauthlib" `
-  --add-data "auth\secrets.bin;auth" `
-  --collect-all "googleapiclient" `
-  --collect-binaries "PyQt6" `
-  --runtime-hook="runtime_hook.py" `
-  --hidden-import="auth" `
-  --hidden-import="auth.config" `
-  --hidden-import="auth.db" `
-  --hidden-import="auth.dialog" `
-  --hidden-import="auth.email_auth" `
-  --hidden-import="auth.email_service" `
-  --hidden-import="auth.manager" `
-  --hidden-import="auth.thread" `
-  --hidden-import="auth.user_widget" `
-  --hidden-import="pymongo" `
-  --hidden-import="bcrypt" `
-  --hidden-import="dotenv" `
-  --hidden-import="google" `
-  --hidden-import="google.auth" `
-  --hidden-import="google.oauth2" `
-  --hidden-import="google.oauth2.credentials" `
-  --hidden-import="google.auth.transport.requests" `
-  --hidden-import="google_auth_oauthlib" `
-  --hidden-import="google_auth_oauthlib.flow" `
-  --hidden-import="googleapiclient" `
-  --hidden-import="googleapiclient.discovery" `
-  --hidden-import="core.solver.buckling.buckling_engine" `
-  --hidden-import="scipy.spatial" `
-  --hidden-import="scipy.spatial.transform._rotation_groups" `
-  --hidden-import="scipy.special.cython_special" `
-  --hidden-import="matplotlib.backends.backend_qtagg" `
-  --hidden-import="openpyxl" `
-  --hidden-import="openpyxl.cell._writer" `
-  --hidden-import="PyQt6.QtNetwork" `
-  --hidden-import="pandas" `
-  --exclude-module "torch" `
-  --exclude-module "tkinter" `
-  --exclude-module "wx" `
-  --icon="graphic\logo.ico" `
-  --clean main.py
+# Output: dist\OpenStructures\OpenStructures.exe plus its _internal directory.
+# Distribute the installer, or the complete onedir folder; never EXE alone.
+# Run Inno Setup against OpenStructures_Setup.iss after the release checks.
+# The installer is written to dist\installer\.

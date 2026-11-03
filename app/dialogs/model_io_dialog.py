@@ -7,6 +7,10 @@ from PyQt6.QtWidgets import (
 from PyQt6.QtCore import Qt, QTimer, QDateTime
 from PyQt6.QtGui import QFont, QTextCursor
 
+from app.ui.theme import apply_dialog_style, COLORS
+
+_ERROR_COLOR = "#c0392b"                                       
+
 LAUNCH_ON_ANALYSIS: bool = False
                                                                                
 class ModelIODialog(QDialog):
@@ -59,6 +63,8 @@ class ModelIODialog(QDialog):
 
     def __init__(self, title: str, filename: str = "", parent=None):
         super().__init__(parent)
+        self.setProperty("_ghost_animated", True) 
+        
         self._title     = title
         self._filename  = os.path.basename(filename) if filename else ""
         self._log_lines: list[str] = []
@@ -89,19 +95,7 @@ class ModelIODialog(QDialog):
         self.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
         self.resize(640, 300)
         self.setMinimumSize(520, 220)
-        self.setStyleSheet("""
-            QDialog   { background: #f0f0f0; }
-            QLabel    { font-family: 'Segoe UI'; font-size: 9pt; color: #1a1a1a; }
-            QPushButton {
-                font-family: 'Segoe UI'; font-size: 9pt;
-                background: #e1e1e1; color: #1a1a1a;
-                border: 1px solid #adadad; border-radius: 2px;
-                padding: 4px 10px; min-width: 110px;
-            }
-            QPushButton:hover   { background: #d0e4f0; border-color: #0078D7; }
-            QPushButton:pressed { background: #c0d8eb; }
-            QPushButton:disabled { color: #999; background: #e8e8e8; }
-        """)
+        apply_dialog_style(self)
 
         outer = QHBoxLayout(self)
         outer.setContentsMargins(8, 8, 8, 8)
@@ -111,13 +105,7 @@ class ModelIODialog(QDialog):
         self.log_view.setReadOnly(True)
         self.log_view.setFont(QFont("Courier New", 8))
         self.log_view.setLineWrapMode(QTextEdit.LineWrapMode.NoWrap)
-        self.log_view.setStyleSheet("""
-            QTextEdit {
-                background: #ffffff;
-                border: 1px solid #adadad;
-                color: #1a1a1a;
-            }
-        """)
+        self.log_view.setStyleSheet("font-family: 'Courier New'; font-size: 8pt;")
         self.log_view.setSizePolicy(
             QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding
         )
@@ -131,7 +119,11 @@ class ModelIODialog(QDialog):
         self.lbl_stage = QLabel("Initializing...")
         self.lbl_stage.setWordWrap(True)
         self.lbl_stage.setFixedWidth(155)
-        self.lbl_stage.setStyleSheet("color: #0078D7; font-weight: bold;")
+                                                                             
+        _lh = self.fontMetrics().lineSpacing()
+        self.lbl_stage.setFixedHeight(_lh * 3 + 6)
+        self.lbl_stage.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop)
+        self._set_stage_color(COLORS["accent"])
         right.addWidget(self.lbl_stage)
 
         right.addSpacing(10)
@@ -144,9 +136,11 @@ class ModelIODialog(QDialog):
         self.lbl_file    = QLabel(f"File: {short_name}")
         self.lbl_status  = QLabel("")
         for lbl in (self.lbl_elapsed, self.lbl_file, self.lbl_status):
-            lbl.setStyleSheet("color: #444;")
+            lbl.setStyleSheet(f"color: {COLORS['text_secondary']};")
             lbl.setWordWrap(True)
             lbl.setFixedWidth(155)
+            lbl.setFixedHeight(_lh + 6)
+            lbl.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop)
             right.addWidget(lbl)
 
         right.addSpacing(10)
@@ -154,26 +148,16 @@ class ModelIODialog(QDialog):
         right.addSpacing(6)
 
         self.btn_export = QPushButton("Write to File")
+        self.btn_export.setObjectName("secondary")
         self.btn_export.clicked.connect(self._export_log)
 
         self.btn_close = QPushButton("Close")
         self.btn_close.setEnabled(False)
-        self.btn_close.setStyleSheet("""
-            QPushButton {
-                font-family: 'Segoe UI'; font-size: 9pt;
-                background: #e1e1e1; color: #1a1a1a;
-                border: 1px solid #adadad; border-radius: 2px;
-                padding: 4px 10px; min-width: 110px;
-            }
-            QPushButton:enabled {
-                background: #0078D7; color: white; border-color: #005a9e;
-            }
-            QPushButton:enabled:hover   { background: #006bbf; }
-            QPushButton:enabled:pressed { background: #005a9e; }
-        """)
+        self.btn_close.setObjectName("primary")
         self.btn_close.clicked.connect(self.close)
 
         for btn in (self.btn_export, self.btn_close):
+            btn.setMinimumWidth(110)
             right.addWidget(btn)
 
         right.addStretch()
@@ -184,13 +168,19 @@ class ModelIODialog(QDialog):
 
     def _section_label(self, text: str) -> QLabel:
         lbl = QLabel(text)
-        lbl.setStyleSheet("color: #888; font-size: 8pt;")
+        lbl.setStyleSheet(f"color: {COLORS['text_disabled']}; font-size: 8pt;")
         return lbl
+
+    def _set_stage_color(self, color: str):
+        self.lbl_stage.setStyleSheet(f"color: {color}; font-weight: bold;")
+
+    def _set_status_color(self, color: str):
+        self.lbl_status.setStyleSheet(f"color: {color}; font-weight: bold;")
 
     def _divider(self) -> QFrame:
         line = QFrame()
         line.setFrameShape(QFrame.Shape.HLine)
-        line.setStyleSheet("color: #c0c0c0;")
+        line.setStyleSheet(f"color: {COLORS['border']};")
         line.setFixedHeight(1)
         return line
 
@@ -203,6 +193,14 @@ class ModelIODialog(QDialog):
     def _tick(self):
         self._elapsed += 1
         self.lbl_elapsed.setText(f"Elapsed: {self._elapsed}s")
+
+    def _refresh(self):
+        """Settle the layout and repaint the whole window in one go, so no stale
+        pixels survive on the translucent (blurred) background."""
+        lay = self.layout()
+        if lay is not None:
+            lay.activate()
+        self.repaint()
 
     def _append(self, text: str):
         self._log_lines.append(text)
@@ -219,7 +217,8 @@ class ModelIODialog(QDialog):
         self._append(text)
         short = (text[:36] + "…") if len(text) > 36 else text
         self.lbl_stage.setText(short)
-        self.lbl_stage.setStyleSheet("color: #0078D7; font-weight: bold;")
+        self._set_stage_color(COLORS["accent"])
+        self._refresh()
 
     def keep_open(self):
         """
@@ -243,17 +242,18 @@ class ModelIODialog(QDialog):
         if success:
             self._append("STATUS : COMPLETE")
             self.lbl_stage.setText("Complete")
-            self.lbl_stage.setStyleSheet("color: #005A9E; font-weight: bold;")
+            self._set_stage_color(COLORS["accent"])
             self.lbl_status.setText("✓  OK")
-            self.lbl_status.setStyleSheet("color: #005A9E; font-weight: bold;")
+            self._set_status_color(COLORS["accent"])
         else:
             self._append("STATUS : FAILED")
             self.lbl_stage.setText("Failed")
-            self.lbl_stage.setStyleSheet("color: #ffffff; font-weight: bold;")
+            self._set_stage_color(_ERROR_COLOR)
             self.lbl_status.setText("✗  Error")
-            self.lbl_status.setStyleSheet("color: #ffffff; font-weight: bold;")
+            self._set_status_color(_ERROR_COLOR)
 
         self.btn_close.setEnabled(True)
+        self._refresh()
 
         if not self._clicked:
             self._close_tmr = QTimer(self)

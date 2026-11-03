@@ -1,0 +1,195 @@
+{
+  "id": "116_beam_triangular_load_v1",
+  "family": "beam_triangular_load",
+  "variant": 1,
+  "model_file": "116_beam_triangular_load_v1.mf",
+  "static": {
+    "passed": true,
+    "checks": [
+      {
+        "name": "nodal displacement and rotation",
+        "passed": true,
+        "max_tolerance_ratio": 1.151892194299616e-05,
+        "relative_tolerance": 2e-06,
+        "absolute_tolerances_per_dof": [
+          1e-10,
+          1e-10,
+          1e-10,
+          1e-10,
+          1e-10,
+          1e-10
+        ],
+        "worst_components": []
+      },
+      {
+        "name": "support force and moment",
+        "passed": true,
+        "max_tolerance_ratio": 2.4624585917984795e-05,
+        "relative_tolerance": 2e-06,
+        "absolute_tolerances_per_dof": [
+          0.0001,
+          0.0001,
+          0.0001,
+          0.0001,
+          0.0001,
+          0.0001
+        ],
+        "worst_components": []
+      },
+      {
+        "name": "independent free-DOF equilibrium residual",
+        "passed": true,
+        "value": 2.5106111243457806e-11,
+        "limit": 2e-06
+      },
+      {
+        "name": "analytical: Piecewise-linear load tip displacement",
+        "passed": true,
+        "actual": -4.2310230527106146e-05,
+        "expected": -4.231023052923167e-05,
+        "absolute_error": 2.125524149049207e-15,
+        "tolerance": 1.8462046105846332e-10,
+        "formula": "\u222bq(s)[s\u00b2(3L-s)/(6EI)+s/(GAs)]ds, integrated analytically per linear segment",
+        "reference_kind": "continuum or exact discrete formula as labelled"
+      },
+      {
+        "name": "analytical: Piecewise-linear load tip rotation",
+        "passed": true,
+        "actual": -2.7003936432523567e-05,
+        "expected": -2.700393643388249e-05,
+        "absolute_error": 1.3589220623343862e-15,
+        "tolerance": 1.5400787286776497e-10,
+        "formula": "\u222bq(s)s\u00b2/(2EI)ds",
+        "reference_kind": "continuum or exact discrete formula as labelled"
+      },
+      {
+        "name": "analytical: Profile root shear",
+        "passed": true,
+        "actual": 1889.9999999054933,
+        "expected": 1890.0,
+        "absolute_error": 9.450673132960219e-08,
+        "tolerance": 0.0038799999999999998,
+        "formula": "-\u222bq(s)ds",
+        "reference_kind": "continuum or exact discrete formula as labelled"
+      },
+      {
+        "name": "analytical: Profile root moment",
+        "passed": true,
+        "actual": 2645.9999998672874,
+        "expected": 2646.0000000000005,
+        "absolute_error": 1.327130121353548e-07,
+        "tolerance": 0.005392000000000001,
+        "formula": "-\u222bq(s)s ds",
+        "reference_kind": "continuum or exact discrete formula as labelled"
+      }
+    ]
+  },
+  "modal": {
+    "passed": true,
+    "checks": [
+      {
+        "name": "mode count",
+        "passed": true,
+        "actual": 3,
+        "expected": 3
+      },
+      {
+        "name": "finite positive sorted frequencies",
+        "passed": true
+      },
+      {
+        "name": "maximum relative frequency error",
+        "passed": true,
+        "value": 2.733104470103798e-14,
+        "limit": 2e-05
+      },
+      {
+        "name": "period/frequency/omega/eigenvalue consistency",
+        "passed": true,
+        "value": 2.220446049250313e-16,
+        "limit": 1e-09
+      },
+      {
+        "name": "maximum independent eigen residual",
+        "passed": true,
+        "value": 1.840000362987841e-13,
+        "limit": 2e-05
+      },
+      {
+        "name": "mass normalization and orthogonality",
+        "passed": true,
+        "value": 4.440892098500626e-16,
+        "limit": 2e-05
+      },
+      {
+        "name": "worst modal subspace mismatch (1-MAC)",
+        "passed": true,
+        "value": 2.220446049250313e-16,
+        "limit": 0.0002
+      },
+      {
+        "name": "assembled physical nodal mass",
+        "passed": true,
+        "max_tolerance_ratio": 0.0,
+        "relative_tolerance": 1e-08,
+        "absolute_tolerances_per_dof": [
+          1e-10,
+          1e-10,
+          1e-10,
+          1e-10,
+          1e-10,
+          1e-10
+        ],
+        "worst_components": []
+      }
+    ]
+  },
+  "analytical": [
+    {
+      "name": "analytical: Piecewise-linear load tip displacement",
+      "passed": true,
+      "actual": -4.2310230527106146e-05,
+      "expected": -4.231023052923167e-05,
+      "absolute_error": 2.125524149049207e-15,
+      "tolerance": 1.8462046105846332e-10,
+      "formula": "\u222bq(s)[s\u00b2(3L-s)/(6EI)+s/(GAs)]ds, integrated analytically per linear segment",
+      "reference_kind": "continuum or exact discrete formula as labelled"
+    },
+    {
+      "name": "analytical: Piecewise-linear load tip rotation",
+      "passed": true,
+      "actual": -2.7003936432523567e-05,
+      "expected": -2.700393643388249e-05,
+      "absolute_error": 1.3589220623343862e-15,
+      "tolerance": 1.5400787286776497e-10,
+      "formula": "\u222bq(s)s\u00b2/(2EI)ds",
+      "reference_kind": "continuum or exact discrete formula as labelled"
+    },
+    {
+      "name": "analytical: Profile root shear",
+      "passed": true,
+      "actual": 1889.9999999054933,
+      "expected": 1890.0,
+      "absolute_error": 9.450673132960219e-08,
+      "tolerance": 0.0038799999999999998,
+      "formula": "-\u222bq(s)ds",
+      "reference_kind": "continuum or exact discrete formula as labelled"
+    },
+    {
+      "name": "analytical: Profile root moment",
+      "passed": true,
+      "actual": 2645.9999998672874,
+      "expected": 2646.0000000000005,
+      "absolute_error": 1.327130121353548e-07,
+      "tolerance": 0.005392000000000001,
+      "formula": "-\u222bq(s)s ds",
+      "reference_kind": "continuum or exact discrete formula as labelled"
+    }
+  ],
+  "reference_error": null,
+  "execution": {
+    "returncode": 0,
+    "model_sha256": "865b2ccbf4358abb112e1752c65270b9efcc1e1956e962d5d7fab7313379a8f4",
+    "solver_source_sha256": "b2dcefa0108c3e5d25eebdc3c19f4cd8586716bf63074a9bf5dead876a6ea0cf"
+  }
+}

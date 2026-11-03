@@ -1,0 +1,175 @@
+{
+  "id": "172_mass_self_plus_nodal_beam_v2",
+  "family": "mass_self_plus_nodal_beam",
+  "variant": 2,
+  "model_file": "172_mass_self_plus_nodal_beam_v2.mf",
+  "static": {
+    "passed": true,
+    "checks": [
+      {
+        "name": "nodal displacement and rotation",
+        "passed": true,
+        "max_tolerance_ratio": 6.099929831037219e-07,
+        "relative_tolerance": 2e-06,
+        "absolute_tolerances_per_dof": [
+          1e-10,
+          1e-10,
+          1e-10,
+          1e-10,
+          1e-10,
+          1e-10
+        ],
+        "worst_components": []
+      },
+      {
+        "name": "support force and moment",
+        "passed": true,
+        "max_tolerance_ratio": 8.922851014280656e-07,
+        "relative_tolerance": 2e-06,
+        "absolute_tolerances_per_dof": [
+          0.0001,
+          0.0001,
+          0.0001,
+          0.0001,
+          0.0001,
+          0.0001
+        ],
+        "worst_components": []
+      },
+      {
+        "name": "independent free-DOF equilibrium residual",
+        "passed": true,
+        "value": 5.724609604812044e-13,
+        "limit": 2e-06
+      },
+      {
+        "name": "analytical: Cantilever force/moment displacement",
+        "passed": true,
+        "actual": -0.016441904761889673,
+        "expected": -0.01644190476190477,
+        "absolute_error": 1.5095563687950175e-14,
+        "tolerance": 3.298380952380954e-08,
+        "formula": "-PL\u00b3/(3EI22)-MyL\u00b2/(2EI22)",
+        "reference_kind": "continuum or exact discrete formula as labelled"
+      },
+      {
+        "name": "analytical: Cantilever force/moment rotation",
+        "passed": true,
+        "actual": 0.006036363636358851,
+        "expected": 0.0060363636363636375,
+        "absolute_error": 4.786102070220011e-15,
+        "tolerance": 1.2172727272727273e-08,
+        "formula": "PL\u00b2/(2EI22)+MyL/(EI22)",
+        "reference_kind": "continuum or exact discrete formula as labelled"
+      }
+    ]
+  },
+  "modal": {
+    "passed": true,
+    "checks": [
+      {
+        "name": "mode count",
+        "passed": true,
+        "actual": 3,
+        "expected": 3
+      },
+      {
+        "name": "finite positive sorted frequencies",
+        "passed": true
+      },
+      {
+        "name": "maximum relative frequency error",
+        "passed": true,
+        "value": 3.0679105990148446e-13,
+        "limit": 2e-05
+      },
+      {
+        "name": "period/frequency/omega/eigenvalue consistency",
+        "passed": true,
+        "value": 2.220446049250313e-16,
+        "limit": 1e-09
+      },
+      {
+        "name": "maximum independent eigen residual",
+        "passed": true,
+        "value": 1.5339643851861201e-12,
+        "limit": 2e-05
+      },
+      {
+        "name": "mass normalization and orthogonality",
+        "passed": true,
+        "value": 1.1102230246251565e-16,
+        "limit": 2e-05
+      },
+      {
+        "name": "worst modal subspace mismatch (1-MAC)",
+        "passed": true,
+        "value": 2.220446049250313e-16,
+        "limit": 0.0002
+      },
+      {
+        "name": "assembled physical nodal mass",
+        "passed": true,
+        "max_tolerance_ratio": 0.0,
+        "relative_tolerance": 1e-08,
+        "absolute_tolerances_per_dof": [
+          1e-10,
+          1e-10,
+          1e-10,
+          1e-10,
+          1e-10,
+          1e-10
+        ],
+        "worst_components": []
+      },
+      {
+        "name": "analytical: Continuum cantilever frequency with uniform mass scaling",
+        "passed": true,
+        "actual": 8.007735002708966,
+        "expected": 8.044477521899147,
+        "absolute_error": 0.0367425191901809,
+        "tolerance": 0.16088955143798295,
+        "formula": "\u03b21\u00b2/(2\u03c0L\u00b2)*sqrt(EI22/(\u03c1m*A*mass_factor))",
+        "reference_kind": "continuum or exact discrete formula as labelled"
+      }
+    ]
+  },
+  "analytical": [
+    {
+      "name": "analytical: Cantilever force/moment displacement",
+      "passed": true,
+      "actual": -0.016441904761889673,
+      "expected": -0.01644190476190477,
+      "absolute_error": 1.5095563687950175e-14,
+      "tolerance": 3.298380952380954e-08,
+      "formula": "-PL\u00b3/(3EI22)-MyL\u00b2/(2EI22)",
+      "reference_kind": "continuum or exact discrete formula as labelled"
+    },
+    {
+      "name": "analytical: Cantilever force/moment rotation",
+      "passed": true,
+      "actual": 0.006036363636358851,
+      "expected": 0.0060363636363636375,
+      "absolute_error": 4.786102070220011e-15,
+      "tolerance": 1.2172727272727273e-08,
+      "formula": "PL\u00b2/(2EI22)+MyL/(EI22)",
+      "reference_kind": "continuum or exact discrete formula as labelled"
+    },
+    {
+      "name": "analytical: Continuum cantilever frequency with uniform mass scaling",
+      "passed": true,
+      "actual": 8.007735002708966,
+      "expected": 8.044477521899147,
+      "absolute_error": 0.0367425191901809,
+      "tolerance": 0.16088955143798295,
+      "formula": "\u03b21\u00b2/(2\u03c0L\u00b2)*sqrt(EI22/(\u03c1m*A*mass_factor))",
+      "reference_kind": "continuum or exact discrete formula as labelled"
+    }
+  ],
+  "reference_error": null,
+  "execution": {
+    "returncode": 0,
+    "model_sha256": "7b49dcb30563627b52d3feab478af79381913449d5dd81e7bb57df35ccada6ff",
+    "solver_source_sha256": "b2dcefa0108c3e5d25eebdc3c19f4cd8586716bf63074a9bf5dead876a6ea0cf"
+  }
+}

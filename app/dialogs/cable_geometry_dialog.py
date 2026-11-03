@@ -14,7 +14,7 @@ from core.units import unit_registry
 class CableGeometryDialog(QDialog):
     """
     Open // Structures Cable Geometry Editor
-    Matches SAP2000's extensive Cable Geometry formulation interface.
+
     """
     def __init__(self, cable, model, parent=None):
         super().__init__(parent)
@@ -327,7 +327,7 @@ class CableGeometryDialog(QDialog):
     def _update_active_inputs(self):
         """
         Locks/Unlocks inputs based on the target specification type.
-        Mirrors SAP2000's parameter dependencies.
+
         """
         sel = self.combo_cable_type.currentText()
         

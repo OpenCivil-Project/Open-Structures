@@ -6,6 +6,7 @@ class LineMixin:
     def upload_line_geometry(self, vertices, colors, displacements=None):
         if not self.is_initialized:
             return
+        self._last_line_args = (vertices, colors, displacements)
             
         if len(vertices) == 0:
             self.line_vertex_count = 0
@@ -35,41 +36,36 @@ class LineMixin:
     def draw_lines(self, view_matrix, proj_matrix, line_width=2.0, alpha_mult=1.0, write_depth=True):
         if not self.is_initialized or self.line_vertex_count == 0:
             return
-        glUseProgram(self.shader_program)
-        glUniformMatrix4fv(self.loc_view,  1, GL_FALSE, view_matrix)
-        glUniformMatrix4fv(self.loc_proj,  1, GL_FALSE, proj_matrix)
-        glUniform1f(self.loc_alpha, alpha_mult)
-        glUniform1f(self.loc_anim, self.current_anim_factor)
+        self._use_line_program(view_matrix, proj_matrix, alpha_mult,
+                               self.current_anim_factor, line_width)
         glEnable(GL_DEPTH_TEST)
         glEnable(GL_BLEND)
         glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA)
+        glDepthFunc(GL_LEQUAL)
         if not write_depth:
             glDepthMask(GL_FALSE)
-        glLineWidth(float(line_width))
         glBindVertexArray(self.line_vao)
         glDrawArrays(GL_LINES, 0, self.line_vertex_count)
         glBindVertexArray(0)
         if not write_depth:
             glDepthMask(GL_TRUE)
+        glDepthFunc(GL_LESS)
         glUseProgram(0)
 
     def draw_extruded_edges(self, view_matrix, proj_matrix, line_width=1.5):
         if not self.is_initialized or self.line_vertex_count == 0:
             return
-        glUseProgram(self.shader_program)
-        glUniformMatrix4fv(self.loc_view,  1, GL_FALSE, view_matrix)
-        glUniformMatrix4fv(self.loc_proj,  1, GL_FALSE, proj_matrix)
-        glUniform1f(self.loc_anim, 0.0)
         glEnable(GL_DEPTH_TEST)
         glEnable(GL_BLEND)
         glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA)
-        glLineWidth(line_width)
         glBindVertexArray(self.line_vao)
+                                              
+        self._use_line_program(view_matrix, proj_matrix, 0.15, 0.0, line_width)
         glDepthFunc(GL_GREATER)
-        glUniform1f(self.loc_alpha, 0.15)
         glDrawArrays(GL_LINES, 0, self.line_vertex_count)
+                             
+        self._use_line_program(view_matrix, proj_matrix, 1.0, 0.0, line_width)
         glDepthFunc(GL_LEQUAL)
-        glUniform1f(self.loc_alpha, 1.0)
         glDrawArrays(GL_LINES, 0, self.line_vertex_count)
         glBindVertexArray(0)
         glDepthFunc(GL_LESS)
@@ -193,16 +189,13 @@ class LineMixin:
         the current displaced coordinates baked in from the engine)."""
         if not self.is_initialized or self.spring_vertex_count == 0:
             return
-        glUseProgram(self.shader_program)
-        glUniformMatrix4fv(self.loc_view, 1, GL_FALSE, view_matrix)
-        glUniformMatrix4fv(self.loc_proj, 1, GL_FALSE, proj_matrix)
-        glUniform1f(self.loc_alpha, alpha_mult)
-        glUniform1f(self.loc_anim, 0.0)
+        self._use_line_program(view_matrix, proj_matrix, alpha_mult, 0.0, line_width)
         glEnable(GL_DEPTH_TEST)
         glEnable(GL_BLEND)
         glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA)
-        glLineWidth(float(line_width))
+        glDepthFunc(GL_LEQUAL)
         glBindVertexArray(self.spring_vao)
         glDrawArrays(GL_LINES, 0, self.spring_vertex_count)
         glBindVertexArray(0)
+        glDepthFunc(GL_LESS)
         glUseProgram(0)

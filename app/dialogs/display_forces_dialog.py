@@ -1,8 +1,16 @@
 from PyQt6.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, QLabel, 
                              QRadioButton, QGroupBox, QLineEdit, 
-                             QPushButton, QGridLayout, QWidget, QSpinBox, QComboBox)
+                             QPushButton, QGridLayout, QWidget, QSpinBox, QComboBox,
+                             QScrollArea, QFrame, QSlider)
 from PyQt6.QtCore import Qt, pyqtSignal
 from PyQt6.QtGui import QFont
+
+from app.ui.theme import apply_dialog_style
+from app.result_file_loader import ResultFileLoader
+from core.result_file_cache import get_cached_json
+from core.opensees_port.os_force_recovery import is_opensees_result
+
+STEP_SLIDER_MAX_STEPS = 50000
 
 class DisplayForcesDialog(QDialog):
     last_settings = {}
@@ -11,17 +19,40 @@ class DisplayForcesDialog(QDialog):
 
     def __init__(self, model, parent=None, available_cases=None, base_path=''):
         super().__init__(parent)
+        apply_dialog_style(self)
         self.model = model
         self.available_cases = available_cases or []
         self.base_path = base_path
+        self._result_loader = None
+        self._pending_result_case = None
+        self._result_request_token = 0
+        self._loading_result = False
+        self._initializing_result = True
+        self._restore_settings_after_load = True
         self.setWindowTitle("Display Frame Forces/Stresses")
         self.setMinimumWidth(450)
+        self.setMinimumHeight(300)
+        self.resize(480, 650)
         
         self.init_ui()
         self.load_last_settings()
+        self._initializing_result = False
+        self._set_result_loading(self._loading_result)
 
     def init_ui(self):
-        main_layout = QVBoxLayout(self)
+        outer_layout = QVBoxLayout(self)
+        outer_layout.setContentsMargins(0, 0, 0, 0)
+        outer_layout.setSpacing(0)
+
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        scroll.setFrameShape(QFrame.Shape.NoFrame)
+        scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        content = QWidget()
+        scroll.setWidget(content)
+        outer_layout.addWidget(scroll, 1)
+
+        main_layout = QVBoxLayout(content)
 
         main_layout.setSpacing(4) 
         main_layout.setContentsMargins(10, 10, 10, 10) 
@@ -102,10 +133,12 @@ class DisplayForcesDialog(QDialog):
         elif self.base_path:
             self._results_base_path = self.base_path
 
-        self.cb_case.currentTextChanged.connect(self._update_multivalued_box)
-
         layout_case.addWidget(self.cb_case)
         main_layout.addWidget(gb_case)
+
+        self.force_source_label = QLabel()
+        main_layout.addWidget(self.force_source_label)
+        self._update_force_source_label(self.cb_case.currentText())
         
         self.gb_multi = QGroupBox("Multivalued Options")
         grid_multi = QGridLayout(self.gb_multi)
@@ -121,10 +154,23 @@ class DisplayForcesDialog(QDialog):
         grid_multi.addWidget(self.rb_envelope, 0, 0)
         grid_multi.addWidget(self.rb_step, 1, 0)
         grid_multi.addWidget(self.sb_step, 1, 1)
+        self.saved_state_label = QLabel()
+        self.saved_state_label.setWordWrap(True)
+        self.sl_step = QSlider(Qt.Orientation.Horizontal)
+        self.sl_step.setRange(1, 1)
+        self.sl_step.setPageStep(1)
+        self.sl_step.setVisible(False)
+        self.sl_step.valueChanged.connect(self.sb_step.setValue)
+        grid_multi.addWidget(self.sl_step, 2, 0, 1, 2)
+        grid_multi.addWidget(self.saved_state_label, 3, 0, 1, 2)
+        self.sb_step.valueChanged.connect(self._update_saved_state_details)
+        self.rb_step.toggled.connect(self._update_saved_state_details)
         
         main_layout.addWidget(self.gb_multi)
 
         self._update_multivalued_box(self.cb_case.currentText())
+        self._sync_step_slider()
+        self.cb_case.currentTextChanged.connect(self._on_case_changed)
 
         gb_type = QGroupBox("Display Type")
         layout_type = QHBoxLayout(gb_type)
@@ -235,38 +281,170 @@ class DisplayForcesDialog(QDialog):
         layout_bottom_btns = QHBoxLayout()
         
         self.btn_ok = QPushButton("OK")
+        self.btn_ok.setObjectName("primary")
         self.btn_close = QPushButton("Close")
+        self.btn_close.setObjectName("secondary")
         self.btn_apply = QPushButton("Apply")
+        self.btn_apply.setObjectName("secondary")
         
         layout_bottom_btns.addWidget(self.btn_ok)
         layout_bottom_btns.addWidget(self.btn_close)
         layout_bottom_btns.addWidget(self.btn_apply)
         
-        main_layout.addLayout(layout_bottom_btns)
+        footer = QWidget()
+        footer.setLayout(layout_bottom_btns)
+        layout_bottom_btns.setContentsMargins(10, 6, 10, 10)
+        outer_layout.addWidget(footer)
 
         self.btn_close.clicked.connect(self.reject)
         self.btn_apply.clicked.connect(self.apply_settings)
         self.btn_ok.clicked.connect(self.on_ok)
 
+    def _update_force_source_label(self, case_name):
+        """Identify the selected saved result without changing analysis settings."""
+        self._result_request_token += 1
+        self._pending_result_case = None
+        self.is_opensees = False
+        self._selected_case_results = {}
+        self._opensees_saved_states = []
+        data = getattr(self.model, 'results', {}) or {}
+        if self._results_base_path:
+            path = f"{self._results_base_path}_{case_name}_results.json"
+            try:
+                data = get_cached_json(path)
+            except (OSError, ValueError):
+                self._show_result_unavailable()
+                return
+            if data is None:
+                self._set_result_loading(True)
+                self.force_source_label.setText('Loading saved result…')
+                self._pending_result_case = (case_name, path, self._result_request_token)
+                self._start_pending_result_load()
+                return
+        elif not data or data.get('info', {}).get('case_name') != case_name:
+            self._show_result_unavailable()
+            return
+        self._accept_case_result(data)
+
+    def _set_result_loading(self, loading):
+        self._loading_result = loading
+        for name in ('btn_apply', 'btn_ok'):
+            button = getattr(self, name, None)
+            if button is not None:
+                button.setEnabled(not loading)
+
+    def _show_result_unavailable(self):
+        self._set_result_loading(False)
+        self.force_source_label.setText('Force recovery: result unavailable')
+        self.setWindowTitle('Display Frame Forces/Stresses')
+
+    def _accept_case_result(self, data):
+        self._set_result_loading(False)
+        self.is_opensees = is_opensees_result(data, self.model)
+        self._selected_case_results = data
+        if self.is_opensees:
+            self._opensees_saved_states = data.get('saved_states') or []
+        engine = 'OpenSees' if self.is_opensees else 'Native'
+        self.force_source_label.setText(f'Force recovery: {engine}')
+        self.setWindowTitle(f'Display Frame Forces/Stresses [{engine}]')
+
+    def _start_pending_result_load(self):
+        if self._result_loader is not None or self._pending_result_case is None:
+            return
+        case_name, path, token = self._pending_result_case
+        self._pending_result_case = None
+        loader = ResultFileLoader(path)
+        loader.case_name, loader.token = case_name, token
+        loader.signals.finished.connect(self._on_result_loaded)
+        self._result_loader = loader
+        loader.start()
+
+    def _on_result_loaded(self, loader, path, data, error):
+        self._result_loader = None
+        if loader.token == self._result_request_token:
+            if error is not None or not isinstance(data, dict):
+                self._show_result_unavailable()
+            else:
+                self._accept_case_result(data)
+                self._update_multivalued_box(loader.case_name)
+                if self._restore_settings_after_load:
+                    self.load_last_settings()
+                self._sync_step_slider()
+        self._start_pending_result_load()
+
+    def _on_case_changed(self, case_name):
+        self._restore_settings_after_load = self._initializing_result
+        self._update_force_source_label(case_name)
+        self._update_multivalued_box(case_name)
+        self._sync_step_slider()
+
+    def _sync_step_slider(self):
+        """Mirror the step spin box on a slider; hide it when the step list is huge."""
+        n = self.sb_step.maximum()
+        was_blocked = self.sl_step.blockSignals(True)
+        self.sl_step.setRange(1, max(1, n))
+        self.sl_step.setValue(self.sb_step.value())
+        self.sl_step.setTickInterval(max(1, n // 20))
+        self.sl_step.setPageStep(max(1, n // 100))
+        self.sl_step.setTickPosition(QSlider.TickPosition.TicksBelow)
+        self.sl_step.blockSignals(was_blocked)
+        self.sl_step.setVisible(2 <= n <= STEP_SLIDER_MAX_STEPS)
+        self.sl_step.setEnabled(self.sb_step.isEnabled())
+
+    def _update_saved_state_details(self, *args):
+        self._refresh_saved_state_details()
+        self._sync_step_slider()
+
+    def _refresh_saved_state_details(self):
+        if not getattr(self, '_opensees_nonlinear', False):
+            return
+        states = self._opensees_saved_states
+        self.sb_step.setEnabled(bool(states) and self.rb_step.isChecked())
+        if not states:
+            self.saved_state_label.setText('No saved states in this result. Run with Multiple States to inspect individual steps.')
+        elif not self.rb_step.isChecked():
+            self.saved_state_label.setText(f'Final converged state. {len(states)} saved states available.')
+        else:
+            index = self.sb_step.value() - 1
+            state = states[index] if isinstance(states[index], dict) else {}
+            text = f'Saved state {index + 1} of {len(states)} — analysis step {state.get("step", index + 1)}'
+            if 'opensees_forces' not in state:
+                text += '. Forces missing: rerun this analysis to save step forces.'
+            self.saved_state_label.setText(text)
+
     def _update_multivalued_box(self, case_name):
-        """Envelope/Step selection only applies to LTHA — RSA's max/min already
-        shows up as separate ' (Max)'/' (Min)' entries in cb_case itself, and
-        static cases/combos have no such concept at all."""
+        """Expose saved nonlinear states without changing native LTHA options."""
         c_type = self._case_types.get(case_name, 'Linear Static')
+        result_type = self._selected_case_results.get('info', {}).get('type', c_type)
+        self._opensees_nonlinear = self.is_opensees and result_type == 'Nonlinear Static'
+        self.saved_state_label.setVisible(self._opensees_nonlinear)
+        if self._opensees_nonlinear:
+            self.gb_multi.setTitle('Nonlinear Saved States')
+            self.gb_multi.setVisible(True)
+            self.rb_envelope.setText('Final converged state')
+            self.rb_step.setText('Saved state')
+            self.rb_step.setEnabled(bool(self._opensees_saved_states))
+            self.rb_envelope.setChecked(True)
+            self.sb_step.setMaximum(max(1, len(self._opensees_saved_states)))
+            self.sb_step.setValue(max(1, len(self._opensees_saved_states)))
+            self._update_saved_state_details()
+            return
+
+        self.gb_multi.setTitle('Multivalued Options')
+        self.rb_envelope.setText('Envelope (Max or Min)')
+        self.rb_step.setText('Step')
+        self.rb_step.setEnabled(True)
+        self.sb_step.setEnabled(True)
         is_ltha = (c_type == 'LTHA')
         self.gb_multi.setVisible(is_ltha)
 
         if not is_ltha or not self._results_base_path:
             return
 
-        results_path = f"{self._results_base_path}_{case_name}_results.json"
         try:
-            import json
-            with open(results_path, 'r') as f:
-                data = json.load(f)
-            n_steps = data.get("info", {}).get("n_steps", 1)
+            n_steps = self._selected_case_results.get("info", {}).get("n_steps", 1)
             self.sb_step.setMaximum(max(1, int(n_steps)))
-        except (OSError, ValueError, json.JSONDecodeError):
+        except (TypeError, ValueError):
                                                                             
             self.sb_step.setMaximum(1)
 
@@ -304,6 +482,11 @@ class DisplayForcesDialog(QDialog):
 
         is_envelope = self.rb_envelope.isChecked()
         step_number = self.sb_step.value() if not is_envelope else None
+        if self.is_opensees:
+            if not (self._opensees_nonlinear and self._opensees_saved_states and self.rb_step.isChecked()):
+                step_number = None
+                                                                            
+            is_envelope = step_number is None
 
         return {
             'component': component,
@@ -374,12 +557,18 @@ class DisplayForcesDialog(QDialog):
         else:
             self.rb_moment33.setChecked(True)
 
+        if self.is_opensees and self._opensees_nonlinear and not self._opensees_saved_states:
+            self.rb_envelope.setChecked(True)
+        self._update_saved_state_details()
+
     def save_last_settings(self):
         """Save current dialog values."""
         DisplayForcesDialog.last_settings = self.get_current_settings()
 
     def apply_settings(self):
         """Fires the signal to main.py without closing the window."""
+        if self._loading_result:
+            return
         settings = self.get_current_settings()
         self.save_last_settings()   
                                                                

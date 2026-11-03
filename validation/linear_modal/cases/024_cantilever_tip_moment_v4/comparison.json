@@ -1,0 +1,175 @@
+{
+  "id": "024_cantilever_tip_moment_v4",
+  "family": "cantilever_tip_moment",
+  "variant": 4,
+  "model_file": "024_cantilever_tip_moment_v4.mf",
+  "static": {
+    "passed": true,
+    "checks": [
+      {
+        "name": "nodal displacement and rotation",
+        "passed": true,
+        "max_tolerance_ratio": 1.255398903092821e-06,
+        "relative_tolerance": 2e-06,
+        "absolute_tolerances_per_dof": [
+          1e-10,
+          1e-10,
+          1e-10,
+          1e-10,
+          1e-10,
+          1e-10
+        ],
+        "worst_components": []
+      },
+      {
+        "name": "support force and moment",
+        "passed": true,
+        "max_tolerance_ratio": 0.00020968713275094732,
+        "relative_tolerance": 2e-06,
+        "absolute_tolerances_per_dof": [
+          0.0001,
+          0.0001,
+          0.0001,
+          0.0001,
+          0.0001,
+          0.0001
+        ],
+        "worst_components": []
+      },
+      {
+        "name": "independent free-DOF equilibrium residual",
+        "passed": true,
+        "value": 4.1277396510880167e-13,
+        "limit": 2e-06
+      },
+      {
+        "name": "analytical: Tip moment displacement",
+        "passed": true,
+        "actual": 0.0042652990311458795,
+        "expected": 0.004265299031139251,
+        "absolute_error": 6.62837840170738e-15,
+        "tolerance": 8.630598062278502e-09,
+        "formula": "ML\u00b2/(2EI)",
+        "reference_kind": "continuum or exact discrete formula as labelled"
+      },
+      {
+        "name": "analytical: Tip moment rotation",
+        "passed": true,
+        "actual": 0.0012186568660410217,
+        "expected": 0.0012186568660397861,
+        "absolute_error": 1.2355567957644809e-15,
+        "tolerance": 2.5373137320795722e-09,
+        "formula": "ML/(EI)",
+        "reference_kind": "continuum or exact discrete formula as labelled"
+      }
+    ]
+  },
+  "modal": {
+    "passed": true,
+    "checks": [
+      {
+        "name": "mode count",
+        "passed": true,
+        "actual": 3,
+        "expected": 3
+      },
+      {
+        "name": "finite positive sorted frequencies",
+        "passed": true
+      },
+      {
+        "name": "maximum relative frequency error",
+        "passed": true,
+        "value": 4.375909878779532e-12,
+        "limit": 2e-05
+      },
+      {
+        "name": "period/frequency/omega/eigenvalue consistency",
+        "passed": true,
+        "value": 2.220446049250313e-16,
+        "limit": 1e-09
+      },
+      {
+        "name": "maximum independent eigen residual",
+        "passed": true,
+        "value": 7.092406739832798e-12,
+        "limit": 2e-05
+      },
+      {
+        "name": "mass normalization and orthogonality",
+        "passed": true,
+        "value": 2.3147791521118255e-16,
+        "limit": 2e-05
+      },
+      {
+        "name": "worst modal subspace mismatch (1-MAC)",
+        "passed": true,
+        "value": 1.1102230246251565e-16,
+        "limit": 0.0002
+      },
+      {
+        "name": "assembled physical nodal mass",
+        "passed": true,
+        "max_tolerance_ratio": 0.0,
+        "relative_tolerance": 1e-08,
+        "absolute_tolerances_per_dof": [
+          1e-10,
+          1e-10,
+          1e-10,
+          1e-10,
+          1e-10,
+          1e-10
+        ],
+        "worst_components": []
+      },
+      {
+        "name": "analytical: Continuum first frequency",
+        "passed": true,
+        "actual": 5.609075896954088,
+        "expected": 5.626948493194827,
+        "absolute_error": 0.017872596240739114,
+        "tolerance": 0.11253897086389654,
+        "formula": "\u03b21\u00b2/(2\u03c0L\u00b2)*sqrt(EI/(\u03c1m A)), \u03b21=1.8751040687",
+        "reference_kind": "continuum or exact discrete formula as labelled"
+      }
+    ]
+  },
+  "analytical": [
+    {
+      "name": "analytical: Tip moment displacement",
+      "passed": true,
+      "actual": 0.0042652990311458795,
+      "expected": 0.004265299031139251,
+      "absolute_error": 6.62837840170738e-15,
+      "tolerance": 8.630598062278502e-09,
+      "formula": "ML\u00b2/(2EI)",
+      "reference_kind": "continuum or exact discrete formula as labelled"
+    },
+    {
+      "name": "analytical: Tip moment rotation",
+      "passed": true,
+      "actual": 0.0012186568660410217,
+      "expected": 0.0012186568660397861,
+      "absolute_error": 1.2355567957644809e-15,
+      "tolerance": 2.5373137320795722e-09,
+      "formula": "ML/(EI)",
+      "reference_kind": "continuum or exact discrete formula as labelled"
+    },
+    {
+      "name": "analytical: Continuum first frequency",
+      "passed": true,
+      "actual": 5.609075896954088,
+      "expected": 5.626948493194827,
+      "absolute_error": 0.017872596240739114,
+      "tolerance": 0.11253897086389654,
+      "formula": "\u03b21\u00b2/(2\u03c0L\u00b2)*sqrt(EI/(\u03c1m A)), \u03b21=1.8751040687",
+      "reference_kind": "continuum or exact discrete formula as labelled"
+    }
+  ],
+  "reference_error": null,
+  "execution": {
+    "returncode": 0,
+    "model_sha256": "dc4fd77bd822d82a2b7f6ded4b29c04c38b2bc9884ebfa1918018a00c46c32c9",
+    "solver_source_sha256": "b2dcefa0108c3e5d25eebdc3c19f4cd8586716bf63074a9bf5dead876a6ea0cf"
+  }
+}
